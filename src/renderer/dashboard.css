@@ -1,0 +1,28 @@
+/* Solid Dark Mode Base Styling */
+
+:root {
+  --apple-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", sans-serif;
+  --spring-easing: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body {
+  font-family: var(--apple-font);
+  user-select: none;
+  -webkit-user-select: none;
+  background: #13151a;
+  color: #f5f5f7;
+}
+
+.window-drag-region {
+  -webkit-app-region: drag;
+}
+
+button, input, select, textarea, .nav-btn, .tone-card, .voice-card, .theme-card, .provider-btn {
+  -webkit-app-region: no-drag;
+}
+
+.mac-window-root {
+  background: #13151a !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}

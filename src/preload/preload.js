@@ -1,0 +1,93 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+let webUtils = null;
+try {
+  webUtils = require('electron').webUtils;
+} catch (e) {}
+
+try {
+  contextBridge.exposeInMainWorld('jarvisAPI', {
+    // Window events
+    hideWindow: () => ipcRenderer.send('jarvis:hide'),
+    onWindowStateChanged: (callback) => {
+      ipcRenderer.on('window:state-changed', (event, data) => callback(data));
+    },
+    onDesktopScreenshot: (callback) => {
+      ipcRenderer.on('desktop:screenshot-blurred', (event, dataUrl) => callback(dataUrl));
+    },
+    onOpenSettings: (callback) => {
+      ipcRenderer.on('open:settings', () => callback());
+    },
+    toggleWindow: () => ipcRenderer.invoke('jarvis:toggle-window'),
+    cancelTask: () => ipcRenderer.invoke('jarvis:cancel-task'),
+    onHotkeyTrigger: (callback) => {
+      ipcRenderer.on('hotkey:trigger', (event, data) => callback(data));
+    },
+    onWakeWordDetected: (callback) => {
+      ipcRenderer.on('wake-word-detected', (event, data) => callback(data));
+    },
+    onReminderFired: (callback) => {
+      ipcRenderer.on('jarvis:reminder-fired', (event, data) => callback(data));
+    },
+    setListeningMode: (mode) => ipcRenderer.send('jarvis:set-mode', mode),
+    setRecordingActive: (active) => ipcRenderer.send('jarvis:recording-state', active),
+
+    // File Utilities
+    getPathForFile: (file) => {
+      try {
+        if (webUtils && typeof webUtils.getPathForFile === 'function') {
+          const p = webUtils.getPathForFile(file);
+          if (p) return p;
+        }
+      } catch (e) {}
+      return (file && file.path) ? file.path : '';
+    },
+
+    saveTempFile: (fileData) => ipcRenderer.invoke('jarvis:save-temp-file', fileData),
+
+    // Desktop Automation & Vision Tools
+    openApp: (appName) => ipcRenderer.invoke('jarvis:open-app', appName),
+    checkApp: (appName) => ipcRenderer.invoke('jarvis:check-app', appName),
+    writeFile: (options) => ipcRenderer.invoke('jarvis:write-file', options),
+    openUrl: (url) => ipcRenderer.invoke('jarvis:open-url', url),
+    sendEmail: (options) => ipcRenderer.invoke('jarvis:send-email', options),
+    systemControl: (action) => ipcRenderer.invoke('jarvis:system-control', action),
+    runCommand: (command) => ipcRenderer.invoke('jarvis:run-command', command),
+    typeText: (text) => ipcRenderer.invoke('jarvis:type-text', text),
+    captureScreen: (options) => ipcRenderer.invoke('jarvis:capture-screen', options),
+    mouseClick: (options) => ipcRenderer.invoke('jarvis:mouse-click', options),
+    mouseDoubleClick: (options) => ipcRenderer.invoke('jarvis:mouse-double-click', options),
+    mouseRightClick: (options) => ipcRenderer.invoke('jarvis:mouse-right-click', options),
+    mouseMove: (options) => ipcRenderer.invoke('jarvis:mouse-move', options),
+    executeAI: (prompt, context) => ipcRenderer.invoke('jarvis:execute-ai', prompt, context),
+    executeAIAudio: (data) => ipcRenderer.invoke('jarvis:execute-ai-audio', data),
+    speakText: (text, voice) => ipcRenderer.invoke('jarvis:speak', { text, voice }),
+    selectFile: () => ipcRenderer.invoke('jarvis:select-file'),
+
+    // Presentation Slide Changer (Gesture + Voice)
+    slideControl: (action) => ipcRenderer.invoke('jarvis:slide-control', action),
+    onPresentationModeToggled: (callback) => {
+      ipcRenderer.on('jarvis:presentation-mode', (event, data) => callback(data));
+    },
+    togglePresentationMode: (active) => ipcRenderer.send('jarvis:toggle-presentation-mode', active),
+
+    // Configuration & Google
+    getConfig: () => ipcRenderer.invoke('jarvis:get-config'),
+    saveConfig: (config) => ipcRenderer.invoke('jarvis:save-config', config),
+    connectGoogle: () => ipcRenderer.invoke('jarvis:connect-google'),
+    getGoogleStatus: () => ipcRenderer.invoke('jarvis:get-google-status'),
+
+    // Dashboard Studio Controls
+    closeDashboard: () => ipcRenderer.send('dashboard:close'),
+    minimizeDashboard: () => ipcRenderer.send('dashboard:minimize'),
+    maximizeDashboard: () => ipcRenderer.send('dashboard:maximize'),
+    testAiKey: (options) => ipcRenderer.invoke('dashboard:test-ai-key', options),
+    getSystemInfo: () => ipcRenderer.invoke('dashboard:get-system-info'),
+    onConfigUpdated: (callback) => {
+      ipcRenderer.on('config:updated', (event, data) => callback(data));
+    },
+  });
+  console.log('Preload: jarvisAPI successfully exposed in main world.');
+} catch (err) {
+  console.error('CRITICAL: Failed to expose jarvisAPI in preload:', err);
+}

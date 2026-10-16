@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment & Credentials
+.env
+.env.local
+.env.*.local
+data/google_tokens.json
+data/google_credentials.json
+data/jarvis-config.json
+
+# Build outputs
+dist/
+build/
+
+# Electron & OS Cache
+data/Cache/
+data/Code Cache/
+data/DawnGraphiteCache/
+data/DawnWebGPUCache/
+data/GPUCache/
+data/GPUPersistentCache/
+data/GrShaderCache/
+data/ShaderCache/
+data/IndexedDB/
+data/Local Storage/
+data/Network/
+data/Service Worker/
+data/Session Storage/
+data/Shared Dictionary/
+data/shared_proto_db/
+data/VideoDecodeStats/
+data/WebStorage/
+data/blob_storage/
+data/DIPS*
+data/*.db*
+data/Local State
+data/Preferences
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor & OS artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

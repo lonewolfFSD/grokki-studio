@@ -1,0 +1,11 @@
+{
+  "preferred_music_app": "YouTube Music",
+  "user_name": "Friend",
+  "default_browser": "default",
+  "notes": [],
+  "custom_rules": [
+    "Always default to YouTube Music for songs and music playback. Never open Spotify unless the user explicitly commands with the exact word Spotify.",
+    "Act autonomously: if a file or task is requested, execute the real tool and confirm."
+  ],
+  "recent_files": []
+}

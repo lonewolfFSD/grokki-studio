@@ -1,0 +1,1408 @@
+@import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --island-bg: rgba(22, 22, 26, 0.84);
+  --island-border: rgba(255, 255, 255, 0.12);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.5);
+  --text-tertiary: rgba(255, 255, 255, 0.3);
+  --btn-hover: rgba(255, 255, 255, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+  background: transparent;
+  color: var(--text-primary);
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 38px 10px 4px 10px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* Ambient Volumetric Light Rays (Behind the Pill) */
+.light-rays-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transform: translateY(-8px);
+  -webkit-mask-image: radial-gradient(ellipse 85% 75% at 50% 0%, black 20%, transparent 85%);
+  mask-image: radial-gradient(ellipse 85% 75% at 50% 0%, black 20%, transparent 85%);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1), transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.light-rays-backdrop.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.light-rays-backdrop canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Apple Dynamic Island Container (Space Black Titanium / Deep Obsidian) */
+.island-container {
+  width: 100%;
+  max-width: 630px;
+  background: radial-gradient(130% 100% at 50% -10%, rgba(35, 38, 48, 0.95) 0%, #0c0d12 45%, #050507 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+  box-shadow: 0 24px 60px -10px rgba(0, 0, 0, 0.85),
+              0 10px 24px -6px rgba(0, 0, 0, 0.5),
+              inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.45),
+              inset 0 -1px 1px 0 rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: 10;
+  height: 72px;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              border-radius 0.42s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.35s ease,
+              height 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(0);
+}
+
+.island-container.has-drawer-open {
+  border-radius: 28px;
+  height: auto;
+  min-height: 72px;
+  background: radial-gradient(150% 100% at 50% -10%, rgba(30, 32, 42, 0.96) 0%, #0c0d12 40%, #050507 100%);
+  box-shadow: 0 32px 80px -15px rgba(0, 0, 0, 0.9),
+              0 14px 32px -8px rgba(0, 0, 0, 0.6),
+              inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.45),
+              inset 0 -1px 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.island-container.has-settings-open {
+  border-radius: 28px;
+  height: 495px;
+  min-height: 495px;
+  background: radial-gradient(150% 100% at 50% -10%, rgba(30, 32, 42, 0.98) 0%, #0c0d12 40%, #050507 100%);
+  box-shadow: 0 36px 90px -18px rgba(0, 0, 0, 0.95),
+              0 16px 36px -8px rgba(0, 0, 0, 0.65),
+              inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.45),
+              inset 0 -1px 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.island-container.hidden-state {
+  transform: translateY(-120%);
+  opacity: 0;
+}
+
+/* ========================================================
+   APPLE VISIONOS LIQUID GLASS DESIGN (High-Index Refraction & Specular Bevel)
+======================================================== */
+.island-container.theme-glass {
+  background: radial-gradient(140% 120% at 50% -20%, rgba(255, 255, 255, 0.16) 0%, rgba(26, 28, 38, 0.72) 40%, rgba(10, 11, 17, 0.88) 100%);
+  backdrop-filter: blur(48px) saturate(215%) contrast(106%) brightness(105%);
+  -webkit-backdrop-filter: blur(48px) saturate(215%) contrast(106%) brightness(105%);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: 0 28px 70px -12px rgba(0, 0, 0, 0.85),
+              0 12px 28px -6px rgba(0, 0, 0, 0.55),
+              inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.75),
+              inset 0 -1px 1px 0 rgba(255, 255, 255, 0.18),
+              inset 0 0 24px 2px rgba(255, 255, 255, 0.05);
+}
+
+.island-container.theme-glass.has-drawer-open {
+  background: radial-gradient(160% 100% at 50% -10%, rgba(255, 255, 255, 0.14) 0%, rgba(20, 22, 32, 0.84) 35%, rgba(10, 11, 16, 0.94) 100%);
+  backdrop-filter: blur(52px) saturate(225%) contrast(106%) brightness(105%);
+  -webkit-backdrop-filter: blur(52px) saturate(225%) contrast(106%) brightness(105%);
+  box-shadow: 0 36px 90px -16px rgba(0, 0, 0, 0.9),
+              0 16px 36px -8px rgba(0, 0, 0, 0.6),
+              inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.7),
+              inset 0 -1px 1px 0 rgba(255, 255, 255, 0.18),
+              inset 0 0 28px 2px rgba(255, 255, 255, 0.04);
+}
+
+.island-container.theme-glass.has-settings-open {
+  background: radial-gradient(150% 100% at 50% -10%, rgba(255, 255, 255, 0.14) 0%, rgba(18, 19, 28, 0.88) 30%, rgba(9, 10, 15, 0.97) 100%);
+  backdrop-filter: blur(56px) saturate(225%);
+  -webkit-backdrop-filter: blur(56px) saturate(225%);
+  box-shadow: 0 40px 100px -18px rgba(0, 0, 0, 0.95),
+              0 18px 40px -8px rgba(0, 0, 0, 0.65),
+              inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.7),
+              inset 0 -1px 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+/* GlassSurface Sheen Overlay (Dynamic Pointer Light Lens) */
+.glass-surface-sheen {
+  display: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(
+    circle 260px at var(--glass-pointer-x, 50%) var(--glass-pointer-y, 0%),
+    rgba(255, 255, 255, 0.24) 0%,
+    rgba(255, 255, 255, 0.08) 35%,
+    transparent 70%
+  );
+  opacity: 0.95;
+  mix-blend-mode: overlay;
+  transition: opacity 0.3s ease;
+}
+
+.island-container.theme-glass .glass-surface-sheen {
+  display: block;
+}
+
+/* GlassSurface Rim Highlight (Prismatic Optical Bevel Edge) */
+.glass-surface-rim {
+  display: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  padding: 1px;
+  background: radial-gradient(
+    circle 340px at var(--glass-pointer-x, 50%) var(--glass-pointer-y, 0%),
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(255, 255, 255, 0.3) 30%,
+    rgba(255, 255, 255, 0.06) 65%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  transition: opacity 0.3s ease;
+}
+
+.island-container.theme-glass .glass-surface-rim {
+  display: block;
+}
+
+/* Glass Launch Backdrop */
+.island-container.theme-glass.is-launching .pill-backdrop {
+  background: rgba(18, 19, 28, 0.96) !important;
+  backdrop-filter: blur(36px) saturate(1.8) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(1.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  box-shadow: inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.55), inset 0 0 16px 2px rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Glass Settings Sheet */
+.island-container.theme-glass .settings-sheet {
+  background: radial-gradient(140% 100% at 50% 0%, rgba(24, 26, 36, 0.88) 0%, rgba(13, 14, 20, 0.95) 100%) !important;
+  backdrop-filter: blur(48px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(48px) saturate(200%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.5), inset 0 0 24px rgba(255, 255, 255, 0.03) !important;
+}
+
+/* ========================================================
+   CUTE GROKKI LAUNCH ANIMATION (Squash & Stretch + Pill Unroll)
+======================================================== */
+.pill-backdrop {
+  display: none;
+}
+
+.island-container.is-launching {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  overflow: visible !important;
+  transform: translateY(0) !important;
+  opacity: 1 !important;
+}
+
+.island-container.is-launching .glass-surface-sheen,
+.island-container.is-launching .glass-surface-rim {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+.island-container.is-launching .pill-backdrop {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 72px;
+  width: 100%;
+  background: #09090b;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: 36px center;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  animation: pillExpandFromZero 0.40s cubic-bezier(0.16, 1, 0.3, 1) 1.44s forwards;
+}
+
+/* Grokki: Drops in Center, Squashes, Stays for motion "Hi!" animation, then slides left */
+.island-container.is-launching .bot-wrapper {
+  position: relative;
+  z-index: 10;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  animation: grokkiDropHiSlideLeft 1.85s linear forwards;
+}
+
+/* Cute Grokki "Hi!" Greeting Bubble */
+.grokki-hi-bubble {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%) translateZ(0) scale(0);
+  background: #ffffff;
+  color: #09090b;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  white-space: nowrap;
+  opacity: 0;
+  z-index: 25;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+.island-container.is-launching .grokki-hi-bubble {
+  animation: grokkiBubbleHi 1.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes grokkiBubbleHi {
+  0%, 25% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px) scale(0.6);
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  33% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-2px) scale(1.06);
+    animation-timing-function: ease-out;
+  }
+  40% {
+    transform: translateX(-50%) translateY(0px) scale(1);
+    animation-timing-function: linear;
+  }
+  58% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0px) scale(1);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  67% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-5px) scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0);
+  }
+}
+
+/* Input area and controls unveil from left to right as the pill expands */
+.island-container.is-launching .input-area,
+.island-container.is-launching .controls-group {
+  position: relative;
+  z-index: 5;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: contentUnveil 0.34s cubic-bezier(0.16, 1, 0.3, 1) 1.50s forwards;
+}
+
+@keyframes grokkiDropHiSlideLeft {
+  /* 1. Fast, fluid gravity drop from top center */
+  0% {
+    transform: translate3d(275px, -85px, 0) scale(0.68, 1.4);
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.45, 0.05, 0.7, 0.3);
+  }
+  14% {
+    opacity: 1;
+  }
+  19% {
+    transform: translate3d(275px, 0px, 0) scale(0.85, 1.2);
+    animation-timing-function: cubic-bezier(0.12, 0.9, 0.25, 1);
+  }
+
+  /* 2. Soft cartoon squash on baseline impact */
+  23% {
+    transform: translate3d(275px, 7px, 0) scale(1.44, 0.6);
+    animation-timing-function: cubic-bezier(0.18, 0.85, 0.32, 1.15);
+  }
+
+  /* 3. Rebound greeting hop: springs up cheerfully and tilts left */
+  31% {
+    transform: translate3d(275px, -13px, 0) scale(0.92, 1.12) rotate(-14deg);
+    animation-timing-function: ease-in-out;
+  }
+
+  /* 4. Fluid, continuous wave to the right */
+  43% {
+    transform: translate3d(275px, -8px, 0) scale(1.04, 0.96) rotate(14deg);
+    animation-timing-function: ease-in-out;
+  }
+
+  /* 5. Fluid, continuous wave back to the left */
+  54% {
+    transform: translate3d(275px, -11px, 0) scale(0.96, 1.05) rotate(-10deg);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+
+  /* 6. Touch down upright and settle in center */
+  64% {
+    transform: translate3d(275px, 3px, 0) scale(1.1, 0.92) rotate(0deg);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  69% {
+    transform: translate3d(275px, 0px, 0) scale(1, 1) rotate(0deg);
+    animation-timing-function: cubic-bezier(0.25, 1, 0.3, 1);
+  }
+
+  /* 7. Brief pause, then smooth Apple spring glide across to left dock */
+  73% {
+    transform: translate3d(275px, 0px, 0) scale(1, 1) rotate(0deg);
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  86% {
+    /* Arrive softly in resting slot */
+    transform: translate3d(0px, 3px, 0) scale(1.08, 0.93) rotate(0deg);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  93% {
+    transform: translate3d(0px, -1px, 0) scale(0.98, 1.02) rotate(0deg);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  100% {
+    transform: translate3d(0px, 0px, 0) scale(1, 1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes pillExpandFromZero {
+  0% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  1% {
+    opacity: 1;
+    transform: scaleX(0.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes contentUnveil {
+  0% {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Main Pill Bar */
+.island-bar {
+  height: 72px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px 0 12px;
+  gap: 12px;
+  position: relative;
+  -webkit-app-region: no-drag;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.island-container.has-settings-open .island-bar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Grokki Bot Canvas in the Island */
+.bot-wrapper {
+  width: 56px;
+  height: 56px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.grokki-orb-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 56px;
+  height: 56px;
+  pointer-events: none;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.grokki-orb-container canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#grokbot-canvas {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  cursor: pointer;
+  z-index: 2;
+  transition: transform 0.1s;
+}
+
+#grokbot-canvas:active {
+  transform: scale(0.92);
+}
+
+/* Input Area */
+.input-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  -webkit-app-region: no-drag;
+  min-width: 0;
+}
+
+.main-input {
+  flex: 1;
+  width: auto;
+  min-width: 80px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+  font-size: 15.5px;
+  font-weight: 450;
+  letter-spacing: -0.22px;
+  caret-color: #38bdf8;
+  user-select: text;
+}
+
+.main-input::placeholder {
+  color: rgba(235, 235, 245, 0.45);
+  font-weight: 400;
+  transition: color 0.25s ease;
+}
+
+.main-input:focus::placeholder {
+  color: rgba(235, 235, 245, 0.25);
+}
+
+/* Controls */
+.controls-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.apple-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.24s cubic-bezier(0.34, 1.35, 0.64, 1),
+              background 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+  transform: scale(1.08) translateY(-0.5px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3), inset 0 1px 0.5px rgba(255, 255, 255, 0.5);
+}
+
+.apple-btn:active {
+  transform: scale(0.91);
+}
+
+.apple-btn.active-voice {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  box-shadow: none;
+  animation: none;
+}
+
+.apple-btn.active-voice:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.send-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: transform 0.24s cubic-bezier(0.34, 1.35, 0.64, 1),
+              background 0.22s ease,
+              border-color 0.22s ease,
+              color 0.2s ease,
+              box-shadow 0.25s ease;
+}
+
+.send-btn:active {
+  transform: scale(0.9);
+}
+
+.send-btn.has-text {
+  background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 100%);
+  border-color: rgba(255, 255, 255, 0.85);
+  color: #09090b;
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.45), 0 4px 12px rgba(0, 0, 0, 0.35);
+  transform: scale(1.03);
+}
+
+.send-btn.has-text:hover {
+  transform: scale(1.12) translateY(-1px);
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.75), 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.settings-trigger {
+  width: 0;
+  max-width: 0;
+  min-width: 0;
+  height: 36px;
+  opacity: 0;
+  padding: 0;
+  margin: 0;
+  border: none;
+  overflow: hidden;
+  pointer-events: none;
+  transform: scale(0.6) rotate(-45deg);
+  transition: width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              max-width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.25s ease,
+              transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              margin 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.island-container:hover .settings-trigger,
+.island-container.has-settings-open .settings-trigger {
+  width: 36px;
+  max-width: 36px;
+  min-width: 36px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1) rotate(0deg);
+  margin-left: 2px;
+}
+
+.settings-trigger:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+  transform: scale(1.1) rotate(35deg);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3), inset 0 1px 0.5px rgba(255, 255, 255, 0.4);
+}
+
+.settings-trigger:active {
+  transform: scale(0.92) rotate(35deg);
+}
+
+/* Response Drawer */
+.island-drawer {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              padding 0.35s ease;
+  padding: 0 24px;
+  border-top: 1px solid transparent;
+  user-select: text;
+}
+
+.island-drawer.open {
+  max-height: 290px;
+  opacity: 1;
+  padding: 18px 24px 22px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  overflow-y: auto;
+}
+
+.turn-row {
+  font-size: 13.5px;
+  line-height: 1.6;
+  letter-spacing: -0.15px;
+  user-select: text;
+}
+
+.user-turn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.05) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  padding: 5px 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #f5f5f7;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.35), 0 4px 12px rgba(0, 0, 0, 0.25);
+  margin-bottom: 12px;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.user-turn:empty {
+  display: none;
+}
+
+.user-turn::before {
+  content: "You";
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-right: 4px;
+}
+
+/* Attachment Pill & Drag */
+.attachment-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(66, 133, 244, 0.22);
+  border: 1px solid rgba(138, 180, 248, 0.55);
+  box-shadow: 0 0 14px rgba(66, 133, 244, 0.3);
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #e8f0fe;
+  margin-right: 10px;
+  flex-shrink: 0;
+  max-width: 190px;
+  animation: pillPopIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pillPopIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.attachment-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.pill-remove-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  padding: 2px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, transform 0.15s;
+}
+
+.pill-remove-btn:hover {
+  color: #ff6b6b;
+  transform: scale(1.15);
+}
+
+/* Full Pill Lock-In Timer Transformation */
+.lock-in-full-view {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 4px 0 10px;
+  animation: timerViewFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes timerViewFadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.timer-center-cluster {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timer-flame-wrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 159, 10, 0.3) 0%, rgba(255, 159, 10, 0.08) 100%);
+  border: 1px solid rgba(255, 159, 10, 0.45);
+  box-shadow: 0 0 20px rgba(255, 159, 10, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.timer-flame-icon {
+  color: #ff9f0a;
+  font-size: 18px;
+  animation: flamePulse 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes flamePulse {
+  from { transform: scale(0.92); filter: drop-shadow(0 0 4px #ff9f0a); }
+  to { transform: scale(1.14); filter: drop-shadow(0 0 12px #ff7b00); }
+}
+
+.timer-info-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.15;
+}
+
+.timer-subject-text {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  font-weight: 700;
+  color: #ffb74d;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timer-big-countdown {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.8px;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+.timer-inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 10px;
+}
+
+.timer-control-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.22s cubic-bezier(0.34, 1.35, 0.64, 1);
+}
+
+.timer-control-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0.5px rgba(255, 255, 255, 0.5);
+}
+
+.timer-control-btn:active {
+  transform: scale(0.92);
+}
+
+.timer-stop-btn:hover {
+  background: rgba(239, 68, 68, 0.28);
+  border-color: rgba(239, 68, 68, 0.65);
+  color: #f87171;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.4);
+}
+
+.timer-switchers-cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timer-switch-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.22s cubic-bezier(0.34, 1.35, 0.64, 1);
+}
+
+.timer-switch-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  transform: scale(1.08) translateY(-0.5px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3), inset 0 1px 0.5px rgba(255, 255, 255, 0.4);
+}
+
+.timer-switch-btn:active {
+  transform: scale(0.91);
+}
+
+/* Return to Timer Mini-button (shown in normal controls when timer is running in background) */
+.lock-in-mini-return {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  background: rgba(255, 159, 10, 0.22);
+  border: 1px solid rgba(255, 159, 10, 0.5);
+  box-shadow: 0 0 12px rgba(255, 159, 10, 0.25);
+  color: #ffffff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-right: 4px;
+}
+
+.lock-in-mini-return:hover {
+  background: rgba(255, 159, 10, 0.36);
+  border-color: #ff9f0a;
+  transform: scale(1.05);
+}
+
+.island-container.drag-active {
+  border: 2px dotted #4285f4 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  background: rgba(18, 22, 34, 0.98) !important;
+  transform: scale(1.02);
+}
+
+.drop-overlay {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  color: #8ab4f8;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  pointer-events: none;
+  animation: dropPulse 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes dropPulse {
+  from { opacity: 0.75; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1.02); }
+}
+
+.island-container.drag-active .drop-overlay {
+  display: flex !important;
+}
+
+.island-container.drag-active .main-input,
+.island-container.drag-active .attachment-pill,
+.island-container.drag-active .controls-group {
+  display: none !important;
+}
+
+.response-content {
+  color: rgba(255, 255, 255, 0.94);
+  line-height: 1.55;
+}
+
+.response-content:not(:empty)::before {
+  content: "Grokki: ";
+  color: rgba(255, 255, 255, 0.36);
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.response-content h3 {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 10px 0 4px 0;
+}
+
+.response-content h3:first-child {
+  margin-top: 2px;
+}
+
+.response-content h4 {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 8px 0 3px 0;
+}
+
+.response-content p {
+  margin: 0 0 6px 0;
+}
+
+.response-content ul, .response-content ol {
+  margin: 4px 0 8px 0;
+  padding-left: 18px;
+}
+
+.response-content li {
+  margin-bottom: 3px;
+}
+
+.response-content strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.response-content a {
+  color: #60a5fa;
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(96, 165, 250, 0.6);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 500;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  word-break: break-all;
+}
+
+.response-content a:hover {
+  color: #93c5fd;
+  border-bottom-style: solid;
+  border-bottom-color: #93c5fd;
+  transform: translateY(-0.5px);
+}
+
+.response-content code {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: #38bdf8;
+}
+
+/* Apple macOS Frosted Window Code Block */
+.mac-code-window {
+  background: rgba(12, 13, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  margin: 10px 0;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.mac-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mac-code-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mac-code-dot {
+  width: 9.5px;
+  height: 9.5px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.mac-code-dot.red { background: #ff5f56; box-shadow: 0 0 6px rgba(255, 95, 86, 0.5); }
+.mac-code-dot.yellow { background: #ffbd2e; box-shadow: 0 0 6px rgba(255, 189, 46, 0.5); }
+.mac-code-dot.green { background: #27c93f; box-shadow: 0 0 6px rgba(39, 201, 63, 0.5); }
+
+.mac-code-lang {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: lowercase;
+  letter-spacing: 0.3px;
+}
+
+.mac-code-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mac-code-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  transform: translateY(-0.5px);
+}
+
+.mac-code-copy-btn:active {
+  transform: scale(0.93);
+}
+
+.response-content pre {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 10px 14px;
+  margin: 0;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
+
+.response-content pre code {
+  background: transparent;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  color: inherit;
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.apple-pill-badge {
+  font-size: 11.5px;
+  font-weight: 500;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.04) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.88);
+  padding: 3px 11px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.option-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.option-chip {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.05) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  padding: 6px 14px;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: all 0.22s cubic-bezier(0.34, 1.35, 0.64, 1);
+}
+
+.option-chip:hover {
+  background: #ffffff;
+  color: #000000;
+  transform: translateY(-1.5px) scale(1.04);
+  box-shadow: 0 6px 16px rgba(255, 255, 255, 0.35);
+}
+
+.option-chip:active {
+  transform: scale(0.94);
+}
+
+
+/* ========================================================
+   PREFERENCES SHEET (Raycast & Apple Inset Group Design)
+======================================================== */
+.settings-sheet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #09090b;
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.97) translateY(6px);
+  transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 28px;
+  z-index: 50;
+  user-select: text;
+  overflow-y: auto;
+}
+
+.settings-sheet.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1) translateY(0);
+}
+
+/* Custom Sleek Scrollbar for Preferences */
+.settings-sheet::-webkit-scrollbar {
+  width: 5px;
+}
+.settings-sheet::-webkit-scrollbar-track {
+  background: transparent;
+}
+.settings-sheet::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+}
+.settings-sheet::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+/* Segmented Theme Switcher active button helper */
+.pref-segment.active {
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* ========================================================
+   MINI-GROKKI SCREEN WORKER CURSOR
+======================================================== */
+.grokki-worker-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 0.05s linear;
+  will-change: transform;
+}
+
+.worker-orb {
+  position: relative;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6));
+}
+
+.worker-pointer {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  color: #ffffff;
+  font-size: 13px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+}
+
+.worker-bubble {
+  position: absolute;
+  top: -32px;
+  white-space: nowrap;
+  background: #ffffff;
+  color: #000000;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.worker-ripple {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.worker-ripple.animate {
+  animation: ripple-wave 0.45s ease-out forwards;
+}
+
+@keyframes ripple-wave {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(4.5); opacity: 0; }
+}
+
+/* Math & LaTeX Formula Typesetting */
+.math-block {
+  display: block;
+  margin: 8px 0;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  text-align: center;
+  font-family: 'Cambria Math', 'Latin Modern Math', 'Times New Roman', serif;
+  font-size: 15px;
+  color: #f8fafc;
+  overflow-x: auto;
+}
+
+.math-inline {
+  display: inline-block;
+  padding: 1px 5px;
+  margin: 0 1px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 5px;
+  font-family: 'Cambria Math', 'Latin Modern Math', 'Times New Roman', serif;
+  font-size: 13.5px;
+  color: #e2e8f0;
+}
+
+.math-frac {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 3px;
+  font-size: 0.9em;
+}
+
+.math-frac-num {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.65);
+  padding: 0 4px 1px 4px;
+  line-height: 1.1;
+}
+
+.math-frac-den {
+  padding: 1px 4px 0 4px;
+  line-height: 1.1;
+}
+
+.response-content .katex {
+  font-size: 1.06em;
+  color: #f8fafc;
+}
+
+.response-content .katex-display {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+

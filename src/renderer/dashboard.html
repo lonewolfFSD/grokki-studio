@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en" class="light theme-light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grokki Studio</title>
+  <!-- Google Fonts & Font Awesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Tailwind CSS Engine -->
+  <script src="tailwind.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      corePlugins: {
+        preflight: false
+      },
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'Menlo', 'monospace'],
+          },
+          colors: {
+            obsidian: '#0c0d12',
+            cardDark: '#13141a',
+            sidebarDark: '#08090d',
+            borderDark: '#1e2029',
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="dashboard-ui.css">
+</head>
+<body class="light theme-light bg-[#f7f7fa] dark:bg-[#0c0d12] text-gray-900 dark:text-gray-100 font-sans antialiased select-none m-0 p-0 overflow-hidden">
+  <div class="app-layout w-screen h-screen flex flex-row overflow-hidden bg-[#f7f7fa] dark:bg-[#0c0d12]">
+    
+    <!-- Left Sidebar (ElevenLabs Style) -->
+    <aside class="sidebar w-60 h-screen flex-shrink-0 flex flex-col justify-between p-4 bg-white dark:bg-[#08090d] border-r border-[#e4e4eb] dark:border-[#1e2029] select-none">
+      <div>
+        <!-- Brand Header -->
+        <div class="brand-row flex items-center justify-between pb-3.5 border-b border-[#e4e4eb] dark:border-[#1e2029] mb-3.5">
+          <div class="brand-left flex items-center gap-2.5">
+            <div class="brand-mark w-6 h-6 rounded-md bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-mono font-bold text-xs flex items-center justify-center tracking-tighter">//</div>
+            <span class="brand-name font-bold text-sm tracking-tight text-gray-900 dark:text-gray-100">Grokki Studio</span>
+          </div>
+          <span class="version-tag text-[11px] font-semibold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono">v2.5</span>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="nav-menu flex flex-col gap-1">
+          <button data-tab="tab-overview" class="nav-item active flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent text-left">
+            <i class="fa-solid fa-house-chimney icon-w w-4.5 text-center text-sm flex-shrink-0"></i>
+            <span>Overview</span>
+          </button>
+
+          <button data-tab="tab-voice" class="nav-item flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent text-left">
+            <i class="fa-solid fa-microphone-lines icon-w w-4.5 text-center text-sm flex-shrink-0"></i>
+            <span>Voice Models</span>
+          </button>
+
+          <button data-tab="tab-ai" class="nav-item flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent text-left">
+            <i class="fa-solid fa-microchip icon-w w-4.5 text-center text-sm flex-shrink-0"></i>
+            <span>AI Brain & Keys</span>
+          </button>
+
+          <button data-tab="tab-profile" class="nav-item flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent text-left">
+            <i class="fa-solid fa-sliders icon-w w-4.5 text-center text-sm flex-shrink-0"></i>
+            <span>Personalization</span>
+          </button>
+
+          <button data-tab="tab-google" class="nav-item flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent text-left">
+            <i class="fa-brands fa-google icon-w w-4.5 text-center text-sm flex-shrink-0"></i>
+            <span>Google Workspace</span>
+          </button>
+
+          <button data-tab="tab-appearance" class="nav-item flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent text-left">
+            <i class="fa-solid fa-circle-half-stroke icon-w w-4.5 text-center text-sm flex-shrink-0"></i>
+            <span>Appearance</span>
+          </button>
+
+          <button data-tab="tab-about" class="nav-item flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent text-left">
+            <i class="fa-solid fa-circle-info icon-w w-4.5 text-center text-sm flex-shrink-0"></i>
+            <span>About</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Bottom User Card -->
+      <div class="sidebar-user flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029]">
+        <div class="user-meta flex items-center gap-2.5 min-w-0">
+          <div id="sidebarUserAvatar" class="user-avatar w-8 h-8 rounded-lg bg-gray-200 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 flex items-center justify-center text-xs flex-shrink-0 overflow-hidden">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <div class="user-info min-w-0">
+            <div id="sidebarUserName" class="user-title text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">Friend</div>
+            <div class="user-subtitle text-[11px] text-gray-500 dark:text-gray-400">Alt+Q to Summon</div>
+          </div>
+        </div>
+        <kbd id="sidebarHotkeyBadge" class="key-badge font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded bg-gray-200 dark:bg-[#1a1c24] text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-[#1e2029]">Alt+Q</kbd>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="main-column flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-[#f7f7fa] dark:bg-[#0c0d12]">
+      
+      <!-- Top Utility Header Bar -->
+      <header class="top-bar h-[52px] px-6 flex items-center justify-between border-b border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#08090d] flex-shrink-0">
+        <div class="window-drag-region flex items-center gap-2.5 flex-1 h-full select-none cursor-default">
+          <i class="fa-regular fa-folder-open text-gray-400 text-sm"></i>
+          <span id="topBarTitle" class="topbar-title text-xs font-semibold text-gray-900 dark:text-gray-100">Overview</span>
+        </div>
+
+        <div class="top-actions flex items-center gap-2.5">
+          <!-- Light / Dark Mode Toggle Button -->
+          <button id="btnThemeToggle" title="Toggle Theme" class="btn-icon w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center text-xs transition-all cursor-pointer">
+            <i id="themeToggleIcon" class="fa-solid fa-moon"></i>
+          </button>
+
+          <div class="bar-divider w-px h-5 bg-gray-200 dark:bg-[#1e2029] mx-1"></div>
+
+          <!-- Clean Window Controls -->
+          <div class="window-controls flex items-center gap-1">
+            <button id="btnTrafficMin" title="Minimize" class="btn-control w-8 h-8 rounded-md border-none bg-transparent text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center text-xs transition-all cursor-pointer">
+              <i class="fa-solid fa-minus"></i>
+            </button>
+            <button id="btnTrafficClose" title="Close" class="btn-control btn-close w-8 h-8 rounded-md border-none bg-transparent text-gray-400 hover:text-white hover:bg-red-500 flex items-center justify-center text-xs transition-all cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Scrollable Panels -->
+      <main class="content-scroll flex-1 overflow-y-auto px-9 py-7 pb-16 custom-scrollbar">
+
+        <!-- TAB 1: OVERVIEW -->
+        <section id="tab-overview" class="tab-panel active flex flex-col gap-5.5 max-w-[1040px] mx-auto w-full">
+          <div class="panel-header flex flex-col gap-1.5">
+            <h2 id="heroGreeting" class="panel-heading text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Welcome back!</h2>
+            <p class="panel-desc text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+              Grokki is active in your Windows system tray. Press <kbd class="key-badge font-mono text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#1a1c24] text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-[#1e2029]">Alt+Q</kbd> to summon the Dynamic Island anytime.
+            </p>
+          </div>
+
+          <!-- Quick Telemetry (3 Minimalist Cards) -->
+          <div class="grid-3 grid grid-cols-3 gap-3.5 w-full">
+            <div class="card stat-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-4.5 shadow-sm hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
+              <div class="stat-top flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
+                <span>Active Model</span>
+                <i class="fa-solid fa-microchip text-gray-400"></i>
+              </div>
+              <div id="statActiveModel" class="stat-value text-lg font-bold tracking-tight text-gray-900 dark:text-gray-100">Groq (openai/gpt-oss-120b)</div>
+              <div id="statModelLatency" class="stat-tag text-xs font-medium text-sky-600 dark:text-sky-400">Latency &lt;110ms</div>
+            </div>
+
+            <div class="card stat-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-4.5 shadow-sm hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
+              <div class="stat-top flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
+                <span>Speech Model</span>
+                <i class="fa-solid fa-waveform-lines text-gray-400"></i>
+              </div>
+              <div id="statActiveVoice" class="stat-value text-lg font-bold tracking-tight text-gray-900 dark:text-gray-100">Kokoro-82M (Bella)</div>
+              <div class="stat-tag text-xs font-medium text-gray-500 dark:text-gray-400">Local RAM · Zero Cloud Fee</div>
+            </div>
+
+            <div class="card stat-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-4.5 shadow-sm hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
+              <div class="stat-top flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
+                <span>Google Integration</span>
+                <i class="fa-brands fa-google text-gray-400"></i>
+              </div>
+              <div id="statGoogleStatus" class="stat-value text-lg font-bold tracking-tight text-gray-900 dark:text-gray-100">Checking...</div>
+              <div id="statGoogleDetail" class="stat-tag text-xs font-medium text-gray-500 dark:text-gray-400">Gmail, Docs & Drive</div>
+            </div>
+          </div>
+
+          <!-- Feature Cards -->
+          <div class="feature-section flex flex-col gap-3 mt-1">
+            <h3 class="section-label text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">Features & Capabilities</h3>
+            <div class="grid-2 grid grid-cols-2 gap-3.5 w-full">
+              <div class="card feature-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-4 shadow-sm hover:border-gray-300 dark:hover:border-gray-700 transition-all flex items-start gap-3.5">
+                <div class="feature-icon w-9 h-9 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-gray-700 dark:text-gray-300 flex items-center justify-center text-sm flex-shrink-0">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                </div>
+                <div>
+                  <strong class="feature-title block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-1">Smart File Finder</strong>
+                  <p class="feature-desc text-xs text-gray-500 dark:text-gray-400 leading-normal m-0">Ask "Where did I save my project?" — opens File Explorer and highlights the file automatically.</p>
+                </div>
+              </div>
+
+              <div class="card feature-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-4 shadow-sm hover:border-gray-300 dark:hover:border-gray-700 transition-all flex items-start gap-3.5">
+                <div class="feature-icon w-9 h-9 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-gray-700 dark:text-gray-300 flex items-center justify-center text-sm flex-shrink-0">
+                  <i class="fa-solid fa-hand"></i>
+                </div>
+                <div>
+                  <strong class="feature-title block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-1">Touchless Slide Changer</strong>
+                  <p class="feature-desc text-xs text-gray-500 dark:text-gray-400 leading-normal m-0">Swipe webcam gestures or voice cues to advance PowerPoint & Google Slides hands-free.</p>
+                </div>
+              </div>
+
+              <div class="card feature-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-4 shadow-sm hover:border-gray-300 dark:hover:border-gray-700 transition-all flex items-start gap-3.5">
+                <div class="feature-icon w-9 h-9 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-gray-700 dark:text-gray-300 flex items-center justify-center text-sm flex-shrink-0">
+                  <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                  <strong class="feature-title block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-1">Offline Air-Gap Fallback</strong>
+                  <p class="feature-desc text-xs text-gray-500 dark:text-gray-400 leading-normal m-0">Automatically routes queries to local Ollama and Kokoro TTS if offline.</p>
+                </div>
+              </div>
+
+              <div class="card feature-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-4 shadow-sm hover:border-gray-300 dark:hover:border-gray-700 transition-all flex items-start gap-3.5">
+                <div class="feature-icon w-9 h-9 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-gray-700 dark:text-gray-300 flex items-center justify-center text-sm flex-shrink-0">
+                  <i class="fa-solid fa-microphone-lines"></i>
+                </div>
+                <div>
+                  <strong class="feature-title block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-1">Lecture & Meeting Stenographer</strong>
+                  <p class="feature-desc text-xs text-gray-500 dark:text-gray-400 leading-normal m-0">Records system audio and generates structured study summaries directly to Desktop.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 2: VOICE MODELS (ELEVENLABS VOICE DESIGN INSPIRATION) -->
+        <section id="tab-voice" class="tab-panel flex flex-col gap-5.5 max-w-[1040px] mx-auto w-full">
+          <div class="panel-header-split flex items-end justify-between gap-4">
+            <div>
+              <h2 class="panel-heading text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Voice Models</h2>
+              <p class="panel-desc text-sm text-gray-500 dark:text-gray-400 leading-relaxed">High-fidelity neural voices rendered on local Kokoro-82M engine.</p>
+            </div>
+            
+            <!-- Category Filter Pills -->
+            <div class="voice-filters flex items-center gap-1.5 bg-gray-100 dark:bg-[#13141a] p-1 rounded-xl border border-gray-200 dark:border-[#1e2029]">
+              <button class="voice-filter-btn active text-xs font-semibold px-3 py-1 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 cursor-pointer border-none transition-all" data-filter="all">All (8)</button>
+              <button class="voice-filter-btn text-xs font-medium px-3 py-1 rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white cursor-pointer bg-transparent border-none transition-all" data-filter="us">American</button>
+              <button class="voice-filter-btn text-xs font-medium px-3 py-1 rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white cursor-pointer bg-transparent border-none transition-all" data-filter="uk">British</button>
+            </div>
+          </div>
+
+          <!-- ElevenLabs Styled Voice Grid -->
+          <div class="voice-grid grid grid-cols-4 gap-4 w-full" id="voiceCardsGrid">
+            
+            <!-- Voice 1: Heart -->
+            <div data-voice="af_heart" data-accent="us" class="card voice-card flex flex-col items-center text-center p-5 rounded-2xl bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] cursor-pointer hover:-translate-y-0.5 transition-all shadow-sm">
+              <div class="voice-disc w-[74px] h-[74px] rounded-full flex items-center justify-center mb-3 relative shadow-md" style="background: radial-gradient(circle at 35% 35%, #ff758c 0%, #ff416c 60%, #990033 100%);">
+                <button class="voice-disc-play w-7 h-7 rounded-full bg-black/45 border border-white/40 text-white flex items-center justify-center text-[10px] cursor-pointer hover:bg-black/70 hover:scale-110 transition-all pl-0.5" data-voice-preview="af_heart" title="Preview Voice">
+                  <i class="fa-solid fa-play"></i>
+                </button>
+              </div>
+              <strong class="voice-name text-sm font-bold text-gray-900 dark:text-gray-100 mb-0.5">Heart</strong>
+              <span class="voice-style text-xs text-gray-500 dark:text-gray-400 mb-1.5">Warm & Expressive</span>
+              <div class="voice-wave-bars mb-2.5">
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+              </div>
+              <span class="voice-pill text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] mb-3">US • Conversational</span>
+              <button class="btn-secondary voice-select-btn w-full py-1.5 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] cursor-pointer">Select</button>
+            </div>
+
+            <!-- Voice 2: Bella -->
+            <div data-voice="af_bella" data-accent="us" class="card voice-card active flex flex-col items-center text-center p-5 rounded-2xl bg-white dark:bg-[#13141a] border-2 border-gray-900 dark:border-white cursor-pointer hover:-translate-y-0.5 transition-all shadow-sm">
+              <div class="voice-disc w-[74px] h-[74px] rounded-full flex items-center justify-center mb-3 relative shadow-md" style="background: radial-gradient(circle at 35% 35%, #4facfe 0%, #0072ff 60%, #003399 100%);">
+                <button class="voice-disc-play w-7 h-7 rounded-full bg-black/45 border border-white/40 text-white flex items-center justify-center text-[10px] cursor-pointer hover:bg-black/70 hover:scale-110 transition-all pl-0.5" data-voice-preview="af_bella" title="Preview Voice">
+                  <i class="fa-solid fa-play"></i>
+                </button>
+              </div>
+              <strong class="voice-name text-sm font-bold text-gray-900 dark:text-gray-100 mb-0.5">Bella</strong>
+              <span class="voice-style text-xs text-gray-500 dark:text-gray-400 mb-1.5">Crisp & Playful</span>
+              <div class="voice-wave-bars mb-2.5">
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+              </div>
+              <span class="voice-pill text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] mb-3">US • High Energy</span>
+              <button class="btn-secondary voice-select-btn w-full py-1.5 text-xs font-semibold rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 cursor-pointer border-none">Active ✓</button>
+            </div>
+
+            <!-- Voice 3: Nicole -->
+            <div data-voice="af_nicole" data-accent="us" class="card voice-card flex flex-col items-center text-center p-5 rounded-2xl bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] cursor-pointer hover:-translate-y-0.5 transition-all shadow-sm">
+              <div class="voice-disc w-[74px] h-[74px] rounded-full flex items-center justify-center mb-3 relative shadow-md" style="background: radial-gradient(circle at 35% 35%, #e0c3fc 0%, #8ec5fc 60%, #6a11cb 100%);">
+                <button class="voice-disc-play w-7 h-7 rounded-full bg-black/45 border border-white/40 text-white flex items-center justify-center text-[10px] cursor-pointer hover:bg-black/70 hover:scale-110 transition-all pl-0.5" data-voice-preview="af_nicole" title="Preview Voice">
+                  <i class="fa-solid fa-play"></i>
+                </button>
+              </div>
+              <strong class="voice-name text-sm font-bold text-gray-900 dark:text-gray-100 mb-0.5">Nicole</strong>
+              <span class="voice-style text-xs text-gray-500 dark:text-gray-400 mb-1.5">Clear & Formal</span>
+              <div class="voice-wave-bars mb-2.5">
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+              </div>
+              <span class="voice-pill text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] mb-3">US • Studio Pro</span>
+              <button class="btn-secondary voice-select-btn w-full py-1.5 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] cursor-pointer">Select</button>
+            </div>
+
+            <!-- Voice 4: Sky -->
+            <div data-voice="af_sky" data-accent="us" class="card voice-card flex flex-col items-center text-center p-5 rounded-2xl bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] cursor-pointer hover:-translate-y-0.5 transition-all shadow-sm">
+              <div class="voice-disc w-[74px] h-[74px] rounded-full flex items-center justify-center mb-3 relative shadow-md" style="background: radial-gradient(circle at 35% 35%, #84fab0 0%, #8fd3f4 60%, #209cff 100%);">
+                <button class="voice-disc-play w-7 h-7 rounded-full bg-black/45 border border-white/40 text-white flex items-center justify-center text-[10px] cursor-pointer hover:bg-black/70 hover:scale-110 transition-all pl-0.5" data-voice-preview="af_sky" title="Preview Voice">
+                  <i class="fa-solid fa-play"></i>
+                </button>
+              </div>
+              <strong class="voice-name text-sm font-bold text-gray-900 dark:text-gray-100 mb-0.5">Sky</strong>
+              <span class="voice-style text-xs text-gray-500 dark:text-gray-400 mb-1.5">Soft & Calm</span>
+              <div class="voice-wave-bars mb-2.5">
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+              </div>
+              <span class="voice-pill text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] mb-3">US • Narrative</span>
+              <button class="btn-secondary voice-select-btn w-full py-1.5 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] cursor-pointer">Select</button>
+            </div>
+
+            <!-- Voice 5: Adam -->
+            <div data-voice="am_adam" data-accent="us" class="card voice-card flex flex-col items-center text-center p-5 rounded-2xl bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] cursor-pointer hover:-translate-y-0.5 transition-all shadow-sm">
+              <div class="voice-disc w-[74px] h-[74px] rounded-full flex items-center justify-center mb-3 relative shadow-md" style="background: radial-gradient(circle at 35% 35%, #ffd200 0%, #f7971e 60%, #b85d19 100%);">
+                <button class="voice-disc-play w-7 h-7 rounded-full bg-black/45 border border-white/40 text-white flex items-center justify-center text-[10px] cursor-pointer hover:bg-black/70 hover:scale-110 transition-all pl-0.5" data-voice-preview="am_adam" title="Preview Voice">
+                  <i class="fa-solid fa-play"></i>
+                </button>
+              </div>
+              <strong class="voice-name text-sm font-bold text-gray-900 dark:text-gray-100 mb-0.5">Adam</strong>
+              <span class="voice-style text-xs text-gray-500 dark:text-gray-400 mb-1.5">Deep Baritone</span>
+              <div class="voice-wave-bars mb-2.5">
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+              </div>
+              <span class="voice-pill text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] mb-3">US • Confident</span>
+              <button class="btn-secondary voice-select-btn w-full py-1.5 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] cursor-pointer">Select</button>
+            </div>
+
+            <!-- Voice 6: Michael -->
+            <div data-voice="am_michael" data-accent="us" class="card voice-card flex flex-col items-center text-center p-5 rounded-2xl bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] cursor-pointer hover:-translate-y-0.5 transition-all shadow-sm">
+              <div class="voice-disc w-[74px] h-[74px] rounded-full flex items-center justify-center mb-3 relative shadow-md" style="background: radial-gradient(circle at 35% 35%, #38ef7d 0%, #11998e 60%, #0c615a 100%);">
+                <button class="voice-disc-play w-7 h-7 rounded-full bg-black/45 border border-white/40 text-white flex items-center justify-center text-[10px] cursor-pointer hover:bg-black/70 hover:scale-110 transition-all pl-0.5" data-voice-preview="am_michael" title="Preview Voice">
+                  <i class="fa-solid fa-play"></i>
+                </button>
+              </div>
+              <strong class="voice-name text-sm font-bold text-gray-900 dark:text-gray-100 mb-0.5">Michael</strong>
+              <span class="voice-style text-xs text-gray-500 dark:text-gray-400 mb-1.5">Classic Anchor</span>
+              <div class="voice-wave-bars mb-2.5">
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+              </div>
+              <span class="voice-pill text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] mb-3">US • Broadcast</span>
+              <button class="btn-secondary voice-select-btn w-full py-1.5 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] cursor-pointer">Select</button>
+            </div>
+
+            <!-- Voice 7: Emma -->
+            <div data-voice="bf_emma" data-accent="uk" class="card voice-card flex flex-col items-center text-center p-5 rounded-2xl bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] cursor-pointer hover:-translate-y-0.5 transition-all shadow-sm">
+              <div class="voice-disc w-[74px] h-[74px] rounded-full flex items-center justify-center mb-3 relative shadow-md" style="background: radial-gradient(circle at 35% 35%, #fbc2eb 0%, #a6c1ee 60%, #764ba2 100%);">
+                <button class="voice-disc-play w-7 h-7 rounded-full bg-black/45 border border-white/40 text-white flex items-center justify-center text-[10px] cursor-pointer hover:bg-black/70 hover:scale-110 transition-all pl-0.5" data-voice-preview="bf_emma" title="Preview Voice">
+                  <i class="fa-solid fa-play"></i>
+                </button>
+              </div>
+              <strong class="voice-name text-sm font-bold text-gray-900 dark:text-gray-100 mb-0.5">Emma</strong>
+              <span class="voice-style text-xs text-gray-500 dark:text-gray-400 mb-1.5">British RP Accent</span>
+              <div class="voice-wave-bars mb-2.5">
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+              </div>
+              <span class="voice-pill text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] mb-3">UK • Gentle RP</span>
+              <button class="btn-secondary voice-select-btn w-full py-1.5 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] cursor-pointer">Select</button>
+            </div>
+
+            <!-- Voice 8: Isabella -->
+            <div data-voice="bf_isabella" data-accent="uk" class="card voice-card flex flex-col items-center text-center p-5 rounded-2xl bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] cursor-pointer hover:-translate-y-0.5 transition-all shadow-sm">
+              <div class="voice-disc w-[74px] h-[74px] rounded-full flex items-center justify-center mb-3 relative shadow-md" style="background: radial-gradient(circle at 35% 35%, #f6d365 0%, #fda085 60%, #d46b4f 100%);">
+                <button class="voice-disc-play w-7 h-7 rounded-full bg-black/45 border border-white/40 text-white flex items-center justify-center text-[10px] cursor-pointer hover:bg-black/70 hover:scale-110 transition-all pl-0.5" data-voice-preview="bf_isabella" title="Preview Voice">
+                  <i class="fa-solid fa-play"></i>
+                </button>
+              </div>
+              <strong class="voice-name text-sm font-bold text-gray-900 dark:text-gray-100 mb-0.5">Isabella</strong>
+              <span class="voice-style text-xs text-gray-500 dark:text-gray-400 mb-1.5">British Aristocratic</span>
+              <div class="voice-wave-bars mb-2.5">
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+                <div class="voice-wave-bar"></div>
+              </div>
+              <span class="voice-pill text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] mb-3">UK • Oxford RP</span>
+              <button class="btn-secondary voice-select-btn w-full py-1.5 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] cursor-pointer">Select</button>
+            </div>
+
+          </div>
+
+          <!-- Quick Speech Preview Box with Presets -->
+          <div class="card preview-row bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-4 flex flex-col gap-3 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-gray-900 dark:text-gray-100">Live Voice Sandbox</span>
+              <div class="flex items-center gap-1.5 text-xs">
+                <span class="text-gray-400 text-[11px] mr-1">Presets:</span>
+                <button type="button" class="voice-preset-btn px-2.5 py-1 rounded-md bg-gray-100 dark:bg-[#1a1c24] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-[#1e2029] text-[11px] font-medium cursor-pointer" data-text="Hey! I am Grokki, your Windows companion. How can I assist you today?">Greeting</button>
+                <button type="button" class="voice-preset-btn px-2.5 py-1 rounded-md bg-gray-100 dark:bg-[#1a1c24] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-[#1e2029] text-[11px] font-medium cursor-pointer" data-text="I analyzed your codebase and fixed the memory leak in the audio worker.">Coding</button>
+                <button type="button" class="voice-preset-btn px-2.5 py-1 rounded-md bg-gray-100 dark:bg-[#1a1c24] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-[#1e2029] text-[11px] font-medium cursor-pointer" data-text="Good afternoon. You have two scheduled meetings on Google Calendar today.">Briefing</button>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <input type="text" id="inputVoiceTestText" value="Hey! I am Grokki, your Windows companion. How can I assist you today?" class="input-field flex-1 h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none transition-all">
+              <button id="btnPreviewVoice" class="btn-primary btn-preview inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-semibold bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 transition-all cursor-pointer flex-shrink-0 border-none">
+                <i class="fa-solid fa-volume-high"></i>
+                <span id="btnPreviewVoiceLabel">Test Voice</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Audio Settings -->
+          <div class="card settings-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl px-5 py-2 flex flex-col">
+            <div class="settings-row flex items-center justify-between py-3.5">
+              <div>
+                <strong class="row-title block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-0.5">Spoken Audio Response</strong>
+                <span class="row-desc text-xs text-gray-500 dark:text-gray-400">Read answers out loud using your chosen voice.</span>
+              </div>
+              <input type="checkbox" id="toggleTts" class="toggle-switch" checked>
+            </div>
+            <div class="settings-row border-top flex items-center justify-between py-3.5 border-t border-[#e4e4eb] dark:border-[#1e2029]">
+              <div>
+                <strong class="row-title block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-0.5">Wake Word Activation ("Hey Grokki")</strong>
+                <span class="row-desc text-xs text-gray-500 dark:text-gray-400">Listens continuously in background for hands-free queries.</span>
+              </div>
+              <input type="checkbox" id="toggleWakeWord" class="toggle-switch" checked>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 3: AI BRAIN & KEYS -->
+        <section id="tab-ai" class="tab-panel flex flex-col gap-5.5 max-w-[1040px] mx-auto w-full">
+          <div class="panel-header flex flex-col gap-1.5">
+            <h2 class="panel-heading text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">AI Brain & API Keys</h2>
+            <p class="panel-desc text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Choose your primary LLM reasoning backend and verify connection latency.</p>
+          </div>
+
+          <!-- Provider Segmented Tabs -->
+          <div class="segmented-bar flex gap-1.5 p-1 rounded-xl bg-gray-100 dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] w-fit">
+            <button data-provider="gemini" class="provider-btn active px-4 py-1.5 rounded-lg text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all cursor-pointer border-none bg-transparent">
+              Google Gemini
+            </button>
+            <button data-provider="groq" class="provider-btn px-4 py-1.5 rounded-lg text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all cursor-pointer border-none bg-transparent">
+              Groq LPU (&lt;100ms)
+            </button>
+            <button data-provider="ollama" class="provider-btn px-4 py-1.5 rounded-lg text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all cursor-pointer border-none bg-transparent">
+              Ollama (Offline Air-Gap)
+            </button>
+            <button data-provider="openrouter" class="provider-btn px-4 py-1.5 rounded-lg text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all cursor-pointer border-none bg-transparent">
+              OpenRouter
+            </button>
+          </div>
+
+          <!-- Provider Detail Card -->
+          <div class="card form-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-sm flex flex-col gap-4">
+            <!-- Gemini -->
+            <div id="fieldsGemini" class="provider-fields flex flex-col gap-3.5">
+              <div class="field-header flex items-center justify-between mb-1">
+                <label class="field-label text-xs font-semibold text-gray-900 dark:text-gray-100">Gemini API Key</label>
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="field-link text-xs text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1.5 font-medium">
+                  <span>Get Free Key on Google AI Studio</span>
+                  <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                </a>
+              </div>
+              <div class="field-row flex items-center gap-2.5 w-full">
+                <div class="input-with-icon flex-1 relative flex items-center">
+                  <input type="password" id="inputGeminiKey" placeholder="AIzaSy..." class="input-field font-mono w-full h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none transition-all">
+                  <button id="btnToggleGeminiVis" class="icon-action-btn absolute right-2.5 bg-transparent border-none text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer p-1 text-xs">
+                    <i class="fa-regular fa-eye"></i>
+                  </button>
+                </div>
+                <button id="btnTestGemini" class="btn-secondary inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-medium bg-gray-100 hover:bg-gray-200 dark:bg-[#1a1c24] dark:hover:bg-[#242733] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] transition-all cursor-pointer whitespace-nowrap">
+                  Test Connection
+                </button>
+              </div>
+              <div id="testResultGemini" class="test-result hidden text-xs p-2.5 rounded-lg font-medium border"></div>
+            </div>
+
+            <!-- Groq -->
+            <div id="fieldsGroq" class="provider-fields hidden flex flex-col gap-3.5">
+              <div class="field-header flex items-center justify-between mb-1">
+                <label class="field-label text-xs font-semibold text-gray-900 dark:text-gray-100">Groq API Key</label>
+                <a href="https://console.groq.com/keys" target="_blank" class="field-link text-xs text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1.5 font-medium">
+                  <span>Get Groq Key</span>
+                  <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                </a>
+              </div>
+              <div class="field-row flex items-center gap-2.5 w-full">
+                <input type="password" id="inputGroqKey" placeholder="gsk_..." class="input-field font-mono flex-1 h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none transition-all">
+                <button id="btnTestGroq" class="btn-secondary inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-medium bg-gray-100 hover:bg-gray-200 dark:bg-[#1a1c24] dark:hover:bg-[#242733] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] transition-all cursor-pointer whitespace-nowrap">
+                  Test Connection
+                </button>
+              </div>
+              <div class="field-group flex flex-col gap-1.5 w-full">
+                <label class="field-label text-xs text-gray-500 dark:text-gray-400 font-medium">Model ID</label>
+                <input type="text" id="inputGroqModel" value="openai/gpt-oss-120b" class="input-field font-mono h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none transition-all">
+              </div>
+              <div id="testResultGroq" class="test-result hidden text-xs p-2.5 rounded-lg font-medium border"></div>
+            </div>
+
+            <!-- Ollama -->
+            <div id="fieldsOllama" class="provider-fields hidden flex flex-col gap-3.5">
+              <div class="field-group flex flex-col gap-1.5 w-full">
+                <label class="field-label text-xs font-semibold text-gray-900 dark:text-gray-100">Ollama Endpoint</label>
+                <div class="field-row flex items-center gap-2.5 w-full">
+                  <input type="text" id="inputOllamaEndpoint" value="http://127.0.0.1:11434" class="input-field font-mono flex-1 h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none transition-all">
+                  <button id="btnTestOllama" class="btn-secondary inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-medium bg-gray-100 hover:bg-gray-200 dark:bg-[#1a1c24] dark:hover:bg-[#242733] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] transition-all cursor-pointer whitespace-nowrap">
+                    Ping Ollama
+                  </button>
+                </div>
+              </div>
+              <div class="field-group flex flex-col gap-1.5 w-full">
+                <label class="field-label text-xs text-gray-500 dark:text-gray-400 font-medium">Model Name</label>
+                <input type="text" id="inputOllamaModel" value="llama3.2" class="input-field font-mono h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none transition-all">
+              </div>
+              <div id="testResultOllama" class="test-result hidden text-xs p-2.5 rounded-lg font-medium border"></div>
+            </div>
+
+            <!-- OpenRouter -->
+            <div id="fieldsOpenrouter" class="provider-fields hidden flex flex-col gap-3.5">
+              <div class="field-header flex items-center justify-between mb-1">
+                <label class="field-label text-xs font-semibold text-gray-900 dark:text-gray-100">OpenRouter API Key</label>
+                <a href="https://openrouter.ai/keys" target="_blank" class="field-link text-xs text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1.5 font-medium">
+                  <span>Get OpenRouter Key</span>
+                  <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                </a>
+              </div>
+              <div class="field-row flex items-center gap-2.5 w-full">
+                <input type="password" id="inputOpenrouterKey" placeholder="sk-or-v1-..." class="input-field font-mono flex-1 h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none transition-all">
+                <button id="btnTestOpenrouter" class="btn-secondary inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-medium bg-gray-100 hover:bg-gray-200 dark:bg-[#1a1c24] dark:hover:bg-[#242733] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] transition-all cursor-pointer whitespace-nowrap">
+                  Test Key
+                </button>
+              </div>
+              <div class="field-group flex flex-col gap-1.5 w-full">
+                <label class="field-label text-xs text-gray-500 dark:text-gray-400 font-medium">Model Identifier</label>
+                <input type="text" id="inputOpenrouterModel" value="meta-llama/llama-3.3-70b-instruct:free" class="input-field font-mono h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none transition-all">
+              </div>
+              <div id="testResultOpenrouter" class="test-result hidden text-xs p-2.5 rounded-lg font-medium border"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 4: PERSONALIZATION -->
+        <section id="tab-profile" class="tab-panel flex flex-col gap-5.5 max-w-[1040px] mx-auto w-full">
+          <div class="panel-header flex flex-col gap-1.5">
+            <h2 class="panel-heading text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Personalization</h2>
+            <p class="panel-desc text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Customize your identity and the assistant's conversational tone.</p>
+          </div>
+
+          <!-- User Identity -->
+          <div class="card form-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-sm flex flex-col gap-4">
+            <h3 class="section-label text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">User Profile</h3>
+            <div class="grid-2 grid grid-cols-2 gap-3.5 w-full">
+              <div class="field-group flex flex-col gap-1.5 w-full">
+                <label class="field-label text-xs font-semibold text-gray-900 dark:text-gray-100">Full Name</label>
+                <input type="text" id="inputUserName" placeholder="e.g. Alex" class="input-field h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none transition-all">
+              </div>
+              <div class="field-group flex flex-col gap-1.5 w-full">
+                <label class="field-label text-xs font-semibold text-gray-900 dark:text-gray-100">Preferred Nickname</label>
+                <input type="text" id="inputUserNickname" placeholder="e.g. Alex, Sam" class="input-field h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none transition-all">
+              </div>
+            </div>
+            <div class="field-group flex flex-col gap-1.5 w-full">
+              <label class="field-label text-xs font-semibold text-gray-900 dark:text-gray-100">User Context / Bio</label>
+              <textarea id="inputUserBio" rows="2" placeholder="e.g. Software developer working on fullstack apps and automation." class="input-field textarea-field min-h-[64px] p-2.5 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none resize-y leading-normal transition-all"></textarea>
+              <span class="field-helper text-[11px] text-gray-500 dark:text-gray-400">Grokki remembers this context to deliver personalized code suggestions and answers.</span>
+            </div>
+          </div>
+
+          <!-- Companion Persona / Tone -->
+          <div class="card form-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-sm flex flex-col gap-4">
+            <h3 class="section-label text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">Tone & Persona</h3>
+            <div class="grid-2 grid grid-cols-2 gap-3.5 w-full" id="toneSelectorGrid">
+              <div data-tone="companion" class="card tone-card active flex flex-col gap-1.5 p-4 rounded-xl border-2 border-gray-900 dark:border-white bg-white dark:bg-[#13141a] cursor-pointer hover:border-gray-400 transition-all">
+                <div class="tone-top flex items-center justify-between">
+                  <span class="tone-name text-xs font-semibold text-gray-900 dark:text-gray-100">Warm Companion</span>
+                  <span class="tag-badge text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] uppercase tracking-wider">Default</span>
+                </div>
+                <p class="tone-desc text-xs text-gray-500 dark:text-gray-400 leading-normal m-0">Supportive, friendly, expressive prosody, cheerful and encouraging.</p>
+              </div>
+
+              <div data-tone="jarvis" class="card tone-card flex flex-col gap-1.5 p-4 rounded-xl border border-gray-200 dark:border-[#1e2029] bg-white dark:bg-[#13141a] cursor-pointer hover:border-gray-400 transition-all">
+                <div class="tone-top flex items-center justify-between">
+                  <span class="tone-name text-xs font-semibold text-gray-900 dark:text-gray-100">Jarvis Professional</span>
+                  <span class="tag-badge text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] uppercase tracking-wider">Executive</span>
+                </div>
+                <p class="tone-desc text-xs text-gray-500 dark:text-gray-400 leading-normal m-0">Direct, concise, sophisticated, high-level executive precision.</p>
+              </div>
+
+              <div data-tone="snarky" class="card tone-card flex flex-col gap-1.5 p-4 rounded-xl border border-gray-200 dark:border-[#1e2029] bg-white dark:bg-[#13141a] cursor-pointer hover:border-gray-400 transition-all">
+                <div class="tone-top flex items-center justify-between">
+                  <span class="tone-name text-xs font-semibold text-gray-900 dark:text-gray-100">Witty & Direct</span>
+                  <span class="tag-badge text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] uppercase tracking-wider">Fast</span>
+                </div>
+                <p class="tone-desc text-xs text-gray-500 dark:text-gray-400 leading-normal m-0">Fast-paced, clever sarcastic humor, sharp and technically brilliant.</p>
+              </div>
+
+              <div data-tone="tutor" class="card tone-card flex flex-col gap-1.5 p-4 rounded-xl border border-gray-200 dark:border-[#1e2029] bg-white dark:bg-[#13141a] cursor-pointer hover:border-gray-400 transition-all">
+                <div class="tone-top flex items-center justify-between">
+                  <span class="tone-name text-xs font-semibold text-gray-900 dark:text-gray-100">Academic Mentor</span>
+                  <span class="tag-badge text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] uppercase tracking-wider">Structured</span>
+                </div>
+                <p class="tone-desc text-xs text-gray-500 dark:text-gray-400 leading-normal m-0">Patient explanations, structured steps for assignments and math.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 5: GOOGLE WORKSPACE -->
+        <section id="tab-google" class="tab-panel flex flex-col gap-5.5 max-w-[1040px] mx-auto w-full">
+          <div class="panel-header flex flex-col gap-1.5">
+            <h2 class="panel-heading text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Google Workspace</h2>
+            <p class="panel-desc text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Connect your Google account to grant Grokki access to Gmail, Calendar, Drive, Docs, and Classroom.</p>
+          </div>
+
+          <!-- Connection Card -->
+          <div class="card form-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-sm flex flex-col gap-4">
+            <div class="google-header flex items-center justify-between pb-4 border-b border-[#e4e4eb] dark:border-[#1e2029]">
+              <div class="google-info flex items-center gap-3.5">
+                <div class="google-icon-box w-11 h-11 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center text-xl text-gray-900 dark:text-gray-100">
+                  <i class="fa-brands fa-google"></i>
+                </div>
+                <div>
+                  <h3 class="google-title text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">Google Account Status</h3>
+                  <p id="googleConnectionDetail" class="google-desc text-xs text-gray-500 dark:text-gray-400 m-0">Not connected</p>
+                </div>
+              </div>
+              <button id="btnConnectGoogle" class="btn-primary inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-semibold bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 transition-all cursor-pointer border-none">
+                <span id="btnConnectGoogleText">Connect Account</span>
+              </button>
+            </div>
+
+            <!-- Integrated Apps Grid -->
+            <div class="grid-3 pt-2 grid grid-cols-3 gap-3 w-full">
+              <div class="app-item flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200">
+                <i class="fa-regular fa-envelope text-gray-400 text-sm"></i>
+                <span>Gmail Automation</span>
+              </div>
+              <div class="app-item flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200">
+                <i class="fa-regular fa-calendar text-gray-400 text-sm"></i>
+                <span>Google Calendar</span>
+              </div>
+              <div class="app-item flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200">
+                <i class="fa-regular fa-folder text-gray-400 text-sm"></i>
+                <span>Drive & Docs</span>
+              </div>
+              <div class="app-item flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200">
+                <i class="fa-solid fa-table text-gray-400 text-sm"></i>
+                <span>Google Sheets</span>
+              </div>
+              <div class="app-item flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200">
+                <i class="fa-solid fa-graduation-cap text-gray-400 text-sm"></i>
+                <span>ADBU Classroom</span>
+              </div>
+              <div class="app-item flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200">
+                <i class="fa-brands fa-youtube text-gray-400 text-sm"></i>
+                <span>YouTube Media</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 6: APPEARANCE -->
+        <section id="tab-appearance" class="tab-panel flex flex-col gap-5.5 max-w-[1040px] mx-auto w-full">
+          <div class="panel-header flex flex-col gap-1.5">
+            <h2 class="panel-heading text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Appearance & Shortcut</h2>
+            <p class="panel-desc text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Customize your desktop theme and global hotkey.</p>
+          </div>
+
+          <!-- Dynamic Island Style -->
+          <div class="card form-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-sm flex flex-col gap-4">
+            <h3 class="section-label text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">Dynamic Island Style</h3>
+            <div class="grid-2 grid grid-cols-2 gap-3.5 w-full">
+              <div data-theme="glass" class="card island-theme-card active flex flex-col gap-1 p-4 rounded-xl border-2 border-gray-900 dark:border-white bg-white dark:bg-[#13141a] cursor-pointer hover:border-gray-400 transition-all">
+                <strong class="island-title text-xs font-semibold text-gray-900 dark:text-gray-100">Liquid Glass</strong>
+                <p class="island-desc text-xs text-gray-500 dark:text-gray-400 m-0">Specular glass sheen with dynamic backdrop blur.</p>
+              </div>
+
+              <div data-theme="original" class="card island-theme-card flex flex-col gap-1 p-4 rounded-xl border border-gray-200 dark:border-[#1e2029] bg-white dark:bg-[#13141a] cursor-pointer hover:border-gray-400 transition-all">
+                <strong class="island-title text-xs font-semibold text-gray-900 dark:text-gray-100">Obsidian Pitch Black</strong>
+                <p class="island-desc text-xs text-gray-500 dark:text-gray-400 m-0">Minimalist pure black Dynamic Island bar.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hotkey Configuration -->
+          <div class="card hotkey-card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl px-5 py-4 flex items-center justify-between shadow-sm">
+            <div>
+              <strong class="row-title block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-0.5">Global Summon Hotkey</strong>
+              <span class="row-desc text-xs text-gray-500 dark:text-gray-400">Toggles Grokki Dynamic Island from anywhere in Windows.</span>
+            </div>
+            <input type="text" id="inputHotkey" value="Alt+Q" class="input-field font-mono hotkey-input w-28 text-center font-semibold h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none transition-all">
+          </div>
+        </section>
+
+        <!-- TAB 7: ABOUT GROKKI STUDIO -->
+        <section id="tab-about" class="tab-panel flex flex-col gap-5.5 max-w-[1040px] mx-auto w-full">
+          <div class="panel-header-split flex items-end justify-between gap-4">
+            <div>
+              <h2 class="panel-heading text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">About Grokki Studio</h2>
+              <p class="panel-desc text-sm text-gray-500 dark:text-gray-400 leading-relaxed">System architecture, version telemetry, and runtime engine specifications.</p>
+            </div>
+            <span class="version-tag text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1e2029] font-mono">v2.5.0 • Stable Cobalt</span>
+          </div>
+
+          <!-- Hero Identity Card -->
+          <div class="card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-2xl p-6 shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white font-mono font-bold text-xl shadow-md">
+                [//]
+              </div>
+              <div>
+                <h3 class="text-base font-bold text-gray-900 dark:text-gray-100 m-0">Grokki Studio Desktop</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-1.5">Autonomous Multimodal Operating System Assistant</p>
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                    Engine Running
+                  </span>
+                  <span class="text-gray-300 dark:text-gray-700">•</span>
+                  <span class="text-[11px] text-gray-500 dark:text-gray-400 font-mono">Channel: Production Local</span>
+                </div>
+              </div>
+            </div>
+            <div class="text-right flex flex-col items-end gap-1">
+              <span class="text-xs font-semibold text-gray-900 dark:text-gray-100">Release 2026.10</span>
+              <span class="text-[11px] text-gray-500 dark:text-gray-400 font-mono">Build 2026.10.16</span>
+            </div>
+          </div>
+
+          <!-- Architecture & Specs Grid -->
+          <div class="grid grid-cols-3 gap-4 w-full">
+            <div class="card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-4.5 shadow-sm flex flex-col gap-2">
+              <div class="flex items-center gap-2.5 text-sky-600 dark:text-sky-400">
+                <i class="fa-solid fa-microchip text-sm"></i>
+                <span class="text-xs font-bold text-gray-900 dark:text-gray-100">Core Runtime</span>
+              </div>
+              <ul class="text-xs text-gray-500 dark:text-gray-400 space-y-1 list-none p-0 m-0 font-mono">
+                <li>Electron: <span class="text-gray-900 dark:text-gray-200">v44.7.2</span></li>
+                <li>Chromium: <span class="text-gray-900 dark:text-gray-200">v132.0.6834</span></li>
+                <li>Node.js: <span class="text-gray-900 dark:text-gray-200">v20.18.0</span></li>
+              </ul>
+            </div>
+
+            <div class="card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-4.5 shadow-sm flex flex-col gap-2">
+              <div class="flex items-center gap-2.5 text-purple-600 dark:text-purple-400">
+                <i class="fa-solid fa-microphone-lines text-sm"></i>
+                <span class="text-xs font-bold text-gray-900 dark:text-gray-100">Audio Synthesis</span>
+              </div>
+              <ul class="text-xs text-gray-500 dark:text-gray-400 space-y-1 list-none p-0 m-0 font-mono">
+                <li>Model: <span class="text-gray-900 dark:text-gray-200">Kokoro-82M ONNX</span></li>
+                <li>Sample Rate: <span class="text-gray-900 dark:text-gray-200">24,000 Hz</span></li>
+                <li>Latency: <span class="text-gray-900 dark:text-gray-200">Zero Cloud (Local)</span></li>
+              </ul>
+            </div>
+
+            <div class="card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-4.5 shadow-sm flex flex-col gap-2">
+              <div class="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400">
+                <i class="fa-solid fa-shield-halved text-sm"></i>
+                <span class="text-xs font-bold text-gray-900 dark:text-gray-100">Privacy & Security</span>
+              </div>
+              <ul class="text-xs text-gray-500 dark:text-gray-400 space-y-1 list-none p-0 m-0 font-mono">
+                <li>Telemetry: <span class="text-gray-900 dark:text-gray-200">Disabled (0%)</span></li>
+                <li>Storage: <span class="text-gray-900 dark:text-gray-200">100% Local Disk</span></li>
+                <li>Air-Gap: <span class="text-gray-900 dark:text-gray-200">Ollama Fallback</span></li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Diagnostics & System Info -->
+          <div class="card bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-sm flex flex-col gap-3">
+            <h4 class="text-xs font-bold text-gray-900 dark:text-gray-100 tracking-tight uppercase">Host Machine Diagnostics</h4>
+            <div class="grid grid-cols-4 gap-4 text-xs">
+              <div class="flex flex-col gap-1">
+                <span class="text-gray-400 text-[11px]">Operating System</span>
+                <span id="aboutOsInfo" class="font-semibold text-gray-900 dark:text-gray-100 font-mono">Windows x64</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="text-gray-400 text-[11px]">Processor Model</span>
+                <span id="aboutCpuInfo" class="font-semibold text-gray-900 dark:text-gray-100 font-mono truncate">Intel/AMD CPU</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="text-gray-400 text-[11px]">System Memory</span>
+                <span id="aboutMemInfo" class="font-semibold text-gray-900 dark:text-gray-100 font-mono">Loading...</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="text-gray-400 text-[11px]">Summon Hotkey</span>
+                <span id="aboutHotkeyInfo" class="font-semibold text-gray-900 dark:text-gray-100 font-mono">Alt+Q Active</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Unsaved Changes Bar (Full-Width Bottom Toast with Bold High-Contrast Styling) -->
+  <div id="unsavedChangesBar" class="unsaved-changes-bar fixed bottom-0 left-0 right-0 w-full z-50">
+    <div class="unsaved-bar-content w-full bg-white dark:bg-[#13141a] text-gray-900 dark:text-gray-100 px-8 py-3.5 flex items-center justify-between border-t border-gray-200 dark:border-[#1e2029] shadow-2xl">
+      <div class="unsaved-bar-left flex items-center gap-3">
+        <i class="fa-solid fa-triangle-exclamation unsaved-warn-icon text-amber-500 text-base"></i>
+        <strong class="unsaved-bar-text text-sm font-bold tracking-tight text-gray-900 dark:text-gray-100">Careful — you have unsaved changes!</strong>
+      </div>
+      <div class="unsaved-bar-actions flex items-center gap-4">
+        <button id="btnResetChanges" class="btn-unsaved-reset text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white text-xs font-semibold hover:underline cursor-pointer bg-transparent border-none py-1.5 px-3 transition-colors">Reset</button>
+        <button id="btnSaveFloating" class="btn-unsaved-save bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 font-bold text-xs px-5 py-2.5 rounded-lg transition-all cursor-pointer border-none shadow-md">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,561 @@
+/* ==========================================================================
+   Grokki settings sheet — quiet, iOS-style inset groups
+   Scoped to #settingsSheet so nothing else in styles.css is touched.
+   Load AFTER styles.css.
+   ========================================================================== */
+
+.settings-sheet {
+  overflow: hidden;
+  --gs-text: #f5f5f7;
+  --gs-text-2: rgba(235, 235, 245, 0.6);
+  --gs-text-3: rgba(235, 235, 245, 0.32);
+  --gs-fill: rgba(255, 255, 255, 0.05);
+  --gs-fill-2: rgba(255, 255, 255, 0.09);
+  --gs-fill-3: rgba(255, 255, 255, 0.14);
+  --gs-line: rgba(255, 255, 255, 0.07);
+  --gs-blue: #0a84ff;
+  --gs-green: #30d158;
+  --gs-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --gs-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+  color: var(--gs-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.settings-sheet *,
+.settings-sheet *::before,
+.settings-sheet *::after {
+  box-sizing: border-box;
+}
+
+.settings-sheet button,
+.settings-sheet input,
+.settings-sheet select {
+  font-family: inherit;
+}
+
+/* ---------- Header ---------- */
+
+.settings-sheet .gs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--gs-line);
+  flex-shrink: 0;
+}
+
+.settings-sheet .gs-h-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.settings-sheet .gs-h-sub {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--gs-text-2);
+}
+
+.settings-sheet .gs-close {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--gs-fill-2);
+  color: var(--gs-text-2);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.3s var(--gs-spring);
+}
+.settings-sheet .gs-close:hover { background: var(--gs-fill-3); color: var(--gs-text); }
+.settings-sheet .gs-close:active { transform: scale(0.88); }
+
+/* ---------- Scrolling body ---------- */
+
+.settings-sheet .gs-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 16px 4px 16px 0;
+  margin-right: -4px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+}
+.settings-sheet .gs-body::-webkit-scrollbar { width: 6px; }
+.settings-sheet .gs-body::-webkit-scrollbar-track { background: transparent; }
+.settings-sheet .gs-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+}
+.settings-sheet .gs-body::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.24); }
+
+/* ---------- Sections, groups, rows ---------- */
+
+.settings-sheet .gs-section-label {
+  padding: 0 4px 7px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--gs-text-2);
+}
+
+.settings-sheet .gs-group {
+  background: var(--gs-fill);
+  border-radius: 13px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.settings-sheet .gs-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  padding: 10px 14px;
+}
+.settings-sheet .gs-row + .gs-row::before,
+.settings-sheet .gs-fields::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 0;
+  height: 1px;
+  background: var(--gs-line);
+}
+
+.settings-sheet .gs-copy { min-width: 0; }
+.settings-sheet .gs-title {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-sheet .gs-sub {
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--gs-text-2);
+}
+.settings-sheet .gs-footnote {
+  padding: 8px 4px 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--gs-text-3);
+}
+
+/* ---------- Segmented control (pill style) ---------- */
+
+.settings-sheet .gs-segment {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--gs-fill-2);
+}
+.settings-sheet .gs-seg-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: 0;
+  border-radius: 7px;
+  background: var(--gs-fill-3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+.settings-sheet .gs-segment.ready .gs-seg-thumb {
+  transition: transform 0.42s var(--gs-ease), width 0.42s var(--gs-ease);
+}
+.settings-sheet .gs-segment .pref-segment {
+  position: relative;
+  z-index: 1;
+  padding: 5px 13px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--gs-text-2);
+  cursor: pointer;
+  transition: color 0.25s ease, transform 0.25s var(--gs-ease);
+}
+.settings-sheet .gs-segment .pref-segment:hover { color: var(--gs-text); }
+.settings-sheet .gs-segment .pref-segment.active { color: var(--gs-text); }
+.settings-sheet .gs-segment .pref-segment:active { transform: scale(0.96); }
+
+/* ---------- Custom select ---------- */
+
+.settings-sheet .gs-native {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  pointer-events: none;
+}
+
+.settings-sheet .gs-select {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.settings-sheet .gs-select-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 9px 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--gs-fill-2);
+  color: var(--gs-text);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.3s var(--gs-spring);
+}
+.settings-sheet .gs-select-btn:hover { background: var(--gs-fill-3); }
+.settings-sheet .gs-select-btn:active { transform: scale(0.97); }
+.settings-sheet .gs-select-btn.open { background: var(--gs-fill-3); }
+.settings-sheet .gs-select-btn svg {
+  width: 10px;
+  height: 14px;
+  color: var(--gs-text-2);
+  flex-shrink: 0;
+}
+
+.settings-sheet .gs-menu {
+  position: absolute;
+  z-index: 60;
+  top: 0;
+  right: 0;
+  min-width: 180px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 5px;
+  border-radius: 13px;
+  background: rgba(40, 40, 44, 0.86);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 20px 48px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.94) translateY(-6px);
+  transform-origin: top right;
+  transition: opacity 0.18s ease, transform 0.32s var(--gs-ease), visibility 0s linear 0.32s;
+}
+.settings-sheet .gs-menu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0s;
+}
+.settings-sheet .gs-menu::-webkit-scrollbar { width: 0; }
+
+.settings-sheet .gs-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gs-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.settings-sheet .gs-item:hover,
+.settings-sheet .gs-item:focus-visible {
+  background: var(--gs-fill-3);
+  outline: none;
+}
+.settings-sheet .gs-item-text { display: flex; flex-direction: column; min-width: 0; }
+.settings-sheet .gs-item-main { font-size: 12.5px; font-weight: 500; letter-spacing: -0.005em; white-space: nowrap; }
+.settings-sheet .gs-item-sub { font-size: 11px; color: var(--gs-text-2); white-space: nowrap; }
+.settings-sheet .gs-item-sub:empty { display: none; }
+.settings-sheet .gs-item svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--gs-blue);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.2s ease, transform 0.3s var(--gs-spring);
+}
+.settings-sheet .gs-item[aria-selected="true"] svg { opacity: 1; transform: none; }
+
+/* ---------- Voice stepper ---------- */
+
+.settings-sheet .gs-stepper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.settings-sheet .gs-step-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--gs-text-2);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.3s var(--gs-spring);
+}
+.settings-sheet .gs-step-btn svg { width: 14px; height: 14px; }
+.settings-sheet .gs-step-btn:hover { background: var(--gs-fill-2); color: var(--gs-text); }
+.settings-sheet .gs-step-btn:active { transform: scale(0.84); background: var(--gs-fill-3); }
+
+.settings-sheet .gs-step-view {
+  position: relative;
+  width: 118px;
+  height: 36px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16%, #000 84%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 16%, #000 84%, transparent 100%);
+}
+.settings-sheet .gs-step-item {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.25;
+  will-change: transform, opacity;
+}
+.settings-sheet .gs-step-name { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
+.settings-sheet .gs-step-meta { font-size: 10.5px; color: var(--gs-text-2); white-space: nowrap; }
+
+/* ---------- Switch ---------- */
+
+.settings-sheet .gs-switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 26px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.settings-sheet .gs-switch input {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.settings-sheet .gs-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  background: rgba(120, 120, 128, 0.32);
+  transition: background 0.3s var(--gs-ease), box-shadow 0.2s ease;
+}
+.settings-sheet .gs-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), 0 0 1px rgba(0, 0, 0, 0.25);
+  transition: transform 0.38s var(--gs-spring), width 0.2s var(--gs-ease);
+}
+.settings-sheet .gs-switch input:checked + .gs-track { background: var(--gs-green); }
+.settings-sheet .gs-switch input:checked + .gs-track::after { transform: translateX(16px); }
+.settings-sheet .gs-switch input:active + .gs-track::after { width: 27px; }
+.settings-sheet .gs-switch input:checked:active + .gs-track::after { transform: translateX(11px); }
+.settings-sheet .gs-switch input:focus-visible + .gs-track { box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.45); }
+
+/* ---------- Inputs ---------- */
+
+.settings-sheet .gs-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.3);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.settings-sheet .gs-input:focus-within {
+  border-color: rgba(10, 132, 255, 0.7);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.22);
+}
+.settings-sheet .gs-input input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--gs-text);
+  font-size: 12.5px;
+}
+.settings-sheet .gs-input input::placeholder { color: var(--gs-text-3); }
+.settings-sheet .gs-input .gs-mono,
+.settings-sheet .gs-input input.gs-mono {
+  font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.settings-sheet .gs-input-prefix {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  color: var(--gs-text-2);
+}
+.settings-sheet .gs-input.gs-w-key { width: 104px; }
+.settings-sheet .gs-input.gs-w-key input { text-align: center; font-weight: 600; }
+.settings-sheet .gs-input.gs-w-phrase { width: 168px; }
+
+/* ---------- Provider field blocks ---------- */
+
+.settings-sheet .gs-fields {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px 14px 14px;
+}
+.settings-sheet .gs-fields.hidden { display: none !important; }
+.settings-sheet .gs-fields:not(.hidden) { animation: gs-fields-in 0.45s var(--gs-ease); }
+@keyframes gs-fields-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.settings-sheet .gs-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11.5px;
+  color: var(--gs-text-2);
+}
+.settings-sheet .gs-link {
+  color: var(--gs-blue);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: opacity 0.2s ease;
+}
+.settings-sheet .gs-link:hover { opacity: 0.75; }
+
+/* ---------- Buttons & badge ---------- */
+
+.settings-sheet .gs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--gs-fill-2);
+  color: var(--gs-text);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.3s var(--gs-spring), opacity 0.2s ease;
+}
+.settings-sheet .gs-btn:hover { background: var(--gs-fill-3); }
+.settings-sheet .gs-btn:active { transform: scale(0.96); }
+.settings-sheet .gs-btn.gs-primary {
+  background: #f5f5f7;
+  color: #000;
+  font-weight: 600;
+}
+.settings-sheet .gs-btn.gs-primary:hover { background: #fff; }
+.settings-sheet .gs-btn.gs-sm { height: 30px; padding: 0 13px; flex-shrink: 0; }
+
+.settings-sheet .gs-badge {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--gs-fill-2);
+  color: var(--gs-text-2);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* ---------- Footer ---------- */
+
+.settings-sheet .gs-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--gs-line);
+  flex-shrink: 0;
+}
+
+/* ---------- Focus & motion ---------- */
+
+.settings-sheet button:focus-visible,
+.settings-sheet .gs-link:focus-visible {
+  outline: 2px solid rgba(10, 132, 255, 0.7);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-sheet *,
+  .settings-sheet *::before,
+  .settings-sheet *::after {
+    animation-duration: 0.001s !important;
+    transition-duration: 0.001s !important;
+  }
+}
+
+/* Glass Theme Overrides */
+.island-container.theme-glass .settings-sheet .gs-group {
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.island-container.theme-glass .settings-sheet .gs-menu {
+  background: rgba(24, 26, 36, 0.88);
+  backdrop-filter: blur(36px) saturate(200%);
+  -webkit-backdrop-filter: blur(36px) saturate(200%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15), 0 24px 50px rgba(0, 0, 0, 0.6);
+}
+
+.island-container.theme-glass .settings-sheet .gs-segment {
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+

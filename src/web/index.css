@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+}
+
+/* Custom Minimal Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(150, 150, 150, 0.25);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 150, 150, 0.45);
+}
+
+/* Equalizer mini wave bars */
+@keyframes eqBar {
+  0% { height: 4px; }
+  100% { height: 16px; }
+}
+
+.voice-wave-bar {
+  width: 3px;
+  height: 5px;
+  border-radius: 2px;
+  transition: height 0.2s ease;
+}
+
+.is-playing .voice-wave-bar:nth-child(1) { animation: eqBar 0.6s infinite ease-in-out alternate; }
+.is-playing .voice-wave-bar:nth-child(2) { animation: eqBar 0.8s infinite ease-in-out alternate 0.15s; }
+.is-playing .voice-wave-bar:nth-child(3) { animation: eqBar 0.5s infinite ease-in-out alternate 0.3s; }
+.is-playing .voice-wave-bar:nth-child(4) { animation: eqBar 0.9s infinite ease-in-out alternate 0.2s; }
+.is-playing .voice-wave-bar:nth-child(5) { animation: eqBar 0.7s infinite ease-in-out alternate 0.1s; }
+
+/* Shake animation for close guard */
+@keyframes shakeToast {
+  10%, 90% { transform: translateY(0) translateX(-6px); }
+  20%, 80% { transform: translateY(0) translateX(6px); }
+  30%, 50%, 70% { transform: translateY(0) translateX(-4px); }
+  40%, 60% { transform: translateY(0) translateX(4px); }
+}
+
+.toast-shake {
+  animation: shakeToast 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}

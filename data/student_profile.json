@@ -1,0 +1,16 @@
+{
+  "fullName": "Student Applicant",
+  "email": "student@example.com",
+  "phone": "+91 9876543210",
+  "university": "Assam Don Bosco University",
+  "rollNo": "ADBU-2024-001",
+  "degree": "Bachelor of Technology (B.Tech)",
+  "branch": "Computer Science & Engineering",
+  "cgpa": "8.8",
+  "passingYear": "2026",
+  "skills": "Python, JavaScript, React, Node.js, SQL, Git, Machine Learning",
+  "github": "https://github.com/student",
+  "linkedin": "https://linkedin.com/in/student",
+  "portfolio": "https://student-portfolio.dev",
+  "resumePdfPath": ""
+}
