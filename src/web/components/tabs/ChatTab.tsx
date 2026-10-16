@@ -958,7 +958,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         <PixelBlast
           variant="square"
           pixelSize={3}
-          color="#B497CF"
+          color="#000"
           patternScale={2}
           patternDensity={1}
           softness={0.6}
@@ -998,7 +998,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           </div>
 
           {/* Persona Heading */}
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-6 font-sans">
+          <h1 className="text-2xl font-bold tracking-tight text-white mb-6 font-sans drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
             Ready when you are. What are we executing today?
           </h1>
 
@@ -1105,7 +1105,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
           {/* Suggestions Grid */}
           <div className="w-full max-w-xl mt-8 text-left">
-            <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase block mb-2.5">
+            <span className="text-[11px] font-semibold text-gray-300 tracking-wider uppercase block mb-2.5">
               Suggestions & Commands
             </span>
             <div className="grid grid-cols-2 gap-2.5 w-full">

@@ -1025,7 +1025,9 @@ const PixelBlast = ({
       gl.deleteVertexArray(vao);
       gl.deleteProgram(cellShader.program);
       gl.deleteProgram(mainShader.program);
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      // NOTE: Do not call WEBGL_lose_context.loseContext() here. React StrictMode
+      // (dev) unmounts + remounts effects on the same <canvas>; a force-lost context
+      // makes every shader compile fail on remount and the background never renders.
     };
   }, []);
 
