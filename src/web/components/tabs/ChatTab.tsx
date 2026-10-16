@@ -31,6 +31,7 @@ import {
 import { marked } from 'marked';
 import { JarvisConfig, Conversation, ChatMessage, AttachedFileInfo } from '../../types/jarvis';
 import PixelBlast from './PixelBlast';
+import LatticeLoader from './LatticeLoader';
 
 import grokkiIcon from '../../assets/grokki_icon.svg';
 
@@ -953,8 +954,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   //  - Dark: dim white base pixels on near-black, bright white accent on hover/ripples.
   //  - Light: soft grey base pixels on the light canvas, deep black accent on hover/ripples.
   const blastPalette = isDarkTheme
-    ? { color: '#5a5a5a', accent: '#ffffff' }
-    : { color: '#bdbdbd', accent: '#0a0a0a' };
+    ? { color: '#302f2f', accent: '#a19f9f' }
+    : { color: '#c9a1ef', accent: '#b095ca' };
 
   return (
     <div className="relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-4">
@@ -973,7 +974,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           glow={0.4}
           twinkle={0.25}
           drift={0.2}
-          hoverEffect="reveal"
+          hoverEffect="none"
           enableRipples
           edgeFade={0.25}
           accentColor={blastPalette.accent}
@@ -1268,14 +1269,33 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
             {/* Thinking / Running Indicator */}
             {loading && (
-              <div className="flex items-start gap-3 max-w-[92%] w-full">
+              <div className="flex items-center gap-3 py-2 px-1 max-w-[92%] w-full animate-in fade-in duration-200">
                 <img
                   src={grokkiIcon}
                   alt="Grokki"
-                  className="w-6 h-6 rounded-full shadow-xs flex-shrink-0 mt-1 animate-pulse select-none"
+                  className="w-6 h-6 rounded-full shadow-xs flex-shrink-0 select-none"
                 />
-                <div className="flex items-center gap-2 py-1 text-xs text-gray-500 dark:text-gray-400 font-mono">
-                  <span>Grokki is executing...</span>
+                <div className="inline-flex items-center">
+                  <LatticeLoader
+                    status="working"
+                    label="Thinking"
+                    doneLabel="Done in"
+                    errorLabel="Failed after"
+                    pattern="orbit"
+                    grid={3}
+                    shape="round"
+                    doneColor="#22c55e"
+                    errorColor="#ef4444"
+                    cellSize={6}
+                    gap={2}
+                    fontSize={14}
+                    step={90}
+                    idleOpacity={0.15}
+                    glow={false}
+                    glowColor=""
+                    showTimer
+                    color={isDarkTheme ? '#f5f5f5' : '#18181b'}
+                  />
                 </div>
               </div>
             )}
@@ -1319,7 +1339,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             {renderSlashMenu()}
             {renderSynthesizerVisualizer()}
 
-            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
+            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full mb-8 py-3 px-3.5 transition-all flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={handleSelectFile}
@@ -1342,10 +1362,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     ? `Ask Grokki about ${attachedFile.name}...`
                     : "Type / for direct slash commands, or ask anything..."
                 }
-                className="flex-1 bg-transparent border-none outline-none text-xs md:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
+                className="flex-1 bg-transparent border-none outline-none text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
               />
 
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono select-none">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono select-none">
                 v2.5
               </span>
 
