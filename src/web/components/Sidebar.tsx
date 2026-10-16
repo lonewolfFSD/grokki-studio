@@ -2,6 +2,8 @@ import React from 'react';
 import { Home, Mic, Cpu, Sliders, Globe, Palette, Info, User, MessageSquare } from 'lucide-react';
 import { GoogleProfile } from '../types/jarvis';
 
+const grokkiIcon = './assets/grokki_icon.svg';
+
 export type TabId = 'chat' | 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'about';
 
 interface SidebarProps {
@@ -36,14 +38,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside className="w-60 h-screen flex flex-col justify-between p-3.5 border-r border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#08090d] select-none flex-shrink-0">
       <div className="flex flex-col gap-5 overflow-y-auto">
-        {/* Grokki Studio Brand Header */}
+        {/* Grokki Brand Header */}
         <div className="flex items-center justify-between px-2 pt-1 pb-1">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-xs">
-              //
-            </div>
+            <img src={grokkiIcon} alt="Grokki" className="w-6 h-6 rounded-full shadow-xs flex-shrink-0" />
             <span className="font-bold text-sm tracking-tight text-gray-900 dark:text-gray-100">
-              Grokki Studio
+              Grokki
             </span>
           </div>
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono">

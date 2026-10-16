@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowUp, Mic, Plus, Paperclip, Copy, Check, Volume2, Square, Sparkles, Terminal, FileText, CornerDownLeft, RefreshCw } from 'lucide-react';
+import { ArrowUp, Mic, Plus, Paperclip, Copy, Check, Volume2, Square, Terminal, RefreshCw } from 'lucide-react';
 import { marked } from 'marked';
 import { JarvisConfig } from '../../types/jarvis';
+
+const grokkiIcon = './assets/grokki_icon.svg';
 
 interface ChatMessage {
   id: string;
@@ -19,7 +21,16 @@ interface ChatTabProps {
 }
 
 export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTab }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Persist conversation locally on device
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem('grokki_chat_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [attachedFile, setAttachedFile] = useState<string | null>(null);
@@ -29,6 +40,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Sync to local device storage whenever messages change
+  useEffect(() => {
+    try {
+      localStorage.setItem('grokki_chat_history', JSON.stringify(messages));
+    } catch (e) {}
+  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -88,7 +106,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
         };
         setMessages((prev) => [...prev, assistantMsg]);
       } else {
-        // Fallback simulated response if running outside Electron
         setTimeout(() => {
           const assistantMsg: ChatMessage = {
             id: (Date.now() + 1).toString(),
@@ -98,7 +115,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
           };
           setMessages((prev) => [...prev, assistantMsg]);
           setLoading(false);
-        }, 600);
+        }, 500);
         return;
       }
     } catch (err: any) {
@@ -172,6 +189,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
     setSpeakingId(null);
     setMessages([]);
     setAttachedFile(null);
+    try {
+      localStorage.removeItem('grokki_chat_history');
+    } catch (e) {}
   };
 
   const suggestions = [
@@ -207,17 +227,17 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
       {messages.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center px-4 pt-6 pb-4">
           {/* Grokki Badge */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-3 select-none">
-            <span className="font-mono font-bold text-gray-900 dark:text-white">//</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-[11px] font-semibold text-gray-800 dark:text-gray-200 mb-3 select-none">
+            <img src={grokkiIcon} alt="Grokki" className="w-3.5 h-3.5 rounded-full" />
             <span>Grokki</span>
           </div>
 
-          {/* Heading into something Grokki would say */}
+          {/* Persona Heading */}
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-6 font-sans">
             Ready when you are. What are we executing today?
           </h1>
 
-          {/* Centered Floating Input Pill (Compact & No Red Ball) */}
+          {/* Centered Floating Input Pill (Compact, Clean, Zero Red Ball) */}
           <div className="w-full max-w-xl bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
             {/* Attach Tool Button */}
             <button
@@ -287,7 +307,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
             </button>
           </div>
 
-          {/* Suggestions Grid (Compact) */}
+          {/* Suggestions Grid */}
           <div className="w-full max-w-xl mt-8 text-left">
             <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase block mb-2.5">
               Suggestions
@@ -311,30 +331,30 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
           </div>
         </div>
       ) : (
-        /* Active Conversation Thread */
-        <div className="flex-1 flex flex-col overflow-y-auto px-2 py-4 space-y-6">
+        /* Active Conversation Thread (Clean, Modern Chat Bubbles) */
+        <div className="flex-1 flex flex-col overflow-y-auto px-1 py-3 space-y-5">
           {/* Header Action Bar */}
-          <div className="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-[#1e2029]">
+          <div className="flex items-center justify-between pb-2.5 border-b border-gray-200 dark:border-[#1e2029]">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
                 Conversation
               </span>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029]">
-                {messages.length} messages
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029]">
+                {messages.length} messages • saved locally
               </span>
             </div>
             <button
               type="button"
               onClick={handleResetChat}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white px-2.5 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>New Chat</span>
             </button>
           </div>
 
-          {/* Messages List */}
-          <div className="flex flex-col space-y-5">
+          {/* Messages Flow */}
+          <div className="flex flex-col space-y-4">
             {messages.map((msg) => {
               const isUser = msg.role === 'user';
               return (
@@ -343,52 +363,46 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
                   className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} w-full`}
                 >
                   {isUser ? (
-                    /* User Message */
-                    <div className="max-w-[80%] bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl rounded-tr-sm px-4.5 py-3 shadow-xs">
+                    /* User Message: Clean Modern Rounded Bubble */
+                    <div className="max-w-[75%] bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-sm font-medium leading-relaxed border border-gray-200/60 dark:border-[#1e2029] shadow-xs">
                       {msg.attachedFile && (
-                        <div className="flex items-center gap-1.5 text-xs opacity-80 mb-1 pb-1 border-b border-white/20 dark:border-black/20 font-mono">
+                        <div className="flex items-center gap-1.5 text-xs opacity-75 mb-1 pb-1 border-b border-gray-200 dark:border-gray-700 font-mono">
                           <Paperclip className="w-3.5 h-3.5" />
                           <span className="truncate">{msg.attachedFile.split('\\').pop()}</span>
                         </div>
                       )}
-                      <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap m-0">
+                      <p className="whitespace-pre-wrap m-0 leading-relaxed text-[13.5px]">
                         {msg.content}
                       </p>
-                      <span className="block text-[10px] opacity-60 text-right mt-1 font-mono">
-                        {msg.timestamp}
-                      </span>
                     </div>
                   ) : (
-                    /* Grokki Agent Message */
-                    <div className="flex items-start gap-3.5 max-w-[90%]">
-                      {/* Grokki Brand Avatar */}
-                      <div className="w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-xs flex-shrink-0 mt-0.5">
-                        //
-                      </div>
+                    /* Grokki Assistant Message: Natural Flow, No Clunky Card Borders */
+                    <div className="flex items-start gap-3 max-w-[92%] w-full">
+                      {/* Real Grokki Orb Avatar */}
+                      <img
+                        src={grokkiIcon}
+                        alt="Grokki"
+                        className="w-6 h-6 rounded-full shadow-xs flex-shrink-0 mt-1 select-none"
+                      />
 
-                      {/* Content Card */}
-                      <div className="flex-1 bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-2xl rounded-tl-sm p-4.5 shadow-xs text-gray-900 dark:text-gray-100">
-                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100 dark:border-[#1e2029]">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                              Grokki Agent
-                            </span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029]">
-                              {config.provider.toUpperCase()}
-                            </span>
-                          </div>
-                          <span className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">
+                      {/* Content Area */}
+                      <div className="flex-1 min-w-0 flex flex-col">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                            Grokki
+                          </span>
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
                             {msg.timestamp}
                           </span>
                         </div>
 
                         {/* Executed Tools Actions Pills */}
                         {msg.actionsExecuted && msg.actionsExecuted.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mb-3">
+                          <div className="flex flex-wrap gap-1.5 my-1.5">
                             {msg.actionsExecuted.map((act, i) => (
                               <span
                                 key={i}
-                                className="inline-flex items-center gap-1.5 text-[11px] font-mono font-semibold px-2.5 py-1 rounded-md bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029]"
+                                className="inline-flex items-center gap-1.5 text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1e2029]"
                               >
                                 <Terminal className="w-3 h-3 text-gray-500" />
                                 <span>{act.name}</span>
@@ -399,47 +413,35 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
 
                         {/* Rendered Markdown Body */}
                         <div
-                          className="prose dark:prose-invert text-sm leading-relaxed max-w-none font-sans"
+                          className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 text-sm leading-relaxed font-sans"
                           dangerouslySetInnerHTML={renderMarkdown(msg.content)}
                         />
 
-                        {/* Action Toolbar */}
-                        <div className="flex items-center gap-2 pt-3 mt-3 border-t border-gray-100 dark:border-[#1e2029]">
+                        {/* Pure Icon-Only Actions (No Clumsy Text) */}
+                        <div className="flex items-center gap-1 mt-2">
                           <button
                             type="button"
                             onClick={() => handleCopy(msg.id, msg.content)}
-                            title="Copy to clipboard"
-                            className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none"
+                            title="Copy message"
+                            className="p-1.5 rounded-md text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-colors cursor-pointer border-none bg-transparent"
                           >
                             {copiedId === msg.id ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-gray-900 dark:text-white" />
-                                <span className="text-[11px] font-medium">Copied</span>
-                              </>
+                              <Check className="w-3.5 h-3.5 text-gray-900 dark:text-white" />
                             ) : (
-                              <>
-                                <Copy className="w-3.5 h-3.5" />
-                                <span className="text-[11px] font-medium">Copy</span>
-                              </>
+                              <Copy className="w-3.5 h-3.5" />
                             )}
                           </button>
 
                           <button
                             type="button"
                             onClick={() => handleSpeak(msg.id, msg.content)}
-                            title="Read Aloud with Kokoro Voice"
-                            className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none"
+                            title="Read aloud"
+                            className="p-1.5 rounded-md text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-colors cursor-pointer border-none bg-transparent"
                           >
                             {speakingId === msg.id ? (
-                              <>
-                                <Square className="w-3.5 h-3.5 fill-current text-gray-900 dark:text-white" />
-                                <span className="text-[11px] font-medium">Stop Audio</span>
-                              </>
+                              <Square className="w-3.5 h-3.5 fill-current text-gray-900 dark:text-white" />
                             ) : (
-                              <>
-                                <Volume2 className="w-3.5 h-3.5" />
-                                <span className="text-[11px] font-medium">Listen ({config.ttsVoice || 'Bella'})</span>
-                              </>
+                              <Volume2 className="w-3.5 h-3.5" />
                             )}
                           </button>
                         </div>
@@ -452,14 +454,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
 
             {/* Thinking / Running Indicator */}
             {loading && (
-              <div className="flex items-start gap-3.5 max-w-[90%]">
-                <div className="w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-xs flex-shrink-0 mt-0.5">
-                  //
-                </div>
-                <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-2xl rounded-tl-sm px-4 py-3 shadow-xs flex items-center gap-2.5">
-                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 font-mono">
-                    Grokki is thinking & executing actions...
-                  </span>
+              <div className="flex items-start gap-3 max-w-[92%] w-full">
+                <img
+                  src={grokkiIcon}
+                  alt="Grokki"
+                  className="w-6 h-6 rounded-full shadow-xs flex-shrink-0 mt-1 animate-pulse select-none"
+                />
+                <div className="flex items-center gap-2 py-1 text-xs text-gray-500 dark:text-gray-400 font-mono">
+                  <span>Grokki is executing...</span>
                 </div>
               </div>
             )}
@@ -468,9 +470,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
         </div>
       )}
 
-      {/* Pinned Bottom Input Bar (Compact & No Red Ball) */}
+      {/* Pinned Bottom Input Bar (Compact, Clean, Zero Red Ball) */}
       {messages.length > 0 && (
-        <div className="w-full pt-3 bg-gradient-to-t from-[#f7f7fa] dark:from-[#0c0d12] to-transparent">
+        <div className="w-full pt-2.5 bg-gradient-to-t from-[#f7f7fa] dark:from-[#0c0d12] to-transparent">
           <div className="w-full max-w-xl mx-auto bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
             <button
               type="button"
