@@ -444,7 +444,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5">
             <ChevronDown
-              className={`w-3.5 h-3.5 transition-transform duration-200 ${
+              className={`w-4.5 h-4.5 mr-1 mt-0.5 transition-transform duration-200 ${
                 accountMenuOpen ? 'rotate-180' : ''
               }`}
             />

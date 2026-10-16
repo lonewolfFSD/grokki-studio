@@ -407,7 +407,7 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
 
           {/* Filter Popover Dropdown */}
           {filterMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl shadow-xl z-50 flex flex-col gap-3">
+            <div className="absolute right-0 top-full mt-2 w-80 p-3 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl shadow-xl z-50 flex flex-col gap-3">
               <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-[#1e2029]">
                 <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
                   Voice Filters
@@ -435,7 +435,7 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
                       key={acc}
                       type="button"
                       onClick={() => setAccentFilter(acc)}
-                      className={`py-1 text-xs font-medium rounded-lg cursor-pointer border transition-all ${
+                      className={`py-2 text-xs font-medium rounded-lg cursor-pointer border transition-all ${
                         accentFilter === acc
                           ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent font-semibold shadow-xs'
                           : 'bg-gray-50 dark:bg-[#181a22] text-gray-700 dark:text-gray-300 border-gray-200 dark:border-[#222533] hover:border-gray-400'
@@ -458,7 +458,7 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
                       key={gen}
                       type="button"
                       onClick={() => setGenderFilter(gen)}
-                      className={`py-1 text-xs font-medium rounded-lg cursor-pointer border transition-all ${
+                      className={`py-2 text-xs font-medium rounded-lg cursor-pointer border transition-all ${
                         genderFilter === gen
                           ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent font-semibold shadow-xs'
                           : 'bg-gray-50 dark:bg-[#181a22] text-gray-700 dark:text-gray-300 border-gray-200 dark:border-[#222533] hover:border-gray-400'
@@ -475,7 +475,7 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilterMenuOpen(false)}
-                  className="px-2.5 py-1 rounded-md bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold cursor-pointer border-none"
+                  className="px-6.5 py-2 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold cursor-pointer border-none"
                 >
                   Apply
                 </button>
@@ -607,21 +607,19 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
             type="text"
             value={sandboxText}
             onChange={(e) => setSandboxText(e.target.value)}
-            className="flex-1 h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-gray-900 dark:focus:border-white focus:outline-none transition-all"
+            className="flex-1 h-11 px-3 rounded-lg text-xs bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-gray-900 dark:focus:border-white focus:outline-none transition-all"
           />
           <button
             type="button"
             onClick={() => onPreviewVoice(selectedVoiceId, sandboxText)}
-            className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-semibold bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 transition-all cursor-pointer flex-shrink-0 border-none"
+            className="inline-flex items-center justify-center gap-2 h-9 px-8 rounded-lg text-xs font-bold bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 transition-all cursor-pointer flex-shrink-0 border-none"
           >
             {playingVoice === selectedVoiceId ? (
               <>
-                <Square className="w-3.5 h-3.5 fill-current" />
                 <span>Stop</span>
               </>
             ) : (
               <>
-                <Volume2 className="w-3.5 h-3.5" />
                 <span>Test Voice</span>
               </>
             )}
