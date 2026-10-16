@@ -78,10 +78,15 @@ try {
     disconnectGoogle: () => ipcRenderer.invoke('jarvis:disconnect-google'),
     getGoogleStatus: () => ipcRenderer.invoke('jarvis:get-google-status'),
 
-    // Dashboard Studio Controls
     closeDashboard: () => ipcRenderer.send('dashboard:close'),
     minimizeDashboard: () => ipcRenderer.send('dashboard:minimize'),
     maximizeDashboard: () => ipcRenderer.send('dashboard:maximize'),
+    isDashboardMaximized: () => ipcRenderer.invoke('dashboard:is-maximized'),
+    onMaximizedChange: (callback) => {
+      const handler = (event, isMax) => callback(isMax);
+      ipcRenderer.on('dashboard:maximized-change', handler);
+      return () => ipcRenderer.removeListener('dashboard:maximized-change', handler);
+    },
     testAiKey: (options) => ipcRenderer.invoke('dashboard:test-ai-key', options),
     getSystemInfo: () => ipcRenderer.invoke('dashboard:get-system-info'),
     checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),

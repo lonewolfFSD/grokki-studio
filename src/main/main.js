@@ -374,6 +374,18 @@ function openDashboardWindow(showImmediately = true) {
     }
   });
 
+  dashboardWindow.on('maximize', () => {
+    if (dashboardWindow && !dashboardWindow.isDestroyed() && dashboardWindow.webContents) {
+      dashboardWindow.webContents.send('dashboard:maximized-change', true);
+    }
+  });
+
+  dashboardWindow.on('unmaximize', () => {
+    if (dashboardWindow && !dashboardWindow.isDestroyed() && dashboardWindow.webContents) {
+      dashboardWindow.webContents.send('dashboard:maximized-change', false);
+    }
+  });
+
   dashboardWindow.on('closed', () => {
     dashboardWindow = null;
   });
@@ -872,6 +884,13 @@ ipcMain.on('dashboard:maximize', () => {
       dashboardWindow.maximize();
     }
   }
+});
+
+ipcMain.handle('dashboard:is-maximized', async () => {
+  if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+    return dashboardWindow.isMaximized();
+  }
+  return false;
 });
 
 ipcMain.handle('dashboard:get-system-info', async () => {

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Sun, Moon, Minus, X, RefreshCw, RotateCcw, Check } from 'lucide-react';
+import { Sun, Moon, Minus, X, RefreshCw, RotateCcw, Check, Square } from 'lucide-react';
 
 interface HeaderProps {
   title: string;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   onMinimize: () => void;
+  onMaximize?: () => void;
+  isMaximized?: boolean;
   onClose: () => void;
   onSearchClick?: () => void;
 }
@@ -28,6 +30,8 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   onToggleTheme,
   onMinimize,
+  onMaximize,
+  isMaximized = false,
   onClose,
 }) => {
   const [updateState, setUpdateState] = useState<'idle' | 'checking' | 'ready' | 'up-to-date'>('idle');
@@ -208,6 +212,29 @@ export const Header: React.FC<HeaderProps> = ({
           className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
         >
           <Minus className="w-4 h-4" />
+        </button>
+
+        {/* Maximize / Restore Button */}
+        <button
+          type="button"
+          onClick={onMaximize}
+          title={isMaximized ? 'Restore Down' : 'Maximize Window'}
+          className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
+        >
+          {isMaximized ? (
+            <svg
+              className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <rect x="4.5" y="1.5" width="10" height="10" rx="1" />
+              <path d="M1.5 5.5v8a1 1 0 0 0 1 1h8" strokeLinecap="round" />
+            </svg>
+          ) : (
+            <Square className="w-3.5 h-3.5" />
+          )}
         </button>
 
         {/* Close Button */}

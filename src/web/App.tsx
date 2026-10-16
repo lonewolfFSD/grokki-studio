@@ -47,6 +47,7 @@ export const App: React.FC = () => {
   const [googleConnected, setGoogleConnected] = useState(false);
   const [googleProfile, setGoogleProfile] = useState<GoogleProfile | null>(null);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
 
   const {
     conversations,
@@ -112,6 +113,19 @@ export const App: React.FC = () => {
       });
     }
 
+    if (api.isDashboardMaximized) {
+      api.isDashboardMaximized().then((max) => {
+        setIsMaximized(!!max);
+      });
+    }
+
+    let unsubMax: (() => void) | undefined;
+    if (api.onMaximizedChange) {
+      unsubMax = api.onMaximizedChange((max) => {
+        setIsMaximized(max);
+      });
+    }
+
     if (api.onConfigUpdated) {
       api.onConfigUpdated((updated) => {
         const merged = { ...DEFAULT_CONFIG, ...updated };
@@ -120,6 +134,10 @@ export const App: React.FC = () => {
         setHasUnsaved(false);
       });
     }
+
+    return () => {
+      if (unsubMax) unsubMax();
+    };
   }, []);
 
   const loadGoogleStatus = async () => {
@@ -236,6 +254,12 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleMaximize = () => {
+    if (window.jarvisAPI?.maximizeDashboard) {
+      window.jarvisAPI.maximizeDashboard();
+    }
+  };
+
   // Voice Sample Preview
   const handlePreviewVoice = async (voiceId: string, customText?: string) => {
     if (playingVoice === voiceId) {
@@ -322,6 +346,8 @@ export const App: React.FC = () => {
           theme={theme}
           onToggleTheme={handleToggleTheme}
           onMinimize={handleMinimize}
+          onMaximize={handleMaximize}
+          isMaximized={isMaximized}
           onClose={handleClose}
           onSearchClick={() => setActiveTab('chat')}
         />

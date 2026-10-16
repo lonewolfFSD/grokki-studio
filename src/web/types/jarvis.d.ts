@@ -80,6 +80,8 @@ export interface JarvisAPI {
   closeDashboard: () => void;
   minimizeDashboard: () => void;
   maximizeDashboard?: () => void;
+  isDashboardMaximized?: () => Promise<boolean>;
+  onMaximizedChange?: (callback: (isMaximized: boolean) => void) => () => void;
   testAiKey: (options: { provider: string; key?: string; model?: string; endpoint?: string }) => Promise<{ success: boolean; latencyMs?: number; reply?: string; error?: string }>;
   getSystemInfo: () => Promise<SystemInfo>;
   speakText: (text: string, voice: string) => Promise<{ success: boolean; base64Audio?: string; error?: string }>;
