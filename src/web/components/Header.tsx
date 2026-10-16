@@ -32,30 +32,8 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Center: ElevenLabs Search Bar */}
-      <div
-        onClick={onSearchClick}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100/80 dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] text-gray-400 dark:text-gray-500 w-64 max-w-xs text-xs cursor-pointer hover:border-gray-300 dark:hover:border-gray-700 transition-colors"
-        style={{ WebkitAppRegion: 'no-drag' } as any}
-      >
-        <Search className="w-3.5 h-3.5 text-gray-400" />
-        <span className="flex-1 truncate text-xs text-gray-400">Search everything...</span>
-        <kbd className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-white dark:bg-[#1f212c] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#2d303e]">
-          ⌘ K
-        </kbd>
-      </div>
-
       {/* Right: Actions & Window Controls */}
-      <div className="flex items-center gap-2 flex-1 justify-end" style={{ WebkitAppRegion: 'no-drag' } as any}>
-        {/* Feedback / Docs */}
-        <button
-          type="button"
-          onClick={() => alert('Grokki Studio v2.5 — Local AI Multimodal System')}
-          className="text-xs font-semibold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer bg-transparent border-none"
-        >
-          Docs
-        </button>
-
+      <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as any}>
         {/* Light / Dark Mode Toggle */}
         <button
           type="button"

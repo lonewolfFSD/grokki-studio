@@ -176,9 +176,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
 
   const suggestions = [
     {
-      title: 'Windows System Diagnostics',
-      desc: 'Check storage drives, clean temporary cache, and empty recycle bin.',
-      prompt: 'Check my drive storage status and clear temporary cache files.',
+      title: 'Windows Health & Diagnostics',
+      desc: 'Check CPU load, NVIDIA GPU temp, and system memory.',
+      prompt: 'Check PC battery, CPU, GPU, and memory load.',
+    },
+    {
+      title: 'System Storage & Cleanup',
+      desc: 'Clear temporary cache and check drive free space.',
+      prompt: 'Check drive storage space and clear temporary cache files.',
     },
     {
       title: 'Google Calendar & Agenda',
@@ -186,14 +191,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
       prompt: 'What meetings and events do I have on Google Calendar today?',
     },
     {
-      title: 'Kokoro Voiceover Synthesis',
-      desc: 'Generate clean 24kHz neural speech sample.',
-      prompt: 'Speak this phrase with your active neural voice: "Welcome to Grokki Studio. The multimodal interface is fully active."',
-    },
-    {
-      title: 'Multimodal Desktop Automation',
-      desc: 'Open applications, capture clean screenshots, or control volume.',
-      prompt: 'Take a clean fullscreen screenshot and save it to Desktop.',
+      title: 'Clean Fullscreen Screenshot',
+      desc: 'Capture screen directly to Desktop and Clipboard.',
+      prompt: 'Take a clean fullscreen screenshot and copy to clipboard.',
     },
   ];
 
@@ -202,32 +202,29 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
   };
 
   return (
-    <div className="flex flex-col h-full w-full max-w-4xl mx-auto justify-between relative pb-4">
+    <div className="flex flex-col h-full w-full max-w-3xl mx-auto justify-between relative pb-3">
       {/* Messages / Hero View */}
       {messages.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-4 pt-12 pb-6">
-          {/* ElevenLabs Style Large Hero Title */}
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-8 font-sans">
-            What would you like to create?
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-4 pt-6 pb-4">
+          {/* Grokki Badge */}
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-3 select-none">
+            <span className="font-mono font-bold text-gray-900 dark:text-white">//</span>
+            <span>Grokki</span>
+          </div>
+
+          {/* Heading into something Grokki would say */}
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-6 font-sans">
+            Ready when you are. What are we executing today?
           </h1>
 
-          {/* Centered Floating Input Pill (Hero State) */}
-          <div className="w-full max-w-2xl bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full p-2.5 px-4 shadow-sm hover:shadow-md transition-all flex items-center gap-3">
-            {/* Glowing Radial Gradient Avatar Sphere */}
-            <div
-              className="w-7 h-7 rounded-full shadow-xs flex-shrink-0 cursor-pointer border border-white/30"
-              style={{
-                background: 'radial-gradient(circle at 35% 35%, #ff758c 0%, #ff416c 60%, #990033 100%)',
-              }}
-              title="Grokki Agent Core"
-            />
-
+          {/* Centered Floating Input Pill (Compact & No Red Ball) */}
+          <div className="w-full max-w-xl bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
             {/* Attach Tool Button */}
             <button
               type="button"
               onClick={handleSelectFile}
               title="Attach File or Context"
-              className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-0 flex items-center justify-center"
+              className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-1 flex items-center justify-center"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -239,16 +236,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Create a product ad with voiceover..."
-              className="flex-1 bg-transparent border-none outline-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
+              placeholder="Ask Grokki to automate Windows, summarize, compose..."
+              className="flex-1 bg-transparent border-none outline-none text-xs md:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
               autoFocus
             />
 
             {/* Attached file chip if any */}
             {attachedFile && (
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1e2029] flex items-center gap-1">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1e2029] flex items-center gap-1">
                 <Paperclip className="w-3 h-3" />
-                <span className="truncate max-w-[100px]">{attachedFile.split('\\').pop() || 'file'}</span>
+                <span className="truncate max-w-[80px]">{attachedFile.split('\\').pop() || 'file'}</span>
                 <button
                   type="button"
                   onClick={() => setAttachedFile(null)}
@@ -267,7 +264,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
             {/* Voice Dictate Button */}
             <button
               type="button"
-              onClick={() => handleSendMessage('Hello Grokki!')}
+              onClick={() => handleSendMessage('Check PC battery and memory load.')}
               title="Voice Input"
               className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-1 flex items-center justify-center"
             >
@@ -280,32 +277,32 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
               onClick={() => handleSendMessage()}
               disabled={!inputValue.trim() && !attachedFile}
               title="Send Message"
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
+              className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
                 inputValue.trim() || attachedFile
                   ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
                   : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
               }`}
             >
-              <ArrowUp className="w-4 h-4 stroke-[2.5]" />
+              <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
             </button>
           </div>
 
-          {/* Suggestions Grid (ElevenLabs Style) */}
-          <div className="w-full max-w-2xl mt-12 text-left">
-            <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wider block mb-3">
+          {/* Suggestions Grid (Compact) */}
+          <div className="w-full max-w-xl mt-8 text-left">
+            <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase block mb-2.5">
               Suggestions
             </span>
-            <div className="grid grid-cols-2 gap-3.5 w-full">
+            <div className="grid grid-cols-2 gap-2.5 w-full">
               {suggestions.map((item, idx) => (
                 <div
                   key={idx}
                   onClick={() => handleSendMessage(item.prompt)}
-                  className="p-4 rounded-xl bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] hover:border-gray-400 dark:hover:border-gray-600 cursor-pointer transition-all flex flex-col gap-1 shadow-xs hover:shadow-sm"
+                  className="p-3 rounded-xl bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] hover:border-gray-400 dark:hover:border-gray-600 cursor-pointer transition-all flex flex-col gap-0.5 shadow-xs hover:shadow-sm"
                 >
-                  <strong className="text-xs font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                  <strong className="text-xs font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
                     {item.title}
                   </strong>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 m-0 leading-relaxed">
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0 leading-relaxed">
                     {item.desc}
                   </p>
                 </div>
@@ -364,13 +361,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
                   ) : (
                     /* Grokki Agent Message */
                     <div className="flex items-start gap-3.5 max-w-[90%]">
-                      {/* Avatar */}
-                      <div
-                        className="w-8 h-8 rounded-full shadow-xs flex-shrink-0 border border-white/20 mt-0.5"
-                        style={{
-                          background: 'radial-gradient(circle at 35% 35%, #ff758c 0%, #ff416c 60%, #990033 100%)',
-                        }}
-                      />
+                      {/* Grokki Brand Avatar */}
+                      <div className="w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-xs flex-shrink-0 mt-0.5">
+                        //
+                      </div>
 
                       {/* Content Card */}
                       <div className="flex-1 bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-2xl rounded-tl-sm p-4.5 shadow-xs text-gray-900 dark:text-gray-100">
@@ -459,12 +453,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
             {/* Thinking / Running Indicator */}
             {loading && (
               <div className="flex items-start gap-3.5 max-w-[90%]">
-                <div
-                  className="w-8 h-8 rounded-full shadow-xs flex-shrink-0 border border-white/20 mt-0.5 animate-pulse"
-                  style={{
-                    background: 'radial-gradient(circle at 35% 35%, #ff758c 0%, #ff416c 60%, #990033 100%)',
-                  }}
-                />
+                <div className="w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-xs flex-shrink-0 mt-0.5">
+                  //
+                </div>
                 <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-2xl rounded-tl-sm px-4 py-3 shadow-xs flex items-center gap-2.5">
                   <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 font-mono">
                     Grokki is thinking & executing actions...
@@ -477,22 +468,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
         </div>
       )}
 
-      {/* Pinned Bottom Input Bar (when in conversation mode) */}
+      {/* Pinned Bottom Input Bar (Compact & No Red Ball) */}
       {messages.length > 0 && (
         <div className="w-full pt-3 bg-gradient-to-t from-[#f7f7fa] dark:from-[#0c0d12] to-transparent">
-          <div className="w-full max-w-3xl mx-auto bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full p-2.5 px-4 shadow-sm hover:shadow-md transition-all flex items-center gap-3">
-            <div
-              className="w-7 h-7 rounded-full shadow-xs flex-shrink-0 cursor-pointer border border-white/30"
-              style={{
-                background: 'radial-gradient(circle at 35% 35%, #ff758c 0%, #ff416c 60%, #990033 100%)',
-              }}
-            />
-
+          <div className="w-full max-w-xl mx-auto bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
             <button
               type="button"
               onClick={handleSelectFile}
               title="Attach File or Context"
-              className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-0 flex items-center justify-center"
+              className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-1 flex items-center justify-center"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -503,13 +487,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask Grokki anything or give an action command..."
-              className="flex-1 bg-transparent border-none outline-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
+              className="flex-1 bg-transparent border-none outline-none text-xs md:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
             />
 
             {attachedFile && (
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1e2029] flex items-center gap-1">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1e2029] flex items-center gap-1">
                 <Paperclip className="w-3 h-3" />
-                <span className="truncate max-w-[90px]">{attachedFile.split('\\').pop()}</span>
+                <span className="truncate max-w-[80px]">{attachedFile.split('\\').pop()}</span>
                 <button
                   type="button"
                   onClick={() => setAttachedFile(null)}
@@ -529,13 +513,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
               onClick={() => handleSendMessage()}
               disabled={!inputValue.trim() && !attachedFile}
               title="Send Message"
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
+              className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
                 inputValue.trim() || attachedFile
                   ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
                   : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
               }`}
             >
-              <ArrowUp className="w-4 h-4 stroke-[2.5]" />
+              <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
             </button>
           </div>
         </div>
