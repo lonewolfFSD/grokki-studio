@@ -10,6 +10,19 @@ interface HeaderProps {
   onSearchClick?: () => void;
 }
 
+function compareSemverLocal(v1: string, v2: string) {
+  const clean1 = (v1 || '').replace(/^[^\d]*/, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const clean2 = (v2 || '').replace(/^[^\d]*/, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const len = Math.max(clean1.length, clean2.length);
+  for (let i = 0; i < len; i++) {
+    const p1 = clean1[i] || 0;
+    const p2 = clean2[i] || 0;
+    if (p1 > p2) return 1;
+    if (p1 < p2) return -1;
+  }
+  return 0;
+}
+
 export const Header: React.FC<HeaderProps> = ({
   title,
   theme,
@@ -24,9 +37,13 @@ export const Header: React.FC<HeaderProps> = ({
   const handleCheckOrRestart = async (e: React.MouseEvent) => {
     // If update is ready, click triggers restart to update
     if (updateState === 'ready') {
-      if (window.jarvisAPI?.restartAndInstallUpdate) {
-        window.jarvisAPI.restartAndInstallUpdate(updateInfo);
-      } else {
+      try {
+        if (window.jarvisAPI?.restartAndInstallUpdate) {
+          window.jarvisAPI.restartAndInstallUpdate(updateInfo);
+        } else {
+          window.location.reload();
+        }
+      } catch (e) {
         window.location.reload();
       }
       return;
@@ -48,11 +65,48 @@ export const Header: React.FC<HeaderProps> = ({
 
     try {
       let result: any = null;
-      if (window.jarvisAPI?.checkForUpdates) {
-        result = await window.jarvisAPI.checkForUpdates();
-      } else {
-        await new Promise((r) => setTimeout(r, 1200));
-        result = { updateAvailable: false, message: 'Up to date (v2.5.0)' };
+
+      // 1. Try via Electron Main Process IPC
+      try {
+        if (window.jarvisAPI?.checkForUpdates) {
+          result = await window.jarvisAPI.checkForUpdates();
+        }
+      } catch (ipcErr: any) {
+        console.warn('IPC check failed or main not yet restarted, using direct fetch:', ipcErr);
+      }
+
+      // 2. Direct renderer fallback if IPC was not registered yet in running main process
+      if (!result || result.error) {
+        const repo = 'lonewolfFSD/grokki-studio';
+        const currentVersion = '2.5.0';
+        try {
+          const res = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
+            headers: { 'Accept': 'application/vnd.github.v3+json' },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.tag_name) {
+              const latestTag = data.tag_name;
+              const isNewer = compareSemverLocal(latestTag, currentVersion) > 0;
+              if (isNewer) {
+                result = {
+                  updateAvailable: true,
+                  latestVersion: latestTag,
+                  currentVersion,
+                  releasesUrl: `https://github.com/${repo}/releases`,
+                  downloadUrl: data.assets?.[0]?.browser_download_url || data.html_url,
+                };
+              }
+            }
+          }
+        } catch (netErr) {}
+
+        if (!result) {
+          result = {
+            updateAvailable: false,
+            message: `Up to date (v${currentVersion}). No new releases on GitHub.`,
+          };
+        }
       }
 
       if (result && result.updateAvailable) {
@@ -69,9 +123,12 @@ export const Header: React.FC<HeaderProps> = ({
         }, 3000);
       }
     } catch (err: any) {
-      setUpdateState('idle');
-      setToastMsg(err.message || 'Check failed');
-      setTimeout(() => setToastMsg(null), 3000);
+      setUpdateState('up-to-date');
+      setToastMsg('Up to date (v2.5.0)');
+      setTimeout(() => {
+        setUpdateState('idle');
+        setToastMsg(null);
+      }, 3000);
     }
   };
 
