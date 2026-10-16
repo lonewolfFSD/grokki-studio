@@ -949,12 +949,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const isDarkTheme = config.dashboardTheme === 'dark';
-  // Theme-aware PixelBlast palette:
-  //  - Dark: deep violet base pixels on near-black, glowing lavender accent on hover/ripples.
-  //  - Light: soft lilac base pixels on the light canvas, rich violet accent for contrast.
+  // Theme-aware monochrome PixelBlast palette:
+  //  - Dark: dim white base pixels on near-black, bright white accent on hover/ripples.
+  //  - Light: soft grey base pixels on the light canvas, deep black accent on hover/ripples.
   const blastPalette = isDarkTheme
-    ? { color: '#432b5a', accent: '#B497CF' }
-    : { color: '#d4c2ec', accent: '#7c4dbd' };
+    ? { color: '#5a5a5a', accent: '#ffffff' }
+    : { color: '#bdbdbd', accent: '#0a0a0a' };
 
   return (
     <div className="relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-4">
