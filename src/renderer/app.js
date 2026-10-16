@@ -644,10 +644,91 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // --- Slash Command Palette for Overlay Pill ---
+  const slashPalette = document.getElementById('slashCommandPalette');
+  const slashList = document.getElementById('slashPaletteList');
+  let activeSlashIndex = 0;
+  let currentFilteredCommands = [];
+
+  const OVERLAY_SLASH_COMMANDS = [
+    { name: 'btw', desc: 'Ask a quick question without interrupting the main conversation.', icon: 'fa-solid fa-circle-question', hasArg: true },
+    { name: 'goal', desc: 'Run until the specified goal is completely finished.', icon: 'fa-solid fa-bullseye', hasArg: true },
+    { name: 'compact', desc: 'Compact the conversation now (summarize history to free up the context window).', icon: 'fa-solid fa-compress', hasArg: false },
+    { name: 'schedule', desc: 'Run an instruction on a recurring schedule or as a one-time timer.', icon: 'fa-solid fa-clock', hasArg: true },
+    { name: 'browser', desc: 'Invoke a browser agent for web tasks.', icon: 'fa-solid fa-globe', hasArg: true },
+    { name: 'plan', desc: 'Plan carefully before executing a task.', icon: 'fa-solid fa-list-check', hasArg: true },
+    { name: 'grill-me', desc: 'Interview me to align on a plan.', icon: 'fa-solid fa-comments', hasArg: true },
+    { name: 'teamwork-preview', desc: 'Invoke a team of agents to autonomously tackle large projects.', icon: 'fa-solid fa-users', hasArg: true },
+    { name: 'status', desc: 'Check live PC health, CPU load, RTX GPU temp, and memory usage.', icon: 'fa-solid fa-chart-line', hasArg: false },
+    { name: 'clean', desc: 'Clear temporary junk cache files and purge recycle bin.', icon: 'fa-solid fa-broom', hasArg: false },
+    { name: 'screenshot', desc: 'Capture a clean fullscreen screenshot to Desktop and clipboard.', icon: 'fa-solid fa-camera', hasArg: false },
+    { name: 'lock', desc: 'Immediately lock Windows workstation.', icon: 'fa-solid fa-lock', hasArg: false },
+    { name: 'notes', desc: 'Generate study notes or meeting summary document to Desktop.', icon: 'fa-solid fa-file-lines', hasArg: true }
+  ];
+
+  function renderSlashPalette(commands) {
+    currentFilteredCommands = commands;
+    if (!slashList) return;
+    slashList.innerHTML = '';
+    if (commands.length === 0) {
+      if (slashPalette) slashPalette.style.display = 'none';
+      return;
+    }
+    if (slashPalette) slashPalette.style.display = 'flex';
+    commands.forEach((cmd, idx) => {
+      const item = document.createElement('div');
+      item.className = `slash-palette-item ${idx === activeSlashIndex ? 'active' : ''}`;
+      item.innerHTML = `
+        <div class="slash-icon"><i class="${cmd.icon}"></i></div>
+        <span class="slash-title">/${cmd.name}</span>
+        <span class="slash-desc">${cmd.desc}</span>
+      `;
+      item.addEventListener('click', () => {
+        selectSlashCommand(cmd);
+      });
+      slashList.appendChild(item);
+    });
+    const activeEl = slashList.children[activeSlashIndex];
+    if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
+  }
+
+  function hideSlashPalette() {
+    if (slashPalette) slashPalette.style.display = 'none';
+    activeSlashIndex = 0;
+    currentFilteredCommands = [];
+  }
+
+  function selectSlashCommand(cmd) {
+    if (cmd.hasArg) {
+      mainInput.value = `/${cmd.name} `;
+      mainInput.focus();
+      hideSlashPalette();
+      updateSendButtonState();
+    } else {
+      hideSlashPalette();
+      handleUserPrompt(`/${cmd.name}`);
+    }
+  }
+
+  function handleSlashInputChange() {
+    const val = mainInput.value;
+    if (val.startsWith('/') && !val.includes(' ')) {
+      const q = val.slice(1).toLowerCase();
+      const filtered = OVERLAY_SLASH_COMMANDS.filter(cmd =>
+        cmd.name.toLowerCase().includes(q) || cmd.desc.toLowerCase().includes(q)
+      );
+      if (activeSlashIndex >= filtered.length) activeSlashIndex = 0;
+      renderSlashPalette(filtered);
+    } else {
+      hideSlashPalette();
+    }
+  }
+
   // 7. Typing Reactions (Grokki looks down at keystrokes)
   mainInput.addEventListener('input', () => {
     grokbot.onUserTyping();
     updateSendButtonState();
+    handleSlashInputChange();
   });
 
   function updateSendButtonState() {
@@ -659,13 +740,41 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   mainInput.addEventListener('keydown', (e) => {
+    if (slashPalette && slashPalette.style.display !== 'none' && currentFilteredCommands.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeSlashIndex = (activeSlashIndex + 1) % currentFilteredCommands.length;
+        renderSlashPalette(currentFilteredCommands);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeSlashIndex = (activeSlashIndex - 1 + currentFilteredCommands.length) % currentFilteredCommands.length;
+        renderSlashPalette(currentFilteredCommands);
+        return;
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault();
+        const selected = currentFilteredCommands[activeSlashIndex] || currentFilteredCommands[0];
+        if (selected) selectSlashCommand(selected);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        hideSlashPalette();
+        return;
+      }
+    }
+
     if (e.key === 'Enter') {
       e.preventDefault();
+      hideSlashPalette();
       handleUserPrompt(mainInput.value);
     }
   });
 
   sendBtn.addEventListener('click', () => {
+    hideSlashPalette();
     handleUserPrompt(mainInput.value);
   });
 

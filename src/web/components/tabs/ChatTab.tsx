@@ -15,6 +15,18 @@ import {
   FileCode,
   Image as ImageIcon,
   File,
+  HelpCircle,
+  Target,
+  Minimize2,
+  Clock,
+  Globe,
+  ListOrdered,
+  MessageSquareText,
+  Users,
+  Activity,
+  Trash2,
+  Camera,
+  Lock,
 } from 'lucide-react';
 import { marked } from 'marked';
 import { JarvisConfig, Conversation, ChatMessage, AttachedFileInfo } from '../../types/jarvis';
@@ -29,6 +41,94 @@ interface ChatTabProps {
   onUpdateMessages: (updater: (prevMessages: ChatMessage[]) => ChatMessage[]) => void;
   onNewChat: () => void;
 }
+
+interface SlashCommand {
+  name: string;
+  desc: string;
+  icon: React.ComponentType<{ className?: string }>;
+  hasArg: boolean;
+}
+
+const STUDIO_SLASH_COMMANDS: SlashCommand[] = [
+  {
+    name: 'btw',
+    desc: 'Ask a quick question without interrupting the main conversation.',
+    icon: HelpCircle,
+    hasArg: true,
+  },
+  {
+    name: 'goal',
+    desc: 'Run until the specified goal is completely finished.',
+    icon: Target,
+    hasArg: true,
+  },
+  {
+    name: 'compact',
+    desc: 'Compact the conversation now (summarize history to free up the context window).',
+    icon: Minimize2,
+    hasArg: false,
+  },
+  {
+    name: 'schedule',
+    desc: 'Run an instruction on a recurring schedule or as a one-time timer.',
+    icon: Clock,
+    hasArg: true,
+  },
+  {
+    name: 'browser',
+    desc: 'Invoke a browser agent for web tasks.',
+    icon: Globe,
+    hasArg: true,
+  },
+  {
+    name: 'plan',
+    desc: 'Plan carefully before executing a task.',
+    icon: ListOrdered,
+    hasArg: true,
+  },
+  {
+    name: 'grill-me',
+    desc: 'Interview me to align on a plan.',
+    icon: MessageSquareText,
+    hasArg: true,
+  },
+  {
+    name: 'teamwork-preview',
+    desc: 'Invoke a team of agents to autonomously tackle large projects.',
+    icon: Users,
+    hasArg: true,
+  },
+  {
+    name: 'status',
+    desc: 'Check live PC health, CPU load, RTX GPU temp, and memory usage.',
+    icon: Activity,
+    hasArg: false,
+  },
+  {
+    name: 'clean',
+    desc: 'Clear temporary junk cache files and purge recycle bin.',
+    icon: Trash2,
+    hasArg: false,
+  },
+  {
+    name: 'screenshot',
+    desc: 'Capture a clean fullscreen screenshot to Desktop and clipboard.',
+    icon: Camera,
+    hasArg: false,
+  },
+  {
+    name: 'lock',
+    desc: 'Immediately lock Windows workstation.',
+    icon: Lock,
+    hasArg: false,
+  },
+  {
+    name: 'notes',
+    desc: 'Generate study notes or meeting summary document to Desktop.',
+    icon: FileText,
+    hasArg: true,
+  },
+];
 
 function formatFileSize(bytes?: number): string {
   if (!bytes || bytes === 0) return '';
@@ -65,6 +165,31 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const [attachedFile, setAttachedFile] = useState<AttachedFileInfo | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
+
+  // Slash Commands state
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [slashDismissed, setSlashDismissed] = useState(false);
+
+  const isSlashMode = inputValue.startsWith('/') && !inputValue.includes(' ') && !slashDismissed;
+  const slashQuery = isSlashMode ? inputValue.slice(1).toLowerCase().trim() : '';
+  const filteredSlashCommands = isSlashMode
+    ? STUDIO_SLASH_COMMANDS.filter(
+        (c) => c.name.toLowerCase().includes(slashQuery) || c.desc.toLowerCase().includes(slashQuery)
+      )
+    : [];
+
+  useEffect(() => {
+    if (!inputValue.startsWith('/')) {
+      setSlashDismissed(false);
+      setSlashIndex(0);
+    }
+  }, [inputValue]);
+
+  useEffect(() => {
+    if (slashIndex >= filteredSlashCommands.length) {
+      setSlashIndex(0);
+    }
+  }, [filteredSlashCommands.length]);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -104,11 +229,22 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
   };
 
+  const handleSelectSlashCommand = (cmd: SlashCommand) => {
+    if (cmd.hasArg) {
+      setInputValue(`/${cmd.name} `);
+      setSlashDismissed(true);
+      setTimeout(() => inputRef.current?.focus(), 40);
+    } else {
+      setInputValue('');
+      setSlashDismissed(true);
+      handleSendMessage(`/${cmd.name}`);
+    }
+  };
+
   const handleSendMessage = async (textToSend?: string) => {
     let text = (textToSend || inputValue).trim();
     if (!text && !attachedFile) return;
 
-    // If user sent a file without typing text, provide a natural prompt
     if (!text && attachedFile) {
       text = `Analyze and summarize this file: ${attachedFile.name}`;
     }
@@ -125,6 +261,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     onUpdateMessages((prev) => [...prev, userMsg]);
     setInputValue('');
     setAttachedFile(null);
+    setSlashDismissed(false);
     setLoading(true);
 
     try {
@@ -172,6 +309,32 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isSlashMode && filteredSlashCommands.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSlashIndex((prev) => (prev + 1) % filteredSlashCommands.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSlashIndex((prev) => (prev - 1 + filteredSlashCommands.length) % filteredSlashCommands.length);
+        return;
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault();
+        const selected = filteredSlashCommands[slashIndex] || filteredSlashCommands[0];
+        if (selected) {
+          handleSelectSlashCommand(selected);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSlashDismissed(true);
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -225,12 +388,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     {
       title: 'Windows Health & Diagnostics',
       desc: 'Check CPU load, NVIDIA GPU temp, and system memory.',
-      prompt: 'Check PC battery, CPU, GPU, and memory load.',
+      prompt: '/status',
     },
     {
       title: 'System Storage & Cleanup',
       desc: 'Clear temporary cache and check drive free space.',
-      prompt: 'Check drive storage space and clear temporary cache files.',
+      prompt: '/clean',
     },
     {
       title: 'Google Calendar & Agenda',
@@ -240,12 +403,63 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     {
       title: 'Clean Fullscreen Screenshot',
       desc: 'Capture screen directly to Desktop and Clipboard.',
-      prompt: 'Take a clean fullscreen screenshot and copy to clipboard.',
+      prompt: '/screenshot',
     },
   ];
 
   const renderMarkdown = (content: string) => {
     return { __html: marked.parse(content) as string };
+  };
+
+  const renderSlashMenu = () => {
+    if (!isSlashMode || filteredSlashCommands.length === 0) return null;
+
+    return (
+      <div className="absolute bottom-full left-0 right-0 mb-2 p-1.5 bg-white/95 dark:bg-[#12131a]/95 backdrop-blur-xl border border-gray-200 dark:border-[#202330] rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto flex flex-col gap-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
+        <div className="flex items-center justify-between px-2.5 py-1.5 text-[10.5px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-[#1e2029]">
+          <span>Direct Actions & Slash Commands</span>
+          <span className="font-mono text-[9px] lowercase bg-gray-100 dark:bg-[#1a1c24] px-1.5 py-0.5 rounded text-gray-500">
+            ↑↓ navigate • enter select
+          </span>
+        </div>
+        <div className="flex flex-col gap-0.5 pt-1">
+          {filteredSlashCommands.map((cmd, idx) => {
+            const Icon = cmd.icon;
+            const isSelected = idx === slashIndex;
+            return (
+              <div
+                key={cmd.name}
+                onClick={() => handleSelectSlashCommand(cmd)}
+                onMouseEnter={() => setSlashIndex(idx)}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-left cursor-pointer transition-all ${
+                  isSelected
+                    ? 'bg-gray-100 dark:bg-[#1f212d] text-gray-900 dark:text-white shadow-xs'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#161822]'
+                }`}
+              >
+                <div
+                  className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    isSelected
+                      ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                      : 'bg-gray-100 dark:bg-[#1a1c24] text-gray-500'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex items-baseline gap-2 min-w-0 flex-1">
+                  <span className="font-mono font-bold text-xs text-gray-900 dark:text-white flex-shrink-0">
+                    /{cmd.name}
+                  </span>
+                  <span className="text-[11.5px] text-gray-500 dark:text-gray-400 truncate">
+                    {cmd.desc}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -291,65 +505,73 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             </div>
           )}
 
-          {/* Centered Floating Input Pill */}
-          <div className="w-full max-w-xl bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
-            {/* Attach Tool Button */}
-            <button
-              type="button"
-              onClick={handleSelectFile}
-              title="Attach File or Context"
-              className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-1 flex items-center justify-center"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+          {/* Centered Floating Input Pill with Slash Command Palette */}
+          <div className="w-full max-w-xl mx-auto relative">
+            {renderSlashMenu()}
 
-            {/* Input Field */}
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={attachedFile ? `Ask Grokki about ${attachedFile.name}...` : "Ask Grokki to automate Windows, summarize, compose..."}
-              className="flex-1 bg-transparent border-none outline-none text-xs md:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
-              autoFocus
-            />
+            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
+              {/* Attach Tool Button */}
+              <button
+                type="button"
+                onClick={handleSelectFile}
+                title="Attach File or Context"
+                className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-1 flex items-center justify-center"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
 
-            {/* Pill Badge */}
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono select-none">
-              Alpha
-            </span>
+              {/* Input Field */}
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  attachedFile
+                    ? `Ask Grokki about ${attachedFile.name}...`
+                    : "Type / for slash commands, or ask Grokki anything..."
+                }
+                className="flex-1 bg-transparent border-none outline-none text-xs md:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
+                autoFocus
+              />
 
-            {/* Voice Dictate Button */}
-            <button
-              type="button"
-              onClick={() => handleSendMessage('Check PC battery and memory load.')}
-              title="Voice Input"
-              className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-1 flex items-center justify-center"
-            >
-              <Mic className="w-4 h-4" />
-            </button>
+              {/* Pill Badge */}
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono select-none">
+                Alpha
+              </span>
 
-            {/* Send Arrow Button */}
-            <button
-              type="button"
-              onClick={() => handleSendMessage()}
-              disabled={!inputValue.trim() && !attachedFile}
-              title="Send Message"
-              className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
-                inputValue.trim() || attachedFile
-                  ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
-                  : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
-            </button>
+              {/* Voice Dictate Button */}
+              <button
+                type="button"
+                onClick={() => handleSendMessage('/status')}
+                title="Voice Input"
+                className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-1 flex items-center justify-center"
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+
+              {/* Send Arrow Button */}
+              <button
+                type="button"
+                onClick={() => handleSendMessage()}
+                disabled={!inputValue.trim() && !attachedFile}
+                title="Send Message"
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
+                  inputValue.trim() || attachedFile
+                    ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
+                    : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
+              </button>
+            </div>
           </div>
 
           {/* Suggestions Grid */}
           <div className="w-full max-w-xl mt-8 text-left">
             <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase block mb-2.5">
-              Suggestions
+              Suggestions & Commands
             </span>
             <div className="grid grid-cols-2 gap-2.5 w-full">
               {suggestions.map((item, idx) => (
@@ -546,42 +768,52 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             </div>
           )}
 
-          <div className="w-full max-w-xl mx-auto bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleSelectFile}
-              title="Attach File or Context"
-              className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-1 flex items-center justify-center"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+          {/* Floating Slash Command Menu for Bottom Bar */}
+          <div className="w-full max-w-xl mx-auto relative">
+            {renderSlashMenu()}
 
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={attachedFile ? `Ask Grokki about ${attachedFile.name}...` : "Ask Grokki anything or give an action command..."}
-              className="flex-1 bg-transparent border-none outline-none text-xs md:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
-            />
+            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleSelectFile}
+                title="Attach File or Context"
+                className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-1 flex items-center justify-center"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
 
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono select-none">
-              v2.5
-            </span>
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  attachedFile
+                    ? `Ask Grokki about ${attachedFile.name}...`
+                    : "Type / for direct slash commands, or ask anything..."
+                }
+                className="flex-1 bg-transparent border-none outline-none text-xs md:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
+              />
 
-            <button
-              type="button"
-              onClick={() => handleSendMessage()}
-              disabled={!inputValue.trim() && !attachedFile}
-              title="Send Message"
-              className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
-                inputValue.trim() || attachedFile
-                  ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
-                  : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
-            </button>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono select-none">
+                v2.5
+              </span>
+
+              <button
+                type="button"
+                onClick={() => handleSendMessage()}
+                disabled={!inputValue.trim() && !attachedFile}
+                title="Send Message"
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
+                  inputValue.trim() || attachedFile
+                    ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
+                    : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
+              </button>
+            </div>
           </div>
         </div>
       )}

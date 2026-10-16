@@ -74,6 +74,26 @@ async function resolveYouTubeVideoId(query) {
   return null;
 }
 
+function expandSlashDirective(text) {
+  const trimmed = (text || '').trim();
+  if (trimmed.startsWith('/plan ')) {
+    return `[MODE: PLAN]\nFormulate a rigorous, detailed step-by-step architectural execution plan for the following task:\n${trimmed.slice(6)}`;
+  }
+  if (trimmed.startsWith('/goal ')) {
+    return `[MODE: GOAL]\nRun autonomously and execute until the following goal is completely finished:\n${trimmed.slice(6)}`;
+  }
+  if (trimmed.startsWith('/grill-me ')) {
+    return `[MODE: GRILL-ME]\nInterview me interactively by asking 2-4 clarifying questions to align on requirements and resolve design decisions for:\n${trimmed.slice(10)}`;
+  }
+  if (trimmed.startsWith('/btw ')) {
+    return `[MODE: BTW]\nAnswer this quick side question directly, accurately, and concisely without altering the overall task context:\n${trimmed.slice(5)}`;
+  }
+  if (trimmed.startsWith('/teamwork-preview ')) {
+    return `[MODE: TEAMWORK]\nOutline an autonomous multi-agent team division of labour and task roles for:\n${trimmed.slice(18)}`;
+  }
+  return text;
+}
+
 class AgentBrain {
   constructor() {
     this.abortController = null;
@@ -834,7 +854,47 @@ class AgentBrain {
   }
 
   checkFastIntent(prompt) {
-    const p = (prompt || '').trim().toLowerCase();
+    const raw = (prompt || '').trim();
+    const p = raw.toLowerCase();
+
+    // Fast Slash Command Interceptor
+    if (p.startsWith('/')) {
+      const parts = raw.slice(1).trim().split(/\s+/);
+      const cmd = (parts[0] || '').toLowerCase();
+      const rest = parts.slice(1).join(' ').trim();
+
+      if (cmd === 'status' || cmd === 'health') {
+        return { tool: 'pc_health_and_optimizer', args: { action: 'check' } };
+      }
+      if (cmd === 'clean' || cmd === 'cleanup') {
+        return { tool: 'storage_and_cleanup', args: { action: 'clean_temp' } };
+      }
+      if (cmd === 'screenshot' || cmd === 'snip') {
+        return { tool: 'screen_capture_and_recorder', args: { action: 'screenshot' } };
+      }
+      if (cmd === 'lock') {
+        return { tool: 'system_power', args: { action: 'lock' } };
+      }
+      if (cmd === 'sleep') {
+        return { tool: 'system_power', args: { action: 'sleep' } };
+      }
+      if (cmd === 'mute') {
+        return { tool: 'system_volume', args: { action: 'mute' } };
+      }
+      if (cmd === 'unmute') {
+        return { tool: 'system_volume', args: { action: 'unmute' } };
+      }
+      if (cmd === 'notes' && rest) {
+        return { tool: 'create_study_revision_document', args: { topic: rest } };
+      }
+      if (cmd === 'compact') {
+        memory.clear();
+        return { tool: 'compact_memory', args: {} };
+      }
+      if (cmd === 'browser' && rest) {
+        return { tool: 'open_url', args: { url: rest.startsWith('http') ? rest : `https://www.google.com/search?q=${encodeURIComponent(rest)}` } };
+      }
+    }
 
     // If Viva / Oral Exam is active, handle stop/export or route answers directly
     if (studyEngine.vivaState && studyEngine.vivaState.active) {
@@ -1206,6 +1266,8 @@ class AgentBrain {
       fullPrompt = `${fullPrompt}\n[User attached file: "${fileName}" located at "${attachPath}"]${fileSnippet}`.trim();
     }
 
+    fullPrompt = expandSlashDirective(fullPrompt);
+
     memory.addTurn('user', fullPrompt);
 
     const rawHistory = memory.getHistory();
@@ -1390,6 +1452,8 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
       } catch (e) {}
       fullPrompt = `${fullPrompt}\n[User attached file: "${fileName}" located at "${attachPath}"]${fileSnippet}`.trim();
     }
+
+    fullPrompt = expandSlashDirective(fullPrompt);
 
     const ai = new GoogleGenAI({ apiKey });
     const tools = this.getToolsDeclaration();
@@ -1706,6 +1770,10 @@ Rules:
 
   async executeTool(name, args, apiKey) {
     switch (name) {
+      case 'compact_memory': {
+        return { success: true, message: '✨ **Conversation Compacted**: Memory turns and session context have been optimized and refreshed.' };
+      }
+
       case 'computer_click': {
         const res = await runPowerShell(`-action click -x ${Math.round(args.x)} -y ${Math.round(args.y)}`);
         return { success: res.success, message: `Clicked (${Math.round(args.x)}, ${Math.round(args.y)})` };
