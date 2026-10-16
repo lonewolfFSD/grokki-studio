@@ -11,6 +11,9 @@ import {
   MessageSquare,
   Plus,
   Trash2,
+  Pencil,
+  Check,
+  X,
   ChevronDown,
   RefreshCw,
   LogOut,
@@ -31,6 +34,7 @@ interface SidebarProps {
   onSelectConversation?: (id: string) => void;
   onCreateConversation?: () => void;
   onDeleteConversation?: (id: string) => void;
+  onRenameConversation?: (id: string, newTitle: string) => void;
   onSwitchGoogle?: () => Promise<void> | void;
   onDisconnectGoogle?: () => Promise<void> | void;
 }
@@ -46,11 +50,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectConversation,
   onCreateConversation,
   onDeleteConversation,
+  onRenameConversation,
   onSwitchGoogle,
   onDisconnectGoogle,
 }) => {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  const handleStartRename = (e: React.MouseEvent, convo: { id: string; title: string }) => {
+    e.stopPropagation();
+    setEditingId(convo.id);
+    setEditTitle(convo.title || '');
+  };
+
+  const handleSaveRename = (id: string) => {
+    if (editTitle.trim()) {
+      onRenameConversation?.(id, editTitle.trim());
+    }
+    setEditingId(null);
+  };
+
+  const handleCancelRename = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setEditingId(null);
+  };
 
   // Fixed random gradient avatar for this account
   const accountKey = (googleProfile?.email || userName || 'local_user').trim().toLowerCase();
@@ -204,20 +229,76 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           {/* Discord Curved Thread Branch Connector */}
                           <div className="absolute -left-[6px] top-1/2 -translate-y-1/2 w-2 h-2.5 border-b-[1.5px] border-l-[1.5px] border-gray-200 dark:border-[#202330] rounded-bl-md pointer-events-none" />
 
-                          <span className="truncate pr-1 flex-1 select-none font-sans">
-                            {convo.title || 'New Chat'}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteConversation?.(convo.id);
-                            }}
-                            title="Delete conversation"
-                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-[#2a2d3d] transition-opacity cursor-pointer border-none bg-transparent flex-shrink-0"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          {editingId === convo.id ? (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-1 w-full min-w-0"
+                            >
+                              <input
+                                type="text"
+                                autoFocus
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleSaveRename(convo.id);
+                                  } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    handleCancelRename();
+                                  }
+                                }}
+                                className="w-full text-[12px] bg-white dark:bg-[#14161f] border border-blue-500/60 rounded px-1.5 py-0.5 text-gray-900 dark:text-gray-100 outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveRename(convo.id)}
+                                className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-emerald-500 hover:text-emerald-400 cursor-pointer border-none bg-transparent flex-shrink-0"
+                                title="Save title"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelRename}
+                                className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer border-none bg-transparent flex-shrink-0"
+                                title="Cancel"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <span
+                                onDoubleClick={(e) => handleStartRename(e, convo)}
+                                className="truncate pr-1 flex-1 select-none font-sans"
+                                title={`${convo.title || 'New Chat'} (Double-click to rename)`}
+                              >
+                                {convo.title || 'New Chat'}
+                              </span>
+                              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleStartRename(e, convo)}
+                                  title="Rename conversation"
+                                  className="p-0.5 rounded text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDeleteConversation?.(convo.id);
+                                  }}
+                                  title="Delete conversation"
+                                  className="p-0.5 rounded text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       );
                     })}

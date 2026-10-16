@@ -55,6 +55,7 @@ export const App: React.FC = () => {
     selectConversation,
     createConversation,
     deleteConversation,
+    renameConversation,
     updateActiveMessages,
   } = useConversations();
 
@@ -309,6 +310,7 @@ export const App: React.FC = () => {
         onSelectConversation={selectConversation}
         onCreateConversation={createConversation}
         onDeleteConversation={deleteConversation}
+        onRenameConversation={renameConversation}
         onSwitchGoogle={handleSwitchGoogle}
         onDisconnectGoogle={handleDisconnectGoogle}
       />
