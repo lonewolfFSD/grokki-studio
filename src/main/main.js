@@ -34,6 +34,7 @@ const { WakeWordService } = require('./wake_word');
 
 let mainWindow = null;
 let dashboardWindow = null;
+let splashWindow = null;
 let tray = null;
 let isQuitting = false;
 let isVisible = true;
@@ -258,10 +259,65 @@ function toggleWindow() {
   handleGlobalHotkey();
 }
 
-function openDashboardWindow() {
+function createSplashWindow(onFinish) {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.focus();
+    return;
+  }
+
+  const studioIcoPath = path.join(__dirname, '../../assets/grokki_studio_icon.ico');
+  const studioPngPath = path.join(__dirname, '../../assets/grokki_studio_tray.png');
+  const appIconPath = fs.existsSync(studioIcoPath) ? studioIcoPath : (fs.existsSync(studioPngPath) ? studioPngPath : undefined);
+
+  splashWindow = new BrowserWindow({
+    width: 540,
+    height: 360,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    alwaysOnTop: true,
+    center: true,
+    show: false,
+    icon: appIconPath,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  splashWindow.loadFile(path.join(__dirname, '../renderer/splash.html'));
+
+  splashWindow.once('ready-to-show', () => {
+    splashWindow.show();
+  });
+
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.close();
+      splashWindow = null;
+    }
+    if (onFinish) onFinish();
+  };
+
+  ipcMain.once('splash:finished', finish);
+
+  splashWindow.on('closed', () => {
+    splashWindow = null;
+    finish();
+  });
+}
+
+function openDashboardWindow(showImmediately = true) {
   if (dashboardWindow && !dashboardWindow.isDestroyed()) {
-    dashboardWindow.show();
-    dashboardWindow.focus();
+    if (showImmediately) {
+      dashboardWindow.show();
+      dashboardWindow.focus();
+    }
     return;
   }
 
@@ -312,8 +368,10 @@ function openDashboardWindow() {
   }
 
   dashboardWindow.once('ready-to-show', () => {
-    dashboardWindow.show();
-    dashboardWindow.focus();
+    if (showImmediately) {
+      dashboardWindow.show();
+      dashboardWindow.focus();
+    }
   });
 
   dashboardWindow.on('closed', () => {
@@ -1125,10 +1183,18 @@ app.whenReady().then(() => {
   createTray();
   registerShortcuts();
 
-  // If opening Grokki Studio directly (not auto-started on Windows boot), open Grokki Studio
+  // If opening Grokki Studio directly (not auto-started on Windows boot):
   const isAutostart = process.argv.includes('--autostart') || process.argv.includes('--hidden') || process.argv.includes('--background');
   if (!isAutostart) {
-    openDashboardWindow();
+    openDashboardWindow(false);
+    createSplashWindow(() => {
+      if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+        dashboardWindow.show();
+        dashboardWindow.focus();
+      } else {
+        openDashboardWindow(true);
+      }
+    });
   }
 
   // Initialize free background Wake Word listener

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Launching Grokki Studio</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "JetBrains Mono", monospace;
+      -webkit-app-region: drag;
+    }
+
+    .splash-card {
+      position: relative;
+      width: 540px;
+      height: 360px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #000000;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(0, 0, 0, 0.8);
+    }
+
+    .splash-bg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      pointer-events: none;
+    }
+
+    .loading-row {
+      position: absolute;
+      left: 11.3%;
+      top: 84.8%;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      -webkit-app-region: no-drag;
+    }
+
+    .spinner {
+      width: 13px;
+      height: 13px;
+      border: 1.5px solid rgba(255, 255, 255, 0.25);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .status-text {
+      font-size: 11px;
+      color: #d1d5db;
+      font-family: 'JetBrains Mono', Consolas, monospace;
+      font-weight: 500;
+      letter-spacing: -0.1px;
+      white-space: nowrap;
+      animation: fadeIn 0.18s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(1px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="splash-card" id="splashCard">
+    <img src="./grokki_splash.jpg" alt="Grokki" class="splash-bg">
+    <div class="loading-row">
+      <div class="spinner"></div>
+      <span class="status-text" id="statusText">Calibrating multimodal neural engine...</span>
+    </div>
+  </div>
+
+  <script>
+    const STEPS = [
+      'Calibrating multimodal neural engine...',
+      'Initializing Whisper audio synthesizer...',
+      'Mounting local memory architecture...',
+      'Binding Windows OS automation drivers...',
+      'Indexing study workspace & environment...',
+      'Synchronizing local AI models...',
+      'Launching Grokki Studio...',
+    ];
+
+    const statusEl = document.getElementById('statusText');
+    const splashCard = document.getElementById('splashCard');
+    let step = 0;
+    let finished = false;
+
+    function finish() {
+      if (finished) return;
+      finished = true;
+      splashCard.style.transition = 'opacity 0.35s ease-out, transform 0.35s ease-out';
+      splashCard.style.opacity = '0';
+      splashCard.style.transform = 'scale(0.98)';
+      setTimeout(() => {
+        if (window.jarvisAPI && window.jarvisAPI.notifySplashFinished) {
+          window.jarvisAPI.notifySplashFinished();
+        } else {
+          window.close();
+        }
+      }, 350);
+    }
+
+    const timer = setInterval(() => {
+      step++;
+      if (step < STEPS.length) {
+        statusEl.textContent = STEPS[step];
+        // Trigger reflow for clean re-fade
+        statusEl.style.animation = 'none';
+        void statusEl.offsetWidth;
+        statusEl.style.animation = 'fadeIn 0.18s ease-out';
+      } else {
+        clearInterval(timer);
+        setTimeout(finish, 400);
+      }
+    }, 320);
+
+    // Click anywhere to fast-forward
+    document.body.addEventListener('click', () => {
+      clearInterval(timer);
+      finish();
+    });
+  </script>
+</body>
+</html>
