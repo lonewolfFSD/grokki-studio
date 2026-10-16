@@ -1287,7 +1287,6 @@ app.whenReady().then(() => {
   }
 
   // Initialize free background Wake Word listener
-  const config = loadConfig();
   wakeWordService = new WakeWordService({
     apiKey: config.geminiApiKey || process.env.GEMINI_API_KEY,
     wakeWord: config.wakeWord || 'Hey Grokki',
