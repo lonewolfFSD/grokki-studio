@@ -183,7 +183,7 @@ void main() {
   vec2 uv = cellCoord / uResolution * vec2(aspectRatio, 1.0);
 
   float base = fbm2(uv + uDrift, uTime * 0.05);
-  base = base * 0.5 - 0.65;
+  base = base * 0.5 - 0.48;
   float feed = base + (uDensity - 0.5) * 0.3;
   if (uEnableRipples == 1) {
     for (int i = 0; i < ${MAX_CLICKS}; ++i) {
@@ -456,6 +456,7 @@ const compile = (gl: WebGL2RenderingContext, type: number, source: string) => {
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return shader;
+  console.error('[PixelBlast] Shader compile error:', gl.getShaderInfoLog(shader));
   gl.deleteShader(shader);
   return null;
 };
@@ -471,6 +472,7 @@ const link = (gl: WebGL2RenderingContext, fragmentSource: string): Program | nul
   gl.deleteShader(vertex);
   gl.deleteShader(fragment);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    console.error('[PixelBlast] Program link error:', gl.getProgramInfoLog(program));
     gl.deleteProgram(program);
     return null;
   }

@@ -366,7 +366,7 @@ export const App: React.FC = () => {
         />
 
         {/* Tab Panels */}
-        <main className={`flex-1 overflow-y-auto ${activeTab === 'chat' ? 'px-6 py-4 flex flex-col' : 'px-8 py-6'}`}>
+        <main className={`flex-1 min-h-0 overflow-y-auto ${activeTab === 'chat' ? 'h-full flex flex-col relative bg-[#0b0c10] overflow-hidden' : 'px-8 py-6'}`}>
           {activeTab === 'chat' && (
             <ChatTab
               config={config}

@@ -375,7 +375,6 @@ function openDashboardWindow(showImmediately = true) {
     minHeight: 600,
     frame: false,
     transparent: false,
-    fullscreen: launchMode === 'fullscreen',
     alwaysOnTop: !!config.alwaysOnTop,
     backgroundColor: isLight ? '#f7f7fa' : '#0c0d12',
     icon: appIconPath,
@@ -388,10 +387,6 @@ function openDashboardWindow(showImmediately = true) {
       webSecurity: true,
     },
   });
-
-  if (launchMode === 'maximized') {
-    dashboardWindow.maximize();
-  }
 
   const distDashboard = path.join(__dirname, '../../dist/dashboard.html');
   if (process.env.VITE_DEV === 'true') {
@@ -415,6 +410,11 @@ function openDashboardWindow(showImmediately = true) {
 
   dashboardWindow.once('ready-to-show', () => {
     if (showImmediately) {
+      if (launchMode === 'fullscreen') {
+        dashboardWindow.setFullScreen(true);
+      } else if (launchMode === 'maximized') {
+        dashboardWindow.maximize();
+      }
       dashboardWindow.show();
       dashboardWindow.focus();
     }
@@ -1270,14 +1270,10 @@ app.whenReady().then(() => {
   const isAutostart = process.argv.includes('--autostart') || process.argv.includes('--hidden') || process.argv.includes('--background');
   if (!isAutostart) {
     if (config.showSplashScreen !== false) {
-      openDashboardWindow(false);
+      // Show ONLY the startup splash window first.
+      // Grokki Studio dashboard window is strictly created and launched AFTER splash finishes.
       createSplashWindow(() => {
-        if (dashboardWindow && !dashboardWindow.isDestroyed()) {
-          dashboardWindow.show();
-          dashboardWindow.focus();
-        } else {
-          openDashboardWindow(true);
-        }
+        openDashboardWindow(true);
       });
     } else {
       openDashboardWindow(true);

@@ -32,7 +32,7 @@ import { marked } from 'marked';
 import { JarvisConfig, Conversation, ChatMessage, AttachedFileInfo } from '../../types/jarvis';
 import PixelBlast from './PixelBlast';
 
-const grokkiIcon = './assets/grokki_icon.svg';
+import grokkiIcon from '../../assets/grokki_icon.svg';
 
 interface ChatTabProps {
   config: JarvisConfig;
@@ -949,7 +949,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   return (
-    <div className="relative flex flex-col h-full w-full justify-between pb-3">
+    <div className="relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-4">
       {/* Background PixelBlast Effect */}
       <div
         className="absolute inset-0 pointer-events-none overflow-hidden z-0"
@@ -982,11 +982,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           tiltY={0}
           intro
           lightMode={false}
+          transparent={false}
         />
       </div>
 
       {/* Main Content Column */}
-      <div className="flex flex-col h-full w-full max-w-3xl mx-auto justify-between relative z-10">
+      <div className="flex flex-col h-full w-full max-w-3xl mx-auto justify-between relative z-10 min-h-0">
       {/* Messages / Hero View */}
       {messages.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center px-4 pt-6 pb-4">
