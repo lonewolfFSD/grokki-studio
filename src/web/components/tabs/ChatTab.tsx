@@ -1269,33 +1269,40 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
             {/* Thinking / Running Indicator */}
             {loading && (
-              <div className="flex items-center gap-3 py-2 px-1 max-w-[92%] w-full animate-in fade-in duration-200">
+              <div className="flex items-start gap-3 max-w-[92%] w-full animate-in fade-in duration-200">
                 <img
                   src={grokkiIcon}
                   alt="Grokki"
-                  className="w-6 h-6 rounded-full shadow-xs flex-shrink-0 select-none"
+                  className="w-6 h-6 rounded-full shadow-xs flex-shrink-0 mt-0.5 select-none"
                 />
-                <div className="inline-flex items-center">
-                  <LatticeLoader
-                    status="working"
-                    label="Thinking"
-                    doneLabel="Done in"
-                    errorLabel="Failed after"
-                    pattern="orbit"
-                    grid={3}
-                    shape="round"
-                    doneColor="#22c55e"
-                    errorColor="#ef4444"
-                    cellSize={6}
-                    gap={2}
-                    fontSize={14}
-                    step={90}
-                    idleOpacity={0.15}
-                    glow={false}
-                    glowColor=""
-                    showTimer
-                    color={isDarkTheme ? '#f5f5f5' : '#18181b'}
-                  />
+                <div className="flex-1 min-w-0 flex flex-col">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                      Grokki
+                    </span>
+                  </div>
+                  <div className="inline-flex items-center py-0.5">
+                    <LatticeLoader
+                      status="working"
+                      label="Thinking"
+                      doneLabel="Done in"
+                      errorLabel="Failed after"
+                      pattern="orbit"
+                      grid={3}
+                      shape="round"
+                      doneColor="#22c55e"
+                      errorColor="#ef4444"
+                      cellSize={3.5}
+                      gap={1.5}
+                      fontSize={11.5}
+                      step={90}
+                      idleOpacity={0.15}
+                      glow={false}
+                      glowColor=""
+                      showTimer
+                      color={isDarkTheme ? '#e5e7eb' : '#374151'}
+                    />
+                  </div>
                 </div>
               </div>
             )}
