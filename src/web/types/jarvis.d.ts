@@ -45,6 +45,29 @@ export interface SystemInfo {
   hostname: string;
 }
 
+export interface AttachedFileInfo {
+  path: string;
+  name: string;
+  size?: number;
+  ext?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  actionsExecuted?: any[];
+  attachedFile?: AttachedFileInfo | string;
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  updatedAt: number;
+  messages: ChatMessage[];
+}
+
 export interface JarvisAPI {
   getConfig: () => Promise<JarvisConfig>;
   saveConfig: (cfg: Partial<JarvisConfig>) => Promise<JarvisConfig>;
@@ -57,7 +80,7 @@ export interface JarvisAPI {
   getSystemInfo: () => Promise<SystemInfo>;
   speakText: (text: string, voice: string) => Promise<{ success: boolean; base64Audio?: string; error?: string }>;
   executeAI?: (prompt: string, context?: any) => Promise<{ success: boolean; reply?: string; message?: string; actionsExecuted?: any[]; error?: string }>;
-  selectFile?: () => Promise<{ canceled: boolean; filePaths: string[] }>;
+  selectFile?: () => Promise<{ canceled: boolean; path?: string; name?: string; filePaths?: string[]; size?: number; ext?: string }>;
   onConfigUpdated?: (callback: (data: JarvisConfig) => void) => void;
 }
 

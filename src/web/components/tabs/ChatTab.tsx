@@ -1,52 +1,74 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowUp, Mic, Plus, Paperclip, Copy, Check, Volume2, Square, Terminal, RefreshCw } from 'lucide-react';
+import {
+  ArrowUp,
+  Mic,
+  Plus,
+  Paperclip,
+  Copy,
+  Check,
+  Volume2,
+  Square,
+  Terminal,
+  RefreshCw,
+  X,
+  FileText,
+  FileCode,
+  Image as ImageIcon,
+  File,
+} from 'lucide-react';
 import { marked } from 'marked';
-import { JarvisConfig } from '../../types/jarvis';
+import { JarvisConfig, Conversation, ChatMessage, AttachedFileInfo } from '../../types/jarvis';
 
 const grokkiIcon = './assets/grokki_icon.svg';
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string;
-  actionsExecuted?: any[];
-  attachedFile?: string;
-}
 
 interface ChatTabProps {
   config: JarvisConfig;
   userName: string;
   onNavigateTab: (tabId: any) => void;
+  activeConversation: Conversation;
+  onUpdateMessages: (updater: (prevMessages: ChatMessage[]) => ChatMessage[]) => void;
+  onNewChat: () => void;
 }
 
-export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTab }) => {
-  // Persist conversation locally on device
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    try {
-      const saved = localStorage.getItem('grokki_chat_history');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
+function formatFileSize(bytes?: number): string {
+  if (!bytes || bytes === 0) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
 
+function getFileIcon(ext?: string) {
+  const e = (ext || '').toLowerCase();
+  if (['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.bmp'].includes(e)) {
+    return <ImageIcon className="w-4 h-4 text-emerald-500" />;
+  }
+  if (['.js', '.ts', '.tsx', '.jsx', '.py', '.html', '.css', '.json', '.cpp', '.c', '.cs', '.java', '.go', '.rs'].includes(e)) {
+    return <FileCode className="w-4 h-4 text-blue-500" />;
+  }
+  if (['.pdf', '.doc', '.docx', '.txt', '.md', '.rtf', '.csv', '.xlsx'].includes(e)) {
+    return <FileText className="w-4 h-4 text-amber-500" />;
+  }
+  return <File className="w-4 h-4 text-gray-500" />;
+}
+
+export const ChatTab: React.FC<ChatTabProps> = ({
+  config,
+  userName,
+  onNavigateTab,
+  activeConversation,
+  onUpdateMessages,
+  onNewChat,
+}) => {
+  const messages = activeConversation.messages;
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
-  const [attachedFile, setAttachedFile] = useState<string | null>(null);
+  const [attachedFile, setAttachedFile] = useState<AttachedFileInfo | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-
-  // Sync to local device storage whenever messages change
-  useEffect(() => {
-    try {
-      localStorage.setItem('grokki_chat_history', JSON.stringify(messages));
-    } catch (e) {}
-  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -62,8 +84,20 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
     if (!window.jarvisAPI?.selectFile) return;
     try {
       const res = await window.jarvisAPI.selectFile();
-      if (!res.canceled && res.filePaths && res.filePaths.length > 0) {
-        setAttachedFile(res.filePaths[0]);
+      if (!res.canceled && res.path) {
+        setAttachedFile({
+          path: res.path,
+          name: res.name || res.path.split('\\').pop() || 'file',
+          size: res.size,
+          ext: res.ext || (res.path.includes('.') ? '.' + res.path.split('.').pop()?.toLowerCase() : ''),
+        });
+      } else if (!res.canceled && res.filePaths && res.filePaths.length > 0) {
+        const p = res.filePaths[0];
+        setAttachedFile({
+          path: p,
+          name: p.split('\\').pop() || 'file',
+          ext: p.includes('.') ? '.' + p.split('.').pop()?.toLowerCase() : '',
+        });
       }
     } catch (err) {
       console.error('File select error:', err);
@@ -71,20 +105,25 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
   };
 
   const handleSendMessage = async (textToSend?: string) => {
-    const text = (textToSend || inputValue).trim();
+    let text = (textToSend || inputValue).trim();
     if (!text && !attachedFile) return;
 
+    // If user sent a file without typing text, provide a natural prompt
+    if (!text && attachedFile) {
+      text = `Analyze and summarize this file: ${attachedFile.name}`;
+    }
+
+    const currentAttachment = attachedFile;
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: text,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      attachedFile: attachedFile || undefined,
+      attachedFile: currentAttachment || undefined,
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    onUpdateMessages((prev) => [...prev, userMsg]);
     setInputValue('');
-    const currentAttachment = attachedFile;
     setAttachedFile(null);
     setLoading(true);
 
@@ -92,11 +131,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
       if (window.jarvisAPI?.executeAI) {
         const context: any = {};
         if (currentAttachment) {
-          context.filePath = currentAttachment;
+          context.filePath = currentAttachment.path;
+          context.attachedFile = currentAttachment;
         }
         const res = await window.jarvisAPI.executeAI(text, context);
         const replyContent = res.reply || res.message || 'Action executed successfully.';
-        
+
         const assistantMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -104,16 +144,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           actionsExecuted: res.actionsExecuted,
         };
-        setMessages((prev) => [...prev, assistantMsg]);
+        onUpdateMessages((prev) => [...prev, assistantMsg]);
       } else {
         setTimeout(() => {
           const assistantMsg: ChatMessage = {
             id: (Date.now() + 1).toString(),
             role: 'assistant',
-            content: `I received your command: **"${text}"**.\n\nGrokki Studio is connected and ready to automate Windows, manage your workspace, and synthesize voices.`,
+            content: `I received your command: **"${text}"**${currentAttachment ? ` with attachment \`${currentAttachment.name}\`` : ''}.\n\nGrokki Studio is connected and ready to automate Windows, manage your workspace, and synthesize voices.`,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           };
-          setMessages((prev) => [...prev, assistantMsg]);
+          onUpdateMessages((prev) => [...prev, assistantMsg]);
           setLoading(false);
         }, 500);
         return;
@@ -125,7 +165,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
         content: `⚠️ **Execution Error**: ${err.message || 'Failed to communicate with Agent Brain.'}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
-      setMessages((prev) => [...prev, errorMsg]);
+      onUpdateMessages((prev) => [...prev, errorMsg]);
     } finally {
       setLoading(false);
     }
@@ -181,19 +221,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
     }
   };
 
-  const handleResetChat = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    setSpeakingId(null);
-    setMessages([]);
-    setAttachedFile(null);
-    try {
-      localStorage.removeItem('grokki_chat_history');
-    } catch (e) {}
-  };
-
   const suggestions = [
     {
       title: 'Windows Health & Diagnostics',
@@ -207,7 +234,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
     },
     {
       title: 'Google Calendar & Agenda',
-      desc: 'Retrieve today\'s schedule and pending deadlines.',
+      desc: "Retrieve today's schedule and pending deadlines.",
       prompt: 'What meetings and events do I have on Google Calendar today?',
     },
     {
@@ -237,7 +264,34 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
             Ready when you are. What are we executing today?
           </h1>
 
-          {/* Centered Floating Input Pill (Compact, Clean, Zero Red Ball) */}
+          {/* Staged File Preview Card */}
+          {attachedFile && (
+            <div className="w-full max-w-xl mx-auto mb-3 p-2.5 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl shadow-sm flex items-center justify-between text-left transition-all">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] flex items-center justify-center flex-shrink-0 border border-gray-200/60 dark:border-[#252836]">
+                  {getFileIcon(attachedFile.ext)}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                    {attachedFile.name}
+                  </div>
+                  <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+                    {formatFileSize(attachedFile.size) ? `${formatFileSize(attachedFile.size)} • ` : ''}Ready to share with Grokki
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAttachedFile(null)}
+                title="Remove attachment"
+                className="w-6 h-6 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-[#1e2029] transition-colors cursor-pointer border-none bg-transparent"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Centered Floating Input Pill */}
           <div className="w-full max-w-xl bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
             {/* Attach Tool Button */}
             <button
@@ -256,25 +310,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask Grokki to automate Windows, summarize, compose..."
+              placeholder={attachedFile ? `Ask Grokki about ${attachedFile.name}...` : "Ask Grokki to automate Windows, summarize, compose..."}
               className="flex-1 bg-transparent border-none outline-none text-xs md:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
               autoFocus
             />
-
-            {/* Attached file chip if any */}
-            {attachedFile && (
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1e2029] flex items-center gap-1">
-                <Paperclip className="w-3 h-3" />
-                <span className="truncate max-w-[80px]">{attachedFile.split('\\').pop() || 'file'}</span>
-                <button
-                  type="button"
-                  onClick={() => setAttachedFile(null)}
-                  className="hover:text-red-500 cursor-pointer ml-0.5"
-                >
-                  ×
-                </button>
-              </span>
-            )}
 
             {/* Pill Badge */}
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono select-none">
@@ -336,8 +375,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
           {/* Header Action Bar */}
           <div className="flex items-center justify-between pb-2.5 border-b border-gray-200 dark:border-[#1e2029]">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                Conversation
+              <span className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate max-w-xs">
+                {activeConversation.title || 'Conversation'}
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029]">
                 {messages.length} messages • saved locally
@@ -345,8 +384,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
             </div>
             <button
               type="button"
-              onClick={handleResetChat}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none"
+              onClick={onNewChat}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white px-2.5 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>New Chat</span>
@@ -366,9 +405,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
                     /* User Message: Clean Modern Rounded Bubble */
                     <div className="max-w-[75%] bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-sm font-medium leading-relaxed border border-gray-200/60 dark:border-[#1e2029] shadow-xs">
                       {msg.attachedFile && (
-                        <div className="flex items-center gap-1.5 text-xs opacity-75 mb-1 pb-1 border-b border-gray-200 dark:border-gray-700 font-mono">
-                          <Paperclip className="w-3.5 h-3.5" />
-                          <span className="truncate">{msg.attachedFile.split('\\').pop()}</span>
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/70 dark:bg-[#13141a]/70 border border-gray-200 dark:border-gray-700/60 mb-2 text-xs font-mono">
+                          {getFileIcon(typeof msg.attachedFile === 'string' ? msg.attachedFile : msg.attachedFile.ext)}
+                          <span className="truncate max-w-[200px] font-semibold text-gray-800 dark:text-gray-200">
+                            {typeof msg.attachedFile === 'string' ? msg.attachedFile.split('\\').pop() : msg.attachedFile.name}
+                          </span>
+                          {typeof msg.attachedFile !== 'string' && msg.attachedFile.size ? (
+                            <span className="text-[10px] text-gray-400">
+                              ({formatFileSize(msg.attachedFile.size)})
+                            </span>
+                          ) : null}
                         </div>
                       )}
                       <p className="whitespace-pre-wrap m-0 leading-relaxed text-[13.5px]">
@@ -376,7 +422,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
                       </p>
                     </div>
                   ) : (
-                    /* Grokki Assistant Message: Natural Flow, No Clunky Card Borders */
+                    /* Grokki Assistant Message: Natural Flow */
                     <div className="flex items-start gap-3 max-w-[92%] w-full">
                       {/* Real Grokki Orb Avatar */}
                       <img
@@ -417,7 +463,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
                           dangerouslySetInnerHTML={renderMarkdown(msg.content)}
                         />
 
-                        {/* Pure Icon-Only Actions (No Clumsy Text) */}
+                        {/* Pure Icon-Only Actions */}
                         <div className="flex items-center gap-1 mt-2">
                           <button
                             type="button"
@@ -470,9 +516,36 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
         </div>
       )}
 
-      {/* Pinned Bottom Input Bar (Compact, Clean, Zero Red Ball) */}
+      {/* Pinned Bottom Input Bar */}
       {messages.length > 0 && (
         <div className="w-full pt-2.5 bg-gradient-to-t from-[#f7f7fa] dark:from-[#0c0d12] to-transparent">
+          {/* Staged File Preview Card */}
+          {attachedFile && (
+            <div className="w-full max-w-xl mx-auto mb-2 p-2.5 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl shadow-sm flex items-center justify-between text-left transition-all">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] flex items-center justify-center flex-shrink-0 border border-gray-200/60 dark:border-[#252836]">
+                  {getFileIcon(attachedFile.ext)}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                    {attachedFile.name}
+                  </div>
+                  <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+                    {formatFileSize(attachedFile.size) ? `${formatFileSize(attachedFile.size)} • ` : ''}Ready to share with Grokki
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAttachedFile(null)}
+                title="Remove attachment"
+                className="w-6 h-6 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-[#1e2029] transition-colors cursor-pointer border-none bg-transparent"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           <div className="w-full max-w-xl mx-auto bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
             <button
               type="button"
@@ -488,23 +561,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({ config, userName, onNavigateTa
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask Grokki anything or give an action command..."
+              placeholder={attachedFile ? `Ask Grokki about ${attachedFile.name}...` : "Ask Grokki anything or give an action command..."}
               className="flex-1 bg-transparent border-none outline-none text-xs md:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
             />
-
-            {attachedFile && (
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1e2029] flex items-center gap-1">
-                <Paperclip className="w-3 h-3" />
-                <span className="truncate max-w-[80px]">{attachedFile.split('\\').pop()}</span>
-                <button
-                  type="button"
-                  onClick={() => setAttachedFile(null)}
-                  className="hover:text-red-500 cursor-pointer ml-0.5"
-                >
-                  ×
-                </button>
-              </span>
-            )}
 
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono select-none">
               v2.5

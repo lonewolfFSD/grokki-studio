@@ -11,6 +11,7 @@ import { GoogleWorkspaceTab } from './components/tabs/GoogleWorkspaceTab';
 import { AppearanceTab } from './components/tabs/AppearanceTab';
 import { AboutTab } from './components/tabs/AboutTab';
 import { JarvisConfig, GoogleProfile, SystemInfo } from './types/jarvis';
+import { useConversations } from './hooks/useConversations';
 
 const DEFAULT_CONFIG: JarvisConfig = {
   provider: 'gemini',
@@ -44,6 +45,16 @@ export const App: React.FC = () => {
   const [googleConnected, setGoogleConnected] = useState(false);
   const [googleProfile, setGoogleProfile] = useState<GoogleProfile | null>(null);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+
+  const {
+    conversations,
+    activeConversation,
+    activeConversationId,
+    selectConversation,
+    createConversation,
+    deleteConversation,
+    updateActiveMessages,
+  } = useConversations();
 
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -266,6 +277,11 @@ export const App: React.FC = () => {
         userName={displayName}
         googleProfile={googleProfile}
         hotkey={config.hotkey || 'Alt+Q'}
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        onSelectConversation={selectConversation}
+        onCreateConversation={createConversation}
+        onDeleteConversation={deleteConversation}
       />
 
       {/* Main Content Column */}
@@ -286,6 +302,9 @@ export const App: React.FC = () => {
               config={config}
               userName={displayName}
               onNavigateTab={setActiveTab}
+              activeConversation={activeConversation}
+              onUpdateMessages={updateActiveMessages}
+              onNewChat={createConversation}
             />
           )}
 

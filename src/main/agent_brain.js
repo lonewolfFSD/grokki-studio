@@ -1191,9 +1191,19 @@ class AgentBrain {
     this.activeConfig = config;
     this.activeContext = context;
 
-    let fullPrompt = prompt;
-    if (context && context.attachedFile && context.attachedFile.path) {
-      fullPrompt += `\n[User attached file: "${context.attachedFile.name}" located at "${context.attachedFile.path}"]`;
+    let fullPrompt = prompt || '';
+    const attachPath = (context && context.filePath) || (context && context.attachedFile && (context.attachedFile.path || context.attachedFile)) || null;
+    if (attachPath && typeof attachPath === 'string') {
+      const fileName = (context && context.attachedFile && context.attachedFile.name) || path.basename(attachPath);
+      let fileSnippet = '';
+      try {
+        const ext = path.extname(attachPath).toLowerCase();
+        if (['.txt', '.md', '.json', '.js', '.ts', '.tsx', '.py', '.html', '.css', '.c', '.cpp', '.java', '.csv', '.log'].includes(ext)) {
+          const content = fs.readFileSync(attachPath, 'utf8');
+          fileSnippet = `\n[File Content of ${fileName} (${content.length} chars)]:\n\`\`\`\n${content.slice(0, 3000)}\n\`\`\``;
+        }
+      } catch (e) {}
+      fullPrompt = `${fullPrompt}\n[User attached file: "${fileName}" located at "${attachPath}"]${fileSnippet}`.trim();
     }
 
     memory.addTurn('user', fullPrompt);
@@ -1366,9 +1376,19 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
     const { signal } = this.abortController;
 
     // If an attached file is present in context, append to prompt for awareness
-    let fullPrompt = prompt;
-    if (context && context.attachedFile && context.attachedFile.path) {
-      fullPrompt += `\n[User attached file: "${context.attachedFile.name}" located at "${context.attachedFile.path}"]`;
+    let fullPrompt = prompt || '';
+    const attachPath = (context && context.filePath) || (context && context.attachedFile && (context.attachedFile.path || context.attachedFile)) || null;
+    if (attachPath && typeof attachPath === 'string') {
+      const fileName = (context && context.attachedFile && context.attachedFile.name) || path.basename(attachPath);
+      let fileSnippet = '';
+      try {
+        const ext = path.extname(attachPath).toLowerCase();
+        if (['.txt', '.md', '.json', '.js', '.ts', '.tsx', '.py', '.html', '.css', '.c', '.cpp', '.java', '.csv', '.log'].includes(ext)) {
+          const content = fs.readFileSync(attachPath, 'utf8');
+          fileSnippet = `\n[File Content of ${fileName} (${content.length} chars)]:\n\`\`\`\n${content.slice(0, 3000)}\n\`\`\``;
+        }
+      } catch (e) {}
+      fullPrompt = `${fullPrompt}\n[User attached file: "${fileName}" located at "${attachPath}"]${fileSnippet}`.trim();
     }
 
     const ai = new GoogleGenAI({ apiKey });

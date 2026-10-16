@@ -661,17 +661,29 @@ ipcMain.handle('jarvis:execute-ai', async (event, prompt, context = {}) => {
 ipcMain.handle('jarvis:select-file', async () => {
   const { dialog } = require('electron');
   try {
-    const result = await dialog.showOpenDialog(mainWindow, {
+    const parentWin = (dashboardWindow && !dashboardWindow.isDestroyed() && dashboardWindow.isVisible()) ? dashboardWindow : mainWindow;
+    const result = await dialog.showOpenDialog(parentWin, {
       title: 'Select File to Share with Grokki',
       properties: ['openFile'],
     });
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.show();
-      mainWindow.focus();
+    if (parentWin && !parentWin.isDestroyed()) {
+      parentWin.focus();
     }
     if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
       const selectedPath = result.filePaths[0];
-      return { canceled: false, path: selectedPath, name: path.basename(selectedPath) };
+      let size = 0;
+      try {
+        const stats = fs.statSync(selectedPath);
+        size = stats.size;
+      } catch (e) {}
+      return {
+        canceled: false,
+        path: selectedPath,
+        name: path.basename(selectedPath),
+        filePaths: result.filePaths,
+        size,
+        ext: path.extname(selectedPath).toLowerCase(),
+      };
     }
   } catch (err) {
     console.error('File dialog error:', err);
