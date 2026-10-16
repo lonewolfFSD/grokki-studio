@@ -339,6 +339,7 @@ export const App: React.FC = () => {
       <Sidebar
         activeTab={activeTab}
         onSelectTab={setActiveTab}
+        theme={theme}
         userName={displayName}
         googleProfile={googleProfile}
         googleConnected={googleConnected}

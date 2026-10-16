@@ -20,12 +20,14 @@ import {
   Settings,
 } from 'lucide-react';
 import { GoogleProfile, Conversation } from '../types/jarvis';
+import BranchedMenu, { BranchedMenuItem } from './BranchedMenu';
 
 export type TabId = 'chat' | 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
 
 interface SidebarProps {
   activeTab: TabId;
   onSelectTab: (tab: TabId) => void;
+  theme?: 'light' | 'dark';
   userName: string;
   googleProfile: GoogleProfile | null;
   googleConnected?: boolean;
@@ -43,6 +45,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onSelectTab,
+  theme,
   userName,
   googleProfile,
   googleConnected = false,
@@ -151,6 +154,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'about', label: 'About', icon: <Info className="w-4 h-4 flex-shrink-0" /> },
   ];
 
+  const isDark = theme === 'dark' || (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+
+  const chatBranchedItems: BranchedMenuItem[] = [
+    {
+      label: 'Recent Chats',
+      children: conversations.length > 0 ? conversations.map((convo) => ({
+        value: convo.id,
+        label: convo.title || 'New Chat',
+        icon: <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 opacity-80" />,
+        onDoubleClick: (e: React.MouseEvent) => handleStartRename(e, convo),
+        actions: (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleStartRename(e, convo);
+              }}
+              title="Rename conversation"
+              className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteConversation?.(convo.id);
+              }}
+              title="Delete conversation"
+              className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </>
+        ),
+      })) : [
+        {
+          value: 'new_chat',
+          label: 'New Chat',
+          icon: <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 opacity-80" />
+        }
+      ],
+    },
+  ];
+
   return (
     <aside className="w-60 h-screen flex flex-col justify-between p-3.5 border-r border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#08090d] select-none flex-shrink-0">
       <div className="flex flex-col gap-4 overflow-y-auto">
@@ -207,103 +256,73 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   )}
                 </div>
 
-                {/* Sub-Navigation for Saved Conversations with Discord Thread Line */}
-                {isChatItem && conversations && conversations.length > 0 && (
-                  <div className="relative pl-6 pt-1 pb-1 flex flex-col space-y-0.5 max-h-52 overflow-y-auto">
-                    {/* Continuous Vertical Thread Spine Line */}
-                    <div className="absolute left-[18px] top-0 bottom-3 w-[1.5px] bg-gray-200 dark:bg-[#202330] pointer-events-none" />
-
-                    {conversations.map((convo) => {
-                      const isConvoActive = activeTab === 'chat' && activeConversationId === convo.id;
-                      return (
-                        <div
-                          key={convo.id}
-                          onClick={() => {
-                            onSelectConversation?.(convo.id);
-                            onSelectTab('chat');
+                {/* Sub-Navigation for Saved Conversations using BranchedMenu */}
+                {isChatItem && (
+                  <div className="relative pl-1 pt-1 pb-1 flex flex-col max-h-60 overflow-y-auto">
+                    {editingId && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 w-full px-2 py-1 mb-1.5 bg-gray-100 dark:bg-[#14161f] border border-blue-500/60 rounded-lg shadow-xs"
+                      >
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSaveRename(editingId);
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault();
+                              handleCancelRename();
+                            }
                           }}
-                          className={`group relative flex items-center justify-between pl-3 pr-2 py-1.5 rounded-lg text-[12px] transition-all cursor-pointer ${
-                            isConvoActive
-                              ? 'bg-gray-200/80 dark:bg-[#202330] text-gray-900 dark:text-gray-100 font-medium shadow-xs'
-                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100/60 dark:hover:bg-[#14161f]'
-                          }`}
+                          className="w-full text-[12px] bg-transparent text-gray-900 dark:text-gray-100 outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSaveRename(editingId)}
+                          className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-emerald-500 hover:text-emerald-400 cursor-pointer border-none bg-transparent flex-shrink-0"
+                          title="Save title"
                         >
-                          {/* Discord Curved Thread Branch Connector */}
-                          <div className="absolute -left-[6px] top-1/2 -translate-y-1/2 w-2 h-2.5 border-b-[1.5px] border-l-[1.5px] border-gray-200 dark:border-[#202330] rounded-bl-md pointer-events-none" />
-
-                          {editingId === convo.id ? (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              className="flex items-center gap-1 w-full min-w-0"
-                            >
-                              <input
-                                type="text"
-                                autoFocus
-                                value={editTitle}
-                                onChange={(e) => setEditTitle(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    handleSaveRename(convo.id);
-                                  } else if (e.key === 'Escape') {
-                                    e.preventDefault();
-                                    handleCancelRename();
-                                  }
-                                }}
-                                className="w-full text-[12px] bg-white dark:bg-[#14161f] border border-blue-500/60 rounded px-1.5 py-0.5 text-gray-900 dark:text-gray-100 outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleSaveRename(convo.id)}
-                                className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-emerald-500 hover:text-emerald-400 cursor-pointer border-none bg-transparent flex-shrink-0"
-                                title="Save title"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleCancelRename}
-                                className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer border-none bg-transparent flex-shrink-0"
-                                title="Cancel"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <span
-                                onDoubleClick={(e) => handleStartRename(e, convo)}
-                                className="truncate pr-1 flex-1 select-none font-sans"
-                                title={`${convo.title || 'New Chat'} (Double-click to rename)`}
-                              >
-                                {convo.title || 'New Chat'}
-                              </span>
-                              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleStartRename(e, convo)}
-                                  title="Rename conversation"
-                                  className="p-0.5 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
-                                >
-                                  <Pencil className="w-3 h-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onDeleteConversation?.(convo.id);
-                                  }}
-                                  title="Delete conversation"
-                                  className="p-0.5 rounded text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelRename}
+                          className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer border-none bg-transparent flex-shrink-0"
+                          title="Cancel"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    <BranchedMenu
+                      items={chatBranchedItems}
+                      defaultOpen={[0]}
+                      defaultActive={activeConversationId}
+                      onSelect={(value) => {
+                        if (value === 'new_chat') {
+                          onCreateConversation?.();
+                        } else {
+                          onSelectConversation?.(value);
+                        }
+                        onSelectTab('chat');
+                      }}
+                      color={isDark ? '#f5f5f5' : '#1f2937'}
+                      accentColor={isDark ? '#f5f5f5' : '#111827'}
+                      lineColor={isDark ? '#3f3f46' : '#d4d4d8'}
+                      width={212}
+                      rowHeight={32}
+                      indent={34}
+                      trunk={12}
+                      radius={8}
+                      lineWidth={1.5}
+                      fontSize={12}
+                      drawDuration={400}
+                      foldDuration={300}
+                    />
                   </div>
                 )}
               </div>
