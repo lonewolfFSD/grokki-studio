@@ -90,7 +90,7 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
             ) : connected ? (
               <>
                 <Check className="w-3.5 h-3.5" />
-                <span>Account Linked ✓</span>
+                <span className='font-bold'>Account Linked</span>
               </>
             ) : (
               'Connect Account'

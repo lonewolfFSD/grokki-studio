@@ -1091,14 +1091,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 {messages.length} messages • saved locally
               </span>
             </div>
-            <button
+            {/* <button
               type="button"
               onClick={onNewChat}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white px-2.5 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>New Chat</span>
-            </button>
+            </button> */}
           </div>
 
           {/* Messages Flow */}

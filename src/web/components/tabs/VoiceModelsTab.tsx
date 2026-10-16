@@ -319,11 +319,11 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
         </div>
 
         {/* Quick Accent Pill Tabs */}
-        <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-[#13141a] p-1 rounded-xl border border-gray-200 dark:border-[#1e2029] self-start md:self-auto">
+        <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-[#13141a] p-1.5 rounded-xl border border-gray-200 dark:border-[#1e2029] self-start md:self-auto">
           <button
             type="button"
             onClick={() => setAccentFilter('all')}
-            className={`text-xs font-semibold px-3 py-1 rounded-lg cursor-pointer border-none transition-all ${
+            className={`text-xs font-semibold px-5 py-2 rounded-lg cursor-pointer border-none transition-all ${
               accentFilter === 'all'
                 ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-xs'
                 : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -334,7 +334,7 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
           <button
             type="button"
             onClick={() => setAccentFilter('us')}
-            className={`text-xs font-semibold px-3 py-1 rounded-lg cursor-pointer border-none transition-all ${
+            className={`text-xs font-semibold px-5 py-2 rounded-lg cursor-pointer border-none transition-all ${
               accentFilter === 'us'
                 ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-xs'
                 : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -345,7 +345,7 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
           <button
             type="button"
             onClick={() => setAccentFilter('uk')}
-            className={`text-xs font-semibold px-3 py-1 rounded-lg cursor-pointer border-none transition-all ${
+            className={`text-xs font-semibold px-5 py-2 rounded-lg cursor-pointer border-none transition-all ${
               accentFilter === 'uk'
                 ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-xs'
                 : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -366,7 +366,7 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search voices by name, style, accent, or gender..."
-            className="w-full h-10 pl-10 pr-9 rounded-xl bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-gray-900 dark:focus:border-white focus:outline-none transition-all shadow-xs"
+            className="w-full h-12 pl-10 pr-9 rounded-xl bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-gray-900 dark:focus:border-white focus:outline-none transition-all shadow-xs"
           />
           {searchQuery && (
             <button
