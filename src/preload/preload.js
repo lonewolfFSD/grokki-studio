@@ -91,6 +91,7 @@ try {
     getSystemInfo: () => ipcRenderer.invoke('dashboard:get-system-info'),
     checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
     restartAndInstallUpdate: (data) => ipcRenderer.send('app:restart-and-install', data),
+    openConfigFolder: () => ipcRenderer.invoke('app:open-config-folder'),
     notifySplashFinished: () => ipcRenderer.send('splash:finished'),
     onConfigUpdated: (callback) => {
       ipcRenderer.on('config:updated', (event, data) => callback(data));

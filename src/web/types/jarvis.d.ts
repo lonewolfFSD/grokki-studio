@@ -21,7 +21,18 @@ export interface JarvisConfig {
   userBio?: string;
   dashboardTheme?: 'light' | 'dark';
   launchOnStartup?: boolean;
-  closeAction?: 'tray' | 'quit';
+  autoOpenStudioOnStartup?: boolean;
+  closeAction?: 'tray' | 'minimize' | 'quit';
+  launchMode?: 'windowed' | 'maximized' | 'fullscreen';
+  alwaysOnTop?: boolean;
+  showSplashScreen?: boolean;
+  showIslandOnStartup?: boolean;
+  streamingAnimation?: boolean;
+  streamingSpeed?: 'fast' | 'normal' | 'relaxed';
+  sendOnEnter?: boolean;
+  soundEffectsEnabled?: boolean;
+  autoCheckUpdates?: boolean;
+  hardwareAcceleration?: boolean;
 }
 
 export interface GoogleProfile {
@@ -100,6 +111,7 @@ export interface JarvisAPI {
     error?: string;
   }>;
   restartAndInstallUpdate?: (data?: any) => void;
+  openConfigFolder?: () => Promise<{ success: boolean; path?: string }>;
 }
 
 declare global {

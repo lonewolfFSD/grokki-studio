@@ -160,9 +160,10 @@ function getFileIcon(ext?: string) {
 const AnimatedMessageContent: React.FC<{
   content: string;
   isAnimated?: boolean;
+  speed?: 'fast' | 'normal' | 'relaxed';
   onScroll?: () => void;
   onFinished?: () => void;
-}> = ({ content, isAnimated, onScroll, onFinished }) => {
+}> = ({ content, isAnimated, speed = 'fast', onScroll, onFinished }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -226,8 +227,9 @@ const AnimatedMessageContent: React.FC<{
     cursor.className = 'grokki-typing-cursor';
 
     let currentIndex = 0;
-    const targetTotalTime = Math.min(2200, Math.max(500, totalWords * 22));
-    const tickInterval = 20;
+    const msPerWord = speed === 'relaxed' ? 36 : speed === 'normal' ? 22 : 12;
+    const targetTotalTime = Math.min(3200, Math.max(350, totalWords * msPerWord));
+    const tickInterval = 18;
     const totalTicks = targetTotalTime / tickInterval;
     const wordsPerTick = Math.max(1, Math.ceil(totalWords / totalTicks));
 
@@ -344,6 +346,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const timerRef = useRef<any | null>(null);
 
   const playSynthSound = (type: 'start' | 'stop') => {
+    if (config.soundEffectsEnabled === false) return;
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
@@ -757,9 +760,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       }
     }
 
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
+    const sendOnEnter = config.sendOnEnter !== false;
+    if (e.key === 'Enter') {
+      if (sendOnEnter && !e.shiftKey) {
+        e.preventDefault();
+        handleSendMessage();
+      } else if (!sendOnEnter && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleSendMessage();
+      }
     }
   };
 
@@ -1169,7 +1178,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                         {/* Rendered Markdown Body with Per-Word Fade-In Typing */}
                         <AnimatedMessageContent
                           content={msg.content}
-                          isAnimated={msg.isAnimated}
+                          isAnimated={config.streamingAnimation !== false && msg.isAnimated}
+                          speed={config.streamingSpeed}
                           onScroll={scrollToBottom}
                           onFinished={() => handleMessageFinished(msg.id)}
                         />

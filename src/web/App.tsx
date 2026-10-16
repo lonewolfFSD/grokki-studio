@@ -9,6 +9,7 @@ import { AiBrainTab } from './components/tabs/AiBrainTab';
 import { PersonalizationTab } from './components/tabs/PersonalizationTab';
 import { GoogleWorkspaceTab } from './components/tabs/GoogleWorkspaceTab';
 import { AppearanceTab } from './components/tabs/AppearanceTab';
+import { StudioSettingsTab } from './components/tabs/StudioSettingsTab';
 import { AboutTab } from './components/tabs/AboutTab';
 import { JarvisConfig, GoogleProfile, SystemInfo } from './types/jarvis';
 import { useConversations } from './hooks/useConversations';
@@ -33,7 +34,18 @@ const DEFAULT_CONFIG: JarvisConfig = {
   userBio: '',
   dashboardTheme: 'light',
   launchOnStartup: false,
+  autoOpenStudioOnStartup: false,
   closeAction: 'tray',
+  launchMode: 'windowed',
+  alwaysOnTop: false,
+  showSplashScreen: true,
+  showIslandOnStartup: false,
+  streamingAnimation: true,
+  streamingSpeed: 'fast',
+  sendOnEnter: true,
+  soundEffectsEnabled: true,
+  autoCheckUpdates: true,
+  hardwareAcceleration: true,
 };
 
 export const App: React.FC = () => {
@@ -317,6 +329,7 @@ export const App: React.FC = () => {
     profile: 'Personalization',
     google: 'Google Workspace',
     appearance: 'Appearance',
+    settings: 'Studio Settings',
     about: 'About Grokki Studio',
   };
 
@@ -409,6 +422,16 @@ export const App: React.FC = () => {
             <AppearanceTab
               config={config}
               onChangeConfig={handleConfigChange}
+            />
+          )}
+
+          {activeTab === 'settings' && (
+            <StudioSettingsTab
+              config={config}
+              onChangeConfig={handleConfigChange}
+              onClearConversations={() => {
+                conversations.forEach((c) => deleteConversation(c.id));
+              }}
             />
           )}
 

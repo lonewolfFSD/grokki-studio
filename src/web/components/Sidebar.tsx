@@ -17,10 +17,11 @@ import {
   ChevronDown,
   RefreshCw,
   LogOut,
+  Settings,
 } from 'lucide-react';
 import { GoogleProfile, Conversation } from '../types/jarvis';
 
-export type TabId = 'chat' | 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'about';
+export type TabId = 'chat' | 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
 
 interface SidebarProps {
   activeTab: TabId;
@@ -144,6 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const pinnedNavItems: { id: TabId; label: string; icon: React.ReactNode }[] = [
+    { id: 'settings', label: 'Studio Settings', icon: <Settings className="w-4 h-4 flex-shrink-0" /> },
     { id: 'profile', label: 'Personalization', icon: <Sliders className="w-4 h-4 flex-shrink-0" /> },
     { id: 'appearance', label: 'Appearance', icon: <Palette className="w-4 h-4 flex-shrink-0" /> },
     { id: 'about', label: 'About', icon: <Info className="w-4 h-4 flex-shrink-0" /> },

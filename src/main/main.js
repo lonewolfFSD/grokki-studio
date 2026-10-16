@@ -70,7 +70,18 @@ function loadConfig() {
       if (!data.userBio) data.userBio = '';
       if (!data.dashboardTheme) data.dashboardTheme = 'light';
       if (data.launchOnStartup === undefined) data.launchOnStartup = false;
+      if (data.autoOpenStudioOnStartup === undefined) data.autoOpenStudioOnStartup = false;
       if (!data.closeAction) data.closeAction = 'tray';
+      if (!data.launchMode) data.launchMode = 'windowed';
+      if (data.alwaysOnTop === undefined) data.alwaysOnTop = false;
+      if (data.showSplashScreen === undefined) data.showSplashScreen = true;
+      if (data.showIslandOnStartup === undefined) data.showIslandOnStartup = false;
+      if (data.streamingAnimation === undefined) data.streamingAnimation = true;
+      if (!data.streamingSpeed) data.streamingSpeed = 'fast';
+      if (data.sendOnEnter === undefined) data.sendOnEnter = true;
+      if (data.soundEffectsEnabled === undefined) data.soundEffectsEnabled = true;
+      if (data.autoCheckUpdates === undefined) data.autoCheckUpdates = true;
+      if (data.hardwareAcceleration === undefined) data.hardwareAcceleration = true;
       return data;
     }
   } catch (err) {
@@ -99,7 +110,18 @@ function loadConfig() {
     userBio: '',
     dashboardTheme: 'light',
     launchOnStartup: false,
+    autoOpenStudioOnStartup: false,
     closeAction: 'tray',
+    launchMode: 'windowed',
+    alwaysOnTop: false,
+    showSplashScreen: true,
+    showIslandOnStartup: false,
+    streamingAnimation: true,
+    streamingSpeed: 'fast',
+    sendOnEnter: true,
+    soundEffectsEnabled: true,
+    autoCheckUpdates: true,
+    hardwareAcceleration: true,
   };
 }
 
@@ -120,6 +142,23 @@ function saveConfig(newConfig) {
         console.warn('[Main] Failed to update login item settings:', err.message);
       }
     }
+
+    // Dynamic live window adjustments
+    if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+      if (newConfig.alwaysOnTop !== undefined) {
+        dashboardWindow.setAlwaysOnTop(!!newConfig.alwaysOnTop);
+      }
+      if (newConfig.launchMode === 'fullscreen') {
+        dashboardWindow.setFullScreen(true);
+      } else if (newConfig.launchMode === 'maximized') {
+        if (dashboardWindow.isFullScreen()) dashboardWindow.setFullScreen(false);
+        dashboardWindow.maximize();
+      } else if (newConfig.launchMode === 'windowed') {
+        if (dashboardWindow.isFullScreen()) dashboardWindow.setFullScreen(false);
+        if (dashboardWindow.isMaximized()) dashboardWindow.unmaximize();
+      }
+    }
+
     return updated;
   } catch (err) {
     console.error('Failed to save config:', err);
@@ -327,6 +366,7 @@ function openDashboardWindow(showImmediately = true) {
 
   const config = loadConfig();
   const isLight = config.dashboardTheme !== 'dark';
+  const launchMode = config.launchMode || 'windowed';
 
   dashboardWindow = new BrowserWindow({
     width: 980,
@@ -335,6 +375,8 @@ function openDashboardWindow(showImmediately = true) {
     minHeight: 600,
     frame: false,
     transparent: false,
+    fullscreen: launchMode === 'fullscreen',
+    alwaysOnTop: !!config.alwaysOnTop,
     backgroundColor: isLight ? '#f7f7fa' : '#0c0d12',
     icon: appIconPath,
     show: false,
@@ -346,6 +388,10 @@ function openDashboardWindow(showImmediately = true) {
       webSecurity: true,
     },
   });
+
+  if (launchMode === 'maximized') {
+    dashboardWindow.maximize();
+  }
 
   const distDashboard = path.join(__dirname, '../../dist/dashboard.html');
   if (process.env.VITE_DEV === 'true') {
@@ -865,8 +911,25 @@ ipcMain.on('dashboard:close', () => {
     app.quit();
     return;
   }
+  if (config.closeAction === 'minimize') {
+    if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+      dashboardWindow.minimize();
+    }
+    return;
+  }
+  // Default 'tray': hide window to system tray so it remains instant and resident
   if (dashboardWindow && !dashboardWindow.isDestroyed()) {
-    dashboardWindow.close();
+    dashboardWindow.hide();
+  }
+});
+
+ipcMain.handle('app:open-config-folder', async () => {
+  try {
+    const dir = path.dirname(configPath);
+    await shell.openPath(dir);
+    return { success: true, path: dir };
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 });
 
@@ -1198,22 +1261,29 @@ app.whenReady().then(() => {
     session.defaultSession.setDevicePermissionHandler(() => true);
   }
 
-  createWindow(false);
+  const config = loadConfig();
+  createWindow(!!config.showIslandOnStartup);
   createTray();
   registerShortcuts();
 
   // If opening Grokki Studio directly (not auto-started on Windows boot):
   const isAutostart = process.argv.includes('--autostart') || process.argv.includes('--hidden') || process.argv.includes('--background');
   if (!isAutostart) {
-    openDashboardWindow(false);
-    createSplashWindow(() => {
-      if (dashboardWindow && !dashboardWindow.isDestroyed()) {
-        dashboardWindow.show();
-        dashboardWindow.focus();
-      } else {
-        openDashboardWindow(true);
-      }
-    });
+    if (config.showSplashScreen !== false) {
+      openDashboardWindow(false);
+      createSplashWindow(() => {
+        if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+          dashboardWindow.show();
+          dashboardWindow.focus();
+        } else {
+          openDashboardWindow(true);
+        }
+      });
+    } else {
+      openDashboardWindow(true);
+    }
+  } else if (config.autoOpenStudioOnStartup) {
+    openDashboardWindow(true);
   }
 
   // Initialize free background Wake Word listener
