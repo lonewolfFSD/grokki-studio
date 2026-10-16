@@ -1292,15 +1292,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                       shape="round"
                       doneColor="#22c55e"
                       errorColor="#ef4444"
-                      cellSize={3.5}
-                      gap={1.5}
-                      fontSize={11.5}
+                      cellSize={2}
+                      gap={1}
+                      fontSize={10}
                       step={90}
                       idleOpacity={0.15}
                       glow={false}
                       glowColor=""
                       showTimer
-                      color={isDarkTheme ? '#e5e7eb' : '#374151'}
+                      color={isDarkTheme ? '#9ca3af' : '#6b7280'}
                     />
                   </div>
                 </div>
