@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
 
 :root {
+  interpolate-size: allow-keywords;
   --island-bg: rgba(22, 22, 26, 0.84);
   --island-border: rgba(255, 255, 255, 0.12);
   --text-primary: #ffffff;
@@ -95,6 +96,17 @@ body {
               inset 0 -1px 1px 0 rgba(255, 255, 255, 0.08);
 }
 
+.island-container.has-slash-open {
+  border-radius: 28px;
+  height: auto;
+  min-height: 72px;
+  background: radial-gradient(150% 100% at 50% -10%, rgba(30, 32, 42, 0.96) 0%, #0c0d12 40%, #050507 100%);
+  box-shadow: 0 32px 80px -15px rgba(0, 0, 0, 0.9),
+              0 14px 32px -8px rgba(0, 0, 0, 0.6),
+              inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.45),
+              inset 0 -1px 1px 0 rgba(255, 255, 255, 0.08);
+}
+
 .island-container.has-settings-open {
   border-radius: 28px;
   height: 495px;
@@ -127,6 +139,17 @@ body {
 }
 
 .island-container.theme-glass.has-drawer-open {
+  background: radial-gradient(160% 100% at 50% -10%, rgba(255, 255, 255, 0.14) 0%, rgba(20, 22, 32, 0.84) 35%, rgba(10, 11, 16, 0.94) 100%);
+  backdrop-filter: blur(52px) saturate(225%) contrast(106%) brightness(105%);
+  -webkit-backdrop-filter: blur(52px) saturate(225%) contrast(106%) brightness(105%);
+  box-shadow: 0 36px 90px -16px rgba(0, 0, 0, 0.9),
+              0 16px 36px -8px rgba(0, 0, 0, 0.6),
+              inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.7),
+              inset 0 -1px 1px 0 rgba(255, 255, 255, 0.18),
+              inset 0 0 28px 2px rgba(255, 255, 255, 0.04);
+}
+
+.island-container.theme-glass.has-slash-open {
   background: radial-gradient(160% 100% at 50% -10%, rgba(255, 255, 255, 0.14) 0%, rgba(20, 22, 32, 0.84) 35%, rgba(10, 11, 16, 0.94) 100%);
   backdrop-filter: blur(52px) saturate(225%) contrast(106%) brightness(105%);
   -webkit-backdrop-filter: blur(52px) saturate(225%) contrast(106%) brightness(105%);
@@ -1406,101 +1429,129 @@ body {
   overflow-x: auto;
 }
 
-/* Floating Slash Command Palette in Overlay */
+/* Integrated Dynamic Island Slash Command Palette */
 .slash-command-palette {
-  width: calc(100% - 16px);
-  margin: 8px 8px 0 8px;
-  background: rgba(14, 15, 21, 0.95);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 18px;
-  padding: 6px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  z-index: 1000;
-  max-height: 240px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: max-height 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              padding 0.3s ease;
+  padding: 0 18px;
+  border-top: 1px solid transparent;
+  width: 100%;
   display: flex;
   flex-direction: column;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.slash-command-palette.open {
+  max-height: 310px;
+  opacity: 1;
+  pointer-events: auto;
+  padding: 8px 18px 14px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
 }
 
 .slash-palette-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 10px 7px 10px;
+  padding: 4px 6px 8px 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 10.5px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.45);
   font-weight: 600;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
 }
 
 .slash-palette-header kbd {
-  font-size: 9.5px;
-  font-family: monospace;
+  font-size: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "JetBrains Mono", monospace;
   background: rgba(255, 255, 255, 0.08);
-  padding: 2px 6px;
+  padding: 2.5px 7px;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.65);
   text-transform: none;
 }
 
 .slash-palette-list {
+  max-height: 220px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding-top: 4px;
+  gap: 3px;
+  padding: 6px 2px 2px 0;
+}
+
+.slash-palette-list::-webkit-scrollbar {
+  width: 5px;
+}
+.slash-palette-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.slash-palette-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 9999px;
+}
+.slash-palette-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .slash-palette-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 7px 10px;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  color: rgba(255, 255, 255, 0.6);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .slash-palette-item:hover, .slash-palette-item.active {
-  background: rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
+  transform: translateX(2px);
 }
 
 .slash-palette-item .slash-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 11px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11.5px;
   flex-shrink: 0;
+  transition: all 0.15s ease;
 }
 
 .slash-palette-item.active .slash-icon,
 .slash-palette-item:hover .slash-icon {
   background: #ffffff;
   color: #0c0d12;
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.45);
 }
 
 .slash-palette-item .slash-title {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
   color: #ffffff;
-  min-width: 95px;
+  min-width: 105px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .slash-palette-item .slash-desc {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.55);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1509,6 +1560,6 @@ body {
 
 .slash-palette-item.active .slash-desc,
 .slash-palette-item:hover .slash-desc {
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.95);
 }
 

@@ -666,15 +666,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     { name: 'notes', desc: 'Generate study notes or meeting summary document to Desktop.', icon: 'fa-solid fa-file-lines', hasArg: true }
   ];
 
+  function isSlashPaletteActive() {
+    return slashPalette && slashPalette.classList.contains('open');
+  }
+
   function renderSlashPalette(commands) {
     currentFilteredCommands = commands;
     if (!slashList) return;
     slashList.innerHTML = '';
     if (commands.length === 0) {
-      if (slashPalette) slashPalette.style.display = 'none';
+      hideSlashPalette();
       return;
     }
-    if (slashPalette) slashPalette.style.display = 'flex';
+
+    // Close response drawer if it was open from past interaction so pill focuses on commands
+    if (islandDrawer && islandDrawer.classList.contains('open')) {
+      islandDrawer.classList.remove('open');
+      islandContainer.classList.remove('has-drawer-open');
+    }
+
+    if (slashPalette) {
+      slashPalette.classList.add('open');
+    }
+    if (islandContainer) {
+      islandContainer.classList.add('has-slash-open');
+    }
+
     commands.forEach((cmd, idx) => {
       const item = document.createElement('div');
       item.className = `slash-palette-item ${idx === activeSlashIndex ? 'active' : ''}`;
@@ -683,7 +700,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         <span class="slash-title">/${cmd.name}</span>
         <span class="slash-desc">${cmd.desc}</span>
       `;
-      item.addEventListener('click', () => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
         selectSlashCommand(cmd);
       });
       slashList.appendChild(item);
@@ -693,7 +711,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function hideSlashPalette() {
-    if (slashPalette) slashPalette.style.display = 'none';
+    if (slashPalette) {
+      slashPalette.classList.remove('open');
+    }
+    if (islandContainer) {
+      islandContainer.classList.remove('has-slash-open');
+    }
     activeSlashIndex = 0;
     currentFilteredCommands = [];
   }
@@ -740,7 +763,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   mainInput.addEventListener('keydown', (e) => {
-    if (slashPalette && slashPalette.style.display !== 'none' && currentFilteredCommands.length > 0) {
+    if (isSlashPaletteActive() && currentFilteredCommands.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         activeSlashIndex = (activeSlashIndex + 1) % currentFilteredCommands.length;
@@ -1536,6 +1559,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       sound.playDismiss();
+      if (isSlashPaletteActive()) {
+        hideSlashPalette();
+        return;
+      }
       if (settingsSheet.classList.contains('open')) {
         closeSettings(true);
         return;
@@ -1544,6 +1571,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         handleHotkeyKillOrToggle();
         return;
       }
+      hideSlashPalette();
       islandDrawer.classList.remove('open');
       islandContainer.classList.remove('has-drawer-open');
       islandContainer.classList.add('hidden-state');
