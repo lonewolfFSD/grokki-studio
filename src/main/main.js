@@ -125,7 +125,7 @@ function saveConfig(newConfig) {
   }
 }
 
-function createWindow() {
+function createWindow(showOnReady = false) {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth } = primaryDisplay.workAreaSize;
 
@@ -188,7 +188,14 @@ function createWindow() {
   });
 
   mainWindow.once('ready-to-show', () => {
-    showWindow();
+    // Keep dynamic island hidden on initial launch.
+    // It will only be summoned on Alt+Q (or custom hotkey), tray click,
+    // or voice wake word if enabled in settings.
+    if (showOnReady) {
+      showWindow();
+    } else {
+      isVisible = false;
+    }
   });
 }
 
@@ -227,7 +234,7 @@ function hideWindow() {
 
 function handleGlobalHotkey() {
   if (!mainWindow || mainWindow.isDestroyed()) {
-    createWindow();
+    createWindow(true);
     return;
   }
 
