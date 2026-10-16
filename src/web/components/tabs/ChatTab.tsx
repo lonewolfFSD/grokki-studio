@@ -948,6 +948,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     );
   };
 
+  const isDarkTheme = config.dashboardTheme === 'dark';
+  // Theme-aware PixelBlast palette:
+  //  - Dark: deep violet base pixels on near-black, glowing lavender accent on hover/ripples.
+  //  - Light: soft lilac base pixels on the light canvas, rich violet accent for contrast.
+  const blastPalette = isDarkTheme
+    ? { color: '#432b5a', accent: '#B497CF' }
+    : { color: '#d4c2ec', accent: '#7c4dbd' };
+
   return (
     <div className="relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-4">
       {/* Background PixelBlast Effect */}
@@ -958,7 +966,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         <PixelBlast
           variant="square"
           pixelSize={3}
-          color="#000"
+          color={blastPalette.color}
           patternScale={2}
           patternDensity={1}
           softness={0.6}
@@ -968,7 +976,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           hoverEffect="reveal"
           enableRipples
           edgeFade={0.25}
-          accentColor="#B497CF"
+          accentColor={blastPalette.accent}
           pixelSizeJitter={0}
           smoothing={1}
           speed={0.5}
@@ -981,8 +989,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           tiltX={0}
           tiltY={0}
           intro
-          lightMode={false}
-          transparent={false}
+          lightMode={!isDarkTheme}
+          transparent={!isDarkTheme}
         />
       </div>
 
@@ -998,7 +1006,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           </div>
 
           {/* Persona Heading */}
-          <h1 className="text-2xl font-bold tracking-tight text-white mb-6 font-sans drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-6 font-sans">
             Ready when you are. What are we executing today?
           </h1>
 
@@ -1105,7 +1113,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
           {/* Suggestions Grid */}
           <div className="w-full max-w-xl mt-8 text-left">
-            <span className="text-[11px] font-semibold text-gray-300 tracking-wider uppercase block mb-2.5">
+            <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 tracking-wider uppercase block mb-2.5">
               Suggestions & Commands
             </span>
             <div className="grid grid-cols-2 gap-2.5 w-full">
