@@ -852,7 +852,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     if (!isSlashMode || filteredSlashCommands.length === 0) return null;
 
     return (
-      <div className="absolute bottom-full left-0 right-0 mb-2 p-1.5 bg-white/95 dark:bg-[#12131a]/95 backdrop-blur-xl border border-gray-200 dark:border-[#202330] rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto flex flex-col gap-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
+      <div className="absolute top-full mt-4 left-0 right-0 mb-2 p-1.5 bg-white/95 dark:bg-[#12131a]/95 backdrop-blur-xl border border-gray-200 dark:border-[#202330] rounded-2xl z-50 max-h-64 overflow-y-auto flex flex-col gap-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
         <div className="flex items-center justify-between px-2.5 py-1.5 text-[10.5px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-[#1e2029]">
           <span className='text-[10px]'>Direct Actions & Slash Commands</span>
           <span className="font-mono text-[9px] lowercase bg-gray-100 dark:bg-[#1a1c24] px-1.5 py-0.5 rounded text-gray-500">
@@ -1026,7 +1026,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
               {/* Pill Badge */}
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono select-none">
-                Alpha
+                Beta
               </span>
 
               {/* Voice-to-Text Button: Mic when idle, Square Stop when recording */}
@@ -1096,7 +1096,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               <span className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate max-w-xs">
                 {activeConversation.title || 'Conversation'}
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029]">
+              <span className="text-[9.5px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029]">
                 {messages.length} messages • saved locally
               </span>
             </div>
@@ -1121,7 +1121,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 >
                   {isUser ? (
                     /* User Message: Clean Modern Rounded Bubble */
-                    <div className="max-w-[75%] bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-sm font-medium leading-relaxed border border-gray-200/60 dark:border-[#1e2029] shadow-xs">
+                    <div className="max-w-[75%] bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-sm font-medium leading-relaxed border border-gray-300/80 dark:border-[#1e2029]">
                       {msg.attachedFile && (
                         <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/70 dark:bg-[#13141a]/70 border border-gray-200 dark:border-gray-700/60 mb-2 text-xs font-mono">
                           {getFileIcon(typeof msg.attachedFile === 'string' ? msg.attachedFile : msg.attachedFile.ext)}
@@ -1135,7 +1135,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                           ) : null}
                         </div>
                       )}
-                      <p className="whitespace-pre-wrap m-0 leading-relaxed text-[13.5px]">
+                      <p className="whitespace-pre-wrap m-0 leading-relaxed text-[13px]">
                         {msg.content}
                       </p>
                     </div>
@@ -1242,7 +1242,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         <div className="w-full pt-2.5 bg-gradient-to-t from-[#f7f7fa] dark:from-[#0c0d12] to-transparent">
           {/* Staged File Preview Card */}
           {attachedFile && (
-            <div className="w-full max-w-xl mx-auto mb-2 p-2.5 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl shadow-sm flex items-center justify-between text-left transition-all">
+            <div className="w-full max-w-xl mx-auto mb-2 p-2.5 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl  flex items-center justify-between text-left transition-all">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] flex items-center justify-center flex-shrink-0 border border-gray-200/60 dark:border-[#252836]">
                   {getFileIcon(attachedFile.ext)}

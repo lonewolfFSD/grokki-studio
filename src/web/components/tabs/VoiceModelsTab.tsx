@@ -323,7 +323,7 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
           <button
             type="button"
             onClick={() => setAccentFilter('all')}
-            className={`text-xs font-semibold px-5 py-2 rounded-lg cursor-pointer border-none transition-all ${
+            className={`text-xs font-semibold px-5 py-2.5 rounded-xl cursor-pointer border-none transition-all ${
               accentFilter === 'all'
                 ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-xs'
                 : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -334,7 +334,7 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
           <button
             type="button"
             onClick={() => setAccentFilter('us')}
-            className={`text-xs font-semibold px-5 py-2 rounded-lg cursor-pointer border-none transition-all ${
+            className={`text-xs font-semibold px-5 py-2.5 rounded-xl cursor-pointer border-none transition-all ${
               accentFilter === 'us'
                 ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-xs'
                 : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -345,7 +345,7 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
           <button
             type="button"
             onClick={() => setAccentFilter('uk')}
-            className={`text-xs font-semibold px-5 py-2 rounded-lg cursor-pointer border-none transition-all ${
+            className={`text-xs font-semibold px-5 py-2.5 rounded-xl cursor-pointer border-none transition-all ${
               accentFilter === 'uk'
                 ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-xs'
                 : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -384,14 +384,14 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
           <button
             type="button"
             onClick={() => setFilterMenuOpen(!filterMenuOpen)}
-            className={`inline-flex items-center gap-2 h-10 px-3.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all shadow-xs ${
+            className={`inline-flex items-center gap-2 h-12 px-3.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all shadow-xs ${
               isFilterActive
                 ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
                 : 'bg-white dark:bg-[#13141a] text-gray-700 dark:text-gray-300 border-[#e4e4eb] dark:border-[#1e2029] hover:bg-gray-50 dark:hover:bg-[#181a22]'
             }`}
           >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Filter</span>
+            <SlidersHorizontal className="w-5 h-5" />
+            
             {activeFilterCount > 0 && (
               <span
                 className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
@@ -407,9 +407,9 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
 
           {/* Filter Popover Dropdown */}
           {filterMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-80 p-3 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl shadow-xl z-50 flex flex-col gap-3">
+            <div className="absolute right-0 top-full mt-2 w-80 p-6 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl shadow-xl z-50 flex flex-col gap-3">
               <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-[#1e2029]">
-                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
                   Voice Filters
                 </span>
                 {isFilterActive && (

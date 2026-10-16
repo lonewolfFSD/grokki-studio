@@ -340,7 +340,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="relative" ref={menuRef}>
         {/* Switch Account Popover Menu */}
         {accountMenuOpen && (
-          <div className="absolute bottom-full left-0 right-0 mb-2 p-1.5 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl shadow-xl z-50 flex flex-col gap-1">
+          <div className="absolute bottom-full left-0 right-0 mb-2 p-1.5 bg-white dark:bg-[#13141a] border border-gray-300 dark:border-[#1e2029] rounded-2xl z-50 flex flex-col gap-1">
             {/* Account Info Header */}
             <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-[#181a22] border border-gray-100 dark:border-[#202330] flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 overflow-hidden shadow-xs relative">
