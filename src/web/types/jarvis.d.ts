@@ -61,6 +61,7 @@ export interface ChatMessage {
   timestamp: string;
   actionsExecuted?: any[];
   attachedFile?: AttachedFileInfo | string;
+  isAnimated?: boolean;
 }
 
 export interface Conversation {

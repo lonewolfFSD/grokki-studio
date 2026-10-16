@@ -227,9 +227,122 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `<p>${out}</p>`;
   }
 
-  function setResponseHTML(html) {
-    responseText.innerHTML = html;
+  let typingTimer = null;
+  let activeCursorEl = null;
+
+  function prepareTypingHtml(rawHtml) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(rawHtml, 'text/html');
+    let totalWords = 0;
+
+    function walk(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent;
+        if (!text || !text.trim()) return;
+
+        const frag = doc.createDocumentFragment();
+        const tokens = text.split(/(\s+)/);
+        for (const tok of tokens) {
+          if (!tok) continue;
+          if (/^\s+$/.test(tok)) {
+            frag.appendChild(doc.createTextNode(tok));
+          } else {
+            const span = doc.createElement('span');
+            span.className = 'grokki-typing-word grokki-word-hidden';
+            span.textContent = tok;
+            frag.appendChild(span);
+            totalWords++;
+          }
+        }
+        node.parentNode.replaceChild(frag, node);
+        return;
+      }
+
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        if (['SCRIPT', 'STYLE', 'SVG'].includes(node.tagName)) return;
+        Array.from(node.childNodes).forEach(walk);
+      }
+    }
+
+    Array.from(doc.body.childNodes).forEach(walk);
+    return { html: doc.body.innerHTML, totalWords };
+  }
+
+  function setResponseHTML(html, animate = false) {
+    if (typingTimer) {
+      clearInterval(typingTimer);
+      typingTimer = null;
+    }
+    if (activeCursorEl && activeCursorEl.parentNode) {
+      activeCursorEl.parentNode.removeChild(activeCursorEl);
+      activeCursorEl = null;
+    }
+    responseText.classList.remove('grokki-typing-active');
+
+    if (!animate) {
+      responseText.innerHTML = html;
+      enhanceCodeBlocks(responseText);
+      return;
+    }
+
+    const { html: preparedHtml, totalWords } = prepareTypingHtml(html);
+    if (totalWords === 0) {
+      responseText.innerHTML = html;
+      enhanceCodeBlocks(responseText);
+      return;
+    }
+
+    responseText.innerHTML = preparedHtml;
     enhanceCodeBlocks(responseText);
+    responseText.classList.add('grokki-typing-active');
+
+    const wordNodes = Array.from(responseText.querySelectorAll('.grokki-word-hidden'));
+    const cursor = document.createElement('span');
+    cursor.className = 'grokki-typing-cursor';
+    activeCursorEl = cursor;
+
+    let currentIndex = 0;
+    const targetTotalTime = Math.min(2200, Math.max(500, totalWords * 22));
+    const tickInterval = 20;
+    const totalTicks = targetTotalTime / tickInterval;
+    const wordsPerTick = Math.max(1, Math.ceil(totalWords / totalTicks));
+
+    const finishTyping = () => {
+      if (typingTimer) {
+        clearInterval(typingTimer);
+        typingTimer = null;
+      }
+      wordNodes.forEach((s) => {
+        s.classList.remove('grokki-word-hidden');
+        s.classList.add('grokki-word-fade');
+      });
+      if (cursor.parentNode) cursor.parentNode.removeChild(cursor);
+      responseText.classList.remove('grokki-typing-active');
+      activeCursorEl = null;
+    };
+
+    const revealBatch = () => {
+      const end = Math.min(currentIndex + wordsPerTick, totalWords);
+      for (let i = currentIndex; i < end; i++) {
+        const s = wordNodes[i];
+        s.classList.remove('grokki-word-hidden');
+        s.classList.add('grokki-word-fade');
+      }
+      if (end > 0 && end <= totalWords) {
+        wordNodes[end - 1].after(cursor);
+      }
+      currentIndex = end;
+      if (islandDrawer) {
+        islandDrawer.scrollTop = islandDrawer.scrollHeight;
+      }
+      if (currentIndex >= totalWords) {
+        finishTyping();
+      }
+    };
+
+    responseText.addEventListener('click', finishTyping, { once: true });
+    typingTimer = setInterval(revealBatch, tickInterval);
+    revealBatch();
   }
 
   function enhanceCodeBlocks(container) {
@@ -468,7 +581,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           return;
         }
         userText.innerText = response.transcript || 'Voice command';
-        setResponseHTML(renderMarkdownHTML(response.reply));
+        setResponseHTML(renderMarkdownHTML(response.reply), true);
         islandDrawer.classList.add('open');
         islandContainer.classList.add('has-drawer-open');
 
@@ -1143,8 +1256,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      // Render Markdown output cleanly
-      setResponseHTML(renderMarkdownHTML(response.reply));
+      // Render Markdown output cleanly with per-word fade-in typing
+      setResponseHTML(renderMarkdownHTML(response.reply), true);
       islandDrawer.classList.add('open');
       islandContainer.classList.add('has-drawer-open');
 
@@ -1545,7 +1658,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       islandContainer.classList.remove('hidden-state');
       islandContainer.classList.remove('is-launching');
       userText.innerHTML = `<i class="fa-solid fa-bell" style="color:#fbbf24; margin-right:6px;"></i> <strong>Scheduled Reminder (${data.fireTimeStr || 'Now'})</strong>`;
-      setResponseHTML(renderMarkdownHTML(`### ⏰ Reminder Alert!\n**${text}**${osAct}`));
+      setResponseHTML(renderMarkdownHTML(`### ⏰ Reminder Alert!\n**${text}**${osAct}`), true);
       islandDrawer.classList.add('open');
       islandContainer.classList.add('has-drawer-open');
       sound.playSuccess();

@@ -67,3 +67,70 @@
 .toast-shake {
   animation: shakeToast 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
+
+/* Grokki Per-Word Fade-In Typing Animation */
+@keyframes grokkiWordFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+    filter: blur(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes grokkiCursorBlink {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0; }
+}
+
+.grokki-typing-active p:not(:has(.grokki-word-fade)),
+.grokki-typing-active ul:not(:has(.grokki-word-fade)),
+.grokki-typing-active ol:not(:has(.grokki-word-fade)),
+.grokki-typing-active li:not(:has(.grokki-word-fade)),
+.grokki-typing-active h1:not(:has(.grokki-word-fade)),
+.grokki-typing-active h2:not(:has(.grokki-word-fade)),
+.grokki-typing-active h3:not(:has(.grokki-word-fade)),
+.grokki-typing-active h4:not(:has(.grokki-word-fade)),
+.grokki-typing-active pre:not(:has(.grokki-word-fade)),
+.grokki-typing-active blockquote:not(:has(.grokki-word-fade)) {
+  display: none !important;
+}
+
+.grokki-typing-word {
+  display: inline-block;
+  white-space: pre-wrap;
+}
+
+.grokki-word-hidden {
+  display: none !important;
+}
+
+.grokki-word-fade {
+  display: inline-block;
+  animation: grokkiWordFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform, filter;
+}
+
+pre .grokki-typing-word,
+code .grokki-typing-word,
+pre .grokki-word-fade,
+code .grokki-word-fade {
+  display: inline !important;
+  white-space: inherit;
+}
+
+.grokki-typing-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 14px;
+  margin-left: 2px;
+  vertical-align: -1px;
+  background-color: currentColor;
+  border-radius: 2px;
+  opacity: 0.85;
+  animation: grokkiCursorBlink 0.75s ease-in-out infinite;
+}

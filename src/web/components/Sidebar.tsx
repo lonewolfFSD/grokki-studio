@@ -281,7 +281,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   type="button"
                                   onClick={(e) => handleStartRename(e, convo)}
                                   title="Rename conversation"
-                                  className="p-0.5 rounded text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
+                                  className="p-0.5 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
                                 >
                                   <Pencil className="w-3 h-3" />
                                 </button>

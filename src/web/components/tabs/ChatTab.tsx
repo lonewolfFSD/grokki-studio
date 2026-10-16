@@ -157,6 +157,133 @@ function getFileIcon(ext?: string) {
   return <File className="w-4 h-4 text-gray-500" />;
 }
 
+const AnimatedMessageContent: React.FC<{
+  content: string;
+  isAnimated?: boolean;
+  onScroll?: () => void;
+  onFinished?: () => void;
+}> = ({ content, isAnimated, onScroll, onFinished }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const container = containerRef.current;
+    const rawHtml = marked.parse(content) as string;
+
+    if (!isAnimated) {
+      container.innerHTML = rawHtml;
+      return;
+    }
+
+    // Parse HTML and wrap non-whitespace words in animated spans
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(rawHtml, 'text/html');
+    let totalWords = 0;
+
+    function walk(node: Node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent;
+        if (!text || !text.trim()) return;
+
+        const frag = doc.createDocumentFragment();
+        const tokens = text.split(/(\s+)/);
+        for (const tok of tokens) {
+          if (!tok) continue;
+          if (/^\s+$/.test(tok)) {
+            frag.appendChild(doc.createTextNode(tok));
+          } else {
+            const span = doc.createElement('span');
+            span.className = 'grokki-typing-word grokki-word-hidden';
+            span.textContent = tok;
+            frag.appendChild(span);
+            totalWords++;
+          }
+        }
+        node.parentNode?.replaceChild(frag, node);
+        return;
+      }
+
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as Element;
+        if (['SCRIPT', 'STYLE', 'SVG'].includes(el.tagName)) return;
+        Array.from(node.childNodes).forEach(walk);
+      }
+    }
+
+    Array.from(doc.body.childNodes).forEach(walk);
+
+    if (totalWords === 0) {
+      container.innerHTML = rawHtml;
+      onFinished?.();
+      return;
+    }
+
+    container.innerHTML = doc.body.innerHTML;
+    container.classList.add('grokki-typing-active');
+
+    const wordNodes = Array.from(container.querySelectorAll<HTMLElement>('.grokki-word-hidden'));
+    const cursor = document.createElement('span');
+    cursor.className = 'grokki-typing-cursor';
+
+    let currentIndex = 0;
+    const targetTotalTime = Math.min(2200, Math.max(500, totalWords * 22));
+    const tickInterval = 20;
+    const totalTicks = targetTotalTime / tickInterval;
+    const wordsPerTick = Math.max(1, Math.ceil(totalWords / totalTicks));
+
+    let timer: any = null;
+    let finished = false;
+
+    const finishTyping = () => {
+      if (finished) return;
+      finished = true;
+      if (timer) clearInterval(timer);
+      timer = null;
+      wordNodes.forEach((s) => {
+        s.classList.remove('grokki-word-hidden');
+        s.classList.add('grokki-word-fade');
+      });
+      if (cursor.parentNode) cursor.parentNode.removeChild(cursor);
+      container.classList.remove('grokki-typing-active');
+      onFinished?.();
+    };
+
+    const revealBatch = () => {
+      const end = Math.min(currentIndex + wordsPerTick, totalWords);
+      for (let i = currentIndex; i < end; i++) {
+        const s = wordNodes[i];
+        s.classList.remove('grokki-word-hidden');
+        s.classList.add('grokki-word-fade');
+      }
+      if (end > 0 && end <= totalWords) {
+        wordNodes[end - 1].after(cursor);
+      }
+      currentIndex = end;
+      onScroll?.();
+
+      if (currentIndex >= totalWords) {
+        finishTyping();
+      }
+    };
+
+    container.addEventListener('click', finishTyping, { once: true });
+    timer = setInterval(revealBatch, tickInterval);
+    revealBatch();
+
+    return () => {
+      if (timer) clearInterval(timer);
+      if (cursor.parentNode) cursor.parentNode.removeChild(cursor);
+    };
+  }, [content, isAnimated]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 text-sm leading-relaxed font-sans"
+    />
+  );
+};
+
 export const ChatTab: React.FC<ChatTabProps> = ({
   config,
   userName,
@@ -572,6 +699,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           content: replyContent,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           actionsExecuted: res.actionsExecuted,
+          isAnimated: true,
         };
         onUpdateMessages((prev) => [...prev, assistantMsg]);
       } else {
@@ -581,6 +709,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             role: 'assistant',
             content: `I received your command: **"${text}"**${currentAttachment ? ` with attachment \`${currentAttachment.name}\`` : ''}.\n\nGrokki Studio is connected and ready to automate Windows, manage your workspace, and synthesize voices.`,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isAnimated: true,
           };
           onUpdateMessages((prev) => [...prev, assistantMsg]);
           setLoading(false);
@@ -593,6 +722,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         role: 'assistant',
         content: `⚠️ **Execution Error**: ${err.message || 'Failed to communicate with Agent Brain.'}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isAnimated: true,
       };
       onUpdateMessages((prev) => [...prev, errorMsg]);
     } finally {
@@ -701,6 +831,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   const renderMarkdown = (content: string) => {
     return { __html: marked.parse(content) as string };
+  };
+
+  const handleMessageFinished = (id: string) => {
+    onUpdateMessages((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, isAnimated: false } : m))
+    );
   };
 
   const renderSlashMenu = () => {
@@ -1030,10 +1166,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                           </div>
                         )}
 
-                        {/* Rendered Markdown Body */}
-                        <div
-                          className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 text-sm leading-relaxed font-sans"
-                          dangerouslySetInnerHTML={renderMarkdown(msg.content)}
+                        {/* Rendered Markdown Body with Per-Word Fade-In Typing */}
+                        <AnimatedMessageContent
+                          content={msg.content}
+                          isAnimated={msg.isAnimated}
+                          onScroll={scrollToBottom}
+                          onFinished={() => handleMessageFinished(msg.id)}
                         />
 
                         {/* Pure Icon-Only Actions */}
