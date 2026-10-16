@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { marked } from 'marked';
 import { JarvisConfig, Conversation, ChatMessage, AttachedFileInfo } from '../../types/jarvis';
+import PixelBlast from './PixelBlast';
 
 const grokkiIcon = './assets/grokki_icon.svg';
 
@@ -948,7 +949,44 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full w-full max-w-3xl mx-auto justify-between relative pb-3">
+    <div className="relative flex flex-col h-full w-full justify-between pb-3">
+      {/* Background PixelBlast Effect */}
+      <div
+        className="absolute inset-0 pointer-events-none overflow-hidden z-0"
+        style={{ width: '100%', height: '100%', position: 'absolute' }}
+      >
+        <PixelBlast
+          variant="square"
+          pixelSize={3}
+          color="#B497CF"
+          patternScale={2}
+          patternDensity={1}
+          softness={0.6}
+          glow={0.4}
+          twinkle={0.25}
+          drift={0.2}
+          hoverEffect="reveal"
+          enableRipples
+          edgeFade={0.25}
+          accentColor="#B497CF"
+          pixelSizeJitter={0}
+          smoothing={1}
+          speed={0.5}
+          driftAngle={30}
+          hoverRadius={140}
+          rippleSpeed={0.3}
+          rippleThickness={0.1}
+          rippleIntensityScale={1}
+          autoRipple={0}
+          tiltX={0}
+          tiltY={0}
+          intro
+          lightMode={false}
+        />
+      </div>
+
+      {/* Main Content Column */}
+      <div className="flex flex-col h-full w-full max-w-3xl mx-auto justify-between relative z-10">
       {/* Messages / Hero View */}
       {messages.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center px-4 pt-6 pb-4">
@@ -1337,6 +1375,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };
