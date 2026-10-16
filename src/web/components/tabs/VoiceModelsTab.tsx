@@ -16,7 +16,7 @@ interface VoiceItem {
   tag: string;
   accent: 'us' | 'uk';
   gender: 'female' | 'male';
-  initials: string;
+  gradient: string;
 }
 
 const VOICES: VoiceItem[] = [
@@ -27,7 +27,7 @@ const VOICES: VoiceItem[] = [
     tag: 'US • Conversational',
     accent: 'us',
     gender: 'female',
-    initials: 'HT',
+    gradient: 'radial-gradient(circle at 35% 35%, #ff758c 0%, #ff416c 60%, #990033 100%)',
   },
   {
     id: 'af_bella',
@@ -36,7 +36,7 @@ const VOICES: VoiceItem[] = [
     tag: 'US • High Energy',
     accent: 'us',
     gender: 'female',
-    initials: 'BL',
+    gradient: 'radial-gradient(circle at 35% 35%, #4facfe 0%, #0072ff 60%, #003399 100%)',
   },
   {
     id: 'af_nicole',
@@ -45,7 +45,7 @@ const VOICES: VoiceItem[] = [
     tag: 'US • Studio Pro',
     accent: 'us',
     gender: 'female',
-    initials: 'NC',
+    gradient: 'radial-gradient(circle at 35% 35%, #e0c3fc 0%, #8ec5fc 60%, #6a11cb 100%)',
   },
   {
     id: 'af_sky',
@@ -54,7 +54,7 @@ const VOICES: VoiceItem[] = [
     tag: 'US • Narrative',
     accent: 'us',
     gender: 'female',
-    initials: 'SK',
+    gradient: 'radial-gradient(circle at 35% 35%, #84fab0 0%, #8fd3f4 60%, #209cff 100%)',
   },
   {
     id: 'am_adam',
@@ -63,7 +63,7 @@ const VOICES: VoiceItem[] = [
     tag: 'US • Confident',
     accent: 'us',
     gender: 'male',
-    initials: 'AD',
+    gradient: 'radial-gradient(circle at 35% 35%, #ffd200 0%, #f7971e 60%, #b85d19 100%)',
   },
   {
     id: 'am_michael',
@@ -72,7 +72,7 @@ const VOICES: VoiceItem[] = [
     tag: 'US • Broadcast',
     accent: 'us',
     gender: 'male',
-    initials: 'MC',
+    gradient: 'radial-gradient(circle at 35% 35%, #38ef7d 0%, #11998e 60%, #0c615a 100%)',
   },
   {
     id: 'bf_emma',
@@ -81,7 +81,7 @@ const VOICES: VoiceItem[] = [
     tag: 'UK • Gentle RP',
     accent: 'uk',
     gender: 'female',
-    initials: 'EM',
+    gradient: 'radial-gradient(circle at 35% 35%, #fbc2eb 0%, #a6c1ee 60%, #764ba2 100%)',
   },
   {
     id: 'bf_isabella',
@@ -90,7 +90,7 @@ const VOICES: VoiceItem[] = [
     tag: 'UK • Oxford RP',
     accent: 'uk',
     gender: 'female',
-    initials: 'IS',
+    gradient: 'radial-gradient(circle at 35% 35%, #f6d365 0%, #fda085 60%, #d46b4f 100%)',
   },
 ];
 
@@ -175,11 +175,11 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
                   : 'border border-[#e4e4eb] dark:border-[#1e2029]'
               } ${isPlaying ? 'is-playing' : ''}`}
             >
-              {/* Minimalist Studio Monochromatic Disc */}
-              <div className="w-[70px] h-[70px] rounded-full flex items-center justify-center mb-3 relative bg-gray-100 dark:bg-[#1f212c] border border-gray-200 dark:border-[#2d303e] text-gray-700 dark:text-gray-300 font-mono font-bold text-sm tracking-wider">
-                <span className={isPlaying ? 'opacity-0' : 'opacity-100 transition-opacity'}>
-                  {voice.initials}
-                </span>
+              {/* Radial Gradient Voice Sphere */}
+              <div
+                className="w-[74px] h-[74px] rounded-full flex items-center justify-center mb-3 relative shadow-md border-2 border-white/20 transition-transform duration-300 hover:scale-105"
+                style={{ background: voice.gradient }}
+              >
                 <button
                   type="button"
                   onClick={(e) => {
@@ -187,7 +187,7 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
                     onPreviewVoice(voice.id);
                   }}
                   title="Preview Voice"
-                  className="absolute inset-0 m-auto w-8 h-8 rounded-full bg-gray-900/80 dark:bg-white/90 text-white dark:text-gray-900 flex items-center justify-center cursor-pointer hover:scale-110 transition-all shadow-xs border-none"
+                  className="w-7 h-7 rounded-full bg-black/45 border border-white/40 text-white flex items-center justify-center text-[10px] cursor-pointer hover:bg-black/70 hover:scale-110 transition-all pl-0.5 shadow-md"
                 >
                   {isPlaying ? (
                     <Square className="w-3 h-3 fill-current" />
