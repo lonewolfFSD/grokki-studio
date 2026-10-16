@@ -10,6 +10,7 @@ import { PersonalizationTab } from './components/tabs/PersonalizationTab';
 import { GoogleWorkspaceTab } from './components/tabs/GoogleWorkspaceTab';
 import { AppearanceTab } from './components/tabs/AppearanceTab';
 import { AboutTab } from './components/tabs/AboutTab';
+import { SplashScreen } from './components/SplashScreen';
 import { JarvisConfig, GoogleProfile, SystemInfo } from './types/jarvis';
 import { useConversations } from './hooks/useConversations';
 
@@ -43,6 +44,7 @@ export const App: React.FC = () => {
   const [hasUnsaved, setHasUnsaved] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   const [googleConnected, setGoogleConnected] = useState(false);
   const [googleProfile, setGoogleProfile] = useState<GoogleProfile | null>(null);
@@ -297,7 +299,10 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="w-screen h-screen flex flex-row overflow-hidden bg-[#f7f7fa] dark:bg-[#0c0d12] text-gray-900 dark:text-gray-100 font-sans">
+    <div className="w-screen h-screen flex flex-row overflow-hidden bg-[#f7f7fa] dark:bg-[#0c0d12] text-gray-900 dark:text-gray-100 font-sans relative">
+      {/* Initial Launch Splash Screen with Technical Boot Sequence */}
+      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}

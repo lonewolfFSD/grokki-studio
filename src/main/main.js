@@ -113,6 +113,7 @@ function saveConfig(newConfig) {
         app.setLoginItemSettings({
           openAtLogin: !!newConfig.launchOnStartup,
           path: process.execPath,
+          args: ['--autostart'],
         });
       } catch (err) {
         console.warn('[Main] Failed to update login item settings:', err.message);
@@ -1120,9 +1121,15 @@ app.whenReady().then(() => {
     session.defaultSession.setDevicePermissionHandler(() => true);
   }
 
-  createWindow();
+  createWindow(false);
   createTray();
   registerShortcuts();
+
+  // If opening Grokki Studio directly (not auto-started on Windows boot), open Grokki Studio
+  const isAutostart = process.argv.includes('--autostart') || process.argv.includes('--hidden') || process.argv.includes('--background');
+  if (!isAutostart) {
+    openDashboardWindow();
+  }
 
   // Initialize free background Wake Word listener
   const config = loadConfig();
