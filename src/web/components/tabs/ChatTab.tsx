@@ -765,7 +765,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
             </span>
-            <span className="text-xs font-bold tracking-wider text-gray-900 dark:text-gray-100 uppercase font-mono">
+            <span className="text-[11px] font-bold tracking-wider text-gray-900 dark:text-gray-100 uppercase font-mono">
               REC {formatRecordingTime(recordingDuration)}
             </span>
             <span className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">
@@ -782,14 +782,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         <div className="w-full h-11 rounded-xl bg-gray-50 dark:bg-[#0c0d12] border border-gray-200/60 dark:border-[#1e2029] flex items-center justify-center overflow-hidden px-2 relative">
           <canvas
             ref={canvasRef}
-            width={520}
+            width={480}
             height={44}
             className="w-full h-full block"
           />
         </div>
 
         {/* Interim Transcript Live Stream */}
-        <div className="mt-2 text-xs text-gray-700 dark:text-gray-300 italic truncate font-sans">
+        <div className="mt-2 text-[10px] text-gray-700 dark:text-gray-300 italic truncate font-sans">
           {interimTranscript ? (
             <span>"{interimTranscript}"</span>
           ) : (

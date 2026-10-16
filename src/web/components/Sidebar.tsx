@@ -52,6 +52,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
+  // Fixed random gradient avatar for this account
+  const accountKey = (googleProfile?.email || userName || 'local_user').trim().toLowerCase();
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    if (googleProfile?.picture) {
+      setAvatarUrl(googleProfile.picture);
+      setImgError(false);
+      return;
+    }
+
+    const storageKey = `grokki_avatar_${accountKey}`;
+    let saved = localStorage.getItem(storageKey);
+    if (!saved) {
+      const randomSeed = `${accountKey}_${Math.random().toString(36).substring(2, 9)}`;
+      saved = `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(randomSeed)}`;
+      try {
+        localStorage.setItem(storageKey, saved);
+      } catch (e) {}
+    }
+    setAvatarUrl(saved);
+    setImgError(false);
+  }, [accountKey, googleProfile?.picture]);
+
+  const getGradientClass = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const gradients = [
+      'bg-gradient-to-tr from-violet-600 via-pink-600 to-rose-500',
+      'bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600',
+      'bg-gradient-to-tr from-emerald-500 via-teal-600 to-cyan-600',
+      'bg-gradient-to-tr from-amber-500 via-orange-600 to-rose-600',
+      'bg-gradient-to-tr from-fuchsia-600 via-purple-600 to-indigo-700',
+      'bg-gradient-to-tr from-rose-500 via-red-500 to-amber-500',
+    ];
+    return gradients[Math.abs(hash) % gradients.length];
+  };
+
+  const initial = (userName || 'U').trim().charAt(0).toUpperCase();
+
   // Close account menu on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -216,22 +259,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {accountMenuOpen && (
           <div className="absolute bottom-full left-0 right-0 mb-2 p-1.5 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl shadow-xl z-50 flex flex-col gap-1">
             {/* Account Info Header */}
-            <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-[#181a22] border border-gray-100 dark:border-[#202330]">
-              <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
-                {userName}
+            <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-[#181a22] border border-gray-100 dark:border-[#202330] flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 overflow-hidden shadow-xs relative">
+                {avatarUrl && !imgError ? (
+                  <img
+                    src={avatarUrl}
+                    alt={userName}
+                    onError={() => setImgError(true)}
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                ) : (
+                  <div className={`w-full h-full flex items-center justify-center ${getGradientClass(accountKey)} font-mono text-xs font-bold text-white rounded-lg`}>
+                    {initial}
+                  </div>
+                )}
               </div>
-              <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                {googleProfile?.email || 'Local Desktop Profile'}
-              </div>
-              <div className="flex items-center gap-1.5 mt-2">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    googleConnected ? 'bg-emerald-500' : 'bg-gray-400'
-                  }`}
-                />
-                <span className="text-[10px] font-mono font-medium text-gray-500 dark:text-gray-400">
-                  {googleConnected ? 'Google Connected' : 'Not Connected'}
-                </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                  {userName}
+                </div>
+                <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                  {googleProfile?.email || 'Local Desktop Profile'}
+                </div>
               </div>
             </div>
 
@@ -291,19 +340,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#13141a] hover:bg-gray-100 dark:hover:bg-[#181a22] border border-gray-200 dark:border-[#1e2029] transition-all cursor-pointer shadow-xs"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 flex items-center justify-center text-xs flex-shrink-0 overflow-hidden">
-              {googleProfile?.picture ? (
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 overflow-hidden shadow-xs relative">
+              {avatarUrl && !imgError ? (
                 <img
-                  src={googleProfile.picture}
+                  src={avatarUrl}
                   alt={userName}
+                  onError={() => setImgError(true)}
                   className="w-full h-full object-cover rounded-lg"
                 />
               ) : (
-                <User className="w-4 h-4" />
+                <div className={`w-full h-full flex items-center justify-center ${getGradientClass(accountKey)} font-mono text-xs font-bold text-white rounded-lg`}>
+                  {initial}
+                </div>
               )}
             </div>
             <div className="min-w-0">
-              <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+              <div className="text-[12px] font-semibold text-gray-900 dark:text-gray-100 truncate">
                 {userName}
               </div>
             </div>
