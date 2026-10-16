@@ -86,6 +86,18 @@ export interface JarvisAPI {
   executeAI?: (prompt: string, context?: any) => Promise<{ success: boolean; reply?: string; message?: string; actionsExecuted?: any[]; error?: string }>;
   selectFile?: () => Promise<{ canceled: boolean; path?: string; name?: string; filePaths?: string[]; size?: number; ext?: string }>;
   onConfigUpdated?: (callback: (data: JarvisConfig) => void) => void;
+  checkForUpdates?: () => Promise<{
+    updateAvailable: boolean;
+    currentVersion?: string;
+    latestVersion?: string;
+    name?: string;
+    downloadUrl?: string;
+    downloadedPath?: string;
+    releaseNotes?: string;
+    message?: string;
+    error?: string;
+  }>;
+  restartAndInstallUpdate?: (data?: any) => void;
 }
 
 declare global {

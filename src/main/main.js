@@ -822,6 +822,140 @@ ipcMain.handle('dashboard:get-system-info', async () => {
   };
 });
 
+function compareSemver(v1, v2) {
+  const clean1 = (v1 || '').replace(/^[^\d]*/, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const clean2 = (v2 || '').replace(/^[^\d]*/, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const len = Math.max(clean1.length, clean2.length);
+  for (let i = 0; i < len; i++) {
+    const p1 = clean1[i] || 0;
+    const p2 = clean2[i] || 0;
+    if (p1 > p2) return 1;
+    if (p1 < p2) return -1;
+  }
+  return 0;
+}
+
+ipcMain.handle('app:check-for-updates', async (event) => {
+  try {
+    const cfg = loadConfig();
+    const currentVersion = '2.5.0';
+
+    const candidateRepos = [
+      cfg?.githubRepo,
+      'LonewolfFSD/Assistant-AI',
+      'LonewolfFSD/grokki',
+      'assistant-ai/grokki',
+    ].filter(Boolean);
+
+    let latestRelease = null;
+    let targetRepo = null;
+
+    for (const repo of candidateRepos) {
+      try {
+        const url = `https://api.github.com/repos/${repo}/releases/latest`;
+        const res = await fetch(url, {
+          headers: {
+            'User-Agent': 'Grokki-Studio-Desktop',
+            'Accept': 'application/vnd.github.v3+json',
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.tag_name) {
+            latestRelease = data;
+            targetRepo = repo;
+            break;
+          }
+        }
+      } catch (err) {
+        // try next candidate
+      }
+    }
+
+    if (!latestRelease) {
+      return {
+        updateAvailable: false,
+        currentVersion,
+        message: 'No newer release published on GitHub.',
+      };
+    }
+
+    const latestTag = latestRelease.tag_name;
+    const isNewer = compareSemver(latestTag, currentVersion) > 0;
+
+    if (!isNewer) {
+      return {
+        updateAvailable: false,
+        currentVersion,
+        latestVersion: latestTag,
+        message: `You're on the latest version (${currentVersion}).`,
+      };
+    }
+
+    // Find downloadable asset
+    const asset = latestRelease.assets?.find((a) =>
+      a.name.endsWith('.exe') || a.name.endsWith('.zip') || a.name.endsWith('.msi')
+    ) || latestRelease.assets?.[0];
+
+    let downloadedPath = null;
+    if (asset?.browser_download_url) {
+      try {
+        const updatesDir = path.join(app.getPath('userData'), 'updates');
+        if (!fs.existsSync(updatesDir)) {
+          fs.mkdirSync(updatesDir, { recursive: true });
+        }
+        const filePath = path.join(updatesDir, asset.name);
+        const fileRes = await fetch(asset.browser_download_url, {
+          headers: { 'User-Agent': 'Grokki-Studio-Desktop' },
+        });
+        if (fileRes.ok) {
+          const buffer = Buffer.from(await fileRes.arrayBuffer());
+          fs.writeFileSync(filePath, buffer);
+          downloadedPath = filePath;
+        }
+      } catch (e) {
+        console.warn('[Main] Failed to pre-download release asset:', e.message);
+      }
+    }
+
+    return {
+      updateAvailable: true,
+      currentVersion,
+      latestVersion: latestTag,
+      name: latestRelease.name || latestTag,
+      downloadUrl: asset?.browser_download_url || latestRelease.html_url,
+      downloadedPath,
+      releaseNotes: latestRelease.body || '',
+      repo: targetRepo,
+    };
+  } catch (err) {
+    console.error('[Main] check-for-updates error:', err);
+    return {
+      updateAvailable: false,
+      error: err.message,
+    };
+  }
+});
+
+ipcMain.on('app:restart-and-install', (event, data) => {
+  try {
+    console.log('[Main] Restarting Grokki Studio to apply update...');
+    if (data?.downloadedPath && fs.existsSync(data.downloadedPath)) {
+      if (data.downloadedPath.endsWith('.exe') || data.downloadedPath.endsWith('.msi')) {
+        require('child_process').spawn(data.downloadedPath, [], { detached: true, stdio: 'ignore' }).unref();
+        app.exit(0);
+        return;
+      }
+    }
+    app.relaunch();
+    app.exit(0);
+  } catch (err) {
+    console.error('[Main] Failed to relaunch app:', err);
+    app.relaunch();
+    app.exit(0);
+  }
+});
+
 ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, endpoint }) => {
   const startTime = Date.now();
   try {

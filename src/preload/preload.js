@@ -84,6 +84,8 @@ try {
     maximizeDashboard: () => ipcRenderer.send('dashboard:maximize'),
     testAiKey: (options) => ipcRenderer.invoke('dashboard:test-ai-key', options),
     getSystemInfo: () => ipcRenderer.invoke('dashboard:get-system-info'),
+    checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
+    restartAndInstallUpdate: (data) => ipcRenderer.send('app:restart-and-install', data),
     onConfigUpdated: (callback) => {
       ipcRenderer.on('config:updated', (event, data) => callback(data));
     },
