@@ -127,6 +127,21 @@ class GoogleWorkspaceManager {
     return !!(creds && (creds.access_token || creds.refresh_token));
   }
 
+  disconnect() {
+    try {
+      if (fs.existsSync(this.tokenPath)) {
+        fs.unlinkSync(this.tokenPath);
+      }
+      if (this.oauth2Client) {
+        this.oauth2Client.setCredentials({});
+      }
+      return true;
+    } catch (e) {
+      console.error('Failed to disconnect Google:', e);
+      return false;
+    }
+  }
+
   /**
    * Fetch connected user's profile info (name, email, avatar picture)
    */

@@ -75,6 +75,7 @@ try {
     getConfig: () => ipcRenderer.invoke('jarvis:get-config'),
     saveConfig: (config) => ipcRenderer.invoke('jarvis:save-config', config),
     connectGoogle: () => ipcRenderer.invoke('jarvis:connect-google'),
+    disconnectGoogle: () => ipcRenderer.invoke('jarvis:disconnect-google'),
     getGoogleStatus: () => ipcRenderer.invoke('jarvis:get-google-status'),
 
     // Dashboard Studio Controls

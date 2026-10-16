@@ -20,6 +20,8 @@ export interface JarvisConfig {
   userTone?: 'companion' | 'architect' | 'sarcastic' | 'executive';
   userBio?: string;
   dashboardTheme?: 'light' | 'dark';
+  launchOnStartup?: boolean;
+  closeAction?: 'tray' | 'quit';
 }
 
 export interface GoogleProfile {
@@ -72,6 +74,7 @@ export interface JarvisAPI {
   getConfig: () => Promise<JarvisConfig>;
   saveConfig: (cfg: Partial<JarvisConfig>) => Promise<JarvisConfig>;
   connectGoogle: () => Promise<{ success: boolean; message?: string; error?: string }>;
+  disconnectGoogle?: () => Promise<{ success: boolean }>;
   getGoogleStatus: () => Promise<GoogleStatusResponse>;
   closeDashboard: () => void;
   minimizeDashboard: () => void;

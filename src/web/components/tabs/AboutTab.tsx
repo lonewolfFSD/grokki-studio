@@ -19,16 +19,16 @@ export const AboutTab: React.FC<AboutTabProps> = ({ systemInfo, hotkey }) => {
             System architecture, version telemetry, and runtime engine specifications.
           </p>
         </div>
-        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1e2029] font-mono">
-          v2.5.0 • Stable Cobalt
+        <span className="text-[10px] font-semibold px-3 py-1 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1e2029] font-mono">
+          v2.5.0
         </span>
       </div>
 
       {/* Hero Identity Card */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-2xl p-6 shadow-xs flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xl shadow-xs">
-            [//]
+          <div className="w-14 h-14 rounded-2xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-2xl shadow-xs">
+            //
           </div>
           <div>
             <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 m-0">
@@ -37,15 +37,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ systemInfo, hotkey }) => {
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-1.5">
               Autonomous Multimodal Operating System Assistant
             </p>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">
-                Engine Active
-              </span>
-              <span className="text-gray-300 dark:text-gray-700">•</span>
-              <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">
-                Channel: Production Local
-              </span>
-            </div>
+            
           </div>
         </div>
 
@@ -103,7 +95,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ systemInfo, hotkey }) => {
         <h4 className="text-xs font-bold text-gray-900 dark:text-gray-100 tracking-tight uppercase">
           Host Machine Diagnostics
         </h4>
-        <div className="grid grid-cols-4 gap-4 text-xs">
+        <div className="grid grid-cols-2 gap-4 text-xs">
           <div className="flex flex-col gap-1">
             <span className="text-gray-400 dark:text-gray-500 text-[11px]">Operating System</span>
             <span className="font-semibold text-gray-900 dark:text-gray-100 font-mono">

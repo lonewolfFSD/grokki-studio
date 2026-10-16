@@ -40,18 +40,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             Grokki Studio is loaded with native Windows automation and multimodal neural intelligence.
           </p>
         </div>
-
-        <button
-          onClick={() => onNavigateTab('voice')}
-          className="bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 font-semibold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer border-none shadow-xs flex items-center gap-2"
-        >
-          <Headphones className="w-4 h-4 text-white dark:text-gray-900" />
-          <span>Tune Voices</span>
-        </button>
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-4 gap-4 w-full">
+      <div className="grid grid-cols-2 gap-4 w-full">
         {/* Metric 1 */}
         <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-4 flex flex-col gap-1 shadow-xs">
           <div className="flex items-center justify-between">

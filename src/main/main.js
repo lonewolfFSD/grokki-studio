@@ -68,6 +68,8 @@ function loadConfig() {
       if (!data.userTone) data.userTone = 'companion';
       if (!data.userBio) data.userBio = '';
       if (!data.dashboardTheme) data.dashboardTheme = 'light';
+      if (data.launchOnStartup === undefined) data.launchOnStartup = false;
+      if (!data.closeAction) data.closeAction = 'tray';
       return data;
     }
   } catch (err) {
@@ -95,6 +97,8 @@ function loadConfig() {
     userTone: 'companion',
     userBio: '',
     dashboardTheme: 'light',
+    launchOnStartup: false,
+    closeAction: 'tray',
   };
 }
 
@@ -103,6 +107,17 @@ function saveConfig(newConfig) {
     const current = loadConfig();
     const updated = { ...current, ...newConfig };
     fs.writeFileSync(configPath, JSON.stringify(updated, null, 2), 'utf8');
+
+    if (newConfig.launchOnStartup !== undefined) {
+      try {
+        app.setLoginItemSettings({
+          openAtLogin: !!newConfig.launchOnStartup,
+          path: process.execPath,
+        });
+      } catch (err) {
+        console.warn('[Main] Failed to update login item settings:', err.message);
+      }
+    }
     return updated;
   } catch (err) {
     console.error('Failed to save config:', err);
@@ -758,8 +773,20 @@ ipcMain.handle('jarvis:save-config', async (event, newConfig) => {
   return saved;
 });
 
+ipcMain.handle('jarvis:disconnect-google', async () => {
+  const googleWorkspace = require('./google_workspace');
+  const success = googleWorkspace.disconnect();
+  return { success };
+});
+
 // Dashboard Studio Controls & Live Tests
 ipcMain.on('dashboard:close', () => {
+  const config = loadConfig();
+  if (config.closeAction === 'quit') {
+    isQuitting = true;
+    app.quit();
+    return;
+  }
   if (dashboardWindow && !dashboardWindow.isDestroyed()) {
     dashboardWindow.close();
   }

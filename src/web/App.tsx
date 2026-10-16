@@ -32,6 +32,8 @@ const DEFAULT_CONFIG: JarvisConfig = {
   userTone: 'companion',
   userBio: '',
   dashboardTheme: 'light',
+  launchOnStartup: false,
+  closeAction: 'tray',
 };
 
 export const App: React.FC = () => {
@@ -134,6 +136,31 @@ export const App: React.FC = () => {
     } catch (e) {
       setGoogleConnected(false);
       setGoogleProfile(null);
+    }
+  };
+
+  const handleSwitchGoogle = async () => {
+    try {
+      if (window.jarvisAPI?.disconnectGoogle) {
+        await window.jarvisAPI.disconnectGoogle();
+      }
+      if (window.jarvisAPI?.connectGoogle) {
+        await window.jarvisAPI.connectGoogle();
+        await loadGoogleStatus();
+      }
+    } catch (e) {
+      console.error('Failed to switch Google account:', e);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    try {
+      if (window.jarvisAPI?.disconnectGoogle) {
+        await window.jarvisAPI.disconnectGoogle();
+        await loadGoogleStatus();
+      }
+    } catch (e) {
+      console.error('Failed to disconnect Google:', e);
     }
   };
 
@@ -276,12 +303,14 @@ export const App: React.FC = () => {
         onSelectTab={setActiveTab}
         userName={displayName}
         googleProfile={googleProfile}
-        hotkey={config.hotkey || 'Alt+Q'}
+        googleConnected={googleConnected}
         conversations={conversations}
         activeConversationId={activeConversationId}
         onSelectConversation={selectConversation}
         onCreateConversation={createConversation}
         onDeleteConversation={deleteConversation}
+        onSwitchGoogle={handleSwitchGoogle}
+        onDisconnectGoogle={handleDisconnectGoogle}
       />
 
       {/* Main Content Column */}

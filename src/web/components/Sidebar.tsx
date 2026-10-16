@@ -1,5 +1,20 @@
-import React from 'react';
-import { Home, Mic, Cpu, Sliders, Globe, Palette, Info, User, MessageSquare, Plus, Trash2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Home,
+  Mic,
+  Cpu,
+  Sliders,
+  Globe,
+  Palette,
+  Info,
+  User,
+  MessageSquare,
+  Plus,
+  Trash2,
+  ChevronDown,
+  RefreshCw,
+  LogOut,
+} from 'lucide-react';
 import { GoogleProfile, Conversation } from '../types/jarvis';
 
 export type TabId = 'chat' | 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'about';
@@ -9,12 +24,15 @@ interface SidebarProps {
   onSelectTab: (tab: TabId) => void;
   userName: string;
   googleProfile: GoogleProfile | null;
-  hotkey: string;
+  googleConnected?: boolean;
+  hotkey?: string;
   conversations?: Conversation[];
   activeConversationId?: string;
   onSelectConversation?: (id: string) => void;
   onCreateConversation?: () => void;
   onDeleteConversation?: (id: string) => void;
+  onSwitchGoogle?: () => Promise<void> | void;
+  onDisconnectGoogle?: () => Promise<void> | void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -22,13 +40,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   userName,
   googleProfile,
-  hotkey,
+  googleConnected = false,
   conversations = [],
   activeConversationId,
   onSelectConversation,
   onCreateConversation,
   onDeleteConversation,
+  onSwitchGoogle,
+  onDisconnectGoogle,
 }) => {
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close account menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    };
+    if (accountMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [accountMenuOpen]);
+
   const primaryNavItems: { id: TabId; label: string; icon: React.ReactNode }[] = [
     { id: 'chat', label: 'Chat', icon: <MessageSquare className="w-4 h-4 flex-shrink-0" /> },
     { id: 'overview', label: 'Home', icon: <Home className="w-4 h-4 flex-shrink-0" /> },
@@ -99,9 +137,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   )}
                 </div>
 
-                {/* Sub-Navigation for Saved Conversations */}
+                {/* Sub-Navigation for Saved Conversations with Discord Thread Line */}
                 {isChatItem && conversations && conversations.length > 0 && (
-                  <div className="flex flex-col pl-3 pt-1 pb-1 space-y-0.5 max-h-48 overflow-y-auto">
+                  <div className="relative pl-6 pt-1 pb-1 flex flex-col space-y-0.5 max-h-52 overflow-y-auto">
+                    {/* Continuous Vertical Thread Spine Line */}
+                    <div className="absolute left-[18px] top-0 bottom-3 w-[1.5px] bg-gray-200 dark:bg-[#202330] pointer-events-none" />
+
                     {conversations.map((convo) => {
                       const isConvoActive = activeTab === 'chat' && activeConversationId === convo.id;
                       return (
@@ -111,12 +152,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onSelectConversation?.(convo.id);
                             onSelectTab('chat');
                           }}
-                          className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[12px] transition-all cursor-pointer ${
+                          className={`group relative flex items-center justify-between pl-3 pr-2 py-1.5 rounded-lg text-[12px] transition-all cursor-pointer ${
                             isConvoActive
                               ? 'bg-gray-200/80 dark:bg-[#202330] text-gray-900 dark:text-gray-100 font-medium shadow-xs'
                               : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100/60 dark:hover:bg-[#14161f]'
                           }`}
                         >
+                          {/* Discord Curved Thread Branch Connector */}
+                          <div className="absolute -left-[6px] top-1/2 -translate-y-1/2 w-2 h-2.5 border-b-[1.5px] border-l-[1.5px] border-gray-200 dark:border-[#202330] rounded-bl-md pointer-events-none" />
+
                           <span className="truncate pr-1 flex-1 select-none font-sans">
                             {convo.title || 'New Chat'}
                           </span>
@@ -141,7 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </nav>
 
-        {/* Pinned Section (Exact ElevenLabs Styling) */}
+        {/* Pinned Section */}
         <div className="flex flex-col gap-0.5 pt-2 border-t border-gray-100 dark:border-[#1a1c24]">
           <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 px-3 py-1 tracking-wider uppercase select-none">
             Pinned
@@ -166,32 +210,113 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Bottom User Card */}
-      <div className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029]">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 flex items-center justify-center text-xs flex-shrink-0 overflow-hidden">
-            {googleProfile?.picture ? (
-              <img
-                src={googleProfile.picture}
-                alt={userName}
-                className="w-full h-full object-cover rounded-lg"
-              />
-            ) : (
-              <User className="w-4 h-4" />
-            )}
+      {/* Bottom Profile Card & Account Switcher Popover */}
+      <div className="relative" ref={menuRef}>
+        {/* Switch Account Popover Menu */}
+        {accountMenuOpen && (
+          <div className="absolute bottom-full left-0 right-0 mb-2 p-1.5 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl shadow-xl z-50 flex flex-col gap-1">
+            {/* Account Info Header */}
+            <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-[#181a22] border border-gray-100 dark:border-[#202330]">
+              <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                {userName}
+              </div>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                {googleProfile?.email || 'Local Desktop Profile'}
+              </div>
+              <div className="flex items-center gap-1.5 mt-2">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    googleConnected ? 'bg-emerald-500' : 'bg-gray-400'
+                  }`}
+                />
+                <span className="text-[10px] font-mono font-medium text-gray-500 dark:text-gray-400">
+                  {googleConnected ? 'Google Connected' : 'Not Connected'}
+                </span>
+              </div>
+            </div>
+
+            {/* Menu Actions */}
+            <div className="flex flex-col gap-0.5 pt-1">
+              <button
+                type="button"
+                onClick={async () => {
+                  setAccountMenuOpen(false);
+                  if (onSwitchGoogle) {
+                    await onSwitchGoogle();
+                  } else {
+                    onSelectTab('google');
+                  }
+                }}
+                className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent text-left"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-gray-500" />
+                <span>Switch Account</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAccountMenuOpen(false);
+                  onSelectTab('google');
+                }}
+                className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent text-left"
+              >
+                <Globe className="w-3.5 h-3.5 text-gray-500" />
+                <span>Workspace Settings</span>
+              </button>
+
+              {googleConnected && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setAccountMenuOpen(false);
+                    if (onDisconnectGoogle) {
+                      await onDisconnectGoogle();
+                    }
+                  }}
+                  className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer border-none bg-transparent text-left"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-red-500" />
+                  <span>Disconnect Account</span>
+                </button>
+              )}
+            </div>
           </div>
-          <div className="min-w-0">
-            <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
-              {userName}
+        )}
+
+        {/* Profile Card (No Alt+Q, No email address, clickable to switch account) */}
+        <div
+          onClick={() => setAccountMenuOpen(!accountMenuOpen)}
+          title="Click to switch account"
+          className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#13141a] hover:bg-gray-100 dark:hover:bg-[#181a22] border border-gray-200 dark:border-[#1e2029] transition-all cursor-pointer shadow-xs"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 flex items-center justify-center text-xs flex-shrink-0 overflow-hidden">
+              {googleProfile?.picture ? (
+                <img
+                  src={googleProfile.picture}
+                  alt={userName}
+                  className="w-full h-full object-cover rounded-lg"
+                />
+              ) : (
+                <User className="w-4 h-4" />
+              )}
             </div>
-            <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
-              {googleProfile?.email ? googleProfile.email : 'Desktop Companion'}
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                {userName}
+              </div>
             </div>
+          </div>
+
+          <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5">
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                accountMenuOpen ? 'rotate-180' : ''
+              }`}
+            />
           </div>
         </div>
-        <kbd className="font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded bg-gray-200 dark:bg-[#1a1c24] text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-[#1e2029]">
-          {hotkey}
-        </kbd>
       </div>
     </aside>
   );

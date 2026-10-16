@@ -27,7 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
             {title}
           </span>
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono">
-            Alpha
+            Beta
           </span>
         </div>
       </div>
