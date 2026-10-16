@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
     }
 
     setUpdateState('checking');
-    setToastMsg('Checking GitHub releases...');
+    setToastMsg('Checking grokki-studio releases...');
 
     try {
       let result: any = null;
@@ -113,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={handleCheckOrRestart}
-            title={`Latest release ${updateInfo?.latestVersion || ''} is ready. Click to restart and update Grokki Studio.`}
+            title={`Latest release ${updateInfo?.latestVersion || ''} is downloaded and ready from lonewolfFSD/grokki-studio/releases. Click to restart and update.`}
             className="h-8 px-2.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs animate-in fade-in duration-200 select-none group"
           >
             <RotateCcw className="w-3.5 h-3.5 flex-shrink-0 animate-pulse text-emerald-500 group-hover:rotate-180 transition-transform duration-300" />
@@ -125,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={handleCheckOrRestart}
-            title={toastMsg || (updateState === 'up-to-date' ? 'Up to date (v2.5.0)' : 'Check for updates (GitHub releases)')}
+            title={toastMsg || (updateState === 'up-to-date' ? 'Up to date (v2.5.0)' : 'Check for updates (https://github.com/lonewolfFSD/grokki-studio/releases)')}
             disabled={updateState === 'checking'}
             className={`w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent flex items-center justify-center transition-all cursor-pointer ${
               updateState === 'up-to-date'

@@ -835,48 +835,76 @@ function compareSemver(v1, v2) {
   return 0;
 }
 
-ipcMain.handle('app:check-for-updates', async (event) => {
+ipcMain.handle('app:check-for-updates', async () => {
   try {
-    const cfg = loadConfig();
     const currentVersion = '2.5.0';
-
-    const candidateRepos = [
-      cfg?.githubRepo,
-      'LonewolfFSD/Assistant-AI',
-      'LonewolfFSD/grokki',
-      'assistant-ai/grokki',
-    ].filter(Boolean);
+    const officialRepo = 'lonewolfFSD/grokki-studio';
+    const releasesWebUrl = `https://github.com/${officialRepo}/releases`;
 
     let latestRelease = null;
-    let targetRepo = null;
 
-    for (const repo of candidateRepos) {
+    // 1. First try the latest release endpoint
+    try {
+      const res = await fetch(`https://api.github.com/repos/${officialRepo}/releases/latest`, {
+        headers: {
+          'User-Agent': 'Grokki-Studio-Desktop',
+          'Accept': 'application/vnd.github.v3+json',
+        },
+      });
+      if (res.ok) {
+        latestRelease = await res.json();
+      }
+    } catch (e) {}
+
+    // 2. If no "latest" release, try listing all releases (first item)
+    if (!latestRelease || !latestRelease.tag_name) {
       try {
-        const url = `https://api.github.com/repos/${repo}/releases/latest`;
-        const res = await fetch(url, {
+        const res = await fetch(`https://api.github.com/repos/${officialRepo}/releases`, {
           headers: {
             'User-Agent': 'Grokki-Studio-Desktop',
             'Accept': 'application/vnd.github.v3+json',
           },
         });
         if (res.ok) {
-          const data = await res.json();
-          if (data && data.tag_name) {
-            latestRelease = data;
-            targetRepo = repo;
-            break;
+          const list = await res.json();
+          if (Array.isArray(list) && list.length > 0) {
+            latestRelease = list[0];
           }
         }
-      } catch (err) {
-        // try next candidate
-      }
+      } catch (e) {}
     }
 
-    if (!latestRelease) {
+    // 3. Fallback: check git tags if releases not yet created
+    if (!latestRelease || !latestRelease.tag_name) {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${officialRepo}/tags`, {
+          headers: {
+            'User-Agent': 'Grokki-Studio-Desktop',
+            'Accept': 'application/vnd.github.v3+json',
+          },
+        });
+        if (res.ok) {
+          const tags = await res.json();
+          if (Array.isArray(tags) && tags.length > 0) {
+            latestRelease = {
+              tag_name: tags[0].name,
+              name: tags[0].name,
+              html_url: releasesWebUrl,
+              zipball_url: tags[0].zipball_url,
+              body: 'New version pushed to repository.',
+            };
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!latestRelease || !latestRelease.tag_name) {
       return {
         updateAvailable: false,
         currentVersion,
-        message: 'No newer release published on GitHub.',
+        repo: officialRepo,
+        releasesUrl: releasesWebUrl,
+        message: `Up to date (v${currentVersion}). No newer releases on GitHub.`,
       };
     }
 
@@ -888,24 +916,29 @@ ipcMain.handle('app:check-for-updates', async (event) => {
         updateAvailable: false,
         currentVersion,
         latestVersion: latestTag,
-        message: `You're on the latest version (${currentVersion}).`,
+        repo: officialRepo,
+        releasesUrl: releasesWebUrl,
+        message: `You're on the latest version (v${currentVersion}).`,
       };
     }
 
-    // Find downloadable asset
+    // Identify binary asset if attached
     const asset = latestRelease.assets?.find((a) =>
-      a.name.endsWith('.exe') || a.name.endsWith('.zip') || a.name.endsWith('.msi')
+      a.name.endsWith('.exe') || a.name.endsWith('.msi') || a.name.endsWith('.zip')
     ) || latestRelease.assets?.[0];
 
     let downloadedPath = null;
-    if (asset?.browser_download_url) {
+    const downloadTargetUrl = asset?.browser_download_url || latestRelease.zipball_url;
+
+    if (downloadTargetUrl) {
       try {
         const updatesDir = path.join(app.getPath('userData'), 'updates');
         if (!fs.existsSync(updatesDir)) {
           fs.mkdirSync(updatesDir, { recursive: true });
         }
-        const filePath = path.join(updatesDir, asset.name);
-        const fileRes = await fetch(asset.browser_download_url, {
+        const fileName = asset?.name || `grokki-update-${latestTag}.zip`;
+        const filePath = path.join(updatesDir, fileName);
+        const fileRes = await fetch(downloadTargetUrl, {
           headers: { 'User-Agent': 'Grokki-Studio-Desktop' },
         });
         if (fileRes.ok) {
@@ -914,7 +947,7 @@ ipcMain.handle('app:check-for-updates', async (event) => {
           downloadedPath = filePath;
         }
       } catch (e) {
-        console.warn('[Main] Failed to pre-download release asset:', e.message);
+        console.warn('[Main] Release asset auto-download notice:', e.message);
       }
     }
 
@@ -923,10 +956,11 @@ ipcMain.handle('app:check-for-updates', async (event) => {
       currentVersion,
       latestVersion: latestTag,
       name: latestRelease.name || latestTag,
-      downloadUrl: asset?.browser_download_url || latestRelease.html_url,
+      releasesUrl: releasesWebUrl,
+      downloadUrl: asset?.browser_download_url || latestRelease.html_url || releasesWebUrl,
       downloadedPath,
       releaseNotes: latestRelease.body || '',
-      repo: targetRepo,
+      repo: officialRepo,
     };
   } catch (err) {
     console.error('[Main] check-for-updates error:', err);
@@ -939,10 +973,11 @@ ipcMain.handle('app:check-for-updates', async (event) => {
 
 ipcMain.on('app:restart-and-install', (event, data) => {
   try {
-    console.log('[Main] Restarting Grokki Studio to apply update...');
+    console.log('[Main] Restarting Grokki Studio to apply update...', data);
     if (data?.downloadedPath && fs.existsSync(data.downloadedPath)) {
       if (data.downloadedPath.endsWith('.exe') || data.downloadedPath.endsWith('.msi')) {
-        require('child_process').spawn(data.downloadedPath, [], { detached: true, stdio: 'ignore' }).unref();
+        const cp = require('child_process');
+        cp.spawn(data.downloadedPath, [], { detached: true, stdio: 'ignore' }).unref();
         app.exit(0);
         return;
       }
