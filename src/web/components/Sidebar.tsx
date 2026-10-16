@@ -1,8 +1,8 @@
 import React from 'react';
-import { Home, Mic, Cpu, Sliders, Globe, Palette, Info, User } from 'lucide-react';
+import { Home, Mic, Cpu, Sliders, Globe, Palette, Info, User, MessageSquare } from 'lucide-react';
 import { GoogleProfile } from '../types/jarvis';
 
-export type TabId = 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'about';
+export type TabId = 'chat' | 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'about';
 
 interface SidebarProps {
   activeTab: TabId;
@@ -19,46 +19,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
   googleProfile,
   hotkey,
 }) => {
-  const navItems: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    { id: 'overview', label: 'Overview', icon: <Home className="w-4 h-4 flex-shrink-0" /> },
-    { id: 'voice', label: 'Voice Models', icon: <Mic className="w-4 h-4 flex-shrink-0" /> },
-    { id: 'ai', label: 'AI Brain & Keys', icon: <Cpu className="w-4 h-4 flex-shrink-0" /> },
+  const primaryNavItems: { id: TabId; label: string; icon: React.ReactNode }[] = [
+    { id: 'chat', label: 'Chat', icon: <MessageSquare className="w-4 h-4 flex-shrink-0" /> },
+    { id: 'overview', label: 'Home', icon: <Home className="w-4 h-4 flex-shrink-0" /> },
+    { id: 'voice', label: 'Voices', icon: <Mic className="w-4 h-4 flex-shrink-0" /> },
+    { id: 'ai', label: 'AI Brain', icon: <Cpu className="w-4 h-4 flex-shrink-0" /> },
+    { id: 'google', label: 'Workspace', icon: <Globe className="w-4 h-4 flex-shrink-0" /> },
+  ];
+
+  const pinnedNavItems: { id: TabId; label: string; icon: React.ReactNode }[] = [
     { id: 'profile', label: 'Personalization', icon: <Sliders className="w-4 h-4 flex-shrink-0" /> },
-    { id: 'google', label: 'Google Workspace', icon: <Globe className="w-4 h-4 flex-shrink-0" /> },
     { id: 'appearance', label: 'Appearance', icon: <Palette className="w-4 h-4 flex-shrink-0" /> },
     { id: 'about', label: 'About', icon: <Info className="w-4 h-4 flex-shrink-0" /> },
   ];
 
   return (
-    <aside className="w-64 h-screen flex flex-col justify-between p-4 border-r border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#08090d] select-none flex-shrink-0">
-      <div className="flex flex-col gap-6">
-        {/* Brand Header */}
-        <div className="flex items-center justify-between px-2 pt-1">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-sm">
-              [//]
+    <aside className="w-60 h-screen flex flex-col justify-between p-3.5 border-r border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#08090d] select-none flex-shrink-0">
+      <div className="flex flex-col gap-5 overflow-y-auto">
+        {/* ElevenLabs Style Brand Header */}
+        <div className="flex items-center justify-between px-2 pt-1 pb-1">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-4 bg-gray-900 dark:bg-white rounded-xs"></span>
+              <span className="w-1.5 h-4 bg-gray-900 dark:bg-white rounded-xs"></span>
             </div>
             <span className="font-bold text-sm tracking-tight text-gray-900 dark:text-gray-100">
-              Grokki Studio
+              Grokki
             </span>
           </div>
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono">
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono">
             v2.5
           </span>
         </div>
 
-        {/* Navigation Menu */}
-        <nav className="flex flex-col gap-1">
-          {navItems.map((item) => {
+        {/* Primary Navigation Menu */}
+        <nav className="flex flex-col gap-0.5">
+          {primaryNavItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => onSelectTab(item.id)}
-                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[13.5px] font-medium transition-all cursor-pointer border-none text-left ${
+                className={`flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-medium transition-all cursor-pointer border-none text-left ${
                   isActive
                     ? 'bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
-                    : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#14161f]'
+                    : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#14161f]'
                 }`}
               >
                 {item.icon}
@@ -67,6 +72,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
         </nav>
+
+        {/* Pinned Section (Exact ElevenLabs Styling) */}
+        <div className="flex flex-col gap-0.5 pt-2 border-t border-gray-100 dark:border-[#1a1c24]">
+          <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 px-3 py-1 tracking-wider uppercase select-none">
+            Pinned
+          </span>
+          {pinnedNavItems.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onSelectTab(item.id)}
+                className={`flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-medium transition-all cursor-pointer border-none text-left ${
+                  isActive
+                    ? 'bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
+                    : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#14161f]'
+                }`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Bottom User Card */}

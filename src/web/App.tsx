@@ -3,6 +3,7 @@ import { Sidebar, TabId } from './components/Sidebar';
 import { Header } from './components/Header';
 import { UnsavedToast } from './components/UnsavedToast';
 import { OverviewTab } from './components/tabs/OverviewTab';
+import { ChatTab } from './components/tabs/ChatTab';
 import { VoiceModelsTab } from './components/tabs/VoiceModelsTab';
 import { AiBrainTab } from './components/tabs/AiBrainTab';
 import { PersonalizationTab } from './components/tabs/PersonalizationTab';
@@ -33,7 +34,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
 };
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [activeTab, setActiveTab] = useState<TabId>('chat');
   const [config, setConfig] = useState<JarvisConfig>(DEFAULT_CONFIG);
   const [originalConfig, setOriginalConfig] = useState<JarvisConfig>(DEFAULT_CONFIG);
   const [hasUnsaved, setHasUnsaved] = useState(false);
@@ -246,7 +247,8 @@ export const App: React.FC = () => {
     'Friend';
 
   const tabTitles: Record<TabId, string> = {
-    overview: 'Overview',
+    chat: 'Chat',
+    overview: 'Home',
     voice: 'Voice Models',
     ai: 'AI Brain & Keys',
     profile: 'Personalization',
@@ -274,10 +276,19 @@ export const App: React.FC = () => {
           onToggleTheme={handleToggleTheme}
           onMinimize={handleMinimize}
           onClose={handleClose}
+          onSearchClick={() => setActiveTab('chat')}
         />
 
         {/* Tab Panels */}
-        <main className="flex-1 overflow-y-auto px-8 py-6">
+        <main className={`flex-1 overflow-y-auto ${activeTab === 'chat' ? 'px-6 py-4 flex flex-col' : 'px-8 py-6'}`}>
+          {activeTab === 'chat' && (
+            <ChatTab
+              config={config}
+              userName={displayName}
+              onNavigateTab={setActiveTab}
+            />
+          )}
+
           {activeTab === 'overview' && (
             <OverviewTab
               config={config}

@@ -56,6 +56,8 @@ export interface JarvisAPI {
   testAiKey: (options: { provider: string; key?: string; model?: string; endpoint?: string }) => Promise<{ success: boolean; latencyMs?: number; reply?: string; error?: string }>;
   getSystemInfo: () => Promise<SystemInfo>;
   speakText: (text: string, voice: string) => Promise<{ success: boolean; base64Audio?: string; error?: string }>;
+  executeAI?: (prompt: string, context?: any) => Promise<{ success: boolean; reply?: string; message?: string; actionsExecuted?: any[]; error?: string }>;
+  selectFile?: () => Promise<{ canceled: boolean; filePaths: string[] }>;
   onConfigUpdated?: (callback: (data: JarvisConfig) => void) => void;
 }
 
