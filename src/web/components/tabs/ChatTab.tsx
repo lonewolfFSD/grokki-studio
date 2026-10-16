@@ -1281,7 +1281,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                       Grokki
                     </span>
                   </div>
-                  <div className="inline-flex items-center py-0.5">
+                  <div className="inline-flex items-center py-1">
                     <LatticeLoader
                       status="working"
                       label="Thinking"
@@ -1292,15 +1292,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                       shape="round"
                       doneColor="#22c55e"
                       errorColor="#ef4444"
-                      cellSize={2}
-                      gap={1}
-                      fontSize={10}
+                      cellSize={4.5}
+                      gap={2}
+                      fontSize={12}
                       step={90}
                       idleOpacity={0.15}
                       glow={false}
                       glowColor=""
                       showTimer
-                      color={isDarkTheme ? '#9ca3af' : '#6b7280'}
+                      color={isDarkTheme ? '#f5f5f5' : '#18181b'}
                     />
                   </div>
                 </div>

@@ -181,6 +181,9 @@ const LatticeLoader: React.FC<LatticeLoaderProps> = ({
       data-glow={glow ? '' : undefined}
       style={
         {
+          fontSize: `${fontSize}px`,
+          gap: `${Math.round(fontSize * 0.55)}px`,
+          color: color,
           '--ll-n': n,
           '--ll-cell': `${cellSize}px`,
           '--ll-gap': `${gap}px`,
