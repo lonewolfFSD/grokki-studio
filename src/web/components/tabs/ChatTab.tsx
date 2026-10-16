@@ -204,7 +204,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   // Voice Synthesizer & Speech-to-Text State
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const [detectedPitch, setDetectedPitch] = useState<{ note: string; hz: number } | null>(null);
   const [interimTranscript, setInterimTranscript] = useState('');
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -254,7 +253,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     playSynthSound('start');
     setIsRecording(true);
     setRecordingDuration(0);
-    setDetectedPitch(null);
     setInterimTranscript('');
     audioChunksRef.current = [];
 
@@ -274,86 +272,68 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       }
 
       const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.8;
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.82;
       analyserRef.current = analyser;
 
       const source = audioCtx.createMediaStreamSource(stream);
       source.connect(analyser);
 
       const bufferLength = analyser.frequencyBinCount;
-      const timeData = new Uint8Array(analyser.fftSize);
-      const freqData = new Float32Array(bufferLength);
+      const freqData = new Uint8Array(bufferLength);
+      const numBars = 48;
+      const barWidth = 4;
+      const spacing = 4;
+      const smoothedHeights = new Float32Array(numBars).fill(4);
 
-      const drawSynthesizer = () => {
-        animationFrameRef.current = requestAnimationFrame(drawSynthesizer);
+      const drawBars = () => {
+        animationFrameRef.current = requestAnimationFrame(drawBars);
 
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        analyser.getByteTimeDomainData(timeData);
-        analyser.getFloatFrequencyData(freqData);
+        analyser.getByteFrequencyData(freqData);
 
-        // Dominant Pitch Frequency Detection (80Hz - 900Hz voice fundamental range)
-        const binResolution = audioCtx.sampleRate / analyser.fftSize;
-        const minBin = Math.max(1, Math.floor(80 / binResolution));
-        const maxBin = Math.min(bufferLength - 1, Math.floor(900 / binResolution));
+        // Detect light vs dark theme: solid black bars on light mode, white on dark mode
+        const isDark = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark');
+        const barColor = isDark ? '#f3f4f6' : '#111827';
 
-        let peakVal = -Infinity;
-        let peakIndex = -1;
-        for (let i = minBin; i <= maxBin; i++) {
-          if (freqData[i] > peakVal) {
-            peakVal = freqData[i];
-            peakIndex = i;
-          }
-        }
-
-        if (peakVal > -55 && peakIndex > 0) {
-          const hz = Math.round(peakIndex * binResolution);
-          const noteNum = Math.round(12 * Math.log2(hz / 440)) + 69;
-          const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-          const noteName = noteNames[((noteNum % 12) + 12) % 12];
-          const octave = Math.floor(noteNum / 12) - 1;
-          setDetectedPitch({ note: `${noteName}${octave}`, hz });
-        }
-
-        // Draw Synthesizer Oscilloscope / Waveform on Canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = barColor;
 
-        // Center baseline
-        ctx.strokeStyle = 'rgba(239, 68, 68, 0.2)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, canvas.height / 2);
-        ctx.lineTo(canvas.width, canvas.height / 2);
-        ctx.stroke();
+        const totalWidth = numBars * barWidth + (numBars - 1) * spacing;
+        const startX = (canvas.width - totalWidth) / 2;
+        const centerY = canvas.height / 2;
 
-        // Glowing Synthesizer Waveform
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
-        gradient.addColorStop(0, '#f43f5e');
-        gradient.addColorStop(0.3, '#ec4899');
-        gradient.addColorStop(0.7, '#8b5cf6');
-        gradient.addColorStop(1, '#06b6d4');
+        for (let i = 0; i < numBars; i++) {
+          // Symmetric distribution for aesthetic vocal waveform curve
+          const normIdx = i < numBars / 2 ? i / (numBars / 2) : (numBars - 1 - i) / (numBars / 2);
+          const binIndex = Math.min(freqData.length - 1, Math.floor(normIdx * 34));
+          const val = freqData[binIndex] || 0;
 
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
+          // Target height between 4px (idle pill dot) and 34px (active speech)
+          const targetH = 4 + (val / 255) * 30;
 
-        const sliceWidth = canvas.width / analyser.fftSize;
-        let x = 0;
-        for (let i = 0; i < analyser.fftSize; i++) {
-          const v = timeData[i] / 128.0;
-          const y = (v * canvas.height) / 2;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-          x += sliceWidth;
+          // Smooth spring damping for ultra-fluid motion
+          smoothedHeights[i] = smoothedHeights[i] * 0.72 + targetH * 0.28;
+          const h = Math.max(4, Math.min(34, smoothedHeights[i]));
+
+          const x = startX + i * (barWidth + spacing);
+          const y = centerY - h / 2;
+
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(x, y, barWidth, h, barWidth / 2);
+          } else {
+            ctx.rect(x, y, barWidth, h);
+          }
+          ctx.fill();
         }
-        ctx.stroke();
       };
 
-      drawSynthesizer();
+      drawBars();
 
       // Native Web Speech Recognition for Realtime Voice-to-Text
       const SpeechRecClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -477,7 +457,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
 
     setInterimTranscript('');
-    setDetectedPitch(null);
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
@@ -779,31 +758,27 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     if (!isRecording) return null;
 
     return (
-      <div className="w-full max-w-xl mx-auto mb-2 p-3 rounded-2xl bg-white/95 dark:bg-[#13141a]/95 backdrop-blur-md border border-red-500/30 dark:border-red-500/40 shadow-lg shadow-red-500/5 transition-all animate-in fade-in slide-in-from-bottom-2 duration-200">
+      <div className="w-full max-w-xl mx-auto mb-2 p-3 rounded-2xl bg-white/95 dark:bg-[#13141a]/95 backdrop-blur-md border border-gray-200 dark:border-[#202330] shadow-md shadow-black/5 transition-all animate-in fade-in slide-in-from-bottom-2 duration-200">
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
+            <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
             </span>
-            <span className="text-xs font-bold tracking-wider text-red-600 dark:text-red-400 uppercase font-mono">
+            <span className="text-xs font-bold tracking-wider text-gray-900 dark:text-gray-100 uppercase font-mono">
               REC {formatRecordingTime(recordingDuration)}
             </span>
             <span className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">
-              • Synthesizer Active
+              • Listening
             </span>
           </div>
 
-          {/* Live Pitch Frequency Display */}
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#252836]">
-            <span className="text-[10px] text-gray-400 font-mono">Pitch:</span>
-            <span className="text-xs font-mono font-bold text-gray-900 dark:text-gray-100">
-              {detectedPitch ? `${detectedPitch.note} (${detectedPitch.hz} Hz)` : 'Listening...'}
-            </span>
-          </div>
+          <span className="text-[10.5px] font-mono text-gray-400 dark:text-gray-500 select-none">
+            Click ■ to finish
+          </span>
         </div>
 
-        {/* Canvas Waveform / Frequency Spectrum Visualizer */}
+        {/* Smooth Vertical Bars Waveform */}
         <div className="w-full h-11 rounded-xl bg-gray-50 dark:bg-[#0c0d12] border border-gray-200/60 dark:border-[#1e2029] flex items-center justify-center overflow-hidden px-2 relative">
           <canvas
             ref={canvasRef}
