@@ -137,6 +137,12 @@ function formatFileSize(bytes?: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+function formatRecordingTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
 function getFileIcon(ext?: string) {
   const e = (ext || '').toLowerCase();
   if (['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.bmp'].includes(e)) {
@@ -195,6 +201,310 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  // Voice Synthesizer & Speech-to-Text State
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [detectedPitch, setDetectedPitch] = useState<{ note: string; hz: number } | null>(null);
+  const [interimTranscript, setInterimTranscript] = useState('');
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const speechRecRef = useRef<any | null>(null);
+  const timerRef = useRef<any | null>(null);
+
+  const playSynthSound = (type: 'start' | 'stop') => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audioCtx = new AudioContextClass();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      const now = audioCtx.currentTime;
+      if (type === 'start') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(480, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      } else {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(660, now);
+        osc.frequency.exponentialRampToValueAtTime(330, now + 0.14);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      }
+    } catch (err) {
+      console.warn('Audio feedback error:', err);
+    }
+  };
+
+  const startVoiceRecording = async () => {
+    playSynthSound('start');
+    setIsRecording(true);
+    setRecordingDuration(0);
+    setDetectedPitch(null);
+    setInterimTranscript('');
+    audioChunksRef.current = [];
+
+    timerRef.current = setInterval(() => {
+      setRecordingDuration((prev) => prev + 1);
+    }, 1000);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const audioCtx = new AudioContextClass();
+      audioContextRef.current = audioCtx;
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.8;
+      analyserRef.current = analyser;
+
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const timeData = new Uint8Array(analyser.fftSize);
+      const freqData = new Float32Array(bufferLength);
+
+      const drawSynthesizer = () => {
+        animationFrameRef.current = requestAnimationFrame(drawSynthesizer);
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        analyser.getByteTimeDomainData(timeData);
+        analyser.getFloatFrequencyData(freqData);
+
+        // Dominant Pitch Frequency Detection (80Hz - 900Hz voice fundamental range)
+        const binResolution = audioCtx.sampleRate / analyser.fftSize;
+        const minBin = Math.max(1, Math.floor(80 / binResolution));
+        const maxBin = Math.min(bufferLength - 1, Math.floor(900 / binResolution));
+
+        let peakVal = -Infinity;
+        let peakIndex = -1;
+        for (let i = minBin; i <= maxBin; i++) {
+          if (freqData[i] > peakVal) {
+            peakVal = freqData[i];
+            peakIndex = i;
+          }
+        }
+
+        if (peakVal > -55 && peakIndex > 0) {
+          const hz = Math.round(peakIndex * binResolution);
+          const noteNum = Math.round(12 * Math.log2(hz / 440)) + 69;
+          const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+          const noteName = noteNames[((noteNum % 12) + 12) % 12];
+          const octave = Math.floor(noteNum / 12) - 1;
+          setDetectedPitch({ note: `${noteName}${octave}`, hz });
+        }
+
+        // Draw Synthesizer Oscilloscope / Waveform on Canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Center baseline
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height / 2);
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
+
+        // Glowing Synthesizer Waveform
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+        gradient.addColorStop(0, '#f43f5e');
+        gradient.addColorStop(0.3, '#ec4899');
+        gradient.addColorStop(0.7, '#8b5cf6');
+        gradient.addColorStop(1, '#06b6d4');
+
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+
+        const sliceWidth = canvas.width / analyser.fftSize;
+        let x = 0;
+        for (let i = 0; i < analyser.fftSize; i++) {
+          const v = timeData[i] / 128.0;
+          const y = (v * canvas.height) / 2;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+          x += sliceWidth;
+        }
+        ctx.stroke();
+      };
+
+      drawSynthesizer();
+
+      // Native Web Speech Recognition for Realtime Voice-to-Text
+      const SpeechRecClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecClass) {
+        try {
+          const recognition = new SpeechRecClass();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = 'en-US';
+
+          recognition.onresult = (event: any) => {
+            let interim = '';
+            let final = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              if (event.results[i].isFinal) {
+                final += event.results[i][0].transcript;
+              } else {
+                interim += event.results[i][0].transcript;
+              }
+            }
+            if (final.trim()) {
+              setInputValue((prev) => (prev ? `${prev} ${final.trim()}` : final.trim()));
+            }
+            setInterimTranscript(interim.trim() || final.trim());
+          };
+
+          recognition.onerror = (err: any) => {
+            console.warn('[SpeechRec] Recognition notice:', err?.error);
+          };
+
+          recognition.start();
+          speechRecRef.current = recognition;
+        } catch (e) {
+          console.warn('SpeechRecognition initialization notice:', e);
+        }
+      }
+
+      // MediaRecorder fallback / multi-modal audio chunk collection
+      let mimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mimeType = 'audio/mp4';
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      mediaRecorder.start(250);
+      mediaRecorderRef.current = mediaRecorder;
+    } catch (err) {
+      console.error('Failed to access microphone for synthesizer recording:', err);
+      stopVoiceRecording();
+    }
+  };
+
+  const stopVoiceRecording = async () => {
+    playSynthSound('stop');
+    setIsRecording(false);
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    if (speechRecRef.current) {
+      try {
+        speechRecRef.current.stop();
+      } catch (e) {}
+      speechRecRef.current = null;
+    }
+
+    let recordedBlob: Blob | null = null;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        mediaRecorderRef.current.stop();
+        if (audioChunksRef.current.length > 0) {
+          recordedBlob = new Blob(audioChunksRef.current, { type: mediaRecorderRef.current.mimeType || 'audio/webm' });
+        }
+      } catch (e) {}
+      mediaRecorderRef.current = null;
+    }
+
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      try {
+        audioContextRef.current.close();
+      } catch (e) {}
+      audioContextRef.current = null;
+    }
+
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach((track) => track.stop());
+      micStreamRef.current = null;
+    }
+
+    // Multimodal Gemini Audio Fallback if speech recognition returned empty
+    if ((!inputValue.trim() || interimTranscript) && recordedBlob && window.jarvisAPI?.executeAIAudio) {
+      try {
+        const arrayBuffer = await recordedBlob.arrayBuffer();
+        const base64Audio = btoa(
+          new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
+        const res = await window.jarvisAPI.executeAIAudio({
+          base64Audio,
+          mimeType: recordedBlob.type || 'audio/webm',
+        });
+        if (res && res.transcript && res.transcript !== 'Voice command') {
+          setInputValue((prev) => (prev ? `${prev} ${res.transcript}` : res.transcript));
+        }
+      } catch (e) {
+        console.warn('AI audio transcription fallback notice:', e);
+      }
+    }
+
+    setInterimTranscript('');
+    setDetectedPitch(null);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const toggleVoiceRecording = () => {
+    if (isRecording) {
+      stopVoiceRecording();
+    } else {
+      startVoiceRecording();
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (speechRecRef.current) {
+        try { speechRecRef.current.stop(); } catch (e) {}
+      }
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        try { audioContextRef.current.close(); } catch (e) {}
+      }
+    };
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -242,6 +552,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const handleSendMessage = async (textToSend?: string) => {
+    if (isRecording) {
+      stopVoiceRecording();
+    }
     let text = (textToSend || inputValue).trim();
     if (!text && !attachedFile) return;
 
@@ -417,7 +730,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     return (
       <div className="absolute bottom-full left-0 right-0 mb-2 p-1.5 bg-white/95 dark:bg-[#12131a]/95 backdrop-blur-xl border border-gray-200 dark:border-[#202330] rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto flex flex-col gap-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
         <div className="flex items-center justify-between px-2.5 py-1.5 text-[10.5px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-[#1e2029]">
-          <span>Direct Actions & Slash Commands</span>
+          <span className='text-[10px]'>Direct Actions & Slash Commands</span>
           <span className="font-mono text-[9px] lowercase bg-gray-100 dark:bg-[#1a1c24] px-1.5 py-0.5 rounded text-gray-500">
             ↑↓ navigate • enter select
           </span>
@@ -457,6 +770,58 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               </div>
             );
           })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSynthesizerVisualizer = () => {
+    if (!isRecording) return null;
+
+    return (
+      <div className="w-full max-w-xl mx-auto mb-2 p-3 rounded-2xl bg-white/95 dark:bg-[#13141a]/95 backdrop-blur-md border border-red-500/30 dark:border-red-500/40 shadow-lg shadow-red-500/5 transition-all animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+            </span>
+            <span className="text-xs font-bold tracking-wider text-red-600 dark:text-red-400 uppercase font-mono">
+              REC {formatRecordingTime(recordingDuration)}
+            </span>
+            <span className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">
+              • Synthesizer Active
+            </span>
+          </div>
+
+          {/* Live Pitch Frequency Display */}
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#252836]">
+            <span className="text-[10px] text-gray-400 font-mono">Pitch:</span>
+            <span className="text-xs font-mono font-bold text-gray-900 dark:text-gray-100">
+              {detectedPitch ? `${detectedPitch.note} (${detectedPitch.hz} Hz)` : 'Listening...'}
+            </span>
+          </div>
+        </div>
+
+        {/* Canvas Waveform / Frequency Spectrum Visualizer */}
+        <div className="w-full h-11 rounded-xl bg-gray-50 dark:bg-[#0c0d12] border border-gray-200/60 dark:border-[#1e2029] flex items-center justify-center overflow-hidden px-2 relative">
+          <canvas
+            ref={canvasRef}
+            width={520}
+            height={44}
+            className="w-full h-full block"
+          />
+        </div>
+
+        {/* Interim Transcript Live Stream */}
+        <div className="mt-2 text-xs text-gray-700 dark:text-gray-300 italic truncate font-sans">
+          {interimTranscript ? (
+            <span>"{interimTranscript}"</span>
+          ) : (
+            <span className="text-gray-400 dark:text-gray-500 not-italic">
+              Speak into your microphone... speech-to-text is live.
+            </span>
+          )}
         </div>
       </div>
     );
@@ -508,6 +873,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           {/* Centered Floating Input Pill with Slash Command Palette */}
           <div className="w-full max-w-xl mx-auto relative">
             {renderSlashMenu()}
+            {renderSynthesizerVisualizer()}
 
             <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
               {/* Attach Tool Button */}
@@ -528,11 +894,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={
-                  attachedFile
+                  isRecording
+                    ? "Listening... speaking your prompt"
+                    : attachedFile
                     ? `Ask Grokki about ${attachedFile.name}...`
                     : "Type / for slash commands, or ask Grokki anything..."
                 }
-                className="flex-1 bg-transparent border-none outline-none text-xs md:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
+                className="flex-1 bg-transparent border-none outline-none text-xs md:text-[12px] text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
                 autoFocus
               />
 
@@ -541,14 +909,22 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 Alpha
               </span>
 
-              {/* Voice Dictate Button */}
+              {/* Voice-to-Text Button: Mic when idle, Square Stop when recording */}
               <button
                 type="button"
-                onClick={() => handleSendMessage('/status')}
-                title="Voice Input"
-                className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-1 flex items-center justify-center"
+                onClick={toggleVoiceRecording}
+                title={isRecording ? "Stop voice recording" : "Voice to text"}
+                className={`transition-all cursor-pointer border-none flex items-center justify-center rounded-full ${
+                  isRecording
+                    ? 'w-7 h-7 bg-red-500 hover:bg-red-600 text-white shadow-md shadow-red-500/30 animate-pulse flex-shrink-0'
+                    : 'p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white bg-transparent'
+                }`}
               >
-                <Mic className="w-4 h-4" />
+                {isRecording ? (
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                ) : (
+                  <Mic className="w-4 h-4" />
+                )}
               </button>
 
               {/* Send Arrow Button */}
@@ -768,9 +1144,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             </div>
           )}
 
-          {/* Floating Slash Command Menu for Bottom Bar */}
+          {/* Floating Slash Command Menu & Synthesizer Visualizer for Bottom Bar */}
           <div className="w-full max-w-xl mx-auto relative">
             {renderSlashMenu()}
+            {renderSynthesizerVisualizer()}
 
             <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
               <button
@@ -789,7 +1166,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={
-                  attachedFile
+                  isRecording
+                    ? "Listening... speaking your prompt"
+                    : attachedFile
                     ? `Ask Grokki about ${attachedFile.name}...`
                     : "Type / for direct slash commands, or ask anything..."
                 }
@@ -799,6 +1178,24 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono select-none">
                 v2.5
               </span>
+
+              {/* Voice-to-Text Button: Mic when idle, Square Stop when recording */}
+              <button
+                type="button"
+                onClick={toggleVoiceRecording}
+                title={isRecording ? "Stop voice recording" : "Voice to text"}
+                className={`transition-all cursor-pointer border-none flex items-center justify-center rounded-full ${
+                  isRecording
+                    ? 'w-7 h-7 bg-red-500 hover:bg-red-600 text-white shadow-md shadow-red-500/30 animate-pulse flex-shrink-0'
+                    : 'p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white bg-transparent'
+                }`}
+              >
+                {isRecording ? (
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                ) : (
+                  <Mic className="w-4 h-4" />
+                )}
+              </button>
 
               <button
                 type="button"
