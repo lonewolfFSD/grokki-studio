@@ -403,6 +403,7 @@ const compile = (gl: WebGL2RenderingContext, type: number, source: string) => {
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return shader;
+  console.error('GradientASCII shader compile error:', gl.getShaderInfoLog(shader));
   gl.deleteShader(shader);
   return null;
 };
@@ -418,6 +419,7 @@ const link = (gl: WebGL2RenderingContext, fragmentSource: string): Program | nul
   gl.deleteShader(vertex);
   gl.deleteShader(fragment);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    console.error('GradientASCII program link error:', gl.getProgramInfoLog(program));
     gl.deleteProgram(program);
     return null;
   }
@@ -520,7 +522,6 @@ const GradientASCII = ({
   ...rest
 }: GradientASCIIProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const wakeRef = useRef<(() => void) | null>(null);
   const palette = (Array.isArray(colors) && colors.length ? colors : DEFAULT_COLORS).slice(0, MAX_COLORS);
   const settings: Settings = {
@@ -553,15 +554,24 @@ const GradientASCII = ({
 
   useEffect(() => {
     const container = containerRef.current;
-    const canvas = canvasRef.current;
-    const gl = canvas?.getContext('webgl2', {
+    if (!container) return undefined;
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'absolute inset-0 block h-full w-full';
+    canvas.setAttribute('aria-hidden', 'true');
+    container.appendChild(canvas);
+
+    const gl = canvas.getContext('webgl2', {
       alpha: true,
       premultipliedAlpha: true,
       antialias: false,
       depth: false,
       stencil: false
     });
-    if (!container || !canvas || !gl) return undefined;
+    if (!gl) {
+      canvas.remove();
+      return undefined;
+    }
 
     const field = link(gl, FIELD);
     const halo = link(gl, HALO);
@@ -793,7 +803,7 @@ const GradientASCII = ({
 
     const frame = (now: number) => {
       raf = 0;
-      if (disposed || !visible || document.hidden) return;
+      if (disposed || !visible) return;
       const s = settingsRef.current;
       const dt = last ? clamp((now - last) / 1000, 0.001, 0.05) : 1 / 60;
       last = now;
@@ -815,7 +825,7 @@ const GradientASCII = ({
     };
 
     function wake() {
-      if (!raf && !disposed && visible && !document.hidden) raf = requestAnimationFrame(frame);
+      if (!raf && !disposed && visible) raf = requestAnimationFrame(frame);
     }
 
     const locate = (event: PointerEvent) => {
@@ -893,7 +903,7 @@ const GradientASCII = ({
       if (atlas) gl.deleteTexture(atlas.texture);
       gl.deleteVertexArray(vao);
       [field, halo, blur, composite].forEach(item => gl.deleteProgram(item.program));
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      canvas.remove();
     };
   }, []);
 
@@ -907,9 +917,7 @@ const GradientASCII = ({
       className={['relative h-full w-full overflow-hidden', className].filter(Boolean).join(' ')}
       style={style}
       {...rest}
-    >
-      <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" aria-hidden="true" />
-    </div>
+    />
   );
 };
 
