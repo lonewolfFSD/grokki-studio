@@ -456,6 +456,9 @@ export const App: React.FC = () => {
               userName={displayName}
               onNavigateTab={setActiveTab}
               googleConnected={googleConnected}
+              conversations={conversations}
+              onSelectConversation={selectConversation}
+              onCreateConversation={createConversation}
             />
           )}
 
