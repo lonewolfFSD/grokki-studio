@@ -707,11 +707,11 @@ class GoogleWorkspaceManager {
 
     if (dueThisWeek.length > 0) {
       md += `### 🚨 Due This Week (${dueThisWeek.length})\n`;
-      for (const a of dueThisWeek) {
+      dueThisWeek.forEach((a, idx) => {
         const urgency = a.daysRemaining <= 1 ? '**Due Tomorrow or Today!**' : `Due in ${a.daysRemaining} days`;
-        const linkMd = a.link ? ` • [Open Assignment ↗](${a.link})` : '';
-        md += `• **[${a.course}]** [${a.title}](${a.link || 'https://classroom.google.com'})\n  ↳ ⏰ ${a.dueFormatted} (${urgency})${a.points ? ` • ${a.points} pts` : ''}${linkMd}\n`;
-      }
+        const linkMd = a.link ? ` [Open Assignment ↗](${a.link})` : '';
+        md += `${idx + 1}. **[${a.course}]** ${a.title} — ⏰ *${a.dueFormatted}* (${urgency})${a.points ? ` • ${a.points} pts` : ''}${linkMd}\n`;
+      });
       md += '\n';
     } else {
       md += `### 🎉 All Clear This Week!\nYou have no assignments due in the next 7 days. Great job staying ahead!\n\n`;
@@ -719,30 +719,30 @@ class GoogleWorkspaceManager {
 
     if (upcoming.length > 0) {
       md += `### 📅 Coming Up Later (${upcoming.length})\n`;
-      for (const a of upcoming.slice(0, 5)) {
-        const linkMd = a.link ? ` • [Open ↗](${a.link})` : '';
-        md += `• **[${a.course}]** [${a.title}](${a.link || 'https://classroom.google.com'}) — *${a.dueFormatted}* (in ${a.daysRemaining} days)${linkMd}\n`;
-      }
+      upcoming.slice(0, 5).forEach((a, idx) => {
+        const linkMd = a.link ? ` [Open ↗](${a.link})` : '';
+        md += `${idx + 1}. **[${a.course}]** ${a.title} — *${a.dueFormatted}* (in ${a.daysRemaining} days)${linkMd}\n`;
+      });
       md += '\n';
     }
 
     if (overdue.length > 0) {
       md += `### ⚠️ Past Due / Missed (${overdue.length})\n`;
-      for (const a of overdue.slice(0, 5)) {
-        const linkMd = a.link ? ` • [Open ↗](${a.link})` : '';
-        md += `• **[${a.course}]** [${a.title}](${a.link || 'https://classroom.google.com'}) — *Due ${a.dueFormatted}* (${a.daysAgo} days ago)${linkMd}\n`;
-      }
+      overdue.slice(0, 5).forEach((a, idx) => {
+        const linkMd = a.link ? ` [Open ↗](${a.link})` : '';
+        md += `${idx + 1}. **[${a.course}]** ${a.title} — *Due ${a.dueFormatted}* (${a.daysAgo} days ago)${linkMd}\n`;
+      });
       md += '\n';
     }
 
     if (noDueDate.length > 0) {
       md += `### 📝 Open Lab & Practice (${noDueDate.length} ongoing)\n`;
-      for (const a of noDueDate.slice(0, 4)) {
-        const linkMd = a.link ? ` • [Open ↗](${a.link})` : '';
-        md += `• **[${a.course}]** [${a.title}](${a.link || 'https://classroom.google.com'})${linkMd}\n`;
-      }
+      noDueDate.slice(0, 4).forEach((a, idx) => {
+        const linkMd = a.link ? ` [Open ↗](${a.link})` : '';
+        md += `${idx + 1}. **[${a.course}]** ${a.title}${linkMd}\n`;
+      });
       if (noDueDate.length > 4) {
-        md += `• *...and ${noDueDate.length - 4} more open practice tasks.* • [View All on Classroom ↗](https://classroom.google.com)\n`;
+        md += `\n*...and ${noDueDate.length - 4} more open practice tasks.* [View All on Classroom ↗](https://classroom.google.com)\n`;
       }
     }
 

@@ -159,6 +159,91 @@ function getFileIcon(ext?: string) {
   return <File className="w-4 h-4 text-gray-500" />;
 }
 
+const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
+const CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+
+function formatRichMarkdownHtml(rawContent: string): string {
+  // Normalize inline or line-leading Unicode bullets (•) into numbered list items (1. 2. 3.)
+  let normalized = (rawContent || '')
+    .replace(/\s+•\s+(\*\*\[)/g, '\n• $1')
+    .replace(/\s+•\s+(\*\.\.\.)/g, '\n\n$1');
+
+  const lines = normalized.split('\n');
+  let bulletCounter = 0;
+  const processedLines = lines.map((line) => {
+    const trimmed = line.trim();
+    if (/^•\s+\*\.\.\./.test(trimmed)) {
+      bulletCounter = 0;
+      return trimmed.replace(/^•\s+/, '');
+    }
+    if (/^•\s+/.test(trimmed)) {
+      bulletCounter++;
+      return line.replace(/^(\s*)•\s+/, `$1${bulletCounter}. `);
+    }
+    if (trimmed === '' || /^#{1,6}\s/.test(trimmed)) {
+      bulletCounter = 0;
+    }
+    return line;
+  });
+  normalized = processedLines.join('\n');
+
+  const rawHtml = marked.parse(normalized, { breaks: true, gfm: true }) as string;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(rawHtml, 'text/html');
+
+  // 1. Enhance <pre><code> blocks into Code Windows with Header & Copy Button
+  doc.querySelectorAll('pre').forEach((pre) => {
+    const codeEl = pre.querySelector('code');
+    const className = codeEl?.className || '';
+    const langMatch = className.match(/language-([a-zA-Z0-9_-]+)/);
+    const lang = langMatch ? langMatch[1].toLowerCase() : 'code';
+
+    const wrapper = doc.createElement('div');
+    wrapper.className = 'grokki-code-window';
+
+    const header = doc.createElement('div');
+    header.className = 'grokki-code-header';
+    header.innerHTML = `
+      <div class="grokki-code-header-left">
+        <span class="grokki-code-dots"><i></i><i></i><i></i></span>
+        <span class="grokki-code-lang">${lang}</span>
+      </div>
+      <button type="button" class="grokki-code-copy-btn" aria-label="Copy code">
+        ${COPY_ICON_SVG}
+        <span>Copy</span>
+      </button>
+    `;
+
+    pre.classList.add('grokki-code-pre');
+    pre.parentNode?.replaceChild(wrapper, pre);
+    wrapper.appendChild(header);
+    wrapper.appendChild(pre);
+  });
+
+  // 2. Wrap <table> in a scrollable styled container
+  doc.querySelectorAll('table').forEach((table) => {
+    if (table.parentElement?.classList.contains('grokki-table-wrapper')) return;
+    const wrapper = doc.createElement('div');
+    wrapper.className = 'grokki-table-wrapper';
+    table.parentNode?.replaceChild(wrapper, table);
+    wrapper.appendChild(table);
+  });
+
+  // 3. Style <a> links as distinct colored links / link pills
+  doc.querySelectorAll('a').forEach((a) => {
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer');
+    const text = (a.textContent || '').trim();
+    if (text.includes('↗') || /^(open|view)\b/i.test(text)) {
+      a.classList.add('grokki-link-pill');
+    } else {
+      a.classList.add('grokki-link');
+    }
+  });
+
+  return doc.body.innerHTML;
+}
+
 const AnimatedMessageContent: React.FC<{
   content: string;
   isAnimated?: boolean;
@@ -169,9 +254,36 @@ const AnimatedMessageContent: React.FC<{
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleCodeCopyClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const copyBtn = target?.closest('.grokki-code-copy-btn') as HTMLButtonElement | null;
+      if (!copyBtn) return;
+      e.stopPropagation();
+      const codeWindow = copyBtn.closest('.grokki-code-window');
+      const codeEl = codeWindow?.querySelector('pre code, pre');
+      const rawCode = codeEl?.textContent || '';
+      navigator.clipboard.writeText(rawCode);
+      copyBtn.classList.add('copied');
+      copyBtn.innerHTML = `${CHECK_ICON_SVG}<span>Copied!</span>`;
+      setTimeout(() => {
+        copyBtn.classList.remove('copied');
+        copyBtn.innerHTML = `${COPY_ICON_SVG}<span>Copy</span>`;
+      }, 2000);
+    };
+
+    container.addEventListener('click', handleCodeCopyClick);
+    return () => {
+      container.removeEventListener('click', handleCodeCopyClick);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!containerRef.current) return;
     const container = containerRef.current;
-    const rawHtml = marked.parse(content) as string;
+    const rawHtml = formatRichMarkdownHtml(content);
 
     if (!isAnimated) {
       container.innerHTML = rawHtml;
@@ -209,6 +321,7 @@ const AnimatedMessageContent: React.FC<{
       if (node.nodeType === Node.ELEMENT_NODE) {
         const el = node as Element;
         if (['SCRIPT', 'STYLE', 'SVG'].includes(el.tagName)) return;
+        if (el.classList.contains('grokki-code-header')) return;
         Array.from(node.childNodes).forEach(walk);
       }
     }
@@ -283,7 +396,7 @@ const AnimatedMessageContent: React.FC<{
   return (
     <div
       ref={containerRef}
-      className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 text-sm leading-relaxed font-sans"
+      className="grokki-markdown max-w-none text-gray-800 dark:text-gray-200 text-[13.5px] leading-relaxed font-sans"
     />
   );
 };
@@ -959,11 +1072,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         style={{ width: '100%', height: '100%', position: 'absolute' }}
       >
         <GradientASCII
-          colors={['#1e3fd8', '#f6f8ff', '#a5d8ff', '#38bdf8']}
+          colors={['#23378e', '#f6f8ff', '#a5d8ff', '#38bdf8']}
           shape="horizon"
           characters=" =+xX0S8#@"
           cellSize={18}
-          density={0.8}
+          density={0}
           glyphOpacity={0.85}
           glow={0.2}
           depthOfField={0}
@@ -1031,7 +1144,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             {renderSlashMenu()}
             {renderSynthesizerVisualizer()}
 
-            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-2 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
+            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-3 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
               {/* Attach Tool Button */}
               <button
                 type="button"
@@ -1110,7 +1223,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 <div
                   key={idx}
                   onClick={() => handleSendMessage(item.prompt)}
-                  className="p-3 rounded-xl bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] hover:border-gray-400 dark:hover:border-gray-600 cursor-pointer transition-all flex flex-col gap-0.5 shadow-xs hover:shadow-sm"
+                  className="p-5 rounded-xl bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] hover:border-gray-400 dark:hover:border-gray-600 cursor-pointer transition-all flex flex-col gap-0.5 shadow-xs hover:shadow-sm"
                 >
                   <strong className="text-xs font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
                     {item.title}
