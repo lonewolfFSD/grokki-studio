@@ -59,7 +59,7 @@ const AnimatedSidebarRow: React.FC<{
       }`}
     >
       <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 min-w-0'}`}>
-        <Icon ref={iconRef} size={16} className="flex-shrink-0" />
+        <Icon ref={iconRef} size={isCollapsed ? 20 : 16} className="flex-shrink-0" />
         {!isCollapsed && <span className="truncate">{label}</span>}
       </div>
       {!isCollapsed && rightSlot}
@@ -135,6 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isResizing, setIsResizing] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const profileChevronRef = useRef<IconHandle | null>(null);
+  const openLogoIconRef = useRef<IconHandle | null>(null);
 
   const handleToggleSidebar = () => {
     if (isCollapsed) {
@@ -364,13 +365,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Grokki Studio Brand Header + Minimize/Maximize Button */}
         {isCollapsed ? (
           <div className="flex flex-col items-center pt-1 pb-1">
-            <AnimatedIconButton
-              Icon={PanelLeftOpenIcon}
-              iconSize={18}
+            <button
+              type="button"
               onClick={handleToggleSidebar}
+              onMouseEnter={() => openLogoIconRef.current?.startAnimation()}
+              onMouseLeave={() => openLogoIconRef.current?.stopAnimation()}
               title="Maximize sidebar"
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent"
-            />
+              className="group/logo w-9 h-9 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent"
+            >
+              {/* Default: Grokki Studio Logo */}
+              <div className="group-hover/logo:hidden w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-xs">
+                //
+              </div>
+              {/* On Hover: Maximize Sidebar Icon */}
+              <div className="hidden group-hover/logo:flex items-center justify-center text-gray-700 dark:text-gray-200">
+                <PanelLeftOpenIcon ref={openLogoIconRef} size={20} />
+              </div>
+            </button>
           </div>
         ) : (
           <div className="flex items-center justify-between px-1.5 pt-1 pb-1 gap-1.5">
