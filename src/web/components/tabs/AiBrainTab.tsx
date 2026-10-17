@@ -2,58 +2,29 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { JarvisConfig } from '../../types/jarvis';
 
+import geminiLogo from '../../assets/logos/gemini.png';
+import groqLogo from '../../assets/logos/groq.png';
+import ollamaLogo from '../../assets/logos/ollama.png';
+import openrouterLogo from '../../assets/logos/openrouter.png';
+
 // Official Authentic Google Gemini Brand Logo
 export const GeminiLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none">
-    <path
-      d="M12 2C12 7.523 7.523 12 2 12c5.523 0 10 4.477 10 10 0-5.523 4.477-10 10-10-5.523 0-10-4.477-10-10z"
-      fill="url(#geminiGradAI)"
-    />
-    <defs>
-      <linearGradient id="geminiGradAI" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#4E82EE" />
-        <stop offset="0.5" stopColor="#9B72CF" />
-        <stop offset="1" stopColor="#D96570" />
-      </linearGradient>
-    </defs>
-  </svg>
+  <img src={geminiLogo} alt="Google Gemini" className={`${className} object-contain`} />
 );
 
 // Official Authentic Groq Cloud Brand Logo
 export const GroqLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none">
-    <rect width="24" height="24" rx="6" fill="#F55036" />
-    <path
-      d="M7 8h10v8H7V8zm2 2v4h6v-4H9zm6 4v2H7"
-      fill="#FFFFFF"
-    />
-  </svg>
+  <img src={groqLogo} alt="Groq Cloud" className={`${className} object-contain`} />
 );
 
-// Official Authentic Ollama Brand Logo (Minimalist Standing Llama Silhouette)
+// Official Authentic Ollama Brand Logo
 export const OllamaLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M10 2a1 1 0 0 0-1 1v4.5A3.5 3.5 0 0 0 7 10v3a1 1 0 0 0 1 1h1v6a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-3h2v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-6h1a1 1 0 0 0 1-1v-3a3.5 3.5 0 0 0-2-3.2V3a1 1 0 0 0-1-1h-1a1 1 0 0 0-1 1v1h-2V3a1 1 0 0 0-1-1h-1z" />
-  </svg>
+  <img src={ollamaLogo} alt="Ollama Local" className={`${className} object-contain`} />
 );
 
 // Official Authentic OpenRouter Brand Logo
 export const OpenRouterLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none">
-    <rect width="24" height="24" rx="6" fill="#6366F1" />
-    <path
-      d="M12 4.5L5 8.5v7l7 4 7-4v-7l-7-4z"
-      stroke="#FFFFFF"
-      strokeWidth="1.8"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M12 12L5 8.5M12 12l7-3.5M12 12v7.5"
-      stroke="#FFFFFF"
-      strokeWidth="1.8"
-      strokeLinejoin="round"
-    />
-  </svg>
+  <img src={openrouterLogo} alt="OpenRouter" className={`${className} object-contain`} />
 );
 
 interface AiBrainTabProps {

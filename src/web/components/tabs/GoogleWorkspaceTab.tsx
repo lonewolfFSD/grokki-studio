@@ -19,59 +19,23 @@ import {
 } from 'lucide-react';
 import { GoogleProfile, NotionProfile } from '../../types/jarvis';
 
-// Official Authentic Google Brand Logo SVG
+import googleLogo from '../../assets/logos/google.png';
+import notionLogo from '../../assets/logos/notion.png';
+import obsidianLogo from '../../assets/logos/obsidian.png';
+
+// Official Authentic Google Brand Logo
 const GoogleLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
-  <svg className={className} viewBox="0 0 24 24">
-    <path
-      fill="#4285F4"
-      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-    />
-    <path
-      fill="#34A853"
-      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-    />
-    <path
-      fill="#FBBC05"
-      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-    />
-    <path
-      fill="#EA4335"
-      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-    />
-  </svg>
+  <img src={googleLogo} alt="Google" className={`${className} object-contain`} />
 );
 
-// Official Authentic Notion Brand Logo SVG
+// Official Authentic Notion Brand Logo
 const NotionLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.83c-.42-.326-.98-.7-2.054-.607L3.107 2.296c-.466.046-.56.28-.373.466l1.725 1.446zm.84 4.012v12.457c0 .7.373 1.026 1.166 1.026.606 0 1.026-.046 2.286-.14l11.44-.653c.84-.047.886-.466.886-1.073V7.473c0-.606-.28-.933-.886-.886l-13.727.84c-.84.046-1.166.326-1.166.793zm12.368.513c.093.42 0 .84-.42.887l-.746.14v8.818c-.466.28-.98.42-1.446.42-.746 0-1.073-.233-1.633-.933l-4.526-7.091v6.858l1.4.326s0 .747-.98.747l-3.033.187s-.233-.28 0-.747l1.073-.28V9.897l-1.353-.14s-.047-.56.466-.607l3.64-.233 4.805 7.324V9.944l-1.26-.14s0-.653.607-.653l2.846-.187c.373 0 .56.327.56.773z" />
-  </svg>
+  <img src={notionLogo} alt="Notion" className={`${className} object-contain`} />
 );
 
-// Official Authentic Obsidian Brand Logo SVG (Signature Purple Crystal)
+// Official Authentic Obsidian Brand Logo
 const ObsidianLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
-  <svg className={className} viewBox="0 0 100 100" fill="none">
-    <path
-      d="M60.1 4.5c-4.2-2.7-9.5-2.7-13.7 0L24.9 19.3c-4.2 2.7-6.8 7.3-6.8 12.3v36.8c0 5 2.6 9.6 6.8 12.3l21.5 14.8c4.2 2.7 9.5 2.7 13.7 0l21.5-14.8c4.2-2.7 6.8-7.3 6.8-12.3V31.6c0-5-2.6-9.6-6.8-12.3L60.1 4.5z"
-      fill="#7C3AED"
-    />
-    <path
-      d="M48.2 5.9c.9-.6 2.7-.6 3.6 0l21.5 14.8c1.6 1.1 2.6 2.9 2.6 4.9v36.8c0 2-1 3.8-2.6 4.9L51.8 82.1c-.9.6-2.7.6-3.6 0L26.7 67.3c-1.6-1.1-2.6-2.9-2.6-4.9V25.6c0-2 1-3.8 2.6-4.9L48.2 5.9z"
-      fill="#8B5CF6"
-    />
-    <path
-      d="M48.7 10L32.2 25.1l-6.8 32.5 15.6 19.8 14.3-33.1L48.7 10z"
-      fill="#6D28D9"
-    />
-    <path
-      d="M48.7 10l6.6 34.3 14.3 33.1 11.2-23.2-5.4-31.1L48.7 10z"
-      fill="#A78BFA"
-    />
-    <path
-      d="M55.3 44.3L41 77.4l14.3 9.8 14.3-9.8L55.3 44.3z"
-      fill="#C4B5FD"
-    />
-  </svg>
+  <img src={obsidianLogo} alt="Obsidian" className={`${className} object-contain`} />
 );
 
 interface GoogleWorkspaceTabProps {
