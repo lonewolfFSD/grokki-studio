@@ -185,11 +185,11 @@
                   <div class="gs-sub">Cloud or fully offline</div>
                 </div>
                 <div class="gs-select">
-                  <select id="providerSelect">
-                    <option value="gemini">Google Gemini (Free Tier)</option>
-                    <option value="groq">Groq Cloud (Free & Ultra-Fast)</option>
-                    <option value="ollama">Local Ollama (100% Offline)</option>
-                    <option value="openrouter">OpenRouter (Free Models)</option>
+                  <select id="providerSelect" aria-label="AI provider">
+                    <option value="gemini" data-tag="Free">Google Gemini (Free Tier)</option>
+                    <option value="groq" data-tag="Fast">Groq Cloud (Free & Ultra-Fast)</option>
+                    <option value="ollama" data-tag="Offline">Local Ollama (100% Offline)</option>
+                    <option value="openrouter" data-tag="Models">OpenRouter (Free Models)</option>
                   </select>
                 </div>
               </div>
@@ -325,11 +325,11 @@
                   <div class="gs-sub">Opens in your default browser</div>
                 </div>
                 <div class="gs-select">
-                  <select id="musicProviderSelect">
-                    <option value="ytmusic">YouTube Music</option>
-                    <option value="spotify">Spotify</option>
-                    <option value="applemusic">Apple Music</option>
-                    <option value="amazonmusic">Amazon Music</option>
+                  <select id="musicProviderSelect" aria-label="Default music service">
+                    <option value="ytmusic" data-tag="Default">YouTube Music</option>
+                    <option value="spotify" data-tag="Stream">Spotify</option>
+                    <option value="applemusic" data-tag="Lossless">Apple Music</option>
+                    <option value="amazonmusic" data-tag="HD">Amazon Music</option>
                   </select>
                 </div>
               </div>

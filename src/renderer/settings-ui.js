@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Grokki settings sheet UI layer.
+   Grokki settings sheet UI layer (GlideSelect + Voice Stepper + Segmented).
    The native <select> / checkbox / button elements stay in the DOM with their
    original ids, so app.js keeps reading and writing them exactly as before.
    This file only mirrors their state into custom controls and writes user
@@ -17,11 +17,23 @@
   var EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
   var EMOJI = /[\p{Extended_Pictographic}\p{Regional_Indicator}\uFE0F\u200D]/gu;
 
+  // GlideSelect constants (size="md", radius=10, menuWidth=176, popDuration=180, glideDuration=220, rememberPosition=true, showTags=true)
+  var PAD = 4;
+  var ROW_H = 30;
+  var GAP = 1;
+  var STEP = ROW_H + GAP;
+  var MENU_GAP = 6;
+  var POP_DURATION = 180;
+  var POP_OUT = Math.round((POP_DURATION * 2) / 3);
+  var REMEMBER_POSITION = true;
+  var SHOW_TAGS = true;
+
   var nativeValue = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
   var nativeIndex = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'selectedIndex');
 
   var syncers = [];
   var openMenu = null;
+  var uidCounter = 0;
 
   function reduced() {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -46,11 +58,11 @@
     });
   }
 
-  function parseOpt(text) {
+  function parseOpt(text, explicitTag) {
     var clean = text.replace(EMOJI, '').replace(/\s+/g, ' ').trim();
     var m = clean.match(/^(.*?)\s*\((.*)\)\s*$/);
-    if (!m) return { main: clean, sub: '' };
-    return { main: m[1].trim(), sub: m[2].trim() };
+    if (!m) return { main: clean, sub: explicitTag || '' };
+    return { main: m[1].trim(), sub: explicitTag || m[2].trim() };
   }
 
   function voiceMeta(sub) {
@@ -60,129 +72,371 @@
     return rest ? m[1] + ', ' + rest : m[1];
   }
 
-  var SVG_UPDOWN = '<svg viewBox="0 0 10 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.2 5 2.2l3 3M2 8.8l3 3 3-3"/></svg>';
-  var SVG_CHECK = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 7.5 5.6 10.6 11.5 3.6"/></svg>';
+  // Hugeicons ArrowDown01Icon & Tick02Icon matching GlideSelect.tsx
+  var SVG_ARROW_DOWN = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9"/></svg>';
+  var SVG_TICK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 14L8.5 17.5L19 6.5"/></svg>';
   var SVG_LEFT = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3 5 8l5 5"/></svg>';
   var SVG_RIGHT = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>';
 
-  /* ---------------------------------------------------------------- menus */
+  /* --------------------------------------------------- GlideSelect menus */
 
-  function closeMenu(returnFocus) {
-    if (!openMenu) return;
-    var m = openMenu;
-    openMenu = null;
-    m.btn.classList.remove('open');
-    m.btn.setAttribute('aria-expanded', 'false');
-    m.menu.classList.remove('open');
-    if (returnFocus) m.btn.focus();
+  function getSheetScale() {
+    var s = sheet.getBoundingClientRect();
+    var scale = sheet.offsetWidth ? s.width / sheet.offsetWidth : 1;
+    return scale || 1;
   }
 
   function placeMenu(btn, menu) {
     var s = sheet.getBoundingClientRect();
     var b = btn.getBoundingClientRect();
-    var scale = sheet.offsetWidth ? s.width / sheet.offsetWidth : 1;
-    if (!scale) scale = 1;
+    var scale = getSheetScale();
     var bTop = (b.top - s.top) / scale - sheet.clientTop;
     var bBottom = (b.bottom - s.top) / scale - sheet.clientTop;
+    var bLeft = (b.left - s.left) / scale - sheet.clientLeft;
+    var bRight = (b.right - s.left) / scale - sheet.clientLeft;
+
     var spaceBelow = sheet.clientHeight - bBottom;
     var mh = menu.offsetHeight;
-    var up = mh + 14 > spaceBelow && bTop > mh + 14;
+    var mw = Math.max(menu.offsetWidth, 176);
+    var up = mh + MENU_GAP + 8 > spaceBelow && bTop > mh + MENU_GAP + 8;
+    var side = up ? 'top' : 'bottom';
 
-    menu.style.minWidth = Math.max(b.width / scale, 150) + 'px';
-    menu.style.left = 'auto';
-    menu.style.right = ((s.right - b.right) / scale - sheet.clientLeft) + 'px';
-    menu.style.top = (up ? bTop - mh - 6 : bBottom + 6) + 'px';
-    menu.style.transformOrigin = up ? 'bottom right' : 'top right';
+    // Default align="left", clamped cleanly within settingsSheet bounds
+    var left = bLeft;
+    var align = 'left';
+    if (left + mw > sheet.clientWidth - 12) {
+      left = Math.max(12, bRight - mw);
+      align = 'right';
+    }
+
+    menu.dataset.side = side;
+    menu.dataset.align = align;
+    menu.style.left = left + 'px';
+    menu.style.right = 'auto';
+    menu.style.top = (up ? bTop - mh - MENU_GAP : bBottom + MENU_GAP) + 'px';
+    menu.style.setProperty('--gs-origin', (side === 'bottom' ? 'top' : 'bottom') + ' ' + align);
+  }
+
+  function typeaheadIndex(parsedItems, from, ch) {
+    var c = ch.toLowerCase();
+    var n = parsedItems.length;
+    for (var k = 1; k <= n; k++) {
+      var i = (from + k) % n;
+      if (parsedItems[i].main.toLowerCase().indexOf(c) === 0) return i;
+    }
+    return from;
   }
 
   function buildSelect(select) {
     var wrap = select.parentElement;
+    var id = 'gs-' + (++uidCounter);
     select.classList.add('gs-native');
     select.tabIndex = -1;
     select.setAttribute('aria-hidden', 'true');
 
+    wrap.addEventListener('animationend', function (e) {
+      if (e.animationName === 'gs-swap') delete wrap.dataset.swap;
+    });
+
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'gs-select-btn';
+    btn.setAttribute('role', 'combobox');
     btn.setAttribute('aria-haspopup', 'listbox');
     btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-controls', id + '-list');
+    btn.setAttribute('aria-label', select.getAttribute('aria-label') || 'Select');
+
     var label = document.createElement('span');
     label.className = 'gs-select-label';
     btn.appendChild(label);
-    btn.insertAdjacentHTML('beforeend', SVG_UPDOWN);
+
+    var arrow = document.createElement('span');
+    arrow.className = 'gs-select-arrow';
+    arrow.setAttribute('aria-hidden', 'true');
+    arrow.innerHTML = SVG_ARROW_DOWN;
+    btn.appendChild(arrow);
+
     wrap.insertBefore(btn, select);
 
     var menu = document.createElement('div');
     menu.className = 'gs-menu';
-    menu.setAttribute('role', 'listbox');
+    menu.dataset.state = 'closed';
+
+    var list = document.createElement('div');
+    list.id = id + '-list';
+    list.className = 'gs-list';
+    list.setAttribute('role', 'listbox');
+    list.setAttribute('aria-label', select.getAttribute('aria-label') || 'Select');
+
+    var pill = document.createElement('span');
+    pill.className = 'gs-pill';
+    pill.setAttribute('aria-hidden', 'true');
+    list.appendChild(pill);
+
+    menu.appendChild(list);
     sheet.appendChild(menu);
 
     var items = [];
-    Array.prototype.forEach.call(select.options, function (opt) {
-      var p = parseOpt(opt.text);
-      var item = document.createElement('button');
-      item.type = 'button';
+    var parsedItems = [];
+
+    Array.prototype.forEach.call(select.options, function (opt, i) {
+      var p = parseOpt(opt.text, opt.dataset ? opt.dataset.tag : '');
+      parsedItems.push({ value: opt.value, main: p.main, tag: p.sub });
+
+      var item = document.createElement('div');
+      item.id = id + '-' + i;
       item.className = 'gs-item';
       item.setAttribute('role', 'option');
+      item.dataset.index = String(i);
       item.dataset.value = opt.value;
-      item.tabIndex = -1;
-      item.innerHTML = '<span class="gs-item-text"><span class="gs-item-main"></span><span class="gs-item-sub"></span></span>' + SVG_CHECK;
-      item.querySelector('.gs-item-main').textContent = p.main;
-      item.querySelector('.gs-item-sub').textContent = p.sub;
-      item.addEventListener('click', function () {
-        nativeValue.set.call(select, opt.value);
-        sync();
-        fire(select);
-        closeMenu(true);
-      });
-      menu.appendChild(item);
+
+      var mainSpan = document.createElement('span');
+      mainSpan.className = 'gs-item-main';
+      mainSpan.textContent = p.main;
+      item.appendChild(mainSpan);
+
+      if (SHOW_TAGS && p.sub) {
+        var tagSpan = document.createElement('span');
+        tagSpan.className = 'gs-item-tag';
+        tagSpan.textContent = p.sub;
+        item.appendChild(tagSpan);
+      }
+
+      var tickSpan = document.createElement('span');
+      tickSpan.className = 'gs-item-tick';
+      tickSpan.setAttribute('aria-hidden', 'true');
+      tickSpan.innerHTML = SVG_TICK;
+      item.appendChild(tickSpan);
+
+      list.appendChild(item);
       items.push(item);
     });
 
+    var phase = 'closed';
+    var active = null;
+    var instant = false;
+    var closeTimer = null;
+    var scrub = null;
+
+    function getSelectedIndex() {
+      var idx = nativeIndex.get.call(select);
+      return idx >= 0 && idx < items.length ? idx : 0;
+    }
+
+    function setActive(next) {
+      active = next;
+      if (active !== null) {
+        btn.setAttribute('aria-activedescendant', id + '-' + active);
+      } else {
+        btn.removeAttribute('aria-activedescendant');
+      }
+      if (phase !== 'open') return;
+      if (active === null) {
+        delete list.dataset.live;
+        pill.style.opacity = '0';
+        return;
+      }
+      list.dataset.live = '';
+      var jump = instant || pill.style.opacity !== '1';
+      pill.style.transitionDuration = jump ? '0ms, 150ms' : '';
+      pill.style.transform = 'translateY(' + (active * STEP) + 'px)';
+      pill.style.opacity = '1';
+      instant = false;
+    }
+
     function sync() {
-      var cur = select.options[nativeIndex.get.call(select)];
-      if (cur) label.textContent = parseOpt(cur.text).main;
-      items.forEach(function (it) {
-        it.setAttribute('aria-selected', String(cur && it.dataset.value === cur.value));
+      var idx = getSelectedIndex();
+      var cur = parsedItems[idx];
+      if (cur) label.textContent = cur.main;
+      items.forEach(function (it, i) {
+        it.setAttribute('aria-selected', String(i === idx));
       });
     }
     syncers.push(sync);
     hook(select, sync);
     sync();
 
-    function open() {
-      if (openMenu && openMenu.menu === menu) return closeMenu(true);
-      closeMenu();
-      placeMenu(btn, menu);
-      menu.classList.add('open');
+    function open(viaKey) {
+      if (select.disabled) return;
+      if (openMenu && openMenu.instance !== inst) {
+        openMenu.instance.close('instant', false);
+      }
+      clearTimeout(closeTimer);
+      instant = true;
+      var sel = getSelectedIndex();
+      phase = 'open';
+
       btn.classList.add('open');
       btn.setAttribute('aria-expanded', 'true');
-      openMenu = { btn: btn, menu: menu };
-      var sel = menu.querySelector('[aria-selected="true"]') || items[0];
-      if (sel) sel.focus({ preventScroll: true });
+
+      menu.classList.add('visible');
+      placeMenu(btn, menu);
+
+      menu.style.transitionDuration = '0ms';
+      menu.dataset.state = 'closed';
+      void menu.offsetHeight;
+      menu.style.transitionDuration = '';
+      menu.dataset.state = 'open';
+
+      pill.style.transition = 'none';
+      pill.style.transform = 'translateY(' + (Math.max(0, sel) * STEP) + 'px)';
+      pill.style.opacity = '0';
+      void pill.offsetHeight;
+      pill.style.transition = '';
+
+      setActive(sel >= 0 ? sel : (viaKey ? 0 : null));
+      openMenu = { btn: btn, menu: menu, instance: inst };
     }
 
-    btn.addEventListener('click', open);
+    function close(mode, returnFocus) {
+      setActive(null);
+      clearTimeout(closeTimer);
+      btn.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+      if (openMenu && openMenu.instance === inst) {
+        openMenu = null;
+      }
+      if (mode === 'instant') {
+        phase = 'closed';
+        menu.dataset.state = 'closed';
+        menu.classList.remove('visible');
+      } else {
+        menu.style.transitionDuration = '';
+        menu.dataset.state = 'closed';
+        phase = 'closing';
+        closeTimer = setTimeout(function () {
+          phase = 'closed';
+          menu.classList.remove('visible');
+        }, POP_OUT + 20);
+      }
+      if (returnFocus) btn.focus({ preventScroll: true });
+    }
+
+    function pick(i, viaKey) {
+      var it = parsedItems[i];
+      if (!it) {
+        close('instant', true);
+        return;
+      }
+      var curVal = nativeValue.get.call(select);
+      if (it.value !== curVal) {
+        nativeValue.set.call(select, it.value);
+        sync();
+        if (!viaKey) wrap.dataset.swap = '';
+        fire(select);
+      }
+      close('instant', true);
+    }
+
+    var inst = { open: open, close: close };
+
+    btn.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0 || select.disabled) return;
+      e.preventDefault();
+      btn.focus({ preventScroll: true });
+      if (phase === 'open') close('pop', false);
+      else open(false);
+    });
+
     btn.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      var k = e.key;
+      var n = parsedItems.length;
+      var cur = active !== null ? active : getSelectedIndex();
+
+      if (phase !== 'open') {
+        if (k === 'Enter' || k === ' ' || k === 'ArrowDown' || k === 'ArrowUp') {
+          e.preventDefault();
+          open(true);
+        }
+        return;
+      }
+
+      function go(idx) {
         e.preventDefault();
-        if (!openMenu || openMenu.menu !== menu) open();
+        instant = true;
+        setActive(Math.min(n - 1, Math.max(0, idx)));
+      }
+
+      if (k === 'ArrowDown' || k === 'ArrowUp') {
+        go(active === null ? cur : cur + (k === 'ArrowDown' ? 1 : -1));
+      } else if (k === 'Home' || k === 'End') {
+        go(k === 'Home' ? 0 : n - 1);
+      } else if (k === 'Enter' || k === ' ') {
+        e.preventDefault();
+        pick(cur, true);
+      } else if (k === 'Escape' || k === 'Tab') {
+        if (k === 'Escape') {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+        close('instant', k === 'Escape');
+      } else if (k.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        go(typeaheadIndex(parsedItems, cur, k));
       }
     });
-    menu.addEventListener('keydown', function (e) {
-      var i = items.indexOf(document.activeElement);
-      if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
-      else if (e.key === 'Home') { e.preventDefault(); items[0].focus(); }
-      else if (e.key === 'End') { e.preventDefault(); items[items.length - 1].focus(); }
-      else if (e.key === 'Tab') { closeMenu(true); }
+
+    function rowAt(clientY) {
+      if (!scrub) return null;
+      var y = (clientY - scrub.top) / scrub.scale;
+      var i = Math.floor((y - PAD) / STEP);
+      return i >= 0 && i < items.length ? i : null;
+    }
+
+    list.addEventListener('pointerover', function (e) {
+      if (e.pointerType === 'touch' || scrub) return;
+      var row = e.target.closest ? e.target.closest('[data-index]') : null;
+      if (!row) return;
+      var i = Number(row.dataset.index);
+      if (i !== active) setActive(i);
     });
+
+    list.addEventListener('pointerleave', function () {
+      if (!scrub && !REMEMBER_POSITION) setActive(null);
+    });
+
+    list.addEventListener('pointerdown', function (e) {
+      if (scrub) return;
+      try {
+        list.setPointerCapture(e.pointerId);
+      } catch (err) {}
+      scrub = {
+        id: e.pointerId,
+        top: list.getBoundingClientRect().top,
+        scale: getSheetScale()
+      };
+      instant = true;
+      setActive(rowAt(e.clientY));
+    });
+
+    list.addEventListener('pointermove', function (e) {
+      if (!scrub || scrub.id !== e.pointerId) return;
+      var i = rowAt(e.clientY);
+      if (i !== active) setActive(i);
+    });
+
+    function onListUp(e) {
+      if (!scrub || scrub.id !== e.pointerId) return;
+      var i = e.type === 'pointerup' ? rowAt(e.clientY) : null;
+      scrub = null;
+      if (i !== null) pick(i, false);
+      else if (!REMEMBER_POSITION) setActive(null);
+    }
+
+    list.addEventListener('pointerup', onListUp);
+    list.addEventListener('pointercancel', onListUp);
+    list.addEventListener('lostpointercapture', onListUp);
+  }
+
+  function closeOpenMenu(mode, returnFocus) {
+    if (!openMenu) return;
+    openMenu.instance.close(mode || 'pop', !!returnFocus);
   }
 
   document.addEventListener('pointerdown', function (e) {
     if (!openMenu) return;
     if (openMenu.menu.contains(e.target) || openMenu.btn.contains(e.target)) return;
-    closeMenu();
+    closeOpenMenu('pop', false);
   }, true);
 
   // Esc closes an open menu first, without closing the whole sheet.
@@ -190,9 +444,16 @@
     if (e.key === 'Escape' && openMenu) {
       e.stopImmediatePropagation();
       e.preventDefault();
-      closeMenu(true);
+      closeOpenMenu('instant', true);
     }
   }, true);
+
+  var gsBody = sheet.querySelector('.gs-body');
+  if (gsBody) {
+    gsBody.addEventListener('scroll', function () {
+      if (openMenu) placeMenu(openMenu.btn, openMenu.menu);
+    }, { passive: true });
+  }
 
   /* -------------------------------------------------------- voice stepper */
 
@@ -338,7 +599,7 @@
   function checkVisible() {
     var v = isVisible();
     if (v && !wasVisible) syncAll();
-    if (!v && wasVisible) closeMenu();
+    if (!v && wasVisible) closeOpenMenu('instant', false);
     wasVisible = v;
   }
   new MutationObserver(function () {
