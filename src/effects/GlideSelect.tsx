@@ -92,6 +92,7 @@ const GlideSelect: React.FC<GlideSelectProps> = ({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const pillRef = useRef<HTMLSpanElement>(null);
   const instant = useRef(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -224,9 +225,19 @@ const GlideSelect: React.FC<GlideSelectProps> = ({
   const rowAt = (y: number) => {
     const s = scrub.current;
     if (!s) return null;
-    const i = Math.floor((y - s.top - PAD) / step);
+    const scroll = listRef.current ? listRef.current.scrollTop : 0;
+    const i = Math.floor((y - s.top - PAD + scroll) / step);
     return i >= 0 && i < items.length ? i : null;
   };
+
+  useEffect(() => {
+    if (phase === 'open' && listRef.current && selected >= 0) {
+      const activeEl = listRef.current.querySelector<HTMLElement>(`[data-index="${selected}"]`);
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [phase, selected]);
   const onListDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (scrub.current) return;
     try {
@@ -328,10 +339,11 @@ const GlideSelect: React.FC<GlideSelectProps> = ({
           data-align={align}
         >
           <div
+            ref={listRef}
             id={`${id}-list`}
             role="listbox"
             aria-label={ariaLabel}
-            className="group/list relative grid touch-none gap-px"
+            className="group/list relative grid gap-px max-h-72 overflow-y-auto overscroll-contain pr-1"
             data-live={active !== null ? '' : undefined}
             onPointerOver={onListOver}
             onPointerLeave={() => {
@@ -355,6 +367,7 @@ const GlideSelect: React.FC<GlideSelectProps> = ({
                 role="option"
                 aria-selected={i === selected}
                 data-index={i}
+                onClick={() => pick(i, true)}
                 className="relative z-[1] flex cursor-pointer items-center gap-2 pr-2 pl-2.5 select-none [-webkit-tap-highlight-color:transparent] [height:var(--gs-row)] [border-radius:var(--gs-inner-radius)] [color:var(--gs-text)] [font-size:var(--gs-font)] [transition:background-color_150ms_ease] aria-selected:[background:color-mix(in_srgb,var(--gs-highlight)_60%,transparent)] group-data-[live]/list:aria-selected:bg-transparent"
               >
                 <span className="min-w-0 flex-1 truncate font-medium">{it.label}</span>

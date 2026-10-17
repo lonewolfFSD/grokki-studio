@@ -1337,8 +1337,12 @@ ipcMain.handle('dashboard:fetch-provider-models', async (event, { provider, key,
       const res = await fetch('https://openrouter.ai/api/v1/models');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const models = (data.data || []).map(m => m.id).slice(0, 100);
-      return { success: true, models };
+      const rawList = (data.data || []).map(m => m.id);
+      const autoSet = new Set(['openrouter/auto', 'openrouter/auto-beta']);
+      const autoList = ['openrouter/auto', 'openrouter/auto-beta'];
+      const rest = rawList.filter(id => !autoSet.has(id));
+      const allModels = [...autoList, ...rest];
+      return { success: true, models: allModels };
     }
 
     return { success: false, error: `Unknown provider: ${provider}` };

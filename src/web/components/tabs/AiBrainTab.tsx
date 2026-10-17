@@ -1,5 +1,16 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, RefreshCw, Edit3 } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  RefreshCw,
+  Edit3,
+  ExternalLink,
+  Search,
+  X,
+} from 'lucide-react';
 import { JarvisConfig } from '../../types/jarvis';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
 
@@ -61,6 +72,8 @@ const CURATED_MODELS: Record<string, { value: string; label: string; tag?: strin
     { value: 'gemma2', label: 'gemma2', tag: 'Google 9B' },
   ],
   openrouter: [
+    { value: 'openrouter/auto', label: 'openrouter/auto', tag: 'Auto-Routing' },
+    { value: 'openrouter/auto-beta', label: 'openrouter/auto-beta', tag: 'Auto-Beta' },
     { value: 'anthropic/claude-3.7-sonnet', label: 'anthropic/claude-3.7-sonnet', tag: 'Hybrid Thinking' },
     { value: 'anthropic/claude-3.5-sonnet', label: 'anthropic/claude-3.5-sonnet', tag: 'Coding Champ' },
     { value: 'openai/gpt-4o', label: 'openai/gpt-4o', tag: 'Omni Flagship' },
@@ -68,8 +81,23 @@ const CURATED_MODELS: Record<string, { value: string; label: string; tag?: strin
     { value: 'deepseek/deepseek-r1', label: 'deepseek/deepseek-r1', tag: 'Open Reasoning' },
     { value: 'meta-llama/llama-3.3-70b-instruct:free', label: 'meta-llama/llama-3.3-70b-instruct:free', tag: 'Free Tier' },
     { value: 'google/gemini-2.5-flash', label: 'google/gemini-2.5-flash', tag: 'Low Latency' },
+    { value: 'qwen/qwen-2.5-coder-32b-instruct', label: 'qwen/qwen-2.5-coder-32b-instruct', tag: 'Coder' },
+    { value: 'mistralai/mistral-large', label: 'mistralai/mistral-large', tag: 'Mistral' },
   ],
 };
+
+const OPENROUTER_QUICK_FILTERS = [
+  'All',
+  'auto',
+  'free',
+  'anthropic',
+  'openai',
+  'deepseek',
+  'meta-llama',
+  'google',
+  'qwen',
+  'mistral',
+];
 
 export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }) => {
   const [showGeminiKey, setShowGeminiKey] = useState(false);
@@ -82,10 +110,19 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
   const [fetchingModels, setFetchingModels] = useState<string | null>(null);
   const [fetchedModels, setFetchedModels] = useState<{ [provider: string]: string[] }>({});
   const [customInputMode, setCustomInputMode] = useState<{ [provider: string]: boolean }>({});
+  const [modelFilter, setModelFilter] = useState<{ [provider: string]: string }>({});
 
   const isDark =
     config.dashboardTheme === 'dark' ||
     (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+
+  const handleOpenExternal = (url: string) => {
+    if (window.jarvisAPI?.openUrl) {
+      window.jarvisAPI.openUrl(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  };
 
   const handleTestKey = async (provider: string, key?: string, model?: string, endpoint?: string) => {
     if (!window.jarvisAPI?.testAiKey) return;
@@ -151,24 +188,40 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
     }
   };
 
-  const getOptionsForProvider = (providerId: string, currentVal?: string): GlideSelectOption[] => {
+  const getOptionsForProvider = (providerId: string, currentValue?: string): GlideSelectOption[] => {
     const curated = CURATED_MODELS[providerId] || [];
     const fetched = fetchedModels[providerId] || [];
     const map = new Map<string, GlideSelectOption>();
 
+    // 1. Curated primary models
     curated.forEach((c) => map.set(c.value, { value: c.value, label: c.label, tag: c.tag }));
 
+    // 2. All fetched models from provider API
     fetched.forEach((f) => {
       if (!map.has(f)) {
-        map.set(f, { value: f, label: f, tag: 'Source' });
+        let tag = 'Source';
+        if (f.includes(':free') || f.includes('free')) tag = 'Free';
+        else if (f.startsWith('openrouter/auto')) tag = 'Auto';
+        map.set(f, { value: f, label: f, tag });
       }
     });
 
-    if (currentVal && !map.has(currentVal)) {
-      map.set(currentVal, { value: currentVal, label: currentVal, tag: 'Active' });
+    // 3. Ensure active configuration model is visible
+    if (currentValue && !map.has(currentValue)) {
+      map.set(currentValue, { value: currentValue, label: currentValue, tag: 'Active' });
     }
 
-    return Array.from(map.values());
+    const allOptions = Array.from(map.values());
+    const filter = (modelFilter[providerId] || '').trim().toLowerCase();
+
+    if (!filter) return allOptions;
+
+    return allOptions.filter((opt) => {
+      const v = opt.value.toLowerCase();
+      const l = typeof opt.label === 'string' ? opt.label.toLowerCase() : '';
+      const t = opt.tag ? opt.tag.toLowerCase() : '';
+      return v.includes(filter) || l.includes(filter) || t.includes(filter);
+    });
   };
 
   const providers = [
@@ -193,7 +246,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
     {
       id: 'openrouter',
       label: 'OpenRouter',
-      badge: config.openrouterModel ? config.openrouterModel.split('/')[1] || config.openrouterModel : 'Multi-Model',
+      badge: config.openrouterModel || 'openrouter/auto',
       Logo: OpenRouterLogo,
     },
   ];
@@ -205,35 +258,38 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
     defaultPlaceholder: string
   ) => {
     const options = getOptionsForProvider(providerId, currentValue);
+    const totalCount =
+      (fetchedModels[providerId]?.length || 0) > 0
+        ? fetchedModels[providerId].length
+        : CURATED_MODELS[providerId]?.length || 0;
     const isCustom = customInputMode[providerId];
     const isFetching = fetchingModels === providerId;
+    const currentQuery = modelFilter[providerId] || '';
 
     return (
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
           <label className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
             <span>Model Identifier</span>
-            {options.length > (CURATED_MODELS[providerId]?.length || 0) && (
-              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-normal">
-                ({options.length} models synced)
-              </span>
-            )}
+            <span className="text-[10px] text-gray-400 font-normal">
+              ({totalCount} {totalCount === 1 ? 'model' : 'models'} available)
+            </span>
           </label>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              title="Fetch available models live from provider API"
+              title="Fetch all available models live from source"
               onClick={() => handleFetchModels(providerId)}
               disabled={isFetching}
-              className="text-[11px] font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition-colors disabled:opacity-50"
+              className="text-[11px] font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-3 h-3 ${isFetching ? 'animate-spin' : ''}`} />
-              <span>{isFetching ? 'Fetching...' : 'Fetch from source'}</span>
+              <span>{isFetching ? 'Fetching all...' : 'Fetch all models'}</span>
             </button>
             <span className="text-gray-300 dark:text-gray-700">|</span>
             <button
               type="button"
-              title={isCustom ? 'Switch back to dropdown list' : 'Type a custom model string'}
+              title={isCustom ? 'Switch to dropdown' : 'Type a custom model string'}
               onClick={() =>
                 setCustomInputMode((prev) => ({ ...prev, [providerId]: !prev[providerId] }))
               }
@@ -254,21 +310,82 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
             className="w-full h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-gray-900 dark:focus:border-white focus:outline-none font-mono"
           />
         ) : (
-          <div className="w-full">
-            <GlideSelect
-              options={options}
-              value={currentValue}
-              onChange={(val) => onSelect(val)}
-              placeholder="Select a model..."
-              size="md"
-              radius={8}
-              menuWidth={380}
-              surfaceColor={isDark ? '#1a1c24' : '#ffffff'}
-              highlightColor={isDark ? '#272a38' : '#f1f3f9'}
-              textColor={isDark ? '#f3f4f6' : '#111827'}
-              accentColor={isDark ? '#ffffff' : '#000000'}
-              className="w-full [&>button]:w-full [&>button]:justify-between [&>button]:border [&>button]:border-gray-200 [&>button]:dark:border-[#1e2029] [&>button]:px-3 [&>button]:h-9 [&>button]:rounded-lg [&>button]:shadow-xs font-mono text-xs"
-            />
+          <div className="flex flex-col gap-1.5 w-full">
+            {/* Quick Filter Bar for providers with many models */}
+            {(totalCount > 10 || currentQuery) && (
+              <div className="flex flex-col gap-1.5">
+                <div className="relative w-full">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={currentQuery}
+                    onChange={(e) =>
+                      setModelFilter((prev) => ({ ...prev, [providerId]: e.target.value }))
+                    }
+                    placeholder={`Filter among ${totalCount} models (e.g. auto, claude, free)...`}
+                    className="w-full h-7 pl-8 pr-7 rounded-md text-[11px] bg-gray-100/80 dark:bg-[#1a1c24] border border-gray-200/80 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none"
+                  />
+                  {currentQuery && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setModelFilter((prev) => ({ ...prev, [providerId]: '' }))
+                      }
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-transparent border-none p-0 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {providerId === 'openrouter' && (
+                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                    {OPENROUTER_QUICK_FILTERS.map((f) => {
+                      const isActive =
+                        (f === 'All' && !currentQuery) ||
+                        currentQuery.toLowerCase() === f.toLowerCase();
+                      return (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() =>
+                            setModelFilter((prev) => ({
+                              ...prev,
+                              [providerId]: f === 'All' ? '' : f,
+                            }))
+                          }
+                          className={`text-[10px] px-2 py-0.5 rounded-md font-mono cursor-pointer border transition-colors ${
+                            isActive
+                              ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent font-semibold'
+                              : 'bg-gray-100 dark:bg-[#1a1c24] text-gray-600 dark:text-gray-300 border-gray-200 dark:border-[#1e2029] hover:bg-gray-200 dark:hover:bg-[#252836]'
+                          }`}
+                        >
+                          {f}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* GlideSelect Dropdown */}
+            <div className="w-full">
+              <GlideSelect
+                options={options.length > 0 ? options : [{ value: currentValue, label: currentValue, tag: 'Current' }]}
+                value={currentValue}
+                onChange={(val) => onSelect(val)}
+                placeholder="Select a model..."
+                size="md"
+                radius={8}
+                menuWidth={400}
+                surfaceColor={isDark ? '#1a1c24' : '#ffffff'}
+                highlightColor={isDark ? '#272a38' : '#f1f3f9'}
+                textColor={isDark ? '#f3f4f6' : '#111827'}
+                accentColor={isDark ? '#ffffff' : '#000000'}
+                className="w-full [&>button]:w-full [&>button]:justify-between [&>button]:border [&>button]:border-gray-200 [&>button]:dark:border-[#1e2029] [&>button]:px-3 [&>button]:h-9 [&>button]:rounded-lg [&>button]:shadow-xs font-mono text-xs"
+              />
+            </div>
           </div>
         )}
       </div>
@@ -282,7 +399,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
           AI Brain & Providers
         </h2>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          Configure primary intelligence engines, model identifiers, and credentials.
+          Configure primary intelligence engines, choose from hundreds of live models, and manage credentials.
         </p>
       </div>
 
@@ -330,25 +447,46 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
         {/* Google Gemini Card */}
         {config.provider === 'gemini' && (
           <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
-                <GeminiLogo className="w-4 h-4" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
+                  <GeminiLogo className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+                    Google Gemini Configuration
+                  </h3>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
+                    Multimodal vision, function calling & live search grounding
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
-                  Google Gemini Configuration
-                </h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
-                  Multimodal vision, function calling & live search grounding
-                </p>
-              </div>
+
+              <button
+                type="button"
+                onClick={() => handleOpenExternal('https://aistudio.google.com/app/apikey')}
+                className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1.5 cursor-pointer bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 px-2.5 py-1 rounded-md transition-colors"
+              >
+                <span>Get Gemini API Key</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3.5 pt-1">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                  Gemini API Key
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                    Gemini API Key
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenExternal('https://aistudio.google.com/app/apikey')}
+                    className="text-[11px] font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
+                  >
+                    <span>Google AI Studio</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     type={showGeminiKey ? 'text' : 'password'}
@@ -401,25 +539,46 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
         {/* Groq Cloud Card */}
         {config.provider === 'groq' && (
           <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
-                <GroqLogo className="w-4 h-4" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
+                  <GroqLogo className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+                    Groq Cloud Configuration
+                  </h3>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
+                    Ultra low-latency LPU inference with Llama 3.3 and Whisper audio
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
-                  Groq Cloud Configuration
-                </h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
-                  Ultra low-latency LPU inference with Llama 3.3 and Whisper audio
-                </p>
-              </div>
+
+              <button
+                type="button"
+                onClick={() => handleOpenExternal('https://console.groq.com/keys')}
+                className="text-xs font-medium text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 flex items-center gap-1.5 cursor-pointer bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/50 px-2.5 py-1 rounded-md transition-colors"
+              >
+                <span>Get Groq API Key</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3.5 pt-1">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                  Groq API Key
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                    Groq API Key
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenExternal('https://console.groq.com/keys')}
+                    className="text-[11px] font-medium text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
+                  >
+                    <span>Groq Console</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     type={showGroqKey ? 'text' : 'password'}
@@ -472,25 +631,49 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
         {/* Ollama Local Card */}
         {config.provider === 'ollama' && (
           <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
-                <OllamaLogo className="w-4 h-4" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
+                  <OllamaLogo className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+                    Ollama Air-Gap (Local Daemon)
+                  </h3>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
+                    100% offline, private open-source models running directly on your CPU/GPU
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
-                  Ollama Air-Gap (Local Daemon)
-                </h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
-                  100% offline, private open-source models running directly on your CPU/GPU
-                </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleOpenExternal('https://ollama.com/download')}
+                  className="text-xs font-medium text-gray-700 dark:text-gray-200 hover:text-black dark:hover:text-white flex items-center gap-1.5 cursor-pointer bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] px-2.5 py-1 rounded-md transition-colors"
+                >
+                  <span>Install Ollama</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenExternal('https://ollama.com/library')}
+                  className="text-xs font-medium text-gray-700 dark:text-gray-200 hover:text-black dark:hover:text-white flex items-center gap-1.5 cursor-pointer bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] px-2.5 py-1 rounded-md transition-colors"
+                >
+                  <span>Model Library</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3.5 pt-1">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                  Endpoint URL
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                    Endpoint URL
+                  </label>
+                  <span className="text-[11px] text-gray-400">Default: 127.0.0.1:11434</span>
+                </div>
                 <input
                   type="text"
                   value={config.ollamaEndpoint || 'http://127.0.0.1:11434'}
@@ -533,25 +716,56 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
         {/* OpenRouter Card */}
         {config.provider === 'openrouter' && (
           <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
-                <OpenRouterLogo className="w-4 h-4" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
+                  <OpenRouterLogo className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+                    OpenRouter Universal Gateway
+                  </h3>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
+                    Access over 470+ models with automatic failover, best prices, and free tiers
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
-                  OpenRouter Configuration
-                </h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
-                  Universal gateway to hundreds of open-source and proprietary models
-                </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleOpenExternal('https://openrouter.ai/keys')}
+                  className="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1.5 cursor-pointer bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/50 px-2.5 py-1 rounded-md transition-colors"
+                >
+                  <span>Get OpenRouter Key</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenExternal('https://openrouter.ai/models')}
+                  className="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1.5 cursor-pointer bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/50 px-2.5 py-1 rounded-md transition-colors"
+                >
+                  <span>Explore 470+ Models</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3.5 pt-1">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                  OpenRouter API Key
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                    OpenRouter API Key
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenExternal('https://openrouter.ai/keys')}
+                    className="text-[11px] font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
+                  >
+                    <span>Create Key</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     type={showOpenRouterKey ? 'text' : 'password'}
@@ -572,9 +786,9 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
 
               {renderModelDropdown(
                 'openrouter',
-                config.openrouterModel || 'anthropic/claude-3.7-sonnet',
+                config.openrouterModel || 'openrouter/auto',
                 (val) => onChangeConfig({ openrouterModel: val }),
-                'anthropic/claude-3.7-sonnet'
+                'openrouter/auto'
               )}
             </div>
 
