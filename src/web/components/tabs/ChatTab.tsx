@@ -157,22 +157,23 @@ function isVideoAttachment(file?: AttachedFileInfo | null): boolean {
 
 function getFileIcon(ext?: string) {
   const e = (ext || '').toLowerCase();
+  const iconClass = 'w-4 h-4 text-gray-800 dark:text-gray-100';
   if (['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.bmp'].includes(e)) {
-    return <ImageIcon className="w-4 h-4 text-[#007BFC]" />;
+    return <ImageIcon className={iconClass} />;
   }
   if (['.mp4', '.mkv', '.mov', '.webm', '.avi', '.flv', '.wmv', '.m4v'].includes(e)) {
-    return <Video className="w-4 h-4 text-[#A855F7]" />;
+    return <Video className={iconClass} />;
   }
   if (['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac'].includes(e)) {
-    return <Headphones className="w-4 h-4 text-[#FF7A00]" />;
+    return <Headphones className={iconClass} />;
   }
   if (['.js', '.ts', '.tsx', '.jsx', '.py', '.html', '.css', '.json', '.cpp', '.c', '.cs', '.java', '.go', '.rs'].includes(e)) {
-    return <FileCode className="w-4 h-4 text-blue-500" />;
+    return <FileCode className={iconClass} />;
   }
   if (['.pdf', '.doc', '.docx', '.txt', '.md', '.rtf', '.csv', '.xlsx', '.pptx'].includes(e)) {
-    return <FileText className="w-4 h-4 text-[#7F66FF]" />;
+    return <FileText className={iconClass} />;
   }
-  return <File className="w-4 h-4 text-gray-500" />;
+  return <File className={iconClass} />;
 }
 
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
@@ -1465,50 +1466,44 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     );
   };
 
-  // Render smooth WhatsApp-style Attachment Popover Menu
+  // Render smooth Attachment Popover Menu (Monochrome High-Contrast Light/Dark)
   const renderAttachMenu = (placement: 'top' | 'bottom' = 'top') => {
     const items: Array<{
       id: 'document' | 'photo' | 'video' | 'camera' | 'audio';
       label: string;
       badge?: string;
-      color: string;
       icon: React.ReactNode;
       accept: string;
     }> = [
       {
         id: 'document',
         label: 'Document',
-        color: '#7F66FF',
-        icon: <FileText className="w-4 h-4 text-white" />,
+        icon: <FileText className="w-4.5 h-4.5" />,
         accept: '.pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.pptx,.json,.py,.js,.ts,.tsx,.jsx,.c,.cpp,.java,.html,.css,.sql,.xml,.yaml,.yml',
       },
       {
         id: 'photo',
         label: 'Photos',
-        color: '#007BFC',
-        icon: <ImageIcon className="w-4 h-4 text-white" />,
+        icon: <ImageIcon className="w-4.5 h-4.5" />,
         accept: 'image/*,.png,.jpg,.jpeg,.webp,.gif,.bmp',
       },
       {
         id: 'video',
         label: 'Videos',
         badge: 'Send / Drive',
-        color: '#A855F7',
-        icon: <Video className="w-4 h-4 text-white" />,
+        icon: <Video className="w-4.5 h-4.5" />,
         accept: 'video/*,.mp4,.mkv,.mov,.webm,.avi,.m4v',
       },
       {
         id: 'camera',
         label: 'Camera',
-        color: '#FF2E74',
-        icon: <Camera className="w-4 h-4 text-white" />,
+        icon: <Camera className="w-4.5 h-4.5" />,
         accept: '',
       },
       {
         id: 'audio',
         label: 'Audio',
-        color: '#FF7A00',
-        icon: <Headphones className="w-4 h-4 text-white" />,
+        icon: <Headphones className="w-4.5 h-4.5" />,
         accept: 'audio/*,.mp3,.wav,.m4a,.ogg,.flac,.aac,.webm',
       },
     ];
@@ -1526,7 +1521,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             style={{ transformOrigin: isTop ? 'bottom left' : 'top left' }}
             className={`absolute left-0 ${
               isTop ? 'bottom-full mb-3' : 'top-full mt-3'
-            } w-52 bg-white/95 dark:bg-[#181920]/95 backdrop-blur-xl border border-gray-200/80 dark:border-[#262936] rounded-2xl shadow-2xl p-1.5 z-50 select-none`}
+            } w-52 bg-white/95 dark:bg-[#14161e]/95 backdrop-blur-xl border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-lg dark:shadow-black/50 p-1.5 z-50 select-none`}
           >
             <div className="flex flex-col gap-0.5">
               {items.map((item, idx) => (
@@ -1537,21 +1532,18 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.03, duration: 0.16, ease: 'easeOut' }}
                   onClick={() => handlePickCategory(item.id, item.accept)}
-                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-gray-100/90 dark:hover:bg-[#232634] transition-colors cursor-pointer border-none bg-transparent text-left group"
+                  className="w-full flex items-center justify-between px-1.5 py-1 rounded-xl hover:bg-gray-900/[0.06] dark:hover:bg-white/[0.08] transition-colors cursor-pointer border-none bg-transparent text-left group"
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition-transform duration-200 group-hover:scale-105 flex-shrink-0"
-                      style={{ backgroundColor: item.color }}
-                    >
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 flex-shrink-0 bg-gray-900/[0.06] dark:bg-white/[0.07] border border-gray-900/[0.08] dark:border-white/[0.09] text-gray-800 dark:text-gray-200 group-hover:bg-gray-900 group-hover:text-white dark:group-hover:bg-white dark:group-hover:text-gray-950">
                       {item.icon}
                     </div>
-                    <span className="text-[13px] font-medium text-gray-800 dark:text-gray-100 tracking-tight">
+                    <span className="text-[12px] font-semibold text-gray-800 dark:text-gray-200 group-hover:text-gray-950 dark:group-hover:text-white tracking-tight transition-colors">
                       {item.label}
                     </span>
                   </div>
                   {item.badge && (
-                    <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/20">
+                    <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-gray-900/[0.06] dark:bg-white/[0.08] text-gray-700 dark:text-gray-300 border border-gray-900/10 dark:border-white/10">
                       {item.badge}
                     </span>
                   )}
@@ -1575,33 +1567,35 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: 12 }}
+            initial={{ opacity: 0, scale: 0.95, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: 12 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 28 }}
-            className="w-full max-w-md bg-white dark:bg-[#14161e] border border-gray-200 dark:border-[#252836] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            exit={{ opacity: 0, scale: 0.95, y: 8 }}
+            transition={{ type: "spring", stiffness: 460, damping: 30 }}
+            className="w-full max-w-lg bg-white dark:bg-[#12141c] border border-gray-200/80 dark:border-white/10 rounded-2xl shadow-xl overflow-hidden flex flex-col"
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-[#1e2029]">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-[#FF2E74] flex items-center justify-center">
-                  <Camera className="w-3.5 h-3.5 text-white" />
-                </div>
-                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                  Camera Capture
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-white/5">
+              <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                <Camera size={20} />
+                <span className="text-base font-bold text-gray-900 dark:text-gray-100 ml-1">
+                  Live Camera Feed
                 </span>
               </div>
               <button
                 type="button"
                 onClick={closeCameraModal}
-                className="w-6 h-6 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1e2029] transition-colors cursor-pointer border-none bg-transparent"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="relative bg-black aspect-video w-full flex items-center justify-center overflow-hidden">
+            {/* Preview */}
+            <div className="relative bg-black aspect-video w-full overflow-hidden">
               {cameraError ? (
-                <div className="text-xs text-red-400 px-6 text-center">{cameraError}</div>
+                <div className="absolute inset-0 flex items-center justify-center px-8">
+                  <p className="text-xs text-red-400 text-center">{cameraError}</p>
+                </div>
               ) : cameraPreviewUrl ? (
                 <img
                   src={cameraPreviewUrl}
@@ -1617,36 +1611,48 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   className="w-full h-full object-cover"
                 />
               )}
+
+              {/* Subtle vignette so the edges don't feel flat */}
+              {!cameraPreviewUrl && !cameraError && (
+                <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/20 via-transparent to-black/10" />
+              )}
             </div>
 
-            <div className="flex items-center justify-end gap-2 px-4 py-3 bg-gray-50 dark:bg-[#101218] border-t border-gray-200 dark:border-[#1e2029]">
-              {cameraPreviewUrl ? (
-                <>
+            {/* Footer */}
+            <div className="flex items-center justify-between px-5 py-3.5 bg-gray-50 dark:bg-[#0e1016] border-t border-gray-100 dark:border-white/5">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {cameraPreviewUrl ? "Looks good?" : "Position yourself in frame"}
+              </span>
+
+              <div className="flex items-center gap-2">
+                {cameraPreviewUrl ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleRetakeCameraPhoto}
+                      className="px-6 py-2 rounded-lg text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-white/5 transition-colors hover:cursor-pointer"
+                    >
+                      Retake
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmCameraPhoto}
+                      className="px-6 py-2 rounded-lg text-xs font-bold text-white bg-gray-900 dark:bg-white dark:text-black hover:opacity-90 active:scale-[0.98] transition-all hover:cursor-pointer"
+                    >
+                      Attach
+                    </button>
+                  </>
+                ) : (
                   <button
                     type="button"
-                    onClick={handleRetakeCameraPhoto}
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-200/80 dark:bg-[#1e2029] hover:opacity-90 transition-opacity cursor-pointer border-none"
+                    disabled={!!cameraError}
+                    onClick={handleCaptureCameraPhoto}
+                    className="px-5 py-2 rounded-lg text-xs font-bold text-white bg-gray-900 dark:bg-white dark:text-black hover:opacity-90 active:scale-[0.98] disabled:opacity-40 transition-all hover:cursor-pointer"
                   >
-                    Retake
+                    Capture
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleConfirmCameraPhoto}
-                    className="px-4 py-1.5 rounded-xl text-xs font-semibold text-white bg-[#FF2E74] hover:opacity-95 transition-opacity cursor-pointer border-none shadow-sm"
-                  >
-                    Attach Photo
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  disabled={!!cameraError}
-                  onClick={handleCaptureCameraPhoto}
-                  className="px-4 py-1.5 rounded-xl text-xs font-semibold text-white bg-[#FF2E74] hover:opacity-95 disabled:opacity-40 transition-opacity cursor-pointer border-none shadow-sm"
-                >
-                  Capture Photo
-                </button>
-              )}
+                )}
+              </div>
             </div>
           </motion.div>
         </motion.div>
@@ -1716,16 +1722,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
           {/* Staged File Preview Card */}
           {attachedFile && (
-            <div className="w-full max-w-xl mx-auto mb-3 p-2.5 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl shadow-sm flex items-center justify-between text-left transition-all">
+            <div className="w-full max-w-xl mx-auto mb-3 p-2.5 bg-white/95 dark:bg-[#14161e]/95 backdrop-blur-md border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-xs flex items-center justify-between text-left transition-all">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] flex items-center justify-center flex-shrink-0 border border-gray-200/60 dark:border-[#252836]">
+                <div className="w-8 h-8 rounded-lg bg-gray-900/[0.06] dark:bg-white/[0.08] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.08] dark:border-white/[0.1]">
                   {getFileIcon(attachedFile.ext)}
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
                     {attachedFile.name}
                   </div>
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+                  <div className="text-[10px] text-gray-600 dark:text-gray-400 font-mono">
                     {formatFileSize(attachedFile.size) ? `${formatFileSize(attachedFile.size)} • ` : ''}
                     {isVideoAttachment(attachedFile)
                       ? 'Send on WhatsApp or Drive only • Video watching disabled (saves tokens)'
@@ -1737,7 +1743,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 type="button"
                 onClick={() => setAttachedFile(null)}
                 title="Remove attachment"
-                className="w-6 h-6 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-[#1e2029] transition-colors cursor-pointer border-none bg-transparent"
+                className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-950 dark:hover:text-white hover:bg-gray-900/[0.06] dark:hover:bg-white/[0.08] transition-colors cursor-pointer border-none bg-transparent"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1878,13 +1884,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     /* User Message: Clean Modern Rounded Bubble */
                     <div className="max-w-[75%] bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-sm font-medium leading-relaxed border border-gray-300/80 dark:border-[#1e2029]">
                       {msg.attachedFile && (
-                        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/70 dark:bg-[#13141a]/70 border border-gray-200 dark:border-gray-700/60 mb-2 text-xs font-mono">
-                          {getFileIcon(typeof msg.attachedFile === 'string' ? msg.attachedFile : msg.attachedFile.ext)}
-                          <span className="truncate max-w-[200px] font-semibold text-gray-800 dark:text-gray-200">
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#12141c] border border-gray-200/90 dark:border-white/10 mb-2 text-xs font-mono shadow-2xs">
+                          <div className="w-6 h-6 rounded-md bg-gray-900/[0.06] dark:bg-white/[0.08] border border-gray-900/[0.08] dark:border-white/[0.1] flex items-center justify-center flex-shrink-0">
+                            {getFileIcon(typeof msg.attachedFile === 'string' ? msg.attachedFile : msg.attachedFile.ext)}
+                          </div>
+                          <span className="truncate max-w-[200px] font-semibold text-gray-900 dark:text-gray-100">
                             {typeof msg.attachedFile === 'string' ? msg.attachedFile.split('\\').pop() : msg.attachedFile.name}
                           </span>
                           {typeof msg.attachedFile !== 'string' && msg.attachedFile.size ? (
-                            <span className="text-[10px] text-gray-400">
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400">
                               ({formatFileSize(msg.attachedFile.size)})
                             </span>
                           ) : null}
@@ -2023,16 +2031,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         <div className="w-full pt-2.5 bg-gradient-to-t from-[#f7f7fa] dark:from-[#0c0d12] to-transparent">
           {/* Staged File Preview Card */}
           {attachedFile && (
-            <div className="w-full max-w-xl mx-auto mb-2 p-2.5 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl flex items-center justify-between text-left transition-all">
+            <div className="w-full max-w-xl mx-auto mb-2 p-2.5 bg-white/95 dark:bg-[#14161e]/95 backdrop-blur-md border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-xs flex items-center justify-between text-left transition-all">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] flex items-center justify-center flex-shrink-0 border border-gray-200/60 dark:border-[#252836]">
+                <div className="w-8 h-8 rounded-lg bg-gray-900/[0.06] dark:bg-white/[0.08] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.08] dark:border-white/[0.1]">
                   {getFileIcon(attachedFile.ext)}
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
                     {attachedFile.name}
                   </div>
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+                  <div className="text-[10px] text-gray-600 dark:text-gray-400 font-mono">
                     {formatFileSize(attachedFile.size) ? `${formatFileSize(attachedFile.size)} • ` : ''}
                     {isVideoAttachment(attachedFile)
                       ? 'Send on WhatsApp or Drive only • Video watching disabled (saves tokens)'
@@ -2044,7 +2052,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 type="button"
                 onClick={() => setAttachedFile(null)}
                 title="Remove attachment"
-                className="w-6 h-6 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-[#1e2029] transition-colors cursor-pointer border-none bg-transparent"
+                className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-950 dark:hover:text-white hover:bg-gray-900/[0.06] dark:hover:bg-white/[0.08] transition-colors cursor-pointer border-none bg-transparent"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
