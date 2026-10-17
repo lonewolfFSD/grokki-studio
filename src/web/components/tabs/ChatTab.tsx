@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { marked } from 'marked';
 import { JarvisConfig, Conversation, ChatMessage, AttachedFileInfo } from '../../types/jarvis';
-import PixelBlast from './PixelBlast';
+import GradientASCII from './GradientASCII';
 import LatticeLoader from './LatticeLoader';
 
 import grokkiIcon from '../../assets/grokki_icon.svg';
@@ -950,48 +950,36 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const isDarkTheme = config.dashboardTheme === 'dark';
-  // Theme-aware monochrome PixelBlast palette:
-  //  - Dark: dim white base pixels on near-black, bright white accent on hover/ripples.
-  //  - Light: soft grey base pixels on the light canvas, deep black accent on hover/ripples.
-  const blastPalette = isDarkTheme
-    ? { color: '#302f2f', accent: '#a19f9f' }
-    : { color: '#706d6d', accent: '#555454' };
 
   return (
     <div className="relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-4">
-      {/* Background PixelBlast Effect */}
+      {/* Background GradientASCII Effect */}
       <div
         className="absolute inset-0 pointer-events-none overflow-hidden z-0"
         style={{ width: '100%', height: '100%', position: 'absolute' }}
       >
-        <PixelBlast
-          variant="square"
-          pixelSize={3}
-          color={blastPalette.color}
-          patternScale={2}
-          patternDensity={1}
-          softness={0.6}
-          glow={0.4}
-          twinkle={0.25}
-          drift={0.2}
-          hoverEffect="none"
-          enableRipples
-          edgeFade={0.25}
-          accentColor={blastPalette.accent}
-          pixelSizeJitter={0}
-          smoothing={1}
-          speed={0.5}
-          driftAngle={30}
-          hoverRadius={140}
-          rippleSpeed={0.3}
-          rippleThickness={0.1}
-          rippleIntensityScale={1}
-          autoRipple={0}
-          tiltX={0}
-          tiltY={0}
+        <GradientASCII
+          colors={['#1e3fd8', '#f6f8ff', '#a5d8ff', '#38bdf8']}
+          shape="horizon"
+          characters=" =+xX0S8#@"
+          cellSize={18}
+          density={0.8}
+          glyphOpacity={0.85}
+          glow={0.2}
+          depthOfField={0}
+          flicker={0.2}
+          softness={0.5}
+          scale={1}
+          flow={0.5}
+          speed={1}
+          gradientOpacity={0.9}
+          grain={0.08}
+          variation={0}
+          mouseInteraction
+          scrambleRadius={0.1}
+          clickEffect="wave"
           intro
           lightMode={!isDarkTheme}
-          transparent={!isDarkTheme}
         />
       </div>
 
