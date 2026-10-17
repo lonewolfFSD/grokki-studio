@@ -229,9 +229,15 @@ function formatRichMarkdownHtml(rawContent: string): string {
     wrapper.appendChild(table);
   });
 
-  // 3. Style <a> links as distinct colored links / link pills
+  // 3. Style <a> links as distinct colored links / link pills & prevent native Electron popup windows
   doc.querySelectorAll('a').forEach((a) => {
-    a.setAttribute('target', '_blank');
+    const rawHref = a.getAttribute('href') || '';
+    if (rawHref && !rawHref.startsWith('#')) {
+      a.setAttribute('data-external-href', rawHref);
+      a.setAttribute('href', '#');
+      a.setAttribute('title', rawHref);
+    }
+    a.removeAttribute('target');
     a.setAttribute('rel', 'noopener noreferrer');
     const text = (a.textContent || '').trim();
     if (text.includes('↗') || /^(open|view)\b/i.test(text)) {
@@ -244,6 +250,8 @@ function formatRichMarkdownHtml(rawContent: string): string {
   return doc.body.innerHTML;
 }
 
+const MARKDOWN_RENDER_REV = 2;
+
 const AnimatedMessageContent: React.FC<{
   content: string;
   isAnimated?: boolean;
@@ -253,50 +261,36 @@ const AnimatedMessageContent: React.FC<{
 }> = ({ content, isAnimated, speed = 'fast', onScroll, onFinished }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null;
 
-    const handleContainerClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-
-      // 1. Open links externally in the system browser
-      const anchor = target?.closest('a') as HTMLAnchorElement | null;
-      if (anchor) {
-        const href = anchor.getAttribute('href');
-        if (href && !href.startsWith('#')) {
-          e.preventDefault();
-          e.stopPropagation();
-          if (window.jarvisAPI?.openUrl) {
-            window.jarvisAPI.openUrl(href);
-          } else {
-            window.open(href, '_blank', 'noopener,noreferrer');
-          }
-          return;
-        }
-      }
-
-      // 2. Copy code block content
-      const copyBtn = target?.closest('.grokki-code-copy-btn') as HTMLButtonElement | null;
-      if (!copyBtn) return;
+    // 1. Open links externally in the user's system browser
+    const anchor = target?.closest('a') as HTMLAnchorElement | null;
+    if (anchor) {
+      e.preventDefault();
       e.stopPropagation();
-      const codeWindow = copyBtn.closest('.grokki-code-window');
-      const codeEl = codeWindow?.querySelector('pre code, pre');
-      const rawCode = codeEl?.textContent || '';
-      navigator.clipboard.writeText(rawCode);
-      copyBtn.classList.add('copied');
-      copyBtn.innerHTML = `${CHECK_ICON_SVG}<span>Copied!</span>`;
-      setTimeout(() => {
-        copyBtn.classList.remove('copied');
-        copyBtn.innerHTML = `${COPY_ICON_SVG}<span>Copy</span>`;
-      }, 2000);
-    };
+      const externalUrl = anchor.getAttribute('data-external-href') || anchor.getAttribute('href') || '';
+      if (externalUrl && externalUrl !== '#') {
+        window.jarvisAPI?.openUrl(externalUrl);
+      }
+      return;
+    }
 
-    container.addEventListener('click', handleContainerClick);
-    return () => {
-      container.removeEventListener('click', handleContainerClick);
-    };
-  }, []);
+    // 2. Copy code block content
+    const copyBtn = target?.closest('.grokki-code-copy-btn') as HTMLButtonElement | null;
+    if (!copyBtn) return;
+    e.stopPropagation();
+    const codeWindow = copyBtn.closest('.grokki-code-window');
+    const codeEl = codeWindow?.querySelector('pre code, pre');
+    const rawCode = codeEl?.textContent || '';
+    navigator.clipboard.writeText(rawCode);
+    copyBtn.classList.add('copied');
+    copyBtn.innerHTML = `${CHECK_ICON_SVG}<span>Copied!</span>`;
+    setTimeout(() => {
+      copyBtn.classList.remove('copied');
+      copyBtn.innerHTML = `${COPY_ICON_SVG}<span>Copy</span>`;
+    }, 2000);
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -409,11 +403,12 @@ const AnimatedMessageContent: React.FC<{
       if (timer) clearInterval(timer);
       if (cursor.parentNode) cursor.parentNode.removeChild(cursor);
     };
-  }, [content, isAnimated]);
+  }, [content, isAnimated, MARKDOWN_RENDER_REV]);
 
   return (
     <div
       ref={containerRef}
+      onClick={handleContainerClick}
       className="grokki-markdown max-w-none text-gray-800 dark:text-gray-200 text-[13.5px] leading-relaxed font-sans"
     />
   );

@@ -92,6 +92,30 @@ export const App: React.FC = () => {
     }
   }, [theme]);
 
+  // Global capture listener: open any <a> link in the user's external system browser
+  useEffect(() => {
+    const handleGlobalLinkClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const anchor = target?.closest?.('a') as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const url = anchor.getAttribute('data-external-href') || anchor.getAttribute('href') || '';
+      if (url && (url !== '#' || anchor.hasAttribute('data-external-href'))) {
+        if (url.startsWith('#') && !anchor.hasAttribute('data-external-href')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        anchor.removeAttribute('target');
+        window.jarvisAPI?.openUrl(url);
+      }
+    };
+
+    document.addEventListener('click', handleGlobalLinkClick, true);
+    document.addEventListener('auxclick', handleGlobalLinkClick, true);
+    return () => {
+      document.removeEventListener('click', handleGlobalLinkClick, true);
+      document.removeEventListener('auxclick', handleGlobalLinkClick, true);
+    };
+  }, []);
+
   // Load initial settings and system info from Electron preload
   useEffect(() => {
     const api = window.jarvisAPI;

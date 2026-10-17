@@ -210,10 +210,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     out = out.replace(/(^|[^_])_([^_\n]+)_([^_]|$)/g, '$1<em>$2</em>$3');
 
     // Markdown Links: [label](url)
-    out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1 ↗</a>');
+    out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="#" data-external-href="$2" rel="noopener noreferrer">$1 ↗</a>');
 
     // Auto-link remaining bare URLs (http:// or https:// not preceded by href=" or >)
-    out = out.replace(/(^|[^"'>])(https?:\/\/[a-zA-Z0-9\-_.]+(\.[a-zA-Z]{2,})[^\s<]*)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2 ↗</a>');
+    out = out.replace(/(^|[^"'>])(https?:\/\/[a-zA-Z0-9\-_.]+(\.[a-zA-Z]{2,})[^\s<]*)/g, '$1<a href="#" data-external-href="$2" rel="noopener noreferrer">$2 ↗</a>');
 
     // Bullets (•, -, *)
     out = out.replace(/^[•\-\*] (.*$)/gim, '<li>$1</li>');
@@ -404,8 +404,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const link = ev.target.closest('a');
     if (link) {
       ev.preventDefault();
-      const href = link.getAttribute('href');
-      if (href && window.jarvisAPI && window.jarvisAPI.openUrl) {
+      ev.stopPropagation();
+      const href = link.getAttribute('data-external-href') || link.getAttribute('href');
+      if (href && href !== '#' && window.jarvisAPI && window.jarvisAPI.openUrl) {
         window.jarvisAPI.openUrl(href);
       }
     }
