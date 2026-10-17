@@ -269,14 +269,14 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
     return (
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+          <label className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5 -mt-2.5">
             <span>Model Identifier</span>
             <span className="text-[10px] text-gray-400 font-normal">
               ({totalCount} {totalCount === 1 ? 'model' : 'models'} available)
             </span>
           </label>
           <div className="flex items-center gap-2">
-            <button
+            {/* <button
               type="button"
               title="Fetch all available models live from source"
               onClick={() => handleFetchModels(providerId)}
@@ -285,17 +285,17 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
             >
               <RefreshCw className={`w-3 h-3 ${isFetching ? 'animate-spin' : ''}`} />
               <span>{isFetching ? 'Fetching all...' : 'Fetch all models'}</span>
-            </button>
-            <span className="text-gray-300 dark:text-gray-700">|</span>
+            </button> */}
+            <span className="text-gray-300 dark:text-gray-700 opacity-0">|</span>
             <button
               type="button"
               title={isCustom ? 'Switch to dropdown' : 'Type a custom model string'}
               onClick={() =>
                 setCustomInputMode((prev) => ({ ...prev, [providerId]: !prev[providerId] }))
               }
-              className="text-[11px] font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition-colors"
+              className="text-[10px] mb-0.5 font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition-colors"
             >
-              <Edit3 className="w-3 h-3" />
+              <Edit3 className="w-2.5 h-2.5" />
               <span>{isCustom ? 'Select list' : 'Custom'}</span>
             </button>
           </div>
@@ -311,66 +311,10 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
           />
         ) : (
           <div className="flex flex-col gap-1.5 w-full">
-            {/* Quick Filter Bar for providers with many models */}
-            {(totalCount > 10 || currentQuery) && (
-              <div className="flex flex-col gap-1.5">
-                <div className="relative w-full">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={currentQuery}
-                    onChange={(e) =>
-                      setModelFilter((prev) => ({ ...prev, [providerId]: e.target.value }))
-                    }
-                    placeholder={`Filter among ${totalCount} models (e.g. auto, claude, free)...`}
-                    className="w-full h-7 pl-8 pr-7 rounded-md text-[11px] bg-gray-100/80 dark:bg-[#1a1c24] border border-gray-200/80 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none"
-                  />
-                  {currentQuery && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setModelFilter((prev) => ({ ...prev, [providerId]: '' }))
-                      }
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-transparent border-none p-0 cursor-pointer"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-
-                {providerId === 'openrouter' && (
-                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                    {OPENROUTER_QUICK_FILTERS.map((f) => {
-                      const isActive =
-                        (f === 'All' && !currentQuery) ||
-                        currentQuery.toLowerCase() === f.toLowerCase();
-                      return (
-                        <button
-                          key={f}
-                          type="button"
-                          onClick={() =>
-                            setModelFilter((prev) => ({
-                              ...prev,
-                              [providerId]: f === 'All' ? '' : f,
-                            }))
-                          }
-                          className={`text-[10px] px-2 py-0.5 rounded-md font-mono cursor-pointer border transition-colors ${
-                            isActive
-                              ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent font-semibold'
-                              : 'bg-gray-100 dark:bg-[#1a1c24] text-gray-600 dark:text-gray-300 border-gray-200 dark:border-[#1e2029] hover:bg-gray-200 dark:hover:bg-[#252836]'
-                          }`}
-                        >
-                          {f}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
+           
 
             {/* GlideSelect Dropdown */}
-            <div className="w-full">
+            <div className="w-full -mt-2">
               <GlideSelect
                 options={options.length > 0 ? options : [{ value: currentValue, label: currentValue, tag: 'Current' }]}
                 value={currentValue}
@@ -465,7 +409,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
               <button
                 type="button"
                 onClick={() => handleOpenExternal('https://aistudio.google.com/app/apikey')}
-                className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1.5 cursor-pointer bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 px-2.5 py-1 rounded-md transition-colors"
+                className="text-[11px] font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1.5 cursor-pointer bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 px-2.5 py-1 rounded-md transition-colors"
               >
                 <span>Get Gemini API Key</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -481,10 +425,10 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
                   <button
                     type="button"
                     onClick={() => handleOpenExternal('https://aistudio.google.com/app/apikey')}
-                    className="text-[11px] font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
+                    className="text-[11px] font-medium underline text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
                   >
                     <span>Google AI Studio</span>
-                    <ExternalLink className="w-3 h-3" />
+                    
                   </button>
                 </div>
                 <div className="relative">
@@ -557,7 +501,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
               <button
                 type="button"
                 onClick={() => handleOpenExternal('https://console.groq.com/keys')}
-                className="text-xs font-medium text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 flex items-center gap-1.5 cursor-pointer bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/50 px-2.5 py-1 rounded-md transition-colors"
+                className="text-[11px] font-medium text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 flex items-center gap-1.5 cursor-pointer bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/50 px-2.5 py-1 rounded-md transition-colors"
               >
                 <span>Get Groq API Key</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -573,10 +517,10 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
                   <button
                     type="button"
                     onClick={() => handleOpenExternal('https://console.groq.com/keys')}
-                    className="text-[11px] font-medium text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
+                    className="text-[11px] font-medium underline text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
                   >
                     <span>Groq Console</span>
-                    <ExternalLink className="w-3 h-3" />
+                    
                   </button>
                 </div>
                 <div className="relative">
@@ -609,7 +553,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
               type="button"
               disabled={testing === 'groq'}
               onClick={() => handleTestKey('groq', config.groqApiKey, config.groqModel)}
-              className="self-start px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] hover:bg-gray-200 dark:hover:bg-[#252836] cursor-pointer transition-all flex items-center gap-1.5"
+              className="self-start px-3.5 py-1.5 rounded-lg text-[11px] font-semibold bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] hover:bg-gray-200 dark:hover:bg-[#252836] cursor-pointer transition-all flex items-center gap-1.5"
             >
               {testing === 'groq' && <Loader2 className="w-3 h-3 animate-spin" />}
               <span>Test Groq Connection</span>
@@ -650,7 +594,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
                 <button
                   type="button"
                   onClick={() => handleOpenExternal('https://ollama.com/download')}
-                  className="text-xs font-medium text-gray-700 dark:text-gray-200 hover:text-black dark:hover:text-white flex items-center gap-1.5 cursor-pointer bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] px-2.5 py-1 rounded-md transition-colors"
+                  className="text-[11px] font-medium text-gray-700 dark:text-gray-200 hover:text-black dark:hover:text-white flex items-center gap-1.5 cursor-pointer bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] px-2.5 py-1 rounded-md transition-colors"
                 >
                   <span>Install Ollama</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -658,7 +602,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
                 <button
                   type="button"
                   onClick={() => handleOpenExternal('https://ollama.com/library')}
-                  className="text-xs font-medium text-gray-700 dark:text-gray-200 hover:text-black dark:hover:text-white flex items-center gap-1.5 cursor-pointer bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] px-2.5 py-1 rounded-md transition-colors"
+                  className="text-[11px] font-medium text-gray-700 dark:text-gray-200 hover:text-black dark:hover:text-white flex items-center gap-1.5 cursor-pointer bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] px-2.5 py-1 rounded-md transition-colors"
                 >
                   <span>Model Library</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -694,7 +638,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
               type="button"
               disabled={testing === 'ollama'}
               onClick={() => handleTestKey('ollama', undefined, config.ollamaModel, config.ollamaEndpoint)}
-              className="self-start px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] hover:bg-gray-200 dark:hover:bg-[#252836] cursor-pointer transition-all flex items-center gap-1.5"
+              className="self-start px-3.5 py-1.5 rounded-lg text-[11px] font-semibold bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] hover:bg-gray-200 dark:hover:bg-[#252836] cursor-pointer transition-all flex items-center gap-1.5"
             >
               {testing === 'ollama' && <Loader2 className="w-3 h-3 animate-spin" />}
               <span>Test Local Ollama</span>
@@ -735,7 +679,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
                 <button
                   type="button"
                   onClick={() => handleOpenExternal('https://openrouter.ai/keys')}
-                  className="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1.5 cursor-pointer bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/50 px-2.5 py-1 rounded-md transition-colors"
+                  className="text-[11px] font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1.5 cursor-pointer bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/50 px-2.5 py-1 rounded-md transition-colors"
                 >
                   <span>Get OpenRouter Key</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -743,7 +687,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
                 <button
                   type="button"
                   onClick={() => handleOpenExternal('https://openrouter.ai/models')}
-                  className="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1.5 cursor-pointer bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/50 px-2.5 py-1 rounded-md transition-colors"
+                  className="text-[11px] font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1.5 cursor-pointer bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/50 px-2.5 py-1 rounded-md transition-colors"
                 >
                   <span>Explore 470+ Models</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -796,7 +740,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
               type="button"
               disabled={testing === 'openrouter'}
               onClick={() => handleTestKey('openrouter', config.openrouterApiKey, config.openrouterModel)}
-              className="self-start px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] hover:bg-gray-200 dark:hover:bg-[#252836] cursor-pointer transition-all flex items-center gap-1.5"
+              className="self-start px-3.5 py-1.5 rounded-lg text-[11px] font-semibold bg-gray-100 dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029] hover:bg-gray-200 dark:hover:bg-[#252836] cursor-pointer transition-all flex items-center gap-1.5"
             >
               {testing === 'openrouter' && <Loader2 className="w-3 h-3 animate-spin" />}
               <span>Test OpenRouter Key</span>

@@ -1369,11 +1369,18 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     );
   };
 
-  const renderSlashMenu = () => {
+  const renderSlashMenu = (placement: 'top' | 'bottom' = 'bottom') => {
     if (!isSlashMode || filteredSlashCommands.length === 0) return null;
 
+    const positionClasses =
+      placement === 'top'
+        ? 'bottom-full mb-3 shadow-2xl shadow-black/20 slide-in-from-bottom-2'
+        : 'top-full mt-3 shadow-xl shadow-black/10 slide-in-from-top-2';
+
     return (
-      <div className="absolute top-full mt-4 left-0 right-0 mb-2 p-1.5 bg-white/95 dark:bg-[#12131a]/95 backdrop-blur-xl border border-gray-200 dark:border-[#202330] rounded-2xl z-50 max-h-64 overflow-y-auto flex flex-col gap-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
+      <div
+        className={`absolute left-0 right-0 p-1.5 bg-white/95 dark:bg-[#12131a]/95 backdrop-blur-xl border border-gray-200 dark:border-[#202330] rounded-2xl z-50 max-h-72 overflow-y-auto flex flex-col gap-0.5 animate-in fade-in duration-150 ${positionClasses}`}
+      >
         <div className="flex items-center justify-between px-2.5 py-1.5 text-[10.5px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-[#1e2029]">
           <span className='text-[10px]'>Direct Actions & Slash Commands</span>
           <span className="font-mono text-[9px] lowercase bg-gray-100 dark:bg-[#1a1c24] px-1.5 py-0.5 rounded text-gray-500">
@@ -2219,7 +2226,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
           {/* Floating Slash Command Menu & Synthesizer Visualizer for Bottom Bar */}
           <div className="w-full max-w-xl mx-auto relative">
-            {renderSlashMenu()}
+            {renderSlashMenu('top')}
             {renderSynthesizerVisualizer()}
 
             <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full mb-8 py-3 px-3.5 transition-all flex items-center gap-2.5">
