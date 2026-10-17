@@ -2,6 +2,60 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { JarvisConfig } from '../../types/jarvis';
 
+// Official Authentic Google Gemini Brand Logo
+export const GeminiLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <path
+      d="M12 2C12 7.523 7.523 12 2 12c5.523 0 10 4.477 10 10 0-5.523 4.477-10 10-10-5.523 0-10-4.477-10-10z"
+      fill="url(#geminiGradAI)"
+    />
+    <defs>
+      <linearGradient id="geminiGradAI" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#4E82EE" />
+        <stop offset="0.5" stopColor="#9B72CF" />
+        <stop offset="1" stopColor="#D96570" />
+      </linearGradient>
+    </defs>
+  </svg>
+);
+
+// Official Authentic Groq Cloud Brand Logo
+export const GroqLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <rect width="24" height="24" rx="6" fill="#F55036" />
+    <path
+      d="M7 8h10v8H7V8zm2 2v4h6v-4H9zm6 4v2H7"
+      fill="#FFFFFF"
+    />
+  </svg>
+);
+
+// Official Authentic Ollama Brand Logo (Minimalist Standing Llama Silhouette)
+export const OllamaLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M10 2a1 1 0 0 0-1 1v4.5A3.5 3.5 0 0 0 7 10v3a1 1 0 0 0 1 1h1v6a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-3h2v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-6h1a1 1 0 0 0 1-1v-3a3.5 3.5 0 0 0-2-3.2V3a1 1 0 0 0-1-1h-1a1 1 0 0 0-1 1v1h-2V3a1 1 0 0 0-1-1h-1z" />
+  </svg>
+);
+
+// Official Authentic OpenRouter Brand Logo
+export const OpenRouterLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <rect width="24" height="24" rx="6" fill="#6366F1" />
+    <path
+      d="M12 4.5L5 8.5v7l7 4 7-4v-7l-7-4z"
+      stroke="#FFFFFF"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M12 12L5 8.5M12 12l7-3.5M12 12v7.5"
+      stroke="#FFFFFF"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 interface AiBrainTabProps {
   config: JarvisConfig;
   onChangeConfig: (patch: Partial<JarvisConfig>) => void;
@@ -53,10 +107,10 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
   };
 
   const providers = [
-    { id: 'gemini', label: 'Gemini 3.5 Flash', badge: 'Primary Multimodal' },
-    { id: 'groq', label: 'Groq Cloud', badge: 'Ultra-Fast Llama 3.3' },
-    { id: 'ollama', label: 'Ollama Local', badge: 'Offline Air-Gap' },
-    { id: 'openrouter', label: 'OpenRouter', badge: 'Multi-Model Pool' },
+    { id: 'gemini', label: 'Gemini 3.5 Flash', badge: 'Primary Multimodal', Logo: GeminiLogo },
+    { id: 'groq', label: 'Groq Cloud', badge: 'Ultra-Fast Llama 3.3', Logo: GroqLogo },
+    { id: 'ollama', label: 'Ollama Local', badge: 'Offline Air-Gap', Logo: OllamaLogo },
+    { id: 'openrouter', label: 'OpenRouter', badge: 'Multi-Model Pool', Logo: OpenRouterLogo },
   ];
 
   return (
@@ -74,23 +128,29 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
       <div className="grid grid-cols-4 gap-3 w-full">
         {providers.map((p) => {
           const isSelected = config.provider === p.id;
+          const Logo = p.Logo;
           return (
             <button
               key={p.id}
               type="button"
               onClick={() => onChangeConfig({ provider: p.id as any })}
-              className={`p-3.5 rounded-xl text-left transition-all cursor-pointer border flex flex-col gap-1 shadow-xs ${
+              className={`p-3.5 rounded-xl text-left transition-all cursor-pointer border flex flex-col gap-2 shadow-xs ${
                 isSelected
                   ? 'border-gray-900 dark:border-white bg-white dark:bg-[#13141a] ring-1 ring-gray-900/10 dark:ring-white/20'
                   : 'border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#13141a] hover:border-gray-400'
               }`}
             >
               <div className="flex items-center justify-between w-full">
-                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                  {p.label}
-                </span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
+                    <Logo className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
+                    {p.label}
+                  </span>
+                </div>
                 <span
-                  className={`w-2 h-2 rounded-full ${
+                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
                     isSelected ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-gray-700'
                   }`}
                 />
@@ -107,10 +167,21 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-5">
         {config.provider === 'gemini' && (
           <div className="flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              Google Gemini Configuration
-            </h3>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
+                <GeminiLogo className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+                  Google Gemini Configuration
+                </h3>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
+                  Multimodal vision, function calling & live search grounding
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5 pt-1">
               <label className="text-xs font-semibold text-gray-900 dark:text-gray-100">
                 Gemini API Key
               </label>
@@ -153,10 +224,21 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
 
         {config.provider === 'groq' && (
           <div className="flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              Groq Cloud Configuration
-            </h3>
-            <div className="grid grid-cols-2 gap-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
+                <GroqLogo className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+                  Groq Cloud Configuration
+                </h3>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
+                  Ultra low-latency LPU inference with Llama 3.3 and Whisper audio
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3.5 pt-1">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-gray-900 dark:text-gray-100">
                   Groq API Key
@@ -213,10 +295,21 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
 
         {config.provider === 'ollama' && (
           <div className="flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              Ollama Air-Gap (Local Daemon)
-            </h3>
-            <div className="grid grid-cols-2 gap-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
+                <OllamaLogo className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+                  Ollama Air-Gap (Local Daemon)
+                </h3>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
+                  100% offline, private open-source models running directly on your CPU/GPU
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3.5 pt-1">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-gray-900 dark:text-gray-100">
                   Endpoint URL
@@ -262,10 +355,21 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
 
         {config.provider === 'openrouter' && (
           <div className="flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              OpenRouter Configuration
-            </h3>
-            <div className="grid grid-cols-2 gap-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
+                <OpenRouterLogo className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+                  OpenRouter Configuration
+                </h3>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
+                  Universal gateway to hundreds of open-source and proprietary models
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3.5 pt-1">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-gray-900 dark:text-gray-100">
                   OpenRouter API Key
