@@ -28,6 +28,7 @@
     "wait-on": "^9.5.1"
   },
   "dependencies": {
+    "@animateicons/react": "^0.12.1",
     "@google/genai": "^2.29.1",
     "@hugeicons/core-free-icons": "^4.3.5",
     "@hugeicons/react": "^1.1.10",

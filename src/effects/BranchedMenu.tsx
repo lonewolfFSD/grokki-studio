@@ -74,6 +74,51 @@ const renderIcon = (icon: ReactNode | IconSvgElement) =>
   isValidElement(icon) ? icon : <HugeiconsIcon icon={icon as IconSvgElement} size={16} strokeWidth={1.8} />;
 const toSet = (open: number | number[]) => new Set(Array.isArray(open) ? open : open >= 0 ? [open] : []);
 
+const BranchedKidRow: React.FC<{
+  kid: BranchedMenuChild;
+  isActive: boolean;
+  isOpen: boolean;
+  onSelect: () => void;
+}> = ({ kid, isActive, isOpen, onSelect }) => {
+  const iconRef = useRef<{ startAnimation?: () => void; stopAnimation?: () => void } | null>(null);
+  const renderedIcon = kid.icon
+    ? isValidElement(kid.icon)
+      ? React.cloneElement(kid.icon as React.ReactElement<any>, { ref: iconRef })
+      : renderIcon(kid.icon)
+    : null;
+
+  return (
+    <div
+      role="button"
+      className="group/kid m-0 box-border flex w-full cursor-pointer items-center justify-between gap-1.5 border-0 bg-transparent py-0 pr-1 text-left outline-none [height:var(--bm-row)] [padding-left:var(--bm-indent)] [color:var(--bm-muted)] [font-family:inherit] [-webkit-tap-highlight-color:transparent] [transition:color_200ms_ease] hover:[color:var(--bm-ink)] data-[active]:font-medium data-[active]:[color:var(--bm-accent)] select-none"
+      aria-current={isActive ? 'true' : undefined}
+      data-active={isActive ? '' : undefined}
+      tabIndex={isOpen ? 0 : -1}
+      onClick={onSelect}
+      onDoubleClick={kid.onDoubleClick}
+      onMouseEnter={() => iconRef.current?.startAnimation?.()}
+      onMouseLeave={() => iconRef.current?.stopAnimation?.()}
+    >
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        {renderedIcon ? (
+          <span className="inline-flex flex-none" aria-hidden="true">
+            {renderedIcon}
+          </span>
+        ) : null}
+        <span className="truncate whitespace-nowrap">{kid.label}</span>
+      </div>
+      {kid.actions ? (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center gap-0.5 opacity-0 group-hover/kid:opacity-100 transition-opacity flex-shrink-0"
+        >
+          {kid.actions}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 const BranchedMenu: React.FC<BranchedMenuProps> = ({
   items = DEFAULT_ITEMS,
   defaultOpen = 0,
@@ -255,33 +300,13 @@ const BranchedMenu: React.FC<BranchedMenuProps> = ({
                       ))}
                     </svg>
                     {kids.map(kid => (
-                      <div
+                      <BranchedKidRow
                         key={kid.value}
-                        role="button"
-                        className="group/kid m-0 box-border flex w-full cursor-pointer items-center justify-between gap-1.5 border-0 bg-transparent py-0 pr-1 text-left outline-none [height:var(--bm-row)] [padding-left:var(--bm-indent)] [color:var(--bm-muted)] [font-family:inherit] [-webkit-tap-highlight-color:transparent] [transition:color_200ms_ease] hover:[color:var(--bm-ink)] data-[active]:font-medium data-[active]:[color:var(--bm-accent)] select-none"
-                        aria-current={kid.value === active ? 'true' : undefined}
-                        data-active={kid.value === active ? '' : undefined}
-                        tabIndex={isOpen ? 0 : -1}
-                        onClick={() => select(kid.value, kid)}
-                        onDoubleClick={kid.onDoubleClick}
-                      >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          {kid.icon ? (
-                            <span className="inline-flex flex-none" aria-hidden="true">
-                              {renderIcon(kid.icon)}
-                            </span>
-                          ) : null}
-                          <span className="truncate whitespace-nowrap">{kid.label}</span>
-                        </div>
-                        {kid.actions ? (
-                          <div
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-0.5 opacity-0 group-hover/kid:opacity-100 transition-opacity flex-shrink-0"
-                          >
-                            {kid.actions}
-                          </div>
-                        ) : null}
-                      </div>
+                        kid={kid}
+                        isActive={kid.value === active}
+                        isOpen={isOpen}
+                        onSelect={() => select(kid.value, kid)}
+                      />
                     ))}
                   </div>
                 </div>

@@ -955,7 +955,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   //  - Light: soft grey base pixels on the light canvas, deep black accent on hover/ripples.
   const blastPalette = isDarkTheme
     ? { color: '#302f2f', accent: '#a19f9f' }
-    : { color: '#c9a1ef', accent: '#b095ca' };
+    : { color: '#706d6d', accent: '#555454' };
 
   return (
     <div className="relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-4">

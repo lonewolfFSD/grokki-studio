@@ -1,28 +1,85 @@
 import React, { useState, useRef, useEffect } from 'react';
-import {
-  Home,
-  Mic,
-  Cpu,
-  Sliders,
-  Globe,
-  Palette,
-  Info,
-  User,
-  MessageSquare,
-  Plus,
-  Trash2,
-  Pencil,
-  Check,
-  X,
-  ChevronDown,
-  RefreshCw,
-  LogOut,
-  Settings,
-} from 'lucide-react';
+import { type IconHandle } from '@animateicons/react';
+import { MessageSquareIcon } from '@animateicons/react/lucide/message-square-icon';
+import { HouseIcon } from '@animateicons/react/lucide/house-icon';
+import { MicIcon } from '@animateicons/react/lucide/mic-icon';
+import { CpuIcon } from '@animateicons/react/lucide/cpu-icon';
+import { GlobeIcon } from '@animateicons/react/lucide/globe-icon';
+import { SettingsIcon } from '@animateicons/react/lucide/settings-icon';
+import { SlidersHorizontalIcon } from '@animateicons/react/lucide/sliders-horizontal-icon';
+import { PaletteIcon } from '@animateicons/react/lucide/palette-icon';
+import { InfoIcon } from '@animateicons/react/lucide/info-icon';
+import { PlusIcon } from '@animateicons/react/lucide/plus-icon';
+import { PencilIcon } from '@animateicons/react/lucide/pencil-icon';
+import { Trash2Icon } from '@animateicons/react/lucide/trash-2-icon';
+import { RefreshCwIcon } from '@animateicons/react/lucide/refresh-cw-icon';
+import { LogOutIcon } from '@animateicons/react/lucide/log-out-icon';
+import { CheckIcon } from '@animateicons/react/lucide/check-icon';
+import { XIcon } from '@animateicons/react/lucide/x-icon';
+import { ChevronDownIcon } from '@animateicons/react/lucide/chevron-down-icon';
 import { GoogleProfile, Conversation } from '../types/jarvis';
 import BranchedMenu, { BranchedMenuItem } from './BranchedMenu';
 
 export type TabId = 'chat' | 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
+
+type AnimatedIconComponent = React.ForwardRefExoticComponent<
+  { size?: number; className?: string; color?: string; duration?: number; isAnimated?: boolean } & React.RefAttributes<IconHandle>
+>;
+
+const AnimatedSidebarRow: React.FC<{
+  Icon: AnimatedIconComponent;
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+  rightSlot?: React.ReactNode;
+}> = ({ Icon, label, isActive, onClick, rightSlot }) => {
+  const iconRef = useRef<IconHandle | null>(null);
+
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => iconRef.current?.startAnimation()}
+      onMouseLeave={() => iconRef.current?.stopAnimation()}
+      className={`group flex items-center justify-between w-full px-3 py-2 rounded-xl text-[13px] font-medium transition-all cursor-pointer text-left ${
+        isActive
+          ? 'bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
+          : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#14161f]'
+      }`}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <Icon ref={iconRef} size={16} className="flex-shrink-0" />
+        <span className="truncate">{label}</span>
+      </div>
+      {rightSlot}
+    </div>
+  );
+};
+
+const AnimatedIconButton: React.FC<{
+  Icon: AnimatedIconComponent;
+  iconSize?: number;
+  title?: string;
+  onClick: (e: React.MouseEvent) => void;
+  className?: string;
+  label?: string;
+  iconClassName?: string;
+}> = ({ Icon, iconSize = 14, title, onClick, className = '', label, iconClassName = '' }) => {
+  const iconRef = useRef<IconHandle | null>(null);
+
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      onMouseEnter={() => iconRef.current?.startAnimation()}
+      onMouseLeave={() => iconRef.current?.stopAnimation()}
+      className={className}
+    >
+      <Icon ref={iconRef} size={iconSize} className={iconClassName} />
+      {label ? <span>{label}</span> : null}
+    </button>
+  );
+};
 
 interface SidebarProps {
   activeTab: TabId;
@@ -62,6 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const profileChevronRef = useRef<IconHandle | null>(null);
 
   const handleStartRename = (e: React.MouseEvent, convo: { id: string; title: string }) => {
     e.stopPropagation();
@@ -139,19 +197,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
   }, [accountMenuOpen]);
 
-  const primaryNavItems: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    { id: 'chat', label: 'Chat', icon: <MessageSquare className="w-4 h-4 flex-shrink-0" /> },
-    { id: 'overview', label: 'Home', icon: <Home className="w-4 h-4 flex-shrink-0" /> },
-    { id: 'voice', label: 'Voices', icon: <Mic className="w-4 h-4 flex-shrink-0" /> },
-    { id: 'ai', label: 'AI Brain', icon: <Cpu className="w-4 h-4 flex-shrink-0" /> },
-    { id: 'google', label: 'Workspace', icon: <Globe className="w-4 h-4 flex-shrink-0" /> },
+  const primaryNavItems: { id: TabId; label: string; Icon: AnimatedIconComponent }[] = [
+    { id: 'chat', label: 'Chat', Icon: MessageSquareIcon },
+    { id: 'overview', label: 'Home', Icon: HouseIcon },
+    { id: 'voice', label: 'Voices', Icon: MicIcon },
+    { id: 'ai', label: 'AI Brain', Icon: CpuIcon },
+    { id: 'google', label: 'Workspace', Icon: GlobeIcon },
   ];
 
-  const pinnedNavItems: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    { id: 'settings', label: 'Studio Settings', icon: <Settings className="w-4 h-4 flex-shrink-0" /> },
-    { id: 'profile', label: 'Personalization', icon: <Sliders className="w-4 h-4 flex-shrink-0" /> },
-    { id: 'appearance', label: 'Appearance', icon: <Palette className="w-4 h-4 flex-shrink-0" /> },
-    { id: 'about', label: 'About', icon: <Info className="w-4 h-4 flex-shrink-0" /> },
+  const pinnedNavItems: { id: TabId; label: string; Icon: AnimatedIconComponent }[] = [
+    { id: 'settings', label: 'Studio Settings', Icon: SettingsIcon },
+    { id: 'profile', label: 'Personalization', Icon: SlidersHorizontalIcon },
+    { id: 'appearance', label: 'Appearance', Icon: PaletteIcon },
+    { id: 'about', label: 'About', Icon: InfoIcon },
   ];
 
   const isDark = theme === 'dark' || (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
@@ -162,39 +220,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
       children: conversations.length > 0 ? conversations.map((convo) => ({
         value: convo.id,
         label: convo.title || 'New Chat',
-        icon: <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 opacity-80" />,
+        icon: <MessageSquareIcon size={14} className="flex-shrink-0 opacity-80" />,
         onDoubleClick: (e: React.MouseEvent) => handleStartRename(e, convo),
         actions: (
           <>
-            <button
-              type="button"
+            <AnimatedIconButton
+              Icon={PencilIcon}
+              iconSize={12}
               onClick={(e) => {
                 e.stopPropagation();
                 handleStartRename(e, convo);
               }}
               title="Rename conversation"
               className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
-            >
-              <Pencil className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
+            />
+            <AnimatedIconButton
+              Icon={Trash2Icon}
+              iconSize={12}
               onClick={(e) => {
                 e.stopPropagation();
                 onDeleteConversation?.(convo.id);
               }}
               title="Delete conversation"
               className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
+            />
           </>
         ),
       })) : [
         {
           value: 'new_chat',
           label: 'New Chat',
-          icon: <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 opacity-80" />
+          icon: <MessageSquareIcon size={14} className="flex-shrink-0 opacity-80" />
         }
       ],
     },
@@ -226,35 +282,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             return (
               <div key={item.id} className="flex flex-col">
-                <div
+                <AnimatedSidebarRow
+                  Icon={item.Icon}
+                  label={item.label}
+                  isActive={isActive}
                   onClick={() => onSelectTab(item.id)}
-                  className={`group flex items-center justify-between w-full px-3 py-2 rounded-xl text-[13px] font-medium transition-all cursor-pointer text-left ${
-                    isActive
-                      ? 'bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
-                      : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#14161f]'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    {item.icon}
-                    <span className="truncate">{item.label}</span>
-                  </div>
-
-                  {/* If Chat tab: Quick New Chat "+" button */}
-                  {isChatItem && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onCreateConversation?.();
-                        onSelectTab('chat');
-                      }}
-                      title="New Conversation"
-                      className="p-1 rounded-md text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#252836] transition-all cursor-pointer border-none bg-transparent"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
+                  rightSlot={
+                    isChatItem ? (
+                      <AnimatedIconButton
+                        Icon={PlusIcon}
+                        iconSize={14}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCreateConversation?.();
+                          onSelectTab('chat');
+                        }}
+                        title="New Conversation"
+                        className="p-1 rounded-md text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#252836] transition-all cursor-pointer border-none bg-transparent"
+                      />
+                    ) : null
+                  }
+                />
 
                 {/* Sub-Navigation for Saved Conversations using BranchedMenu */}
                 {isChatItem && (
@@ -280,22 +328,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           }}
                           className="w-full text-[12px] bg-transparent text-gray-900 dark:text-gray-100 outline-none"
                         />
-                        <button
-                          type="button"
+                        <AnimatedIconButton
+                          Icon={CheckIcon}
+                          iconSize={14}
                           onClick={() => handleSaveRename(editingId)}
                           className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-emerald-500 hover:text-emerald-400 cursor-pointer border-none bg-transparent flex-shrink-0"
                           title="Save title"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
+                        />
+                        <AnimatedIconButton
+                          Icon={XIcon}
+                          iconSize={14}
                           onClick={handleCancelRename}
                           className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer border-none bg-transparent flex-shrink-0"
                           title="Cancel"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                        />
                       </div>
                     )}
                     <BranchedMenu
@@ -335,23 +381,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 px-3 py-1 tracking-wider uppercase select-none">
             Pinned
           </span>
-          {pinnedNavItems.map((item) => {
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onSelectTab(item.id)}
-                className={`flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-medium transition-all cursor-pointer border-none text-left ${
-                  isActive
-                    ? 'bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
-                    : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#14161f]'
-                }`}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
+          {pinnedNavItems.map((item) => (
+            <AnimatedSidebarRow
+              key={item.id}
+              Icon={item.Icon}
+              label={item.label}
+              isActive={activeTab === item.id}
+              onClick={() => onSelectTab(item.id)}
+            />
+          ))}
         </div>
       </div>
 
@@ -388,8 +426,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Menu Actions */}
             <div className="flex flex-col gap-0.5 pt-1">
-              <button
-                type="button"
+              <AnimatedIconButton
+                Icon={RefreshCwIcon}
+                iconSize={14}
+                label="Switch Account"
+                iconClassName="text-gray-500"
                 onClick={async () => {
                   setAccountMenuOpen(false);
                   if (onSwitchGoogle) {
@@ -399,26 +440,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                 }}
                 className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent text-left"
-              >
-                <RefreshCw className="w-3.5 h-3.5 text-gray-500" />
-                <span>Switch Account</span>
-              </button>
+              />
 
-              <button
-                type="button"
+              <AnimatedIconButton
+                Icon={GlobeIcon}
+                iconSize={14}
+                label="Workspace Settings"
+                iconClassName="text-gray-500"
                 onClick={() => {
                   setAccountMenuOpen(false);
                   onSelectTab('google');
                 }}
                 className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent text-left"
-              >
-                <Globe className="w-3.5 h-3.5 text-gray-500" />
-                <span>Workspace Settings</span>
-              </button>
+              />
 
               {googleConnected && (
-                <button
-                  type="button"
+                <AnimatedIconButton
+                  Icon={LogOutIcon}
+                  iconSize={14}
+                  label="Disconnect Account"
+                  iconClassName="text-red-500"
                   onClick={async () => {
                     setAccountMenuOpen(false);
                     if (onDisconnectGoogle) {
@@ -426,10 +467,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }
                   }}
                   className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer border-none bg-transparent text-left"
-                >
-                  <LogOut className="w-3.5 h-3.5 text-red-500" />
-                  <span>Disconnect Account</span>
-                </button>
+                />
               )}
             </div>
           </div>
@@ -438,6 +476,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Profile Card (No Alt+Q, No email address, clickable to switch account) */}
         <div
           onClick={() => setAccountMenuOpen(!accountMenuOpen)}
+          onMouseEnter={() => profileChevronRef.current?.startAnimation()}
+          onMouseLeave={() => profileChevronRef.current?.stopAnimation()}
           title="Click to switch account"
           className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#13141a] hover:bg-gray-100 dark:hover:bg-[#181a22] border border-gray-200 dark:border-[#1e2029] transition-all cursor-pointer shadow-xs"
         >
@@ -464,8 +504,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5">
-            <ChevronDown
-              className={`w-4.5 h-4.5 mr-1 mt-0.5 transition-transform duration-200 ${
+            <ChevronDownIcon
+              ref={profileChevronRef}
+              size={18}
+              className={`mr-1 mt-0.5 transition-transform duration-200 ${
                 accountMenuOpen ? 'rotate-180' : ''
               }`}
             />
