@@ -931,7 +931,97 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           context.attachedFile = currentAttachment;
         }
         const res = await window.jarvisAPI.executeAI(text, context);
-        const replyContent = res.reply || res.message || 'Action executed successfully.';
+        let replyContent = res.reply || res.message || 'Action executed successfully.';
+
+        // Live HMR Vision fallback if the main process hasn't restarted and returned the legacy placeholder
+        const attachExt = (currentAttachment?.ext || '').toLowerCase();
+        const isImageAttachment = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'].includes(attachExt);
+        if (
+          currentAttachment?.path &&
+          isImageAttachment &&
+          replyContent.includes('ready for sending on WhatsApp or uploading to Google Drive') &&
+          window.jarvisAPI?.runCommand
+        ) {
+          try {
+            const safePath = currentAttachment.path.replace(/'/g, "''");
+            const b64Res = await window.jarvisAPI.runCommand(
+              `powershell -NoProfile -Command "[Convert]::ToBase64String([IO.File]::ReadAllBytes('${safePath}'))"`
+            );
+            const base64Image = (b64Res?.stdout || '').replace(/\s+/g, '');
+            if (base64Image) {
+              const mimeMap: Record<string, string> = {
+                '.png': 'image/png',
+                '.webp': 'image/webp',
+                '.gif': 'image/gif',
+                '.bmp': 'image/bmp',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+              };
+              const mimeType = mimeMap[attachExt] || 'image/jpeg';
+              const visionPrompt = `User asked about this attached image ("${currentAttachment.name}"): "${text}".\nAnalyze the image and answer directly, accurately, and concisely using clean Markdown.`;
+              const groqKey = (config.groqApiKey || '').trim();
+              const geminiKey = (config.geminiApiKey || '').trim();
+
+              if (groqKey) {
+                const vResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${groqKey}`,
+                  },
+                  body: JSON.stringify({
+                    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+                    messages: [
+                      {
+                        role: 'user',
+                        content: [
+                          { type: 'text', text: visionPrompt },
+                          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } },
+                        ],
+                      },
+                    ],
+                    temperature: 0.2,
+                  }),
+                });
+                if (vResp.ok) {
+                  const vJson = await vResp.json();
+                  const visionReply = vJson?.choices?.[0]?.message?.content;
+                  if (visionReply && visionReply.trim()) {
+                    replyContent = visionReply.trim();
+                  }
+                }
+              } else if (geminiKey) {
+                const gResp = await fetch(
+                  `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+                  {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      contents: [
+                        {
+                          role: 'user',
+                          parts: [
+                            { text: visionPrompt },
+                            { inlineData: { mimeType, data: base64Image } },
+                          ],
+                        },
+                      ],
+                    }),
+                  }
+                );
+                if (gResp.ok) {
+                  const gJson = await gResp.json();
+                  const gemReply = gJson?.candidates?.[0]?.content?.parts?.[0]?.text;
+                  if (gemReply && gemReply.trim()) {
+                    replyContent = gemReply.trim();
+                  }
+                }
+              }
+            }
+          } catch (visionErr) {
+            console.warn('Vision fallback notice:', visionErr);
+          }
+        }
 
         const assistantMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),

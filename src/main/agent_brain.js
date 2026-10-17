@@ -1250,6 +1250,7 @@ class AgentBrain {
 
     this.activeConfig = config;
     this.activeContext = context;
+    this.activePrompt = prompt || '';
 
     let fullPrompt = prompt || '';
     const attachPath = (context && context.filePath) || (context && context.attachedFile && (context.attachedFile.path || context.attachedFile)) || null;
@@ -1404,6 +1405,26 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
 
     this.activeConfig = config;
     this.activeContext = context;
+    this.activePrompt = prompt || '';
+
+    // Direct Vision analysis when an image file is attached and the user is asking about it (not sharing/uploading)
+    const directAttachPath = (context && context.filePath) || (context && context.attachedFile && (context.attachedFile.path || context.attachedFile)) || null;
+    if (directAttachPath && typeof directAttachPath === 'string' && fs.existsSync(directAttachPath)) {
+      const ext = path.extname(directAttachPath).toLowerCase();
+      const isImage = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'].includes(ext);
+      const isShareOrUpload = /\b(whatsapp|google\s+drive|upload\s+to\s+drive|send\s+(this|it|file|image|photo)\s+(to|on))\b/i.test(prompt || '');
+      if (isImage && !isShareOrUpload) {
+        const visionRes = await this.analyzeAttachedImage(directAttachPath, prompt, config.geminiApiKey || '');
+        const replyText = visionRes.message || 'Analyzed attached image.';
+        memory.addTurn('user', `${prompt || 'Analyze image'} [Attached image: ${path.basename(directAttachPath)}]`);
+        memory.addTurn('model', replyText, [{ name: 'read_attached_file', args: { file_path: directAttachPath } }]);
+        return {
+          success: true,
+          reply: replyText,
+          actionsExecuted: [{ name: 'read_attached_file', args: { file_path: directAttachPath }, result: visionRes }],
+        };
+      }
+    }
 
     // Fast OS hardware / system actions interceptor (<50ms execution)
     const fastIntent = this.checkFastIntent(prompt);
@@ -2102,12 +2123,33 @@ Rules:
         try {
           const ext = path.extname(targetPath).toLowerCase();
           const stat = fs.statSync(targetPath);
-          const textExts = ['.txt', '.md', '.json', '.js', '.py', '.html', '.css', '.csv', '.java', '.cpp', '.log', '.xml'];
+          const imageExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'];
+          const docExts = ['.pdf', '.docx', '.doc'];
+          const textExts = ['.txt', '.md', '.json', '.js', '.ts', '.tsx', '.jsx', '.py', '.html', '.css', '.csv', '.java', '.cpp', '.c', '.h', '.cs', '.rs', '.go', '.sql', '.sh', '.ps1', '.yaml', '.yml', '.log', '.xml'];
+
+          if (imageExts.includes(ext)) {
+            return await this.analyzeAttachedImage(targetPath, this.activePrompt || 'Describe what you see in this image clearly and accurately.', apiKey);
+          }
+
+          if (docExts.includes(ext)) {
+            const extracted = await studyEngine.extractTextFromFile(targetPath, 8000);
+            const docText = (extracted && extracted.text) ? extracted.text.trim() : '';
+            if (docText) {
+              const userQ = (this.activePrompt || '').replace(/\[User attached file:[\s\S]*$/i, '').trim() || 'Summarize this document clearly.';
+              const answer = await this.generateAcademicLLM(
+                'You are Grokki. Answer the user question accurately based on the attached document content using clean Markdown.',
+                `Document: "${path.basename(targetPath)}"\nUser Request: "${userQ}"\n\nExtracted Document Content:\n"""\n${docText.slice(0, 6000)}\n"""`,
+                1000
+              );
+              return { success: true, message: answer || `### 📄 ${path.basename(targetPath)}\n\n${docText.slice(0, 2000)}` };
+            }
+          }
+
           if (textExts.includes(ext)) {
             const content = fs.readFileSync(targetPath, 'utf8').substring(0, 4000);
-            return { success: true, message: `Content of "${path.basename(targetPath)}":\n\n${content}` };
+            return { success: true, message: `Content of "${path.basename(targetPath)}":\n\n\`\`\`${ext.slice(1)}\n${content}\n\`\`\`` };
           } else {
-            return { success: true, message: `Attached file "${path.basename(targetPath)}" (${ext.toUpperCase() || 'Binary'}, ${Math.round(stat.size / 1024)} KB) is ready for sending on WhatsApp or uploading to Google Drive.` };
+            return { success: true, message: `Attached file **${path.basename(targetPath)}** (${ext.toUpperCase() || 'File'}, ${Math.max(1, Math.round(stat.size / 1024))} KB). Let me know what you'd like to do with it!` };
           }
         } catch (err) {
           return { success: false, message: `Could not read attached file: ${err.message}` };
@@ -3203,6 +3245,89 @@ Instructions:
       };
     } catch (err) {
       return { success: false, message: `Screen analysis: ${err.message}` };
+    }
+  }
+
+  async analyzeAttachedImage(imagePath, userPrompt = '', apiKey = '') {
+    try {
+      const base64Image = fs.readFileSync(imagePath).toString('base64');
+      const ext = path.extname(imagePath).toLowerCase();
+      const mimeMap = {
+        '.png': 'image/png',
+        '.webp': 'image/webp',
+        '.gif': 'image/gif',
+        '.bmp': 'image/bmp',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+      };
+      const mimeType = mimeMap[ext] || 'image/jpeg';
+
+      const cleanPrompt = (userPrompt || '')
+        .replace(/\[User attached file:[\s\S]*$/i, '')
+        .trim() || 'Describe what you see in this image clearly and accurately.';
+
+      const config = this.activeConfig || {};
+      const groqKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
+      const geminiKey = (apiKey || config.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
+      const promptText = `User asked about this attached image ("${path.basename(imagePath)}"): "${cleanPrompt}".\nAnalyze the image and answer directly, accurately, and concisely using clean Markdown.`;
+
+      if (groqKey && (config.provider === 'groq' || !geminiKey)) {
+        try {
+          const visionData = await callOpenAICompatible({
+            endpoint: 'https://api.groq.com/openai/v1',
+            apiKey: groqKey,
+            model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: promptText },
+                  { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } },
+                ],
+              },
+            ],
+            temperature: 0.2,
+            timeout: 25000,
+          });
+          const reply = visionData?.choices?.[0]?.message?.content;
+          if (reply && reply.trim()) {
+            return { success: true, message: reply.trim() };
+          }
+        } catch (groqErr) {
+          console.warn('[AgentBrain] Groq Vision error for attached image, trying Gemini:', groqErr.message);
+        }
+      }
+
+      if (geminiKey) {
+        const ai = new GoogleGenAI({ apiKey: geminiKey });
+        const res = await ai.models.generateContent({
+          model: this.models[0],
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: promptText },
+                { inlineData: { mimeType, data: base64Image } },
+              ],
+            },
+          ],
+          config: {
+            maxOutputTokens: 1000,
+            temperature: 0.2,
+          },
+        });
+        return {
+          success: true,
+          message: (res.text || '').trim() || 'Image analyzed.',
+        };
+      }
+
+      return {
+        success: false,
+        message: 'Please configure a Groq or Gemini API key to analyze images with Vision.',
+      };
+    } catch (err) {
+      return { success: false, message: `Could not analyze image: ${err.message}` };
     }
   }
 
