@@ -257,8 +257,26 @@ const AnimatedMessageContent: React.FC<{
     const container = containerRef.current;
     if (!container) return;
 
-    const handleCodeCopyClick = (e: MouseEvent) => {
+    const handleContainerClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
+
+      // 1. Open links externally in the system browser
+      const anchor = target?.closest('a') as HTMLAnchorElement | null;
+      if (anchor) {
+        const href = anchor.getAttribute('href');
+        if (href && !href.startsWith('#')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (window.jarvisAPI?.openUrl) {
+            window.jarvisAPI.openUrl(href);
+          } else {
+            window.open(href, '_blank', 'noopener,noreferrer');
+          }
+          return;
+        }
+      }
+
+      // 2. Copy code block content
       const copyBtn = target?.closest('.grokki-code-copy-btn') as HTMLButtonElement | null;
       if (!copyBtn) return;
       e.stopPropagation();
@@ -274,9 +292,9 @@ const AnimatedMessageContent: React.FC<{
       }, 2000);
     };
 
-    container.addEventListener('click', handleCodeCopyClick);
+    container.addEventListener('click', handleContainerClick);
     return () => {
-      container.removeEventListener('click', handleCodeCopyClick);
+      container.removeEventListener('click', handleContainerClick);
     };
   }, []);
 

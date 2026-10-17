@@ -214,6 +214,20 @@ function createWindow(showOnReady = false) {
     console.log(`[Renderer Console] ${message} (${sourceId}:${line})`);
   });
 
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^(https?:|mailto:)/i.test(url)) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (/^(https?:|mailto:)/i.test(url) && !url.startsWith('http://127.0.0.1:5173')) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
   // Window dismiss is handled intentionally via Escape key or Alt+Q toggle.
@@ -386,6 +400,20 @@ function openDashboardWindow(showImmediately = true) {
       contextIsolation: true,
       webSecurity: true,
     },
+  });
+
+  dashboardWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^(https?:|mailto:)/i.test(url)) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  dashboardWindow.webContents.on('will-navigate', (event, url) => {
+    if (/^(https?:|mailto:)/i.test(url) && !url.startsWith('http://127.0.0.1:5173')) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
   });
 
   const distDashboard = path.join(__dirname, '../../dist/dashboard.html');
