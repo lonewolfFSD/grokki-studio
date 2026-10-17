@@ -1532,10 +1532,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.03, duration: 0.16, ease: 'easeOut' }}
                   onClick={() => handlePickCategory(item.id, item.accept)}
-                  className="w-full flex items-center justify-between px-1.5 py-1 rounded-xl hover:bg-gray-900/[0.06] dark:hover:bg-white/[0.08] transition-colors cursor-pointer border-none bg-transparent text-left group"
+                  className="w-full flex items-center justify-between px-1.5 py-1 rounded-xl hover:bg-gray-900/[0.045] dark:hover:bg-white/[0.05] transition-colors cursor-pointer border-none bg-transparent text-left group"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 flex-shrink-0 bg-gray-900/[0.06] dark:bg-white/[0.07] border border-gray-900/[0.08] dark:border-white/[0.09] text-gray-800 dark:text-gray-200 group-hover:bg-gray-900 group-hover:text-white dark:group-hover:bg-white dark:group-hover:text-gray-950">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 flex-shrink-0 bg-gray-900/[0.03] dark:bg-white/[0.035] text-gray-800 dark:text-gray-200 group-hover:bg-gray-900/[0.06] dark:group-hover:bg-white/[0.07] group-hover:text-gray-950 dark:group-hover:text-white">
                       {item.icon}
                     </div>
                     <span className="text-[12px] font-semibold text-gray-800 dark:text-gray-200 group-hover:text-gray-950 dark:group-hover:text-white tracking-tight transition-colors">
@@ -1543,7 +1543,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     </span>
                   </div>
                   {item.badge && (
-                    <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-gray-900/[0.06] dark:bg-white/[0.08] text-gray-700 dark:text-gray-300 border border-gray-900/10 dark:border-white/10">
+                    <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-gray-900/[0.035] dark:bg-white/[0.04] text-gray-600 dark:text-gray-300 border border-gray-900/[0.06] dark:border-white/[0.06]">
                       {item.badge}
                     </span>
                   )}
@@ -1724,7 +1724,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           {attachedFile && (
             <div className="w-full max-w-xl mx-auto mb-3 p-2.5 bg-white/95 dark:bg-[#14161e]/95 backdrop-blur-md border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-xs flex items-center justify-between text-left transition-all">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-gray-900/[0.06] dark:bg-white/[0.08] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.08] dark:border-white/[0.1]">
+                <div className="w-8 h-8 rounded-lg bg-gray-900/[0.03] dark:bg-white/[0.035] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.05] dark:border-white/[0.05]">
                   {getFileIcon(attachedFile.ext)}
                 </div>
                 <div className="min-w-0">
@@ -1743,7 +1743,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 type="button"
                 onClick={() => setAttachedFile(null)}
                 title="Remove attachment"
-                className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-950 dark:hover:text-white hover:bg-gray-900/[0.06] dark:hover:bg-white/[0.08] transition-colors cursor-pointer border-none bg-transparent"
+                className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-950 dark:hover:text-white hover:bg-gray-900/[0.05] dark:hover:bg-white/[0.06] transition-colors cursor-pointer border-none bg-transparent"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1885,7 +1885,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     <div className="max-w-[75%] bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-sm font-medium leading-relaxed border border-gray-300/80 dark:border-[#1e2029]">
                       {msg.attachedFile && (
                         <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#12141c] border border-gray-200/90 dark:border-white/10 mb-2 text-xs font-mono shadow-2xs">
-                          <div className="w-6 h-6 rounded-md bg-gray-900/[0.06] dark:bg-white/[0.08] border border-gray-900/[0.08] dark:border-white/[0.1] flex items-center justify-center flex-shrink-0">
+                          <div className="w-6 h-6 rounded-md bg-gray-900/[0.03] dark:bg-white/[0.035] border border-gray-900/[0.05] dark:border-white/[0.05] flex items-center justify-center flex-shrink-0">
                             {getFileIcon(typeof msg.attachedFile === 'string' ? msg.attachedFile : msg.attachedFile.ext)}
                           </div>
                           <span className="truncate max-w-[200px] font-semibold text-gray-900 dark:text-gray-100">
@@ -2033,7 +2033,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           {attachedFile && (
             <div className="w-full max-w-xl mx-auto mb-2 p-2.5 bg-white/95 dark:bg-[#14161e]/95 backdrop-blur-md border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-xs flex items-center justify-between text-left transition-all">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-gray-900/[0.06] dark:bg-white/[0.08] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.08] dark:border-white/[0.1]">
+                <div className="w-8 h-8 rounded-lg bg-gray-900/[0.03] dark:bg-white/[0.035] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.05] dark:border-white/[0.05]">
                   {getFileIcon(attachedFile.ext)}
                 </div>
                 <div className="min-w-0">
