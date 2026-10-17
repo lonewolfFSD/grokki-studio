@@ -358,7 +358,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       children: conversations.length > 0 ? conversations.map((convo) => ({
         value: convo.id,
         label: convo.title || 'New Chat',
-        icon: <MessageSquareIcon size={14} className="flex-shrink-0 opacity-80" />,
         onDoubleClick: (e: React.MouseEvent) => handleStartRename(e, convo),
         actions: (
           <>
@@ -388,7 +387,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {
           value: 'new_chat',
           label: 'New Chat',
-          icon: <MessageSquareIcon size={14} className="flex-shrink-0 opacity-80" />
         }
       ],
     },
