@@ -378,7 +378,7 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
               className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border-none bg-transparent"
             >
               <ChevronDown
-                className={`w-4 h-4 transition-transform duration-200 ${
+                className={`w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                   googleExpanded ? 'rotate-180 text-gray-700 dark:text-gray-200' : 'text-gray-400'
                 }`}
               />
@@ -386,25 +386,32 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
           </div>
         </div>
 
-        {googleExpanded && (
-          <div className="px-5 pb-5 pt-0 border-t border-[#e4e4eb] dark:border-[#1e2029] animate-in fade-in duration-200">
-            <div className="grid grid-cols-3 gap-3 w-full pt-4">
-              {googleApps.map((app, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200"
-                >
-                  {app.icon}
-                  <span>{app.label}</span>
-                </div>
-              ))}
+        {/* Smooth Accordion Content: Integrated Google Apps Grid */}
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            googleExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none'
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="px-5 pb-5 pt-4 border-t border-[#e4e4eb] dark:border-[#1e2029]">
+              <div className="grid grid-cols-3 gap-3 w-full">
+                {googleApps.map((app, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    {app.icon}
+                    <span>{app.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* 2. Notion Workspace Accordion Card */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-200">
+      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
         <div
           onClick={() => setNotionExpanded((prev) => !prev)}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
@@ -465,7 +472,7 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
               className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border-none bg-transparent"
             >
               <ChevronDown
-                className={`w-4 h-4 transition-transform duration-200 ${
+                className={`w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                   notionExpanded ? 'rotate-180 text-gray-700 dark:text-gray-200' : 'text-gray-400'
                 }`}
               />
@@ -473,87 +480,95 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
           </div>
         </div>
 
-        {notionStatusMessage && !notionConnected && (
-          <div className="mx-5 mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400">
-            <span>{notionStatusMessage}</span>
-          </div>
-        )}
-
-        {notionError && (
-          <div className="mx-5 mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400 flex items-center justify-between">
-            <span>{notionError}</span>
-            <button
-              type="button"
-              onClick={() => setShowTokenFallback(true)}
-              className="underline text-[11px] font-semibold cursor-pointer border-none bg-transparent text-red-600 dark:text-red-400"
-            >
-              Enter token manually
-            </button>
-          </div>
-        )}
-
-        {showTokenFallback && !notionConnected && (
-          <form
-            onSubmit={handleConnectNotionToken}
-            className="mx-5 mb-4 flex flex-col gap-2.5 p-3.5 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029] animate-in fade-in duration-150"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-                <Key className="w-3.5 h-3.5 text-gray-400" />
-                Manual Internal Integration Token
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowTokenFallback(false)}
-                className="text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer border-none bg-transparent"
-              >
-                Cancel
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="password"
-                value={notionToken}
-                onChange={(e) => setNotionToken(e.target.value)}
-                placeholder="ntn_... or secret_..."
-                className="flex-1 h-8 px-3 rounded-lg border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-900 dark:text-gray-100 text-xs font-mono placeholder:text-gray-400 focus:outline-none"
-              />
-              <button
-                type="submit"
-                disabled={connectingNotion || !notionToken.trim()}
-                className="h-8 px-3 rounded-lg text-xs font-semibold cursor-pointer border bg-gray-900 text-white dark:bg-white dark:text-gray-900 disabled:opacity-40"
-              >
-                Link
-              </button>
-            </div>
-          </form>
-        )}
-
-        {notionExpanded && (
-          <div className="px-5 pb-5 pt-0 border-t border-[#e4e4eb] dark:border-[#1e2029] animate-in fade-in duration-200">
-            <div className="grid grid-cols-3 gap-3 w-full pt-4">
-              {notionApps.map((app, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200"
-                >
-                  {app.icon}
-                  <span>{app.label}</span>
+        {/* Smooth Accordion Content: Integrated Notion Capabilities Grid & Forms */}
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            notionExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none'
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="px-5 pb-5 pt-4 border-t border-[#e4e4eb] dark:border-[#1e2029] flex flex-col gap-3.5">
+              {/* Live Status Message / Error Banner */}
+              {notionStatusMessage && !notionConnected && (
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400">
+                  <span>{notionStatusMessage}</span>
                 </div>
-              ))}
+              )}
+
+              {notionError && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400 flex items-center justify-between">
+                  <span>{notionError}</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowTokenFallback(true)}
+                    className="underline text-[11px] font-semibold cursor-pointer border-none bg-transparent text-red-600 dark:text-red-400"
+                  >
+                    Enter token manually
+                  </button>
+                </div>
+              )}
+
+              {/* Manual Token Fallback */}
+              {showTokenFallback && !notionConnected && (
+                <form
+                  onSubmit={handleConnectNotionToken}
+                  className="flex flex-col gap-2.5 p-3.5 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029] animate-in fade-in duration-150"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                      <Key className="w-3.5 h-3.5 text-gray-400" />
+                      Manual Internal Integration Token
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowTokenFallback(false)}
+                      className="text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer border-none bg-transparent"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      value={notionToken}
+                      onChange={(e) => setNotionToken(e.target.value)}
+                      placeholder="ntn_... or secret_..."
+                      className="flex-1 h-8 px-3 rounded-lg border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-900 dark:text-gray-100 text-xs font-mono placeholder:text-gray-400 focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      disabled={connectingNotion || !notionToken.trim()}
+                      className="h-8 px-3 rounded-lg text-xs font-semibold cursor-pointer border bg-gray-900 text-white dark:bg-white dark:text-gray-900 disabled:opacity-40"
+                    >
+                      Link
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              <div className="grid grid-cols-3 gap-3 w-full">
+                {notionApps.map((app, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    {app.icon}
+                    <span>{app.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* 3. Obsidian Vault Accordion Card */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-200">
+      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
         <div
           onClick={() => setObsidianExpanded((prev) => !prev)}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
         >
           <div className="flex items-center gap-3.5 min-w-0">
-            {/* Authentic Obsidian Brand Logo */}
             <div className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
               <ObsidianLogo className="w-5 h-5" />
             </div>
@@ -625,7 +640,7 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
               className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border-none bg-transparent"
             >
               <ChevronDown
-                className={`w-4 h-4 transition-transform duration-200 ${
+                className={`w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                   obsidianExpanded ? 'rotate-180 text-gray-700 dark:text-gray-200' : 'text-gray-400'
                 }`}
               />
@@ -633,21 +648,28 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
           </div>
         </div>
 
-        {obsidianExpanded && (
-          <div className="px-5 pb-5 pt-0 border-t border-[#e4e4eb] dark:border-[#1e2029] animate-in fade-in duration-200">
-            <div className="grid grid-cols-3 gap-3 w-full pt-4">
-              {obsidianApps.map((app, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200"
-                >
-                  {app.icon}
-                  <span>{app.label}</span>
-                </div>
-              ))}
+        {/* Smooth Accordion Content: Integrated Obsidian Capabilities Grid */}
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            obsidianExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none'
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="px-5 pb-5 pt-4 border-t border-[#e4e4eb] dark:border-[#1e2029]">
+              <div className="grid grid-cols-3 gap-3 w-full">
+                {obsidianApps.map((app, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    {app.icon}
+                    <span>{app.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
