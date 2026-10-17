@@ -81,6 +81,12 @@ try {
     disconnectNotion: () => ipcRenderer.invoke('jarvis:disconnect-notion'),
     getNotionStatus: () => ipcRenderer.invoke('jarvis:get-notion-status'),
     openNotionPortal: () => ipcRenderer.invoke('jarvis:open-notion-portal'),
+    saveNotionOAuth: (creds) => ipcRenderer.invoke('jarvis:save-notion-oauth', creds),
+    onNotionConnected: (callback) => {
+      const handler = (event, profile) => callback(profile);
+      ipcRenderer.on('notion:connected', handler);
+      return () => ipcRenderer.removeListener('notion:connected', handler);
+    },
 
     closeDashboard: () => ipcRenderer.send('dashboard:close'),
     minimizeDashboard: () => ipcRenderer.send('dashboard:minimize'),

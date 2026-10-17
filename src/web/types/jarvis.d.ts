@@ -114,10 +114,12 @@ export interface JarvisAPI {
   connectGoogle: () => Promise<{ success: boolean; message?: string; error?: string }>;
   disconnectGoogle?: () => Promise<{ success: boolean }>;
   getGoogleStatus: () => Promise<GoogleStatusResponse>;
-  connectNotion?: (token?: string) => Promise<{ success: boolean; message?: string; profile?: NotionProfile; error?: string; needsInput?: boolean }>;
+  connectNotion?: (token?: string) => Promise<{ success: boolean; message?: string; profile?: NotionProfile; error?: string; needsInput?: boolean; mode?: 'oauth' | 'token' }>;
   disconnectNotion?: () => Promise<{ success: boolean }>;
   getNotionStatus?: () => Promise<NotionStatusResponse>;
   openNotionPortal?: () => Promise<{ success: boolean }>;
+  saveNotionOAuth?: (creds: { clientId: string; clientSecret: string }) => Promise<{ success: boolean; error?: string }>;
+  onNotionConnected?: (callback: (profile: NotionProfile) => void) => () => void;
   closeDashboard: () => void;
   minimizeDashboard: () => void;
   maximizeDashboard?: () => void;

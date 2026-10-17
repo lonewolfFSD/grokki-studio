@@ -934,7 +934,19 @@ ipcMain.handle('jarvis:disconnect-google', async () => {
 // Notion Workspace Integration
 ipcMain.handle('jarvis:connect-notion', async (event, token) => {
   const notionWorkspace = require('./notion_workspace');
-  return await notionWorkspace.connect(token);
+  return await notionWorkspace.connect(token, (profile) => {
+    if (dashboardWindow && !dashboardWindow.isDestroyed() && dashboardWindow.webContents) {
+      dashboardWindow.webContents.send('notion:connected', profile);
+    }
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+      mainWindow.webContents.send('notion:connected', profile);
+    }
+  });
+});
+
+ipcMain.handle('jarvis:save-notion-oauth', async (event, { clientId, clientSecret }) => {
+  const notionWorkspace = require('./notion_workspace');
+  return notionWorkspace.saveCredentials(clientId, clientSecret);
 });
 
 ipcMain.handle('jarvis:get-notion-status', async () => {
