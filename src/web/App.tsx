@@ -48,14 +48,6 @@ const DEFAULT_CONFIG: JarvisConfig = {
   soundEffectsEnabled: true,
   autoCheckUpdates: true,
   hardwareAcceleration: true,
-  notionApiKey: '',
-  notionDatabaseId: '',
-  notionWorkspaceName: '',
-  notionConnected: false,
-  githubToken: '',
-  githubUsername: '',
-  githubConnected: false,
-  spotifyConnected: false,
 };
 
 export const App: React.FC = () => {
@@ -403,7 +395,7 @@ export const App: React.FC = () => {
     voice: 'Voice Models',
     ai: 'AI Brain & Keys',
     profile: 'Personalization',
-    google: 'Workspace & Integrations',
+    google: 'Workspace Integrations',
     appearance: 'Appearance',
     settings: 'Studio Settings',
     about: 'About Grokki Studio',
@@ -494,8 +486,6 @@ export const App: React.FC = () => {
               connected={googleConnected}
               profile={googleProfile}
               onRefreshStatus={loadGoogleStatus}
-              config={config}
-              onChangeConfig={handleConfigChange}
             />
           )}
 

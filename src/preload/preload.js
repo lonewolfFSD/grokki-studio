@@ -71,12 +71,16 @@ try {
     },
     togglePresentationMode: (active) => ipcRenderer.send('jarvis:toggle-presentation-mode', active),
 
-    // Configuration & Google
+    // Configuration & Google & Notion Workspaces
     getConfig: () => ipcRenderer.invoke('jarvis:get-config'),
     saveConfig: (config) => ipcRenderer.invoke('jarvis:save-config', config),
     connectGoogle: () => ipcRenderer.invoke('jarvis:connect-google'),
     disconnectGoogle: () => ipcRenderer.invoke('jarvis:disconnect-google'),
     getGoogleStatus: () => ipcRenderer.invoke('jarvis:get-google-status'),
+    connectNotion: (token) => ipcRenderer.invoke('jarvis:connect-notion', token),
+    disconnectNotion: () => ipcRenderer.invoke('jarvis:disconnect-notion'),
+    getNotionStatus: () => ipcRenderer.invoke('jarvis:get-notion-status'),
+    openNotionPortal: () => ipcRenderer.invoke('jarvis:open-notion-portal'),
 
     closeDashboard: () => ipcRenderer.send('dashboard:close'),
     minimizeDashboard: () => ipcRenderer.send('dashboard:minimize'),
@@ -88,8 +92,6 @@ try {
       return () => ipcRenderer.removeListener('dashboard:maximized-change', handler);
     },
     testAiKey: (options) => ipcRenderer.invoke('dashboard:test-ai-key', options),
-    testNotionKey: (options) => ipcRenderer.invoke('dashboard:test-notion-key', options),
-    testGitHubKey: (options) => ipcRenderer.invoke('dashboard:test-github-key', options),
     getSystemInfo: () => ipcRenderer.invoke('dashboard:get-system-info'),
     checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
     restartAndInstallUpdate: (data) => ipcRenderer.send('app:restart-and-install', data),

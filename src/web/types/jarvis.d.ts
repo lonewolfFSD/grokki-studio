@@ -46,13 +46,6 @@ export interface JarvisConfig {
   autoCheckUpdates?: boolean;
   hardwareAcceleration?: boolean;
   notionApiKey?: string;
-  notionDatabaseId?: string;
-  notionWorkspaceName?: string;
-  notionConnected?: boolean;
-  githubToken?: string;
-  githubUsername?: string;
-  githubConnected?: boolean;
-  spotifyConnected?: boolean;
 }
 
 export interface GoogleProfile {
@@ -64,6 +57,18 @@ export interface GoogleProfile {
 export interface GoogleStatusResponse {
   connected: boolean;
   profile?: GoogleProfile | null;
+}
+
+export interface NotionProfile {
+  workspaceName?: string;
+  workspaceIcon?: string | null;
+  botName?: string;
+  ownerEmail?: string | null;
+}
+
+export interface NotionStatusResponse {
+  connected: boolean;
+  profile?: NotionProfile | null;
 }
 
 export interface SystemInfo {
@@ -109,14 +114,16 @@ export interface JarvisAPI {
   connectGoogle: () => Promise<{ success: boolean; message?: string; error?: string }>;
   disconnectGoogle?: () => Promise<{ success: boolean }>;
   getGoogleStatus: () => Promise<GoogleStatusResponse>;
+  connectNotion?: (token?: string) => Promise<{ success: boolean; message?: string; profile?: NotionProfile; error?: string; needsInput?: boolean }>;
+  disconnectNotion?: () => Promise<{ success: boolean }>;
+  getNotionStatus?: () => Promise<NotionStatusResponse>;
+  openNotionPortal?: () => Promise<{ success: boolean }>;
   closeDashboard: () => void;
   minimizeDashboard: () => void;
   maximizeDashboard?: () => void;
   isDashboardMaximized?: () => Promise<boolean>;
   onMaximizedChange?: (callback: (isMaximized: boolean) => void) => () => void;
   testAiKey: (options: { provider: string; key?: string; model?: string; endpoint?: string }) => Promise<{ success: boolean; latencyMs?: number; reply?: string; error?: string }>;
-  testNotionKey?: (options: { apiKey: string }) => Promise<{ success: boolean; botName?: string; workspaceName?: string; error?: string }>;
-  testGitHubKey?: (options: { token: string }) => Promise<{ success: boolean; login?: string; name?: string; avatarUrl?: string; publicRepos?: number; error?: string }>;
   getSystemInfo: () => Promise<SystemInfo>;
   speakText: (text: string, voice: string) => Promise<{ success: boolean; base64Audio?: string; error?: string }>;
   executeAI?: (prompt: string, context?: any) => Promise<{ success: boolean; reply?: string; message?: string; actionsExecuted?: any[]; error?: string }>;

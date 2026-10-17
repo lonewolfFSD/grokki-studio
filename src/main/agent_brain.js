@@ -2267,7 +2267,8 @@ Rules:
 
       case 'create_notion_page': {
         const config = this.config || {};
-        const token = config.notionApiKey || process.env.NOTION_API_KEY;
+        const notionWorkspace = require('./notion_workspace');
+        const token = notionWorkspace.token || config.notionApiKey || process.env.NOTION_API_KEY;
         if (!token) {
           return { success: false, message: 'Notion is not connected. Please enter your Notion Integration Secret in the Workspace tab.' };
         }
@@ -2316,7 +2317,8 @@ Rules:
 
       case 'search_notion': {
         const config = this.config || {};
-        const token = config.notionApiKey || process.env.NOTION_API_KEY;
+        const notionWorkspace = require('./notion_workspace');
+        const token = notionWorkspace.token || config.notionApiKey || process.env.NOTION_API_KEY;
         if (!token) {
           return { success: false, message: 'Notion is not connected. Please enter your Notion Integration Secret in the Workspace tab.' };
         }
