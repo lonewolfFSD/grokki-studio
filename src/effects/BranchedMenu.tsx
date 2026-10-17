@@ -23,6 +23,10 @@ export interface BranchedMenuChild {
 export interface BranchedMenuItem {
   label: string;
   value?: string;
+  icon?: ReactNode | IconSvgElement;
+  rightSlot?: ReactNode;
+  headerClassName?: string;
+  onHeaderClick?: (isOpen: boolean, toggle: () => void) => void;
   children?: BranchedMenuChild[];
 }
 
@@ -44,6 +48,7 @@ export interface BranchedMenuProps {
   fontSize?: number;
   drawDuration?: number;
   foldDuration?: number;
+  hideRail?: boolean;
   className?: string;
 }
 
@@ -73,6 +78,49 @@ const MARK = 16;
 const renderIcon = (icon: ReactNode | IconSvgElement) =>
   isValidElement(icon) ? icon : <HugeiconsIcon icon={icon as IconSvgElement} size={16} strokeWidth={1.8} />;
 const toSet = (open: number | number[]) => new Set(Array.isArray(open) ? open : open >= 0 ? [open] : []);
+
+const BranchedHeaderRow: React.FC<{
+  item: BranchedMenuItem;
+  isOpen: boolean;
+  leafActive: boolean;
+  headRef: (el: HTMLDivElement | null) => void;
+  onClick: () => void;
+}> = ({ item, isOpen, leafActive, headRef, onClick }) => {
+  const iconRef = useRef<{ startAnimation?: () => void; stopAnimation?: () => void } | null>(null);
+  const renderedIcon = item.icon
+    ? isValidElement(item.icon)
+      ? React.cloneElement(item.icon as React.ReactElement<any>, { ref: iconRef })
+      : renderIcon(item.icon)
+    : null;
+
+  return (
+    <div
+      ref={headRef}
+      role="button"
+      tabIndex={0}
+      className={
+        item.headerClassName ??
+        'm-0 flex items-center justify-between cursor-pointer border-0 bg-transparent py-[9px] text-left font-medium outline-none [color:var(--bm-muted)] [font-family:inherit] [font-size:calc(var(--bm-font)+1px)] [-webkit-tap-highlight-color:transparent] [transition:color_200ms_ease] group-data-[open]/section:[color:var(--bm-ink)] data-[active]:[color:var(--bm-ink)] hover:[color:var(--bm-ink)] select-none'
+      }
+      aria-expanded={item.children ? isOpen : undefined}
+      aria-current={leafActive ? 'true' : undefined}
+      data-active={leafActive ? '' : undefined}
+      onClick={onClick}
+      onMouseEnter={() => iconRef.current?.startAnimation?.()}
+      onMouseLeave={() => iconRef.current?.stopAnimation?.()}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        {renderedIcon ? (
+          <span className="inline-flex flex-none" aria-hidden="true">
+            {renderedIcon}
+          </span>
+        ) : null}
+        <span className="truncate">{item.label}</span>
+      </div>
+      {item.rightSlot}
+    </div>
+  );
+};
 
 const BranchedKidRow: React.FC<{
   kid: BranchedMenuChild;
@@ -137,6 +185,7 @@ const BranchedMenu: React.FC<BranchedMenuProps> = ({
   fontSize = 14,
   drawDuration = 400,
   foldDuration = 300,
+  hideRail = false,
   className = ''
 }) => {
   const [open, setOpen] = useState<Set<number>>(() => toSet(defaultOpen));
@@ -159,13 +208,13 @@ const BranchedMenu: React.FC<BranchedMenuProps> = ({
   }, [defaultOpen]);
 
   const navRef = useRef<HTMLElement>(null);
-  const heads = useRef<(HTMLButtonElement | null)[]>([]);
+  const heads = useRef<(HTMLDivElement | null)[]>([]);
   const markerRef = useRef<HTMLSpanElement>(null);
   const latest = useRef<{ onSelect?: BranchedMenuProps['onSelect']; onToggle?: BranchedMenuProps['onToggle'] }>({});
   latest.current = { onSelect, onToggle };
 
   const activeSection = items.findIndex(it => it.children?.some(kid => kid.value === active));
-  const markerShown = activeSection >= 0 && open.has(activeSection);
+  const markerShown = !hideRail && activeSection >= 0 && open.has(activeSection);
   useLayoutEffect(() => {
     const place = (glide: boolean) => {
       const m = markerRef.current;
@@ -215,10 +264,14 @@ const BranchedMenu: React.FC<BranchedMenuProps> = ({
   const reach = (k: number) => `M ${trunk} 0 V ${rowY(k) - r} A ${r} ${r} 0 0 0 ${trunk + r} ${rowY(k)} H ${endX}`;
   const length = (k: number) => rowY(k) - r + (Math.PI * r) / 2 + (endX - trunk - r);
 
+  const railClasses = hideRail
+    ? 'w-full'
+    : "w-fit pl-3.5 before:absolute before:top-2 before:bottom-0 before:left-0 before:w-0.5 before:rounded-[1px] before:[background:linear-gradient(to_bottom,var(--bm-line)_0%,var(--bm-line)_55%,transparent_100%)] before:content-['']";
+
   return (
     <nav
       ref={navRef}
-      className={`relative flex w-fit max-w-[min(var(--bm-w),100%)] flex-col pl-3.5 leading-[1.2] [color:var(--bm-ink)] [font-family:inherit] [font-size:var(--bm-font)] before:absolute before:top-2 before:bottom-0 before:left-0 before:w-0.5 before:rounded-[1px] before:[background:linear-gradient(to_bottom,var(--bm-line)_0%,var(--bm-line)_55%,transparent_100%)] before:content-['']${className ? ` ${className}` : ''}`}
+      className={`relative flex max-w-[min(var(--bm-w),100%)] flex-col leading-[1.2] [color:var(--bm-ink)] [font-family:inherit] [font-size:var(--bm-font)] ${railClasses}${className ? ` ${className}` : ''}`}
       style={
         {
           '--bm-w': `${width}px`,
@@ -235,11 +288,13 @@ const BranchedMenu: React.FC<BranchedMenuProps> = ({
         } as CSSProperties
       }
     >
-      <span
-        ref={markerRef}
-        className="absolute -top-px left-0 z-[1] h-4 w-0.5 rounded-[1px] opacity-0 [background:var(--bm-accent)] [transition:top_220ms_cubic-bezier(0.23,1,0.32,1),opacity_150ms_ease] data-[on]:opacity-100 motion-reduce:[transition:opacity_150ms_ease]"
-        aria-hidden="true"
-      />
+      {!hideRail && (
+        <span
+          ref={markerRef}
+          className="absolute -top-px left-0 z-[1] h-4 w-0.5 rounded-[1px] opacity-0 [background:var(--bm-accent)] [transition:top_220ms_cubic-bezier(0.23,1,0.32,1),opacity_150ms_ease] data-[on]:opacity-100 motion-reduce:[transition:opacity_150ms_ease]"
+          aria-hidden="true"
+        />
+      )}
       {items.map((item, i) => {
         const kids = item.children;
         const isOpen = kids ? open.has(i) : false;
@@ -252,20 +307,23 @@ const BranchedMenu: React.FC<BranchedMenuProps> = ({
             className="group/section flex flex-col"
             data-open={isOpen ? '' : undefined}
           >
-            <div
-              ref={el => {
+            <BranchedHeaderRow
+              item={item}
+              isOpen={isOpen}
+              leafActive={leafActive}
+              headRef={el => {
                 heads.current[i] = el;
               }}
-              role="button"
-              tabIndex={0}
-              className="m-0 block cursor-pointer border-0 bg-transparent py-[9px] text-left font-medium outline-none [color:var(--bm-muted)] [font-family:inherit] [font-size:calc(var(--bm-font)+1px)] [-webkit-tap-highlight-color:transparent] [transition:color_200ms_ease] group-data-[open]/section:[color:var(--bm-ink)] data-[active]:[color:var(--bm-ink)] hover:[color:var(--bm-ink)] select-none"
-              aria-expanded={kids ? isOpen : undefined}
-              aria-current={leafActive ? 'true' : undefined}
-              data-active={leafActive ? '' : undefined}
-              onClick={() => (kids ? toggle(i) : select(leafValue, item))}
-            >
-              {item.label}
-            </div>
+              onClick={() => {
+                if (item.onHeaderClick) {
+                  item.onHeaderClick(isOpen, () => toggle(i));
+                } else if (kids) {
+                  toggle(i);
+                } else {
+                  select(leafValue, item);
+                }
+              }}
+            />
             {kids ? (
               <div className="grid [grid-template-rows:0fr] [transition:grid-template-rows_var(--bm-fold)_cubic-bezier(0.23,1,0.32,1)] group-data-[open]/section:[grid-template-rows:1fr] motion-reduce:transition-none">
                 <div className="min-h-0 overflow-hidden">

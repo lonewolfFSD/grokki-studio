@@ -214,9 +214,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isDark = theme === 'dark' || (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
 
+  const isChatActive = activeTab === 'chat';
+
   const chatBranchedItems: BranchedMenuItem[] = [
     {
-      label: 'Recent Chats',
+      label: 'Chat',
+      icon: <MessageSquareIcon size={16} className="flex-shrink-0" />,
+      headerClassName: `group flex items-center justify-between w-full px-3 py-2 rounded-xl text-[13px] font-medium transition-all cursor-pointer text-left select-none ${
+        isChatActive
+          ? 'bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
+          : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#14161f]'
+      }`,
+      onHeaderClick: (isOpen, toggle) => {
+        if (activeTab !== 'chat') {
+          onSelectTab('chat');
+          if (!isOpen) toggle();
+        } else {
+          toggle();
+        }
+      },
+      rightSlot: (
+        <AnimatedIconButton
+          Icon={PlusIcon}
+          iconSize={14}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCreateConversation?.();
+            onSelectTab('chat');
+          }}
+          title="New Conversation"
+          className="p-1 rounded-md text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#252836] transition-all cursor-pointer border-none bg-transparent"
+        />
+      ),
       children: conversations.length > 0 ? conversations.map((convo) => ({
         value: convo.id,
         label: convo.title || 'New Chat',
@@ -280,6 +309,76 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const isActive = activeTab === item.id;
             const isChatItem = item.id === 'chat';
 
+            if (isChatItem) {
+              return (
+                <div key={item.id} className="flex flex-col">
+                  <BranchedMenu
+                    items={chatBranchedItems}
+                    defaultOpen={[0]}
+                    defaultActive={activeConversationId}
+                    onSelect={(value) => {
+                      if (value === 'new_chat') {
+                        onCreateConversation?.();
+                      } else {
+                        onSelectConversation?.(value);
+                      }
+                      onSelectTab('chat');
+                    }}
+                    color={isDark ? '#f5f5f5' : '#1f2937'}
+                    accentColor={isDark ? '#f5f5f5' : '#111827'}
+                    lineColor={isDark ? '#3f3f46' : '#d4d4d8'}
+                    width={232}
+                    rowHeight={32}
+                    indent={40}
+                    trunk={20}
+                    radius={8}
+                    lineWidth={1.5}
+                    fontSize={12}
+                    drawDuration={400}
+                    foldDuration={300}
+                    hideRail
+                  />
+                  {editingId && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 w-full px-2 py-1 mt-1 bg-gray-100 dark:bg-[#14161f] border border-blue-500/60 rounded-lg shadow-xs"
+                    >
+                      <input
+                        type="text"
+                        autoFocus
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSaveRename(editingId);
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            handleCancelRename();
+                          }
+                        }}
+                        className="w-full text-[12px] bg-transparent text-gray-900 dark:text-gray-100 outline-none"
+                      />
+                      <AnimatedIconButton
+                        Icon={CheckIcon}
+                        iconSize={14}
+                        onClick={() => handleSaveRename(editingId)}
+                        className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-emerald-500 hover:text-emerald-400 cursor-pointer border-none bg-transparent flex-shrink-0"
+                        title="Save title"
+                      />
+                      <AnimatedIconButton
+                        Icon={XIcon}
+                        iconSize={14}
+                        onClick={handleCancelRename}
+                        className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer border-none bg-transparent flex-shrink-0"
+                        title="Cancel"
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <div key={item.id} className="flex flex-col">
                 <AnimatedSidebarRow
@@ -287,90 +386,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   label={item.label}
                   isActive={isActive}
                   onClick={() => onSelectTab(item.id)}
-                  rightSlot={
-                    isChatItem ? (
-                      <AnimatedIconButton
-                        Icon={PlusIcon}
-                        iconSize={14}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onCreateConversation?.();
-                          onSelectTab('chat');
-                        }}
-                        title="New Conversation"
-                        className="p-1 rounded-md text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#252836] transition-all cursor-pointer border-none bg-transparent"
-                      />
-                    ) : null
-                  }
                 />
-
-                {/* Sub-Navigation for Saved Conversations using BranchedMenu */}
-                {isChatItem && (
-                  <div className="relative pl-1 pt-1 pb-1 flex flex-col max-h-60 overflow-y-auto">
-                    {editingId && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex items-center gap-1 w-full px-2 py-1 mb-1.5 bg-gray-100 dark:bg-[#14161f] border border-blue-500/60 rounded-lg shadow-xs"
-                      >
-                        <input
-                          type="text"
-                          autoFocus
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleSaveRename(editingId);
-                            } else if (e.key === 'Escape') {
-                              e.preventDefault();
-                              handleCancelRename();
-                            }
-                          }}
-                          className="w-full text-[12px] bg-transparent text-gray-900 dark:text-gray-100 outline-none"
-                        />
-                        <AnimatedIconButton
-                          Icon={CheckIcon}
-                          iconSize={14}
-                          onClick={() => handleSaveRename(editingId)}
-                          className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-emerald-500 hover:text-emerald-400 cursor-pointer border-none bg-transparent flex-shrink-0"
-                          title="Save title"
-                        />
-                        <AnimatedIconButton
-                          Icon={XIcon}
-                          iconSize={14}
-                          onClick={handleCancelRename}
-                          className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer border-none bg-transparent flex-shrink-0"
-                          title="Cancel"
-                        />
-                      </div>
-                    )}
-                    <BranchedMenu
-                      items={chatBranchedItems}
-                      defaultOpen={[0]}
-                      defaultActive={activeConversationId}
-                      onSelect={(value) => {
-                        if (value === 'new_chat') {
-                          onCreateConversation?.();
-                        } else {
-                          onSelectConversation?.(value);
-                        }
-                        onSelectTab('chat');
-                      }}
-                      color={isDark ? '#f5f5f5' : '#1f2937'}
-                      accentColor={isDark ? '#f5f5f5' : '#111827'}
-                      lineColor={isDark ? '#3f3f46' : '#d4d4d8'}
-                      width={212}
-                      rowHeight={32}
-                      indent={34}
-                      trunk={12}
-                      radius={8}
-                      lineWidth={1.5}
-                      fontSize={12}
-                      drawDuration={400}
-                      foldDuration={300}
-                    />
-                  </div>
-                )}
               </div>
             );
           })}
