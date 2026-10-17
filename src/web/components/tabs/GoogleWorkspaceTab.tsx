@@ -92,7 +92,7 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
   const [notionConnected, setNotionConnected] = useState(false);
   const [notionProfile, setNotionProfile] = useState<NotionProfile | null>(null);
   const [connectingNotion, setConnectingNotion] = useState(false);
-  const [notionExpanded, setNotionExpanded] = useState(true);
+  const [notionExpanded, setNotionExpanded] = useState(false);
   const [showTokenFallback, setShowTokenFallback] = useState(false);
   const [notionToken, setNotionToken] = useState('');
   const [notionStatusMessage, setNotionStatusMessage] = useState<string | null>(null);
@@ -103,7 +103,7 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
   const [obsidianVaultName, setObsidianVaultName] = useState<string | null>(null);
   const [obsidianVaultPath, setObsidianVaultPath] = useState<string | null>(null);
   const [obsidianNotesCount, setObsidianNotesCount] = useState<number>(0);
-  const [obsidianExpanded, setObsidianExpanded] = useState(true);
+  const [obsidianExpanded, setObsidianExpanded] = useState(false);
   const [selectingVault, setSelectingVault] = useState(false);
 
   useEffect(() => {
