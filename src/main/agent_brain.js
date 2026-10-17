@@ -1407,12 +1407,24 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
     this.activeContext = context;
     this.activePrompt = prompt || '';
 
-    // Direct Vision analysis when an image file is attached and the user is asking about it (not sharing/uploading)
+    // Direct handling for attached images and videos
     const directAttachPath = (context && context.filePath) || (context && context.attachedFile && (context.attachedFile.path || context.attachedFile)) || null;
     if (directAttachPath && typeof directAttachPath === 'string' && fs.existsSync(directAttachPath)) {
       const ext = path.extname(directAttachPath).toLowerCase();
       const isImage = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'].includes(ext);
-      const isShareOrUpload = /\b(whatsapp|google\s+drive|upload\s+to\s+drive|send\s+(this|it|file|image|photo)\s+(to|on))\b/i.test(prompt || '');
+      const isVideo = ['.mp4', '.mkv', '.mov', '.webm', '.avi', '.flv', '.wmv', '.m4v'].includes(ext);
+      const isShareOrUpload = /\b(whatsapp|google\s+drive|drive|upload|send|share)\b/i.test(prompt || '');
+
+      if (isVideo && !isShareOrUpload) {
+        const videoName = path.basename(directAttachPath);
+        const replyText = `🎬 **Video watching & analysis is disabled** to prevent high token consumption.\n\nYou can still use **\`${videoName}\`** to:\n1. **Send on WhatsApp** — e.g. *"Send this video to Rohan on WhatsApp"*\n2. **Upload to Google Drive** — e.g. *"Upload this video to my Google Drive"*`;
+        return {
+          success: true,
+          reply: replyText,
+          actionsExecuted: [],
+        };
+      }
+
       if (isImage && !isShareOrUpload) {
         const visionRes = await this.analyzeAttachedImage(directAttachPath, prompt, config.geminiApiKey || '');
         const replyText = visionRes.message || 'Analyzed attached image.';
@@ -2124,11 +2136,44 @@ Rules:
           const ext = path.extname(targetPath).toLowerCase();
           const stat = fs.statSync(targetPath);
           const imageExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'];
+          const videoExts = ['.mp4', '.mkv', '.mov', '.webm', '.avi', '.flv', '.wmv', '.m4v'];
+          const audioExts = ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac'];
           const docExts = ['.pdf', '.docx', '.doc'];
           const textExts = ['.txt', '.md', '.json', '.js', '.ts', '.tsx', '.jsx', '.py', '.html', '.css', '.csv', '.java', '.cpp', '.c', '.h', '.cs', '.rs', '.go', '.sql', '.sh', '.ps1', '.yaml', '.yml', '.log', '.xml'];
 
+          if (videoExts.includes(ext)) {
+            return {
+              success: true,
+              message: `🎬 **Video watching & analysis is disabled** to prevent high token consumption.\n\nYou can still use **\`${path.basename(targetPath)}\`** to:\n1. **Send on WhatsApp** — e.g. *"Send this video to Rohan on WhatsApp"*\n2. **Upload to Google Drive** — e.g. *"Upload this video to my Google Drive"*`,
+            };
+          }
+
           if (imageExts.includes(ext)) {
             return await this.analyzeAttachedImage(targetPath, this.activePrompt || 'Describe what you see in this image clearly and accurately.', apiKey);
+          }
+
+          if (audioExts.includes(ext)) {
+            const groqKey = (this.activeConfig?.groqApiKey || process.env.GROQ_API_KEY || '').trim();
+            if (groqKey) {
+              try {
+                const b64Audio = fs.readFileSync(targetPath).toString('base64');
+                const transcript = await transcribeWithGroqWhisper({
+                  apiKey: groqKey,
+                  base64Audio: b64Audio,
+                  mimeType: ext === '.wav' ? 'audio/wav' : 'audio/mpeg',
+                });
+                if (transcript && transcript.trim()) {
+                  return {
+                    success: true,
+                    message: `🎧 **Audio Transcription (\`${path.basename(targetPath)}\`)**:\n\n> ${transcript.trim()}`,
+                  };
+                }
+              } catch (e) {}
+            }
+            return {
+              success: true,
+              message: `🎧 Attached audio **\`${path.basename(targetPath)}\`** (${Math.max(1, Math.round(stat.size / 1024))} KB) is ready to send on WhatsApp, upload to Google Drive, or transcribe.`,
+            };
           }
 
           if (docExts.includes(ext)) {

@@ -63,6 +63,7 @@ export interface AttachedFileInfo {
   name: string;
   size?: number;
   ext?: string;
+  category?: 'document' | 'photo' | 'video' | 'camera' | 'audio';
 }
 
 export interface ChatMessage {
@@ -97,7 +98,12 @@ export interface JarvisAPI {
   getSystemInfo: () => Promise<SystemInfo>;
   speakText: (text: string, voice: string) => Promise<{ success: boolean; base64Audio?: string; error?: string }>;
   executeAI?: (prompt: string, context?: any) => Promise<{ success: boolean; reply?: string; message?: string; actionsExecuted?: any[]; error?: string }>;
-  selectFile?: () => Promise<{ canceled: boolean; path?: string; name?: string; filePaths?: string[]; size?: number; ext?: string }>;
+  executeAIAudio?: (data: { base64Audio: string; mimeType: string }) => Promise<{ success?: boolean; transcript?: string; reply?: string }>;
+  selectFile?: (options?: any) => Promise<{ canceled: boolean; path?: string; name?: string; filePaths?: string[]; size?: number; ext?: string }>;
+  getPathForFile?: (file: File) => string;
+  saveTempFile?: (fileData: { name: string; buffer: ArrayBuffer }) => Promise<{ success: boolean; path?: string; error?: string }>;
+  runCommand?: (command: string) => Promise<{ success: boolean; stdout?: string; stderr?: string }>;
+  openUrl?: (url: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   onConfigUpdated?: (callback: (data: JarvisConfig) => void) => void;
   checkForUpdates?: () => Promise<{
     updateAvailable: boolean;

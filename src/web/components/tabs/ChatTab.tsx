@@ -14,6 +14,8 @@ import {
   FileText,
   FileCode,
   Image as ImageIcon,
+  Video,
+  Headphones,
   File,
   HelpCircle,
   Target,
@@ -28,6 +30,7 @@ import {
   Camera,
   Lock,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { marked } from 'marked';
 import { JarvisConfig, Conversation, ChatMessage, AttachedFileInfo } from '../../types/jarvis';
 import GradientASCII from './GradientASCII';
@@ -145,16 +148,29 @@ function formatRecordingTime(seconds: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
+function isVideoAttachment(file?: AttachedFileInfo | null): boolean {
+  if (!file) return false;
+  if (file.category === 'video') return true;
+  const e = (file.ext || '').toLowerCase();
+  return ['.mp4', '.mkv', '.mov', '.webm', '.avi', '.flv', '.wmv', '.m4v'].includes(e);
+}
+
 function getFileIcon(ext?: string) {
   const e = (ext || '').toLowerCase();
   if (['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.bmp'].includes(e)) {
-    return <ImageIcon className="w-4 h-4 text-emerald-500" />;
+    return <ImageIcon className="w-4 h-4 text-[#007BFC]" />;
+  }
+  if (['.mp4', '.mkv', '.mov', '.webm', '.avi', '.flv', '.wmv', '.m4v'].includes(e)) {
+    return <Video className="w-4 h-4 text-[#A855F7]" />;
+  }
+  if (['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac'].includes(e)) {
+    return <Headphones className="w-4 h-4 text-[#FF7A00]" />;
   }
   if (['.js', '.ts', '.tsx', '.jsx', '.py', '.html', '.css', '.json', '.cpp', '.c', '.cs', '.java', '.go', '.rs'].includes(e)) {
     return <FileCode className="w-4 h-4 text-blue-500" />;
   }
-  if (['.pdf', '.doc', '.docx', '.txt', '.md', '.rtf', '.csv', '.xlsx'].includes(e)) {
-    return <FileText className="w-4 h-4 text-amber-500" />;
+  if (['.pdf', '.doc', '.docx', '.txt', '.md', '.rtf', '.csv', '.xlsx', '.pptx'].includes(e)) {
+    return <FileText className="w-4 h-4 text-[#7F66FF]" />;
   }
   return <File className="w-4 h-4 text-gray-500" />;
 }
@@ -861,28 +877,184 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
   }, [messages, loading]);
 
-  const handleSelectFile = async () => {
-    if (!window.jarvisAPI?.selectFile) return;
+  // WhatsApp-style Attachment Menu & Camera Capture State
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [activeAttachCategory, setActiveAttachCategory] = useState<'document' | 'photo' | 'video' | 'audio'>('document');
+  const [fileAcceptFilter, setFileAcceptFilter] = useState<string>('*/*');
+  const attachMenuRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Camera Modal State
+  const [cameraModalOpen, setCameraModalOpen] = useState(false);
+  const [cameraPreviewUrl, setCameraPreviewUrl] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    if (!attachMenuOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (attachMenuRef.current && target && !attachMenuRef.current.contains(target)) {
+        setAttachMenuOpen(false);
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setAttachMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [attachMenuOpen]);
+
+  const stopCameraStream = () => {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+      cameraStreamRef.current = null;
+    }
+  };
+
+  const openCameraModal = async () => {
+    setAttachMenuOpen(false);
+    setCameraError(null);
+    setCameraPreviewUrl(null);
+    setCameraModalOpen(true);
     try {
-      const res = await window.jarvisAPI.selectFile();
-      if (!res.canceled && res.path) {
-        setAttachedFile({
-          path: res.path,
-          name: res.name || res.path.split('\\').pop() || 'file',
-          size: res.size,
-          ext: res.ext || (res.path.includes('.') ? '.' + res.path.split('.').pop()?.toLowerCase() : ''),
-        });
-      } else if (!res.canceled && res.filePaths && res.filePaths.length > 0) {
-        const p = res.filePaths[0];
-        setAttachedFile({
-          path: p,
-          name: p.split('\\').pop() || 'file',
-          ext: p.includes('.') ? '.' + p.split('.').pop()?.toLowerCase() : '',
-        });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+        audio: false,
+      });
+      cameraStreamRef.current = stream;
+      setTimeout(() => {
+        if (cameraVideoRef.current) {
+          cameraVideoRef.current.srcObject = stream;
+          cameraVideoRef.current.play().catch(() => {});
+        }
+      }, 60);
+    } catch (err: any) {
+      setCameraError(err?.message || 'Unable to access camera. Check camera permissions.');
+    }
+  };
+
+  const closeCameraModal = () => {
+    stopCameraStream();
+    setCameraModalOpen(false);
+    setCameraPreviewUrl(null);
+    setCameraError(null);
+  };
+
+  const handleCaptureCameraPhoto = () => {
+    const video = cameraVideoRef.current;
+    if (!video) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    setCameraPreviewUrl(dataUrl);
+  };
+
+  const handleRetakeCameraPhoto = async () => {
+    setCameraPreviewUrl(null);
+    if (cameraVideoRef.current && cameraStreamRef.current) {
+      cameraVideoRef.current.srcObject = cameraStreamRef.current;
+      cameraVideoRef.current.play().catch(() => {});
+    }
+  };
+
+  const handleConfirmCameraPhoto = async () => {
+    if (!cameraPreviewUrl) return;
+    try {
+      const res = await fetch(cameraPreviewUrl);
+      const blob = await res.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      const fileName = `Camera_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.jpg`;
+
+      if (window.jarvisAPI?.saveTempFile) {
+        const saved = await window.jarvisAPI.saveTempFile({ name: fileName, buffer: arrayBuffer });
+        if (saved?.success && saved.path) {
+          setAttachedFile({
+            path: saved.path,
+            name: fileName,
+            size: blob.size,
+            ext: '.jpg',
+            category: 'camera',
+          });
+        }
       }
     } catch (err) {
-      console.error('File select error:', err);
+      console.error('Failed to save camera photo:', err);
+    } finally {
+      closeCameraModal();
+      setTimeout(() => inputRef.current?.focus(), 60);
     }
+  };
+
+  const handlePickCategory = (
+    category: 'document' | 'photo' | 'video' | 'camera' | 'audio',
+    accept: string
+  ) => {
+    setAttachMenuOpen(false);
+    if (category === 'camera') {
+      openCameraModal();
+      return;
+    }
+    setActiveAttachCategory(category);
+    setFileAcceptFilter(accept);
+    setTimeout(() => {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+        fileInputRef.current.click();
+      }
+    }, 20);
+  };
+
+  const handleNativeFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ext = file.name.includes('.') ? '.' + file.name.split('.').pop()!.toLowerCase() : '';
+    let localPath = '';
+    if (window.jarvisAPI?.getPathForFile) {
+      localPath = window.jarvisAPI.getPathForFile(file) || '';
+    }
+    if (!localPath && window.jarvisAPI?.saveTempFile) {
+      try {
+        const buf = await file.arrayBuffer();
+        const saved = await window.jarvisAPI.saveTempFile({ name: file.name, buffer: buf });
+        if (saved?.success && saved.path) {
+          localPath = saved.path;
+        }
+      } catch (err) {}
+    }
+
+    const isVid = ['.mp4', '.mkv', '.mov', '.webm', '.avi', '.flv', '.wmv', '.m4v'].includes(ext);
+    const isAud = ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac'].includes(ext);
+    const isImg = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'].includes(ext);
+
+    const detectedCategory: 'document' | 'photo' | 'video' | 'audio' = isVid
+      ? 'video'
+      : isAud
+      ? 'audio'
+      : isImg
+      ? 'photo'
+      : activeAttachCategory;
+
+    setAttachedFile({
+      path: localPath || file.name,
+      name: file.name,
+      size: file.size,
+      ext,
+      category: detectedCategory,
+    });
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const handleSelectSlashCommand = (cmd: SlashCommand) => {
@@ -904,11 +1076,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     let text = (textToSend || inputValue).trim();
     if (!text && !attachedFile) return;
 
-    if (!text && attachedFile) {
-      text = `Analyze and summarize this file: ${attachedFile.name}`;
+    const currentAttachment = attachedFile;
+    const isVideo = isVideoAttachment(currentAttachment);
+
+    if (!text && currentAttachment) {
+      text = isVideo
+        ? `Attached video: ${currentAttachment.name}`
+        : `Analyze and summarize this file: ${currentAttachment.name}`;
     }
 
-    const currentAttachment = attachedFile;
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -924,6 +1100,21 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     setLoading(true);
 
     try {
+      // Strict Video Token Guard: Videos cannot be watched/analyzed (saves tokens), only sent on WhatsApp or uploaded to Drive
+      const isShareOrUploadIntent = /\b(whatsapp|google\s+drive|drive|upload|send|share)\b/i.test(text);
+      if (isVideo && currentAttachment && !isShareOrUploadIntent) {
+        const videoGuardMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `🎬 **Video watching & analysis is disabled** to prevent high token consumption.\n\nYou can still use **\`${currentAttachment.name}\`** to:\n1. **Send on WhatsApp** — e.g. *"Send this video to Rohan on WhatsApp"*\n2. **Upload to Google Drive** — e.g. *"Upload this video to my Google Drive"*`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isAnimated: true,
+        };
+        onUpdateMessages((prev) => [...prev, videoGuardMsg]);
+        setLoading(false);
+        return;
+      }
+
       if (window.jarvisAPI?.executeAI) {
         const context: any = {};
         if (currentAttachment) {
@@ -1274,10 +1465,209 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     );
   };
 
+  // Render smooth WhatsApp-style Attachment Popover Menu
+  const renderAttachMenu = (placement: 'top' | 'bottom' = 'top') => {
+    const items: Array<{
+      id: 'document' | 'photo' | 'video' | 'camera' | 'audio';
+      label: string;
+      badge?: string;
+      color: string;
+      icon: React.ReactNode;
+      accept: string;
+    }> = [
+      {
+        id: 'document',
+        label: 'Document',
+        color: '#7F66FF',
+        icon: <FileText className="w-4 h-4 text-white" />,
+        accept: '.pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.pptx,.json,.py,.js,.ts,.tsx,.jsx,.c,.cpp,.java,.html,.css,.sql,.xml,.yaml,.yml',
+      },
+      {
+        id: 'photo',
+        label: 'Photos',
+        color: '#007BFC',
+        icon: <ImageIcon className="w-4 h-4 text-white" />,
+        accept: 'image/*,.png,.jpg,.jpeg,.webp,.gif,.bmp',
+      },
+      {
+        id: 'video',
+        label: 'Videos',
+        badge: 'Send / Drive',
+        color: '#A855F7',
+        icon: <Video className="w-4 h-4 text-white" />,
+        accept: 'video/*,.mp4,.mkv,.mov,.webm,.avi,.m4v',
+      },
+      {
+        id: 'camera',
+        label: 'Camera',
+        color: '#FF2E74',
+        icon: <Camera className="w-4 h-4 text-white" />,
+        accept: '',
+      },
+      {
+        id: 'audio',
+        label: 'Audio',
+        color: '#FF7A00',
+        icon: <Headphones className="w-4 h-4 text-white" />,
+        accept: 'audio/*,.mp3,.wav,.m4a,.ogg,.flac,.aac,.webm',
+      },
+    ];
+
+    const isTop = placement === 'top';
+
+    return (
+      <AnimatePresence>
+        {attachMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.88, y: isTop ? 12 : -12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: isTop ? 10 : -10 }}
+            transition={{ type: 'spring', stiffness: 460, damping: 28, mass: 0.7 }}
+            style={{ transformOrigin: isTop ? 'bottom left' : 'top left' }}
+            className={`absolute left-0 ${
+              isTop ? 'bottom-full mb-3' : 'top-full mt-3'
+            } w-52 bg-white/95 dark:bg-[#181920]/95 backdrop-blur-xl border border-gray-200/80 dark:border-[#262936] rounded-2xl shadow-2xl p-1.5 z-50 select-none`}
+          >
+            <div className="flex flex-col gap-0.5">
+              {items.map((item, idx) => (
+                <motion.button
+                  key={item.id}
+                  type="button"
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.03, duration: 0.16, ease: 'easeOut' }}
+                  onClick={() => handlePickCategory(item.id, item.accept)}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-gray-100/90 dark:hover:bg-[#232634] transition-colors cursor-pointer border-none bg-transparent text-left group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition-transform duration-200 group-hover:scale-105 flex-shrink-0"
+                      style={{ backgroundColor: item.color }}
+                    >
+                      {item.icon}
+                    </div>
+                    <span className="text-[13px] font-medium text-gray-800 dark:text-gray-100 tracking-tight">
+                      {item.label}
+                    </span>
+                  </div>
+                  {item.badge && (
+                    <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/20">
+                      {item.badge}
+                    </span>
+                  )}
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  };
+
+  // Render Live Camera Capture Modal
+  const renderCameraModal = () => (
+    <AnimatePresence>
+      {cameraModalOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 12 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+            className="w-full max-w-md bg-white dark:bg-[#14161e] border border-gray-200 dark:border-[#252836] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-[#1e2029]">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-[#FF2E74] flex items-center justify-center">
+                  <Camera className="w-3.5 h-3.5 text-white" />
+                </div>
+                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                  Camera Capture
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={closeCameraModal}
+                className="w-6 h-6 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1e2029] transition-colors cursor-pointer border-none bg-transparent"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="relative bg-black aspect-video w-full flex items-center justify-center overflow-hidden">
+              {cameraError ? (
+                <div className="text-xs text-red-400 px-6 text-center">{cameraError}</div>
+              ) : cameraPreviewUrl ? (
+                <img
+                  src={cameraPreviewUrl}
+                  alt="Captured preview"
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <video
+                  ref={cameraVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-4 py-3 bg-gray-50 dark:bg-[#101218] border-t border-gray-200 dark:border-[#1e2029]">
+              {cameraPreviewUrl ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleRetakeCameraPhoto}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-200/80 dark:bg-[#1e2029] hover:opacity-90 transition-opacity cursor-pointer border-none"
+                  >
+                    Retake
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmCameraPhoto}
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold text-white bg-[#FF2E74] hover:opacity-95 transition-opacity cursor-pointer border-none shadow-sm"
+                  >
+                    Attach Photo
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!!cameraError}
+                  onClick={handleCaptureCameraPhoto}
+                  className="px-4 py-1.5 rounded-xl text-xs font-semibold text-white bg-[#FF2E74] hover:opacity-95 disabled:opacity-40 transition-opacity cursor-pointer border-none shadow-sm"
+                >
+                  Capture Photo
+                </button>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   const isDarkTheme = config.dashboardTheme === 'dark';
 
   return (
     <div className="relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-4">
+      {/* Hidden Native File Picker Input for Category Filtering */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={fileAcceptFilter}
+        onChange={handleNativeFileInputChange}
+        className="hidden"
+      />
+      {renderCameraModal()}
+
       {/* Background GradientASCII Effect */}
       <div
         className="absolute inset-0 pointer-events-none overflow-hidden z-0"
@@ -1336,7 +1726,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     {attachedFile.name}
                   </div>
                   <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
-                    {formatFileSize(attachedFile.size) ? `${formatFileSize(attachedFile.size)} • ` : ''}Ready to share with Grokki
+                    {formatFileSize(attachedFile.size) ? `${formatFileSize(attachedFile.size)} • ` : ''}
+                    {isVideoAttachment(attachedFile)
+                      ? 'Send on WhatsApp or Drive only • Video watching disabled (saves tokens)'
+                      : 'Ready to share with Grokki'}
                   </div>
                 </div>
               </div>
@@ -1357,15 +1750,22 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             {renderSynthesizerVisualizer()}
 
             <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-3 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
-              {/* Attach Tool Button */}
-              <button
-                type="button"
-                onClick={handleSelectFile}
-                title="Attach File or Context"
-                className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-1 flex items-center justify-center"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+              {/* Attach Tool Button + WhatsApp-style Popover */}
+              <div ref={attachMenuRef} className="relative flex items-center">
+                {renderAttachMenu('bottom')}
+                <button
+                  type="button"
+                  onClick={() => setAttachMenuOpen((prev) => !prev)}
+                  title="Attach Document, Photos, Videos, Camera, or Audio"
+                  className={`transition-all duration-200 cursor-pointer border-none p-1 rounded-full flex items-center justify-center ${
+                    attachMenuOpen
+                      ? 'bg-gray-200 dark:bg-[#252836] text-gray-900 dark:text-white rotate-45'
+                      : 'bg-transparent text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
 
               {/* Input Field */}
               <input
@@ -1378,7 +1778,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   isRecording
                     ? "Listening... speaking your prompt"
                     : attachedFile
-                    ? `Ask Grokki about ${attachedFile.name}...`
+                    ? isVideoAttachment(attachedFile)
+                      ? `Send ${attachedFile.name} on WhatsApp or upload to Drive...`
+                      : `Ask Grokki about ${attachedFile.name}...`
                     : "Type / for slash commands, or ask Grokki anything..."
                 }
                 className="flex-1 bg-transparent border-none outline-none text-xs md:text-[12px] text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
@@ -1461,14 +1863,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 {messages.length} messages • saved locally
               </span>
             </div>
-            {/* <button
-              type="button"
-              onClick={onNewChat}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white px-2.5 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>New Chat</span>
-            </button> */}
           </div>
 
           {/* Messages Flow */}
@@ -1629,7 +2023,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         <div className="w-full pt-2.5 bg-gradient-to-t from-[#f7f7fa] dark:from-[#0c0d12] to-transparent">
           {/* Staged File Preview Card */}
           {attachedFile && (
-            <div className="w-full max-w-xl mx-auto mb-2 p-2.5 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl  flex items-center justify-between text-left transition-all">
+            <div className="w-full max-w-xl mx-auto mb-2 p-2.5 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl flex items-center justify-between text-left transition-all">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1c24] flex items-center justify-center flex-shrink-0 border border-gray-200/60 dark:border-[#252836]">
                   {getFileIcon(attachedFile.ext)}
@@ -1639,7 +2033,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     {attachedFile.name}
                   </div>
                   <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
-                    {formatFileSize(attachedFile.size) ? `${formatFileSize(attachedFile.size)} • ` : ''}Ready to share with Grokki
+                    {formatFileSize(attachedFile.size) ? `${formatFileSize(attachedFile.size)} • ` : ''}
+                    {isVideoAttachment(attachedFile)
+                      ? 'Send on WhatsApp or Drive only • Video watching disabled (saves tokens)'
+                      : 'Ready to share with Grokki'}
                   </div>
                 </div>
               </div>
@@ -1660,14 +2057,22 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             {renderSynthesizerVisualizer()}
 
             <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full mb-8 py-3 px-3.5 transition-all flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={handleSelectFile}
-                title="Attach File or Context"
-                className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer bg-transparent border-none p-1 flex items-center justify-center"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+              {/* Attach Tool Button + WhatsApp-style Popover */}
+              <div ref={attachMenuRef} className="relative flex items-center">
+                {renderAttachMenu('top')}
+                <button
+                  type="button"
+                  onClick={() => setAttachMenuOpen((prev) => !prev)}
+                  title="Attach Document, Photos, Videos, Camera, or Audio"
+                  className={`transition-all duration-200 cursor-pointer border-none p-1 rounded-full flex items-center justify-center ${
+                    attachMenuOpen
+                      ? 'bg-gray-200 dark:bg-[#252836] text-gray-900 dark:text-white rotate-45'
+                      : 'bg-transparent text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
 
               <input
                 ref={inputRef}
@@ -1679,7 +2084,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   isRecording
                     ? "Listening... speaking your prompt"
                     : attachedFile
-                    ? `Ask Grokki about ${attachedFile.name}...`
+                    ? isVideoAttachment(attachedFile)
+                      ? `Send ${attachedFile.name} on WhatsApp or upload to Drive...`
+                      : `Ask Grokki about ${attachedFile.name}...`
                     : "Type / for direct slash commands, or ask anything..."
                 }
                 className="flex-1 bg-transparent border-none outline-none text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
