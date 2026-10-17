@@ -9,7 +9,7 @@ class NotionWorkspaceManager {
     this.tokenPath = path.resolve(__dirname, '../../data/notion_tokens.json');
     this.credentialsPath = path.resolve(__dirname, '../../data/notion_credentials.json');
     this.port = 8586;
-    this.redirectUri = `http://127.0.0.1:${this.port}/notioncallback`;
+    this.redirectUri = `http://localhost:${this.port}/notioncallback`;
     this.notionVersion = '2022-06-28';
 
     this.token = null;
@@ -38,7 +38,11 @@ class NotionWorkspaceManager {
       } catch (e) {}
     }
 
-    return null;
+    // 3. Built-in default OAuth application credentials
+    return {
+      clientId: '3fcd872b-594c-81bd-a2c7-0037af25c152',
+      clientSecret: 'secret_8zK4oEjc0zAm4NuRDafr41EdkAvGT1r7g6QWgRhuL9d',
+    };
   }
 
   saveCredentials(clientId, clientSecret) {
@@ -274,7 +278,7 @@ class NotionWorkspaceManager {
         }
       });
 
-      this.authServer.listen(this.port, '127.0.0.1', () => {
+      this.authServer.listen(this.port, () => {
         shell.openExternal(authUrl);
         resolve({
           success: true,

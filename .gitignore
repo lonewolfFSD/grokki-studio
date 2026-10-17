@@ -9,6 +9,8 @@ node_modules/
 .env.*.local
 data/google_tokens.json
 data/google_credentials.json
+data/notion_tokens.json
+data/notion_credentials.json
 data/jarvis-config.json
 
 # Build outputs
