@@ -18,6 +18,7 @@ import { DEFAULT_HOTKEYS, getEffectiveHotkeys, matchesHotkey } from './utils/hot
 const DEFAULT_CONFIG: JarvisConfig = {
   provider: 'gemini',
   geminiApiKey: '',
+  geminiModel: 'gemini-2.5-flash',
   groqApiKey: '',
   groqModel: 'openai/gpt-oss-120b',
   ollamaEndpoint: 'http://127.0.0.1:11434',

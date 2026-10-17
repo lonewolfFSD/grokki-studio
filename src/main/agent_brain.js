@@ -1543,8 +1543,10 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
     memory.addTurn('user', fullPrompt);
 
     let lastError = null;
+    const selectedGeminiModel = config.geminiModel || 'gemini-2.5-flash';
+    const activeModels = [selectedGeminiModel, ...this.models.filter(m => m !== selectedGeminiModel)];
 
-    for (const modelName of this.models) {
+    for (const modelName of activeModels) {
       try {
         if (signal.aborted) throw new Error('TASK_CANCELLED');
 

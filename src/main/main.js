@@ -53,6 +53,7 @@ function loadConfig() {
       const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       if (!data.provider) data.provider = 'gemini';
       if (!data.geminiApiKey && envKey) data.geminiApiKey = envKey;
+      if (!data.geminiModel) data.geminiModel = 'gemini-2.5-flash';
       if (!data.groqApiKey && envGroqKey) data.groqApiKey = envGroqKey;
       if (!data.groqModel) data.groqModel = 'openai/gpt-oss-120b';
       if (!data.ollamaEndpoint) data.ollamaEndpoint = 'http://127.0.0.1:11434';
@@ -90,6 +91,7 @@ function loadConfig() {
   return {
     provider: 'gemini',
     geminiApiKey: envKey,
+    geminiModel: 'gemini-2.5-flash',
     groqApiKey: envGroqKey,
     groqModel: 'openai/gpt-oss-120b',
     ollamaEndpoint: 'http://127.0.0.1:11434',
@@ -1233,7 +1235,7 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
       if (!apiKey) return { success: false, error: 'API key is empty.' };
       const ai = new GoogleGenAI({ apiKey });
       const res = await ai.models.generateContent({
-        model: 'gemini-3.5-flash',
+        model: model || 'gemini-2.5-flash',
         contents: 'Hello! Respond with ONLY "READY".',
       });
       const latencyMs = Date.now() - startTime;
@@ -1251,7 +1253,7 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: model || 'openai/gpt-oss-120b',
+          model: model || 'llama-3.3-70b-versatile',
           messages: [{ role: 'user', content: 'Respond with ONLY "READY".' }],
           max_tokens: 10,
         }),
@@ -1287,6 +1289,56 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
       const data = await res.json();
       const latencyMs = Date.now() - startTime;
       return { success: true, latencyMs, reply: data.data?.label ? `Verified (${data.data.label})` : 'Verified' };
+    }
+
+    return { success: false, error: `Unknown provider: ${provider}` };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('dashboard:fetch-provider-models', async (event, { provider, key, endpoint }) => {
+  try {
+    const fetch = global.fetch || require('node-fetch');
+    if (provider === 'gemini') {
+      const apiKey = (key || '').trim();
+      if (!apiKey) return { success: false, error: 'Gemini API key is required.' };
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const models = (data.models || [])
+        .map(m => (m.name || '').replace(/^models\//, ''))
+        .filter(name => name.startsWith('gemini-') && !name.includes('embedding') && !name.includes('aqa') && !name.includes('imagen'));
+      return { success: true, models };
+    }
+
+    if (provider === 'groq') {
+      const apiKey = (key || '').trim();
+      if (!apiKey) return { success: false, error: 'Groq API key is required.' };
+      const res = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const models = (data.data || []).map(m => m.id);
+      return { success: true, models };
+    }
+
+    if (provider === 'ollama') {
+      const ep = (endpoint || 'http://127.0.0.1:11434').replace(/\/$/, '');
+      const res = await fetch(`${ep}/api/tags`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const models = (data.models || []).map(m => m.name || m.model);
+      return { success: true, models };
+    }
+
+    if (provider === 'openrouter') {
+      const res = await fetch('https://openrouter.ai/api/v1/models');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const models = (data.data || []).map(m => m.id).slice(0, 100);
+      return { success: true, models };
     }
 
     return { success: false, error: `Unknown provider: ${provider}` };

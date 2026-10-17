@@ -12,6 +12,7 @@ export interface StudioHotkeys {
 export interface JarvisConfig {
   provider: 'gemini' | 'groq' | 'ollama' | 'openrouter';
   geminiApiKey?: string;
+  geminiModel?: string;
   groqApiKey?: string;
   groqModel?: string;
   ollamaEndpoint?: string;
@@ -137,6 +138,7 @@ export interface JarvisAPI {
   isDashboardMaximized?: () => Promise<boolean>;
   onMaximizedChange?: (callback: (isMaximized: boolean) => void) => () => void;
   testAiKey: (options: { provider: string; key?: string; model?: string; endpoint?: string }) => Promise<{ success: boolean; latencyMs?: number; reply?: string; error?: string }>;
+  fetchProviderModels?: (options: { provider: string; key?: string; endpoint?: string }) => Promise<{ success: boolean; models?: string[]; error?: string }>;
   getSystemInfo: () => Promise<SystemInfo>;
   speakText: (text: string, voice: string) => Promise<{ success: boolean; base64Audio?: string; error?: string }>;
   executeAI?: (prompt: string, context?: any) => Promise<{ success: boolean; reply?: string; message?: string; actionsExecuted?: any[]; error?: string }>;

@@ -102,6 +102,7 @@ try {
       return () => ipcRenderer.removeListener('dashboard:maximized-change', handler);
     },
     testAiKey: (options) => ipcRenderer.invoke('dashboard:test-ai-key', options),
+    fetchProviderModels: (options) => ipcRenderer.invoke('dashboard:fetch-provider-models', options),
     getSystemInfo: () => ipcRenderer.invoke('dashboard:get-system-info'),
     checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
     restartAndInstallUpdate: (data) => ipcRenderer.send('app:restart-and-install', data),
