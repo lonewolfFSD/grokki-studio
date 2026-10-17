@@ -38,6 +38,7 @@
     "kokoro-js": "^1.2.1",
     "lucide-react": "^1.58.0",
     "marked": "^18.1.1",
+    "motion": "^14.3.0",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
     "react": "^19.3.1",

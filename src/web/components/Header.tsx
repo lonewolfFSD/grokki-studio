@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Sun, Moon, Minus, X, RefreshCw, RotateCcw, Check, Square } from 'lucide-react';
+import WarmTooltip, { WarmTooltipGroup } from './WarmTooltip';
 
 interface HeaderProps {
   title: string;
@@ -151,102 +152,193 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right: Actions & Window Controls */}
-      <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as any}>
-        {/* Status Toast Banner */}
-        {toastMsg && (
-          <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 px-1 animate-in fade-in duration-150">
-            {toastMsg}
-          </span>
-        )}
-
-        {/* Light / Dark Mode Toggle */}
-        <button
-          type="button"
-          onClick={onToggleTheme}
-          title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-          className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
-        >
-          {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-        </button>
-
-        {/* Check for Updates / Restart to Update Button (Beside Minimize) */}
-        {updateState === 'ready' ? (
-          <button
-            type="button"
-            onClick={handleCheckOrRestart}
-            title={`Latest release ${updateInfo?.latestVersion || ''} is downloaded and ready from lonewolfFSD/grokki-studio/releases. Click to restart and update.`}
-            className="h-8 px-2.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs animate-in fade-in duration-200 select-none group"
-          >
-            <RotateCcw className="w-3.5 h-3.5 flex-shrink-0 animate-pulse text-emerald-500 group-hover:rotate-180 transition-transform duration-300" />
-            <span className="text-xs font-semibold whitespace-nowrap">
-              Restart to update
+      <WarmTooltipGroup delay={400} warmWindow={300} travel={320} lean={0}>
+        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as any}>
+          {/* Status Toast Banner */}
+          {toastMsg && (
+            <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 px-1 animate-in fade-in duration-150">
+              {toastMsg}
             </span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleCheckOrRestart}
-            title={toastMsg || (updateState === 'up-to-date' ? 'Up to date (v2.5.0)' : 'Check for updates (https://github.com/lonewolfFSD/grokki-studio/releases)')}
-            disabled={updateState === 'checking'}
-            className={`w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent flex items-center justify-center transition-all cursor-pointer ${
-              updateState === 'up-to-date'
-                ? 'text-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500/30'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24]'
-            }`}
-          >
-            {updateState === 'up-to-date' ? (
-              <Check className="w-4 h-4 text-emerald-500" />
-            ) : (
-              <RefreshCw
-                className={`w-4 h-4 ${updateState === 'checking' ? 'animate-spin text-blue-500' : ''}`}
-              />
-            )}
-          </button>
-        )}
-
-        {/* Minimize Button */}
-        <button
-          type="button"
-          onClick={onMinimize}
-          title="Minimize Window"
-          className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
-        >
-          <Minus className="w-4 h-4" />
-        </button>
-
-        {/* Maximize / Restore Button */}
-        <button
-          type="button"
-          onClick={onMaximize}
-          title={isMaximized ? 'Restore Down' : 'Maximize Window'}
-          className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
-        >
-          {isMaximized ? (
-            <svg
-              className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <rect x="4.5" y="1.5" width="10" height="10" rx="1" />
-              <path d="M1.5 5.5v8a1 1 0 0 0 1 1h8" strokeLinecap="round" />
-            </svg>
-          ) : (
-            <Square className="w-3.5 h-3.5" />
           )}
-        </button>
 
-        {/* Close Button */}
-        <button
-          type="button"
-          onClick={onClose}
-          title="Close Window"
-          className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+          {/* Light / Dark Mode Toggle */}
+          <WarmTooltip
+            content={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+            side="bottom"
+            surfaceColor="#f5f5f5"
+            inkColor="#18181b"
+            size="md"
+            radius={8}
+            gap={8}
+            arrow
+            popDuration={160}
+            popScale={0.94}
+            popBlur={4}
+            showFuse={false}
+          >
+            <button
+              type="button"
+              onClick={onToggleTheme}
+              aria-label={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
+            >
+              {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </button>
+          </WarmTooltip>
+
+          {/* Check for Updates / Restart to Update Button (Beside Minimize) */}
+          {updateState === 'ready' ? (
+            <WarmTooltip
+              content={`Update ${updateInfo?.latestVersion || ''} ready — Click to restart`}
+              side="bottom"
+              surfaceColor="#f5f5f5"
+              inkColor="#18181b"
+              size="md"
+              radius={8}
+              gap={8}
+              arrow
+              popDuration={160}
+              popScale={0.94}
+              popBlur={4}
+              showFuse={false}
+            >
+              <button
+                type="button"
+                onClick={handleCheckOrRestart}
+                className="h-8 px-2.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs animate-in fade-in duration-200 select-none group"
+              >
+                <RotateCcw className="w-3.5 h-3.5 flex-shrink-0 animate-pulse text-emerald-500 group-hover:rotate-180 transition-transform duration-300" />
+                <span className="text-xs font-semibold whitespace-nowrap">
+                  Restart to update
+                </span>
+              </button>
+            </WarmTooltip>
+          ) : (
+            <WarmTooltip
+              content={toastMsg || (updateState === 'up-to-date' ? 'Up to date (v2.5.0)' : 'Check for updates')}
+              side="bottom"
+              surfaceColor="#f5f5f5"
+              inkColor="#18181b"
+              size="md"
+              radius={8}
+              gap={8}
+              arrow
+              popDuration={160}
+              popScale={0.94}
+              popBlur={4}
+              showFuse={false}
+            >
+              <button
+                type="button"
+                onClick={handleCheckOrRestart}
+                aria-label="Check for updates"
+                disabled={updateState === 'checking'}
+                className={`w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent flex items-center justify-center transition-all cursor-pointer ${
+                  updateState === 'up-to-date'
+                    ? 'text-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500/30'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24]'
+                }`}
+              >
+                {updateState === 'up-to-date' ? (
+                  <Check className="w-4 h-4 text-emerald-500" />
+                ) : (
+                  <RefreshCw
+                    className={`w-4 h-4 ${updateState === 'checking' ? 'animate-spin text-blue-500' : ''}`}
+                  />
+                )}
+              </button>
+            </WarmTooltip>
+          )}
+
+          {/* Minimize Button */}
+          <WarmTooltip
+            content="Minimize Window"
+            side="bottom"
+            surfaceColor="#f5f5f5"
+            inkColor="#18181b"
+            size="md"
+            radius={8}
+            gap={8}
+            arrow
+            popDuration={160}
+            popScale={0.94}
+            popBlur={4}
+            showFuse={false}
+          >
+            <button
+              type="button"
+              onClick={onMinimize}
+              aria-label="Minimize Window"
+              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+          </WarmTooltip>
+
+          {/* Maximize / Restore Button */}
+          <WarmTooltip
+            content={isMaximized ? 'Restore Down' : 'Maximize Window'}
+            side="bottom"
+            surfaceColor="#f5f5f5"
+            inkColor="#18181b"
+            size="md"
+            radius={8}
+            gap={8}
+            arrow
+            popDuration={160}
+            popScale={0.94}
+            popBlur={4}
+            showFuse={false}
+          >
+            <button
+              type="button"
+              onClick={onMaximize}
+              aria-label={isMaximized ? 'Restore Down' : 'Maximize Window'}
+              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
+            >
+              {isMaximized ? (
+                <svg
+                  className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <rect x="4.5" y="1.5" width="10" height="10" rx="1" />
+                  <path d="M1.5 5.5v8a1 1 0 0 0 1 1h8" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <Square className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </WarmTooltip>
+
+          {/* Close Button */}
+          <WarmTooltip
+            content="Close Window"
+            side="bottom"
+            surfaceColor="#f5f5f5"
+            inkColor="#18181b"
+            size="md"
+            radius={8}
+            gap={8}
+            arrow
+            popDuration={160}
+            popScale={0.94}
+            popBlur={4}
+            showFuse={false}
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close Window"
+              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </WarmTooltip>
+        </div>
+      </WarmTooltipGroup>
     </header>
   );
 };

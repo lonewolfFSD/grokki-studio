@@ -22,6 +22,7 @@ import { PanelLeftCloseIcon } from '@animateicons/react/lucide/panel-left-close-
 import { PanelLeftOpenIcon } from '@animateicons/react/lucide/panel-left-open-icon';
 import { GoogleProfile, Conversation } from '../types/jarvis';
 import BranchedMenu, { BranchedMenuItem } from './BranchedMenu';
+import WarmTooltip, { WarmTooltipGroup, type WarmTooltipSide } from './WarmTooltip';
 
 export type TabId = 'chat' | 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
 
@@ -45,25 +46,41 @@ const AnimatedSidebarRow: React.FC<{
   const iconRef = useRef<IconHandle | null>(null);
 
   return (
-    <div
-      onClick={onClick}
-      onMouseEnter={() => iconRef.current?.startAnimation()}
-      onMouseLeave={() => iconRef.current?.stopAnimation()}
-      title={isCollapsed ? label : undefined}
-      className={`group flex items-center ${
-        isCollapsed ? 'justify-center px-0 py-2.5' : 'justify-between px-3 py-2'
-      } w-full rounded-xl text-[13px] font-medium transition-all cursor-pointer text-left ${
-        isActive
-          ? 'bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
-          : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#14161f]'
-      }`}
+    <WarmTooltip
+      content={label}
+      side="right"
+      disabled={!isCollapsed}
+      surfaceColor="#f5f5f5"
+      inkColor="#18181b"
+      size="md"
+      radius={8}
+      gap={8}
+      arrow
+      popDuration={160}
+      popScale={0.94}
+      popBlur={4}
+      showFuse={false}
+      className="w-full"
     >
-      <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 min-w-0'}`}>
-        <Icon ref={iconRef} size={isCollapsed ? 20 : 16} className="flex-shrink-0" />
-        {!isCollapsed && <span className="truncate">{label}</span>}
+      <div
+        onClick={onClick}
+        onMouseEnter={() => iconRef.current?.startAnimation()}
+        onMouseLeave={() => iconRef.current?.stopAnimation()}
+        className={`group flex items-center ${
+          isCollapsed ? 'justify-center px-0 py-2.5' : 'justify-between px-3 py-2'
+        } w-full rounded-xl text-[13px] font-medium transition-all cursor-pointer text-left ${
+          isActive
+            ? 'bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
+            : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#14161f]'
+        }`}
+      >
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 min-w-0'}`}>
+          <Icon ref={iconRef} size={isCollapsed ? 20 : 16} className="flex-shrink-0" />
+          {!isCollapsed && <span className="truncate">{label}</span>}
+        </div>
+        {!isCollapsed && rightSlot}
       </div>
-      {!isCollapsed && rightSlot}
-    </div>
+    </WarmTooltip>
   );
 };
 
@@ -71,17 +88,18 @@ const AnimatedIconButton: React.FC<{
   Icon: AnimatedIconComponent;
   iconSize?: number;
   title?: string;
+  tooltipSide?: WarmTooltipSide;
   onClick: (e: React.MouseEvent) => void;
   className?: string;
   label?: string;
   iconClassName?: string;
-}> = ({ Icon, iconSize = 14, title, onClick, className = '', label, iconClassName = '' }) => {
+}> = ({ Icon, iconSize = 14, title, tooltipSide = 'right', onClick, className = '', label, iconClassName = '' }) => {
   const iconRef = useRef<IconHandle | null>(null);
 
-  return (
+  const button = (
     <button
       type="button"
-      title={title}
+      aria-label={title || label}
       onClick={onClick}
       onMouseEnter={() => iconRef.current?.startAnimation()}
       onMouseLeave={() => iconRef.current?.stopAnimation()}
@@ -90,6 +108,27 @@ const AnimatedIconButton: React.FC<{
       <Icon ref={iconRef} size={iconSize} className={iconClassName} />
       {label ? <span>{label}</span> : null}
     </button>
+  );
+
+  if (!title) return button;
+
+  return (
+    <WarmTooltip
+      content={title}
+      side={tooltipSide}
+      surfaceColor="#f5f5f5"
+      inkColor="#18181b"
+      size="md"
+      radius={8}
+      gap={8}
+      arrow
+      popDuration={160}
+      popScale={0.94}
+      popBlur={4}
+      showFuse={false}
+    >
+      {button}
+    </WarmTooltip>
   );
 };
 
@@ -342,48 +381,63 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const effectiveWidth = isCollapsed ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth;
 
   return (
-    <aside
-      style={{ width: `${effectiveWidth}px` }}
-      className={`relative h-screen flex flex-col justify-between ${
-        isCollapsed ? 'p-2.5' : 'p-3.5'
-      } border-r border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#08090d] select-none flex-shrink-0 ${
-        isResizing ? '' : 'transition-[width,padding] duration-200 ease-out'
-      }`}
-    >
-      {/* Drag-to-Resize Handle */}
-      <div
-        onMouseDown={handleResizeStart}
-        title="Drag to resize sidebar"
-        className={`absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize z-30 transition-colors ${
-          isResizing
-            ? 'bg-blue-500/40'
-            : 'hover:bg-gray-300/60 dark:hover:bg-white/10'
+    <WarmTooltipGroup delay={400} warmWindow={300} travel={320} lean={0}>
+      <aside
+        style={{ width: `${effectiveWidth}px` }}
+        className={`relative h-screen flex flex-col justify-between ${
+          isCollapsed ? 'p-2.5' : 'p-3.5'
+        } border-r border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#08090d] select-none flex-shrink-0 ${
+          isResizing ? '' : 'transition-[width,padding] duration-200 ease-out'
         }`}
-      />
+      >
+        {/* Drag-to-Resize Handle */}
+        <div
+          onMouseDown={handleResizeStart}
+          className={`absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize z-30 transition-colors ${
+            isResizing
+              ? 'bg-blue-500/40'
+              : 'hover:bg-gray-300/60 dark:hover:bg-white/10'
+          }`}
+        />
 
-      <div className="flex flex-col gap-4 overflow-y-auto overflow-x-hidden">
-        {/* Grokki Studio Brand Header + Minimize/Maximize Button */}
-        {isCollapsed ? (
-          <div className="flex flex-col items-center pt-1 pb-1">
-            <button
-              type="button"
-              onClick={handleToggleSidebar}
-              onMouseEnter={() => openLogoIconRef.current?.startAnimation()}
-              onMouseLeave={() => openLogoIconRef.current?.stopAnimation()}
-              title="Maximize sidebar"
-              className="group/logo w-9 h-9 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent"
-            >
-              {/* Default: Grokki Studio Logo */}
-              <div className="group-hover/logo:hidden w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-xs">
-                //
-              </div>
-              {/* On Hover: Maximize Sidebar Icon */}
-              <div className="hidden group-hover/logo:flex items-center justify-center text-gray-700 dark:text-gray-200">
-                <PanelLeftOpenIcon ref={openLogoIconRef} size={20} />
-              </div>
-            </button>
-          </div>
-        ) : (
+        <div className="flex flex-col gap-4 overflow-y-auto overflow-x-hidden">
+          {/* Grokki Studio Brand Header + Minimize/Maximize Button */}
+          {isCollapsed ? (
+            <div className="flex flex-col items-center pt-1 pb-1">
+              <WarmTooltip
+                content="Maximize sidebar"
+                side="right"
+                surfaceColor="#f5f5f5"
+                inkColor="#18181b"
+                size="md"
+                radius={8}
+                gap={8}
+                arrow
+                popDuration={160}
+                popScale={0.94}
+                popBlur={4}
+                showFuse={false}
+              >
+                <button
+                  type="button"
+                  aria-label="Maximize sidebar"
+                  onClick={handleToggleSidebar}
+                  onMouseEnter={() => openLogoIconRef.current?.startAnimation()}
+                  onMouseLeave={() => openLogoIconRef.current?.stopAnimation()}
+                  className="group/logo w-9 h-9 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent"
+                >
+                  {/* Default: Grokki Studio Logo */}
+                  <div className="group-hover/logo:hidden w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-xs">
+                    //
+                  </div>
+                  {/* On Hover: Maximize Sidebar Icon */}
+                  <div className="hidden group-hover/logo:flex items-center justify-center text-gray-700 dark:text-gray-200">
+                    <PanelLeftOpenIcon ref={openLogoIconRef} size={20} />
+                  </div>
+                </button>
+              </WarmTooltip>
+            </div>
+          ) : (
           <div className="flex items-center justify-between px-1.5 pt-1 pb-1 gap-1.5">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-xs flex-shrink-0">
@@ -600,54 +654,71 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* Profile Card */}
-        <div
-          onClick={() => setAccountMenuOpen(!accountMenuOpen)}
-          onMouseEnter={() => profileChevronRef.current?.startAnimation()}
-          onMouseLeave={() => profileChevronRef.current?.stopAnimation()}
-          title={isCollapsed ? `${userName} — Click to switch account` : 'Click to switch account'}
-          className={`flex items-center ${
-            isCollapsed
-              ? 'justify-center p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-[#181a22]'
-              : 'justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#13141a] hover:bg-gray-100 dark:hover:bg-[#181a22] border border-gray-200 dark:border-[#1e2029] shadow-xs'
-          } transition-all cursor-pointer`}
+        <WarmTooltip
+          content={isCollapsed ? `${userName} — Switch account` : 'Click to switch account'}
+          side="right"
+          disabled={accountMenuOpen}
+          surfaceColor="#f5f5f5"
+          inkColor="#18181b"
+          size="md"
+          radius={8}
+          gap={8}
+          arrow
+          popDuration={160}
+          popScale={0.94}
+          popBlur={4}
+          showFuse={false}
+          className="w-full"
         >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 overflow-hidden shadow-xs relative">
-              {avatarUrl && !imgError ? (
-                <img
-                  src={avatarUrl}
-                  alt={userName}
-                  onError={() => setImgError(true)}
-                  className="w-full h-full object-cover rounded-lg"
-                />
-              ) : (
-                <div className={`w-full h-full flex items-center justify-center ${getGradientClass(accountKey)} font-mono text-xs font-bold text-white rounded-lg`}>
-                  {initial}
+          <div
+            onClick={() => setAccountMenuOpen(!accountMenuOpen)}
+            onMouseEnter={() => profileChevronRef.current?.startAnimation()}
+            onMouseLeave={() => profileChevronRef.current?.stopAnimation()}
+            className={`w-full flex items-center ${
+              isCollapsed
+                ? 'justify-center p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-[#181a22]'
+                : 'justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#13141a] hover:bg-gray-100 dark:hover:bg-[#181a22] border border-gray-200 dark:border-[#1e2029] shadow-xs'
+            } transition-all cursor-pointer`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 overflow-hidden shadow-xs relative">
+                {avatarUrl && !imgError ? (
+                  <img
+                    src={avatarUrl}
+                    alt={userName}
+                    onError={() => setImgError(true)}
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                ) : (
+                  <div className={`w-full h-full flex items-center justify-center ${getGradientClass(accountKey)} font-mono text-xs font-bold text-white rounded-lg`}>
+                    {initial}
+                  </div>
+                )}
+              </div>
+              {!isCollapsed && (
+                <div className="min-w-0">
+                  <div className="text-[12px] font-semibold text-gray-900 dark:text-gray-100 truncate">
+                    {userName}
+                  </div>
                 </div>
               )}
             </div>
+
             {!isCollapsed && (
-              <div className="min-w-0">
-                <div className="text-[12px] font-semibold text-gray-900 dark:text-gray-100 truncate">
-                  {userName}
-                </div>
+              <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5">
+                <ChevronDownIcon
+                  ref={profileChevronRef}
+                  size={18}
+                  className={`mr-1 mt-0.5 transition-transform duration-200 ${
+                    accountMenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
               </div>
             )}
           </div>
-
-          {!isCollapsed && (
-            <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5">
-              <ChevronDownIcon
-                ref={profileChevronRef}
-                size={18}
-                className={`mr-1 mt-0.5 transition-transform duration-200 ${
-                  accountMenuOpen ? 'rotate-180' : ''
-                }`}
-              />
-            </div>
-          )}
-        </div>
+        </WarmTooltip>
       </div>
     </aside>
+    </WarmTooltipGroup>
   );
 };
