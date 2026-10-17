@@ -75,7 +75,7 @@ export const PersonalizationTab: React.FC<PersonalizationTabProps> = ({
               value={config.userNickname || ''}
               onChange={(e) => onChangeConfig({ userNickname: e.target.value })}
               placeholder="e.g. Alex, Sam"
-              className="h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-gray-900 dark:focus:border-white focus:outline-none transition-all"
+              className="h-9 px-3 rounded-lg text-xs bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-gray-900 dark:focus:border-white focus:outline-none transition-all"
             />
           </div>
         </div>
@@ -88,7 +88,7 @@ export const PersonalizationTab: React.FC<PersonalizationTabProps> = ({
             value={config.userBio || ''}
             onChange={(e) => onChangeConfig({ userBio: e.target.value })}
             placeholder="e.g. Software developer working on fullstack apps and automation."
-            className="min-h-[64px] p-2.5 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-gray-900 dark:focus:border-white focus:outline-none resize-y leading-normal transition-all"
+            className="min-h-[64px] p-2.5 rounded-lg text-xs bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-gray-900 dark:focus:border-white focus:outline-none resize-y leading-normal transition-all"
           />
           <span className="text-[11px] text-gray-500 dark:text-gray-400">
             Grokki remembers this context to deliver personalized code suggestions and answers.

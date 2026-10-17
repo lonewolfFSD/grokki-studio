@@ -1237,6 +1237,55 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
   }
 });
 
+ipcMain.handle('dashboard:test-notion-key', async (event, { apiKey }) => {
+  const token = (apiKey || '').trim();
+  if (!token) return { success: false, error: 'Notion Integration Secret is empty.' };
+  try {
+    const fetchFn = global.fetch || require('node-fetch');
+    const res = await fetchFn('https://api.notion.com/v1/users/me', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Notion-Version': '2022-06-28',
+      },
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      return { success: false, error: errJson.message || `Notion HTTP ${res.status}: Invalid Integration Token` };
+    }
+    const data = await res.json();
+    const botName = data.name || data.bot?.owner?.user?.name || 'Grokki Integration';
+    const workspaceName = data.bot?.workspace_name || null;
+    return { success: true, botName, workspaceName };
+  } catch (err) {
+    return { success: false, error: err.message || 'Failed to connect to Notion API' };
+  }
+});
+
+ipcMain.handle('dashboard:test-github-key', async (event, { token }) => {
+  const tok = (token || '').trim();
+  if (!tok) return { success: false, error: 'GitHub Personal Access Token is empty.' };
+  try {
+    const fetchFn = global.fetch || require('node-fetch');
+    const res = await fetchFn('https://api.github.com/user', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${tok}`,
+        'User-Agent': 'Grokki-Assistant',
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      return { success: false, error: errJson.message || `GitHub HTTP ${res.status}: Invalid Token` };
+    }
+    const data = await res.json();
+    return { success: true, login: data.login, name: data.name || data.login, avatarUrl: data.avatar_url, publicRepos: data.public_repos };
+  } catch (err) {
+    return { success: false, error: err.message || 'Failed to connect to GitHub API' };
+  }
+});
+
 ipcMain.handle('jarvis:cancel-task', () => {
   if (agentBrain && typeof agentBrain.cancelCurrentTask === 'function') {
     return agentBrain.cancelCurrentTask();

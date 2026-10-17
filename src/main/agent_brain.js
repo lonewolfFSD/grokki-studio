@@ -458,6 +458,30 @@ class AgentBrain {
             },
           },
           {
+            name: 'create_notion_page',
+            description: 'Creates a new page, study note, or assignment entry in Notion',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                title: { type: 'STRING', description: 'Page or note title' },
+                content: { type: 'STRING', description: 'Body text, summary, or lecture notes' },
+                database_id: { type: 'STRING', description: 'Optional Notion Database ID' },
+              },
+              required: ['title', 'content'],
+            },
+          },
+          {
+            name: 'search_notion',
+            description: 'Searches your connected Notion workspace for pages, notes, or databases',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                query: { type: 'STRING', description: 'Search term or title' },
+              },
+              required: ['query'],
+            },
+          },
+          {
             name: 'search_google_contact',
             description: 'Searches Google Contacts for a person name, phone number, or email',
             parameters: {
@@ -2239,6 +2263,94 @@ Rules:
         }
         const res = await googleWorkspace.addTask(args.title, args.notes || '', args.due || null);
         return { success: res.success, message: res.message };
+      }
+
+      case 'create_notion_page': {
+        const config = this.config || {};
+        const token = config.notionApiKey || process.env.NOTION_API_KEY;
+        if (!token) {
+          return { success: false, message: 'Notion is not connected. Please enter your Notion Integration Secret in the Workspace tab.' };
+        }
+        const dbId = args.database_id || config.notionDatabaseId;
+        const fetchFn = global.fetch || require('node-fetch');
+
+        try {
+          const bodyPayload = {
+            parent: dbId ? { database_id: dbId.replace(/-/g, '') } : { page_id: 'default' },
+            properties: {
+              title: {
+                title: [{ text: { content: args.title || 'Study Note' } }],
+              },
+            },
+            children: [
+              {
+                object: 'block',
+                type: 'paragraph',
+                paragraph: {
+                  rich_text: [{ type: 'text', text: { content: args.content || '' } }],
+                },
+              },
+            ],
+          };
+
+          const res = await fetchFn('https://api.notion.com/v1/pages', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Notion-Version': '2022-06-28',
+            },
+            body: JSON.stringify(bodyPayload),
+          });
+          if (res.ok) {
+            const pageData = await res.json();
+            return { success: true, message: `Created Notion note "${args.title}" successfully: ${pageData.url || ''}` };
+          } else {
+            const err = await res.json().catch(() => ({}));
+            return { success: false, message: `Notion Error: ${err.message || 'Failed to create page'}` };
+          }
+        } catch (e) {
+          return { success: false, message: `Notion Error: ${e.message}` };
+        }
+      }
+
+      case 'search_notion': {
+        const config = this.config || {};
+        const token = config.notionApiKey || process.env.NOTION_API_KEY;
+        if (!token) {
+          return { success: false, message: 'Notion is not connected. Please enter your Notion Integration Secret in the Workspace tab.' };
+        }
+        const fetchFn = global.fetch || require('node-fetch');
+        try {
+          const res = await fetchFn('https://api.notion.com/v1/search', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Notion-Version': '2022-06-28',
+            },
+            body: JSON.stringify({
+              query: args.query || '',
+              page_size: 5,
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            return { success: false, message: `Notion Search Error: ${err.message || 'Search failed'}` };
+          }
+          const data = await res.json();
+          const results = (data.results || []).map((r) => {
+            const titleProp = r.properties?.title || r.properties?.Name;
+            const title = titleProp?.title?.[0]?.plain_text || r.url || 'Untitled Note';
+            return `- [${title}](${r.url}) (${r.object})`;
+          });
+          return {
+            success: true,
+            message: results.length > 0 ? `Found in Notion:\n${results.join('\n')}` : `No Notion pages found matching "${args.query}".`,
+          };
+        } catch (e) {
+          return { success: false, message: `Notion Search Error: ${e.message}` };
+        }
       }
 
       case 'search_google_contact': {

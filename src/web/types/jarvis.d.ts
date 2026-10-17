@@ -45,6 +45,14 @@ export interface JarvisConfig {
   soundEffectsEnabled?: boolean;
   autoCheckUpdates?: boolean;
   hardwareAcceleration?: boolean;
+  notionApiKey?: string;
+  notionDatabaseId?: string;
+  notionWorkspaceName?: string;
+  notionConnected?: boolean;
+  githubToken?: string;
+  githubUsername?: string;
+  githubConnected?: boolean;
+  spotifyConnected?: boolean;
 }
 
 export interface GoogleProfile {
@@ -107,6 +115,8 @@ export interface JarvisAPI {
   isDashboardMaximized?: () => Promise<boolean>;
   onMaximizedChange?: (callback: (isMaximized: boolean) => void) => () => void;
   testAiKey: (options: { provider: string; key?: string; model?: string; endpoint?: string }) => Promise<{ success: boolean; latencyMs?: number; reply?: string; error?: string }>;
+  testNotionKey?: (options: { apiKey: string }) => Promise<{ success: boolean; botName?: string; workspaceName?: string; error?: string }>;
+  testGitHubKey?: (options: { token: string }) => Promise<{ success: boolean; login?: string; name?: string; avatarUrl?: string; publicRepos?: number; error?: string }>;
   getSystemInfo: () => Promise<SystemInfo>;
   speakText: (text: string, voice: string) => Promise<{ success: boolean; base64Audio?: string; error?: string }>;
   executeAI?: (prompt: string, context?: any) => Promise<{ success: boolean; reply?: string; message?: string; actionsExecuted?: any[]; error?: string }>;
