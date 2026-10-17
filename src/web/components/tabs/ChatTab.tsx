@@ -162,6 +162,114 @@ function getFileIcon(ext?: string) {
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
 const CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
 
+function getLanguageLogoSvg(lang: string): string {
+  const l = (lang || 'code').toLowerCase().trim();
+
+  if (l === 'python' || l === 'py') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M11.9 2C7.8 2 8.1 3.8 8.1 3.8V5.7H12V6.3H6.5C6.5 6.3 3.8 6 3.8 10.1C3.8 14.2 6.2 14.1 6.2 14.1H7.6V12.1C7.6 12.1 7.5 9.7 10 9.7H14.1C14.1 9.7 16.4 9.7 16.4 7.5V4.1C16.4 4.1 16.7 2 11.9 2ZM9.6 3.3C10 3.3 10.4 3.6 10.4 4.1C10.4 4.5 10 4.9 9.6 4.9C9.1 4.9 8.8 4.5 8.8 4.1C8.8 3.6 9.1 3.3 9.6 3.3Z" fill="#3776AB"/>
+      <path d="M12.1 22C16.2 22 15.9 20.2 15.9 20.2V18.3H12V17.7H17.5C17.5 17.7 20.2 18 20.2 13.9C20.2 9.8 17.8 9.9 17.8 9.9H16.4V11.9C16.4 11.9 16.5 14.3 14 14.3H9.9C9.9 14.3 7.6 14.3 7.6 16.5V19.9C7.6 19.9 7.3 22 12.1 22ZM14.4 20.7C14 20.7 13.6 20.4 13.6 19.9C13.6 19.5 14 19.1 14.4 19.1C14.9 19.1 15.2 19.5 15.2 19.9C15.2 20.4 14.9 20.7 14.4 20.7Z" fill="#FFD43B"/>
+    </svg>`;
+  }
+
+  if (l === 'javascript' || l === 'js' || l === 'mjs' || l === 'cjs') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="2" width="20" height="20" rx="3.5" fill="#F7DF1E"/>
+      <path d="M12.8 16.9c0 1.4-.8 2.1-2.1 2.1-1.1 0-1.8-.6-2.1-1.3l1.2-.7c.2.4.5.7.9.7.5 0 .8-.2.8-.9v-5.1h1.3v5.2zm4.8 2.1c-1.4 0-2.3-.7-2.7-1.6l1.2-.7c.3.5.7.9 1.5.9.6 0 1-.3 1-.7 0-.5-.4-.7-1.1-1l-.4-.2c-1.1-.5-1.9-1.1-1.9-2.3 0-1.2.9-2.1 2.3-2.1 1 0 1.7.4 2.2 1.3l-1.2.8c-.3-.5-.6-.7-1-.7-.5 0-.8.3-.8.7 0 .5.3.7 1 .9l.4.2c1.3.6 2 1.1 2 2.4 0 1.4-1.1 2.1-2.5 2.1z" fill="#18181b"/>
+    </svg>`;
+  }
+
+  if (l === 'typescript' || l === 'ts' || l === 'mts' || l === 'cts') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="2" width="20" height="20" rx="3.5" fill="#3178C6"/>
+      <path d="M13.2 12.6h-2.3v6.2H9.5v-6.2H7.2v-1.2h6v1.2zm4.1 6.3c-1.3 0-2.3-.6-2.7-1.5l1.2-.7c.3.5.8.9 1.5.9.6 0 1-.3 1-.7 0-.5-.3-.7-1.1-1l-.4-.2c-1.1-.5-1.8-1-1.8-2.2 0-1.1.9-2 2.3-2 1 0 1.7.4 2.2 1.2l-1.1.7c-.2-.4-.6-.7-1.1-.7-.5 0-.8.3-.8.7 0 .4.3.6 1 .9l.4.2c1.3.5 2 1.1 2 2.3 0 1.3-1.1 2.1-2.6 2.1z" fill="#ffffff"/>
+    </svg>`;
+  }
+
+  if (l === 'jsx' || l === 'tsx' || l === 'react') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="2" fill="#61DAFB"/>
+      <ellipse cx="12" cy="12" rx="9" ry="3.6" stroke="#61DAFB" stroke-width="1.6"/>
+      <ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)" stroke="#61DAFB" stroke-width="1.6"/>
+      <ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(120 12 12)" stroke="#61DAFB" stroke-width="1.6"/>
+    </svg>`;
+  }
+
+  if (l === 'html' || l === 'htm' || l === 'xml' || l === 'svg') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 2l1.5 17L12 22l6.5-3L20 2H4zm13.1 5.5H9.1l.2 2.2h7.6l-.6 6.6-4.3 1.2-4.3-1.2-.3-3.3h2.1l.2 1.7 2.3.6 2.3-.6.2-2.7H7.3L6.8 5.4h10.5l-.2 2.1z" fill="#E34F26"/>
+    </svg>`;
+  }
+
+  if (l === 'css' || l === 'scss' || l === 'sass' || l === 'less') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 2l1.5 17L12 22l6.5-3L20 2H4zm12.7 14.3L12 17.6l-4.7-1.3-.3-3.3h2.1l.2 1.7 2.7.7 2.7-.7.3-2.9H9.3l-.2-2.1h6.1l.2-2.2H7L6.8 5.4h10.5l-.6 10.9z" fill="#2965F1"/>
+    </svg>`;
+  }
+
+  if (l === 'c' || l === 'cpp' || l === 'c++' || l === 'cc' || l === 'cxx' || l === 'h' || l === 'hpp') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="12,2 21,7 21,17 12,22 3,17 3,7" fill="#00599C"/>
+      <path d="M12 7.5a4.5 4.5 0 1 0 3.9 6.7l-1.7-1a2.5 2.5 0 1 1 0-2.4l1.7-1A4.5 4.5 0 0 0 12 7.5z" fill="#ffffff"/>
+    </svg>`;
+  }
+
+  if (l === 'csharp' || l === 'cs' || l === 'c#') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="12,2 21,7 21,17 12,22 3,17 3,7" fill="#68217A"/>
+      <path d="M10.5 7.5a4.5 4.5 0 1 0 3.9 6.7l-1.7-1a2.5 2.5 0 1 1 0-2.4l1.7-1a4.5 4.5 0 0 0-3.9-2.3z" fill="#ffffff"/>
+    </svg>`;
+  }
+
+  if (l === 'java') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9.5 17.5c-2.5.7 1.5 2.1 4.6 1.5 1.2-.2 2.8-.8 2.8-.8s-.8.3-1.7.4c-2.4.3-5.3.2-4.3-.6.8-.5 2.8-.4 2.8-.4" stroke="#5382A1" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M13 3c1 2-1.8 3.2-1.2 5 .5 1.3 2.2 2 1.2 4-.5-1.4-2.4-2-1.9-4.1C11.5 6 13.5 4.8 13 3z" fill="#E76F00"/>
+      <path d="M7 14c0 1.4 3.5 2 6.8 1.2 1.5-.3 2.7-.9 2.7-1.5" stroke="#5382A1" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>`;
+  }
+
+  if (l === 'rust' || l === 'rs') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="7.5" stroke="#DEA584" stroke-width="2" stroke-dasharray="2.5 1.5"/>
+      <path d="M9.5 15V9h3.2c1.2 0 2 .6 2 1.7 0 .8-.5 1.4-1.3 1.6l1.6 2.7h-1.8l-1.4-2.5H11V15H9.5z" fill="#DEA584"/>
+    </svg>`;
+  }
+
+  if (l === 'go' || l === 'golang') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="4" width="20" height="16" rx="4" fill="#00ADD8"/>
+      <text x="12" y="15" text-anchor="middle" fill="#ffffff" font-family="monospace" font-weight="bold" font-size="9.5">GO</text>
+    </svg>`;
+  }
+
+  if (l === 'bash' || l === 'sh' || l === 'shell' || l === 'zsh' || l === 'console' || l === 'terminal' || l === 'powershell' || l === 'ps1' || l === 'pwsh' || l === 'cmd' || l === 'bat') {
+    const color = l.startsWith('p') ? '#5391FE' : '#4EAA25';
+    return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="3" width="20" height="18" rx="3" stroke="${color}" stroke-width="2"/>
+      <path d="M6.5 9l3.5 3-3.5 3M12 15h5" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
+  if (l === 'json' || l === 'yaml' || l === 'yml' || l === 'toml') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 4H6a2 2 0 0 0-2 2v3.5a2.5 2.5 0 0 1-2 2.5 2.5 2.5 0 0 1 2 2.5V18a2 2 0 0 0 2 2h2M16 4h2a2 2 0 0 1 2 2v3.5a2.5 2.5 0 0 0 2 2.5 2.5 2.5 0 0 0-2 2.5V18a2 2 0 0 1-2 2h-2" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
+  if (l === 'sql' || l === 'mysql' || l === 'postgres' || l === 'postgresql' || l === 'sqlite') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="12" cy="5" rx="8" ry="3" stroke="#38BDF8" stroke-width="2"/>
+      <path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5" stroke="#38BDF8" stroke-width="2"/>
+      <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" stroke="#38BDF8" stroke-width="2"/>
+    </svg>`;
+  }
+
+  return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="m16 18 6-6-6-6M8 6l-6 6 6 6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
 function formatRichMarkdownHtml(rawContent: string): string {
   // Normalize inline or line-leading Unicode bullets (•) into numbered list items (1. 2. 3.)
   let normalized = (rawContent || '')
@@ -195,8 +303,9 @@ function formatRichMarkdownHtml(rawContent: string): string {
   doc.querySelectorAll('pre').forEach((pre) => {
     const codeEl = pre.querySelector('code');
     const className = codeEl?.className || '';
-    const langMatch = className.match(/language-([a-zA-Z0-9_-]+)/);
+    const langMatch = className.match(/language-([a-zA-Z0-9_+-]+)/);
     const lang = langMatch ? langMatch[1].toLowerCase() : 'code';
+    const langLogoSvg = getLanguageLogoSvg(lang);
 
     const wrapper = doc.createElement('div');
     wrapper.className = 'grokki-code-window';
@@ -205,7 +314,7 @@ function formatRichMarkdownHtml(rawContent: string): string {
     header.className = 'grokki-code-header';
     header.innerHTML = `
       <div class="grokki-code-header-left">
-        <span class="grokki-code-dots"><i></i><i></i><i></i></span>
+        <span class="grokki-code-lang-icon">${langLogoSvg}</span>
         <span class="grokki-code-lang">${lang}</span>
       </div>
       <button type="button" class="grokki-code-copy-btn" aria-label="Copy code">
@@ -250,7 +359,7 @@ function formatRichMarkdownHtml(rawContent: string): string {
   return doc.body.innerHTML;
 }
 
-const MARKDOWN_RENDER_REV = 2;
+const MARKDOWN_RENDER_REV = 3;
 
 const AnimatedMessageContent: React.FC<{
   content: string;
@@ -1251,7 +1360,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         </div>
       ) : (
         /* Active Conversation Thread (Clean, Modern Chat Bubbles) */
-        <div className="flex-1 flex flex-col overflow-y-auto px-1 py-3 space-y-5">
+        <div className="flex-1 flex flex-col overflow-y-auto no-scrollbar px-1 py-3 space-y-5">
           {/* Header Action Bar */}
           <div className="flex items-center justify-between pb-2.5 border-b border-gray-200 dark:border-[#1e2029]">
             <div className="flex items-center gap-2">

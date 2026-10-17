@@ -37,6 +37,17 @@
   background: rgba(150, 150, 150, 0.45);
 }
 
+/* Hide Scrollbar Utility */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* Equalizer mini wave bars */
 @keyframes eqBar {
   0% { height: 4px; }
@@ -212,11 +223,11 @@ code .grokki-word-fade {
   font-weight: 700;
   font-family: var(--font-mono);
   font-size: 0.85em;
-  color: #2563eb;
+  color: #fff;
 }
 
 .dark .grokki-markdown ol > li::marker {
-  color: #38bdf8;
+  color: #fff;
 }
 
 .grokki-markdown ul > li::marker {
@@ -242,6 +253,7 @@ code .grokki-word-fade {
 .grokki-markdown a.grokki-link:hover {
   color: #1d4ed8;
   text-decoration-color: #1d4ed8;
+  
 }
 
 .dark .grokki-markdown a,
@@ -261,11 +273,11 @@ code .grokki-word-fade {
   align-items: center;
   gap: 0.2rem;
   margin-left: 0.35rem;
-  padding: 0.1rem 0.5rem;
-  font-size: 0.76rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.6rem;
   font-weight: 600;
   text-decoration: none !important;
-  border-radius: 9999px;
+  border-radius: 6px;
   color: #1d4ed8;
   background-color: rgba(37, 99, 235, 0.1);
   border: 1px solid rgba(37, 99, 235, 0.25);
@@ -330,25 +342,23 @@ code .grokki-word-fade {
 .grokki-code-header-left {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.45rem;
 }
 
-.grokki-code-dots {
+.grokki-code-lang-icon {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
-.grokki-code-dots i {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 9999px;
+.grokki-code-lang-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
 }
-
-.grokki-code-dots i:nth-child(1) { background-color: #ef4444; opacity: 0.8; }
-.grokki-code-dots i:nth-child(2) { background-color: #f59e0b; opacity: 0.8; }
-.grokki-code-dots i:nth-child(3) { background-color: #22c55e; opacity: 0.8; }
 
 .grokki-code-lang {
   font-family: var(--font-mono);
@@ -356,7 +366,8 @@ code .grokki-word-fade {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #94a3b8;
+  color: #cbd5e1;
+  line-height: 1;
 }
 
 .grokki-code-copy-btn {
