@@ -17,10 +17,18 @@ import { LogOutIcon } from '@animateicons/react/lucide/log-out-icon';
 import { CheckIcon } from '@animateicons/react/lucide/check-icon';
 import { XIcon } from '@animateicons/react/lucide/x-icon';
 import { ChevronDownIcon } from '@animateicons/react/lucide/chevron-down-icon';
+import { PanelLeftIcon } from '@animateicons/react/lucide/panel-left-icon';
+import { PanelLeftCloseIcon } from '@animateicons/react/lucide/panel-left-close-icon';
+import { PanelLeftOpenIcon } from '@animateicons/react/lucide/panel-left-open-icon';
 import { GoogleProfile, Conversation } from '../types/jarvis';
 import BranchedMenu, { BranchedMenuItem } from './BranchedMenu';
 
 export type TabId = 'chat' | 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
+
+const MIN_EXPANDED_WIDTH = 180;
+const DEFAULT_SIDEBAR_WIDTH = 240;
+const MAX_SIDEBAR_WIDTH = 300;
+const COLLAPSED_SIDEBAR_WIDTH = 64;
 
 type AnimatedIconComponent = React.ForwardRefExoticComponent<
   { size?: number; className?: string; color?: string; duration?: number; isAnimated?: boolean } & React.RefAttributes<IconHandle>
@@ -30,9 +38,10 @@ const AnimatedSidebarRow: React.FC<{
   Icon: AnimatedIconComponent;
   label: string;
   isActive: boolean;
+  isCollapsed?: boolean;
   onClick: () => void;
   rightSlot?: React.ReactNode;
-}> = ({ Icon, label, isActive, onClick, rightSlot }) => {
+}> = ({ Icon, label, isActive, isCollapsed = false, onClick, rightSlot }) => {
   const iconRef = useRef<IconHandle | null>(null);
 
   return (
@@ -40,17 +49,20 @@ const AnimatedSidebarRow: React.FC<{
       onClick={onClick}
       onMouseEnter={() => iconRef.current?.startAnimation()}
       onMouseLeave={() => iconRef.current?.stopAnimation()}
-      className={`group flex items-center justify-between w-full px-3 py-2 rounded-xl text-[13px] font-medium transition-all cursor-pointer text-left ${
+      title={isCollapsed ? label : undefined}
+      className={`group flex items-center ${
+        isCollapsed ? 'justify-center px-0 py-2.5' : 'justify-between px-3 py-2'
+      } w-full rounded-xl text-[13px] font-medium transition-all cursor-pointer text-left ${
         isActive
           ? 'bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
           : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#14161f]'
       }`}
     >
-      <div className="flex items-center gap-3 min-w-0">
+      <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 min-w-0'}`}>
         <Icon ref={iconRef} size={16} className="flex-shrink-0" />
-        <span className="truncate">{label}</span>
+        {!isCollapsed && <span className="truncate">{label}</span>}
       </div>
-      {rightSlot}
+      {!isCollapsed && rightSlot}
     </div>
   );
 };
@@ -118,8 +130,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [isResizing, setIsResizing] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const profileChevronRef = useRef<IconHandle | null>(null);
+
+  const handleToggleSidebar = () => {
+    if (isCollapsed) {
+      setIsCollapsed(false);
+      setSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
+    } else {
+      setIsCollapsed(true);
+    }
+  };
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const newWidth = moveEvent.clientX;
+      if (newWidth < 130) {
+        setIsCollapsed(true);
+      } else {
+        setIsCollapsed(false);
+        const clamped = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_EXPANDED_WIDTH, newWidth));
+        setSidebarWidth(clamped);
+      }
+    };
+
+    const onMouseUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
 
   const handleStartRename = (e: React.MouseEvent, convo: { id: string; title: string }) => {
     e.stopPropagation();
@@ -285,23 +338,61 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
+  const effectiveWidth = isCollapsed ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth;
+
   return (
-    <aside className="w-60 h-screen flex flex-col justify-between p-3.5 border-r border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#08090d] select-none flex-shrink-0">
-      <div className="flex flex-col gap-4 overflow-y-auto">
-        {/* Grokki Studio Brand Header */}
-        <div className="flex items-center justify-between px-2 pt-1 pb-1">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-xs">
-              //
-            </div>
-            <span className="font-bold text-sm tracking-tight text-gray-900 dark:text-gray-100">
-              Grokki Studio
-            </span>
+    <aside
+      style={{ width: `${effectiveWidth}px` }}
+      className={`relative h-screen flex flex-col justify-between ${
+        isCollapsed ? 'p-2.5' : 'p-3.5'
+      } border-r border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#08090d] select-none flex-shrink-0 ${
+        isResizing ? '' : 'transition-[width,padding] duration-200 ease-out'
+      }`}
+    >
+      {/* Drag-to-Resize Handle */}
+      <div
+        onMouseDown={handleResizeStart}
+        title="Drag to resize sidebar"
+        className={`absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize z-30 transition-colors ${
+          isResizing
+            ? 'bg-blue-500/40'
+            : 'hover:bg-gray-300/60 dark:hover:bg-white/10'
+        }`}
+      />
+
+      <div className="flex flex-col gap-4 overflow-y-auto overflow-x-hidden">
+        {/* Grokki Studio Brand Header + Minimize/Maximize Button */}
+        {isCollapsed ? (
+          <div className="flex flex-col items-center pt-1 pb-1">
+            <AnimatedIconButton
+              Icon={PanelLeftOpenIcon}
+              iconSize={18}
+              onClick={handleToggleSidebar}
+              title="Maximize sidebar"
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent"
+            />
           </div>
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono">
-            v2.5
-          </span>
-        </div>
+        ) : (
+          <div className="flex items-center justify-between px-1.5 pt-1 pb-1 gap-1.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-xs flex-shrink-0">
+                //
+              </div>
+              <span className="font-bold text-sm tracking-tight text-gray-900 dark:text-gray-100 truncate">
+                Grokki Studio
+              </span>
+            </div>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <AnimatedIconButton
+                Icon={PanelLeftCloseIcon}
+                iconSize={17}
+                onClick={handleToggleSidebar}
+                title="Minimize sidebar"
+                className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Primary Navigation Menu */}
         <nav className="flex flex-col gap-1">
@@ -309,7 +400,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const isActive = activeTab === item.id;
             const isChatItem = item.id === 'chat';
 
-            if (isChatItem) {
+            if (isChatItem && !isCollapsed) {
               return (
                 <div key={item.id} className="flex flex-col">
                   <BranchedMenu
@@ -327,7 +418,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     color={isDark ? '#f5f5f5' : '#1f2937'}
                     accentColor={isDark ? '#f5f5f5' : '#111827'}
                     lineColor={isDark ? '#3f3f46' : '#d4d4d8'}
-                    width={232}
+                    width={Math.max(150, effectiveWidth - 28)}
                     rowHeight={32}
                     indent={40}
                     trunk={20}
@@ -385,6 +476,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Icon={item.Icon}
                   label={item.label}
                   isActive={isActive}
+                  isCollapsed={isCollapsed}
                   onClick={() => onSelectTab(item.id)}
                 />
               </div>
@@ -394,15 +486,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Pinned Section */}
         <div className="flex flex-col gap-0.5 pt-2 border-t border-gray-100 dark:border-[#1a1c24]">
-          <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 px-3 py-1 tracking-wider uppercase select-none">
-            Pinned
-          </span>
+          {!isCollapsed && (
+            <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 px-3 py-1 tracking-wider uppercase select-none">
+              Pinned
+            </span>
+          )}
           {pinnedNavItems.map((item) => (
             <AnimatedSidebarRow
               key={item.id}
               Icon={item.Icon}
               label={item.label}
               isActive={activeTab === item.id}
+              isCollapsed={isCollapsed}
               onClick={() => onSelectTab(item.id)}
             />
           ))}
@@ -413,7 +508,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="relative" ref={menuRef}>
         {/* Switch Account Popover Menu */}
         {accountMenuOpen && (
-          <div className="absolute bottom-full left-0 right-0 mb-2 p-1.5 bg-white dark:bg-[#13141a] border border-gray-300 dark:border-[#1e2029] rounded-2xl z-50 flex flex-col gap-1">
+          <div
+            className={`absolute bottom-full left-0 ${
+              isCollapsed ? 'w-56' : 'right-0'
+            } mb-2 p-1.5 bg-white dark:bg-[#13141a] border border-gray-300 dark:border-[#1e2029] rounded-2xl z-50 flex flex-col gap-1 shadow-lg`}
+          >
             {/* Account Info Header */}
             <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-[#181a22] border border-gray-100 dark:border-[#202330] flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 overflow-hidden shadow-xs relative">
@@ -489,13 +588,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {/* Profile Card (No Alt+Q, No email address, clickable to switch account) */}
+        {/* Profile Card */}
         <div
           onClick={() => setAccountMenuOpen(!accountMenuOpen)}
           onMouseEnter={() => profileChevronRef.current?.startAnimation()}
           onMouseLeave={() => profileChevronRef.current?.stopAnimation()}
-          title="Click to switch account"
-          className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#13141a] hover:bg-gray-100 dark:hover:bg-[#181a22] border border-gray-200 dark:border-[#1e2029] transition-all cursor-pointer shadow-xs"
+          title={isCollapsed ? `${userName} — Click to switch account` : 'Click to switch account'}
+          className={`flex items-center ${
+            isCollapsed
+              ? 'justify-center p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-[#181a22]'
+              : 'justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#13141a] hover:bg-gray-100 dark:hover:bg-[#181a22] border border-gray-200 dark:border-[#1e2029] shadow-xs'
+          } transition-all cursor-pointer`}
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 overflow-hidden shadow-xs relative">
@@ -512,22 +615,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               )}
             </div>
-            <div className="min-w-0">
-              <div className="text-[12px] font-semibold text-gray-900 dark:text-gray-100 truncate">
-                {userName}
+            {!isCollapsed && (
+              <div className="min-w-0">
+                <div className="text-[12px] font-semibold text-gray-900 dark:text-gray-100 truncate">
+                  {userName}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5">
-            <ChevronDownIcon
-              ref={profileChevronRef}
-              size={18}
-              className={`mr-1 mt-0.5 transition-transform duration-200 ${
-                accountMenuOpen ? 'rotate-180' : ''
-              }`}
-            />
-          </div>
+          {!isCollapsed && (
+            <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5">
+              <ChevronDownIcon
+                ref={profileChevronRef}
+                size={18}
+                className={`mr-1 mt-0.5 transition-transform duration-200 ${
+                  accountMenuOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </div>
+          )}
         </div>
       </div>
     </aside>
