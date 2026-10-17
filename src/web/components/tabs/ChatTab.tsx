@@ -36,6 +36,7 @@ import { JarvisConfig, Conversation, ChatMessage, AttachedFileInfo } from '../..
 import GradientASCII from './GradientASCII';
 import LatticeLoader from './LatticeLoader';
 import WarmTooltip, { WarmTooltipGroup } from '../WarmTooltip';
+import { getEffectiveHotkeys, matchesHotkey } from '../../utils/hotkeys';
 
 import grokkiIcon from '../../assets/grokki_icon.svg';
 
@@ -1467,6 +1468,51 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     );
   };
 
+  const hotkeys = getEffectiveHotkeys(config);
+
+  // Listen for chat-specific hotkeys (Attach files, Voice to text, Camera, Focus input)
+  useEffect(() => {
+    const handleChatKeyDown = (e: KeyboardEvent) => {
+      if (matchesHotkey(e, hotkeys.attachFile)) {
+        e.preventDefault();
+        setAttachMenuOpen((prev) => !prev);
+      } else if (matchesHotkey(e, hotkeys.voiceRecord)) {
+        e.preventDefault();
+        toggleVoiceRecording();
+      } else if (matchesHotkey(e, hotkeys.openCamera)) {
+        e.preventDefault();
+        if (cameraModalOpen) {
+          closeCameraModal();
+        } else {
+          openCameraModal();
+        }
+      } else if (matchesHotkey(e, hotkeys.focusInput)) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+
+    const handleCustomChatHotkey = (e: Event) => {
+      const action = (e as CustomEvent<string>).detail;
+      if (action === 'attachFile') {
+        setAttachMenuOpen((prev) => !prev);
+      } else if (action === 'voiceRecord') {
+        toggleVoiceRecording();
+      } else if (action === 'openCamera') {
+        openCameraModal();
+      } else if (action === 'focusInput') {
+        inputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleChatKeyDown);
+    window.addEventListener('grokki:chat-hotkey', handleCustomChatHotkey);
+    return () => {
+      window.removeEventListener('keydown', handleChatKeyDown);
+      window.removeEventListener('grokki:chat-hotkey', handleCustomChatHotkey);
+    };
+  }, [hotkeys.attachFile, hotkeys.voiceRecord, hotkeys.openCamera, hotkeys.focusInput, cameraModalOpen, isRecording]);
+
   // Render smooth Attachment Popover Menu (Monochrome High-Contrast Light/Dark)
   const renderAttachMenu = (placement: 'top' | 'bottom' = 'top') => {
     const items: Array<{
@@ -1498,6 +1544,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       {
         id: 'camera',
         label: 'Camera',
+        badge: hotkeys.openCamera,
         icon: <Camera className="w-4.5 h-4.5" />,
         accept: '',
       },
@@ -1686,10 +1733,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           shape="horizon"
           characters=" =+xX0S8#@"
           cellSize={18}
-          density={0}
-          glyphOpacity={0.85}
+          density={0.56}
+          glyphOpacity={0.3}
           glow={0.2}
-          depthOfField={0}
+          depthOfField={0.8}
           flicker={0.2}
           softness={0.5}
           scale={1}
@@ -1778,6 +1825,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 {renderAttachMenu('bottom')}
                 <WarmTooltip
                   content="Attach files"
+                  shortcut={hotkeys.attachFile}
                   side="top"
                   disabled={attachMenuOpen}
                   surfaceColor="#f5f5f5"
@@ -1834,6 +1882,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               {/* Voice-to-Text Button: Mic when idle, Square Stop when recording */}
               <WarmTooltip
                 content={isRecording ? 'Stop voice recording' : 'Voice to text'}
+                shortcut={hotkeys.voiceRecord}
                 side="top"
                 surfaceColor="#f5f5f5"
                 inkColor="#18181b"
@@ -2179,6 +2228,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 {renderAttachMenu('top')}
                 <WarmTooltip
                   content="Attach files"
+                  shortcut={hotkeys.attachFile}
                   side="top"
                   disabled={attachMenuOpen}
                   surfaceColor="#f5f5f5"
@@ -2232,6 +2282,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               {/* Voice-to-Text Button: Mic when idle, Square Stop when recording */}
               <WarmTooltip
                 content={isRecording ? 'Stop voice recording' : 'Voice to text'}
+                shortcut={hotkeys.voiceRecord}
                 side="top"
                 surfaceColor="#f5f5f5"
                 inkColor="#18181b"

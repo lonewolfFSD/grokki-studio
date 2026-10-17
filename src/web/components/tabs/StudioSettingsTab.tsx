@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Monitor,
   Layout,
@@ -17,8 +17,17 @@ import {
   ShieldCheck,
   Eye,
   Trash2,
+  AlertCircle,
 } from 'lucide-react';
-import { JarvisConfig } from '../../types/jarvis';
+import { JarvisConfig, StudioHotkeys } from '../../types/jarvis';
+import {
+  DEFAULT_HOTKEYS,
+  HOTKEY_DEFINITIONS,
+  getEffectiveHotkeys,
+  formatEventToHotkey,
+  findHotkeyConflict,
+} from '../../utils/hotkeys';
+import WarmTooltip, { WarmTooltipGroup } from '../WarmTooltip';
 
 interface StudioSettingsTabProps {
   config: JarvisConfig;
@@ -33,10 +42,118 @@ export const StudioSettingsTab: React.FC<StudioSettingsTabProps> = ({
 }) => {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [clearedConfirm, setClearedConfirm] = useState(false);
+  const [recordingActionId, setRecordingActionId] = useState<keyof StudioHotkeys | 'globalSummon' | null>(null);
+  const [hotkeyConflictError, setHotkeyConflictError] = useState<{
+    actionId: keyof StudioHotkeys | 'globalSummon';
+    message: string;
+  } | null>(null);
+
+  const effectiveHotkeys = getEffectiveHotkeys(config);
+  const globalHotkey = config.hotkey || 'Alt+Q';
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  // Capture key combination while recording a hotkey in Settings
+  useEffect(() => {
+    if (!recordingActionId) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.key === 'Escape') {
+        setRecordingActionId(null);
+        return;
+      }
+
+      const combo = formatEventToHotkey(e);
+      if (!combo) {
+        return;
+      }
+
+      const conflictingLabel = findHotkeyConflict(
+        combo,
+        recordingActionId,
+        effectiveHotkeys,
+        globalHotkey
+      );
+
+      if (conflictingLabel) {
+        setHotkeyConflictError({
+          actionId: recordingActionId,
+          message: `"${combo}" is already assigned to "${conflictingLabel}"`,
+        });
+        setTimeout(() => {
+          setHotkeyConflictError((prev) =>
+            prev?.actionId === recordingActionId ? null : prev
+          );
+        }, 3800);
+        return;
+      }
+
+      setHotkeyConflictError(null);
+
+      if (recordingActionId === 'globalSummon') {
+        onChangeConfig({ hotkey: combo });
+      } else {
+        onChangeConfig({
+          hotkeys: {
+            ...effectiveHotkeys,
+            [recordingActionId]: combo,
+          },
+        });
+      }
+
+      setRecordingActionId(null);
+      showToast(`Bound shortcut to ${combo}`);
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [recordingActionId, effectiveHotkeys, globalHotkey, onChangeConfig]);
+
+  const handleResetSingleHotkey = (actionId: keyof StudioHotkeys | 'globalSummon', defaultKey: string) => {
+    const conflictingLabel = findHotkeyConflict(
+      defaultKey,
+      actionId,
+      effectiveHotkeys,
+      globalHotkey
+    );
+    if (conflictingLabel) {
+      setHotkeyConflictError({
+        actionId,
+        message: `Default "${defaultKey}" is currently used by "${conflictingLabel}"`,
+      });
+      setTimeout(() => setHotkeyConflictError(null), 3500);
+      return;
+    }
+
+    setHotkeyConflictError(null);
+    if (actionId === 'globalSummon') {
+      onChangeConfig({ hotkey: defaultKey });
+    } else {
+      onChangeConfig({
+        hotkeys: {
+          ...effectiveHotkeys,
+          [actionId]: defaultKey,
+        },
+      });
+    }
+  };
+
+  const handleResetAllHotkeys = () => {
+    setRecordingActionId(null);
+    setHotkeyConflictError(null);
+    onChangeConfig({
+      hotkey: 'Alt+Q',
+      hotkeys: { ...DEFAULT_HOTKEYS },
+    });
+    showToast('All keyboard shortcuts restored to defaults');
   };
 
   const handleOpenFolder = async () => {
@@ -62,6 +179,7 @@ export const StudioSettingsTab: React.FC<StudioSettingsTabProps> = ({
   };
 
   return (
+    <WarmTooltipGroup delay={400} warmWindow={300} travel={320} lean={false}>
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-20 select-none">
       {/* Header Banner */}
       <div className="flex items-end justify-between">
@@ -70,7 +188,7 @@ export const StudioSettingsTab: React.FC<StudioSettingsTabProps> = ({
             Grokki Studio Settings
           </h2>
           <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-            Configure window behavior, startup actions, close actions, and response engine options.
+            Configure keyboard hotkeys, window behavior, startup actions, and response engine options.
           </p>
         </div>
         {toastMsg && (
@@ -78,6 +196,154 @@ export const StudioSettingsTab: React.FC<StudioSettingsTabProps> = ({
             {toastMsg}
           </span>
         )}
+      </div>
+
+      {/* Keyboard Shortcuts & Hotkeys Section */}
+      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+              Keyboard Shortcuts & Hotkeys
+            </h3>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+              Click any shortcut badge and press a key combination (e.g. Ctrl+M, Alt+Q) to rebind. Duplicate keys are automatically blocked.
+            </p>
+          </div>
+          <WarmTooltip
+            content="Reset all hotkeys to defaults"
+            side="top"
+            surfaceColor="#f5f5f5"
+            inkColor="#18181b"
+            size="md"
+            radius={8}
+            gap={8}
+            arrow
+            popDuration={160}
+            popScale={0.94}
+            popBlur={4}
+            showFuse={false}
+          >
+            <button
+              type="button"
+              onClick={handleResetAllHotkeys}
+              className="h-8 px-3 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-gray-50 dark:bg-[#1a1c24] hover:bg-gray-100 dark:hover:bg-[#222530] text-gray-700 dark:text-gray-300 text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset Defaults
+            </button>
+          </WarmTooltip>
+        </div>
+
+        {hotkeyConflictError && (
+          <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-semibold animate-in fade-in duration-150">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{hotkeyConflictError.message} — two actions cannot share the same shortcut.</span>
+          </div>
+        )}
+
+        <div className="flex flex-col divide-y divide-gray-100 dark:divide-[#1e2029]/60">
+          {HOTKEY_DEFINITIONS.map((def) => {
+            const currentVal =
+              def.id === 'globalSummon'
+                ? globalHotkey
+                : effectiveHotkeys[def.id] || def.defaultKey;
+            const isRecording = recordingActionId === def.id;
+            const isModified = currentVal.toLowerCase() !== def.defaultKey.toLowerCase();
+            const hasConflict = hotkeyConflictError?.actionId === def.id;
+
+            return (
+              <div
+                key={def.id}
+                className="flex items-center justify-between py-3 first:pt-1 last:pb-0 gap-4"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <strong className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                      {def.label}
+                    </strong>
+                    <span className="text-[9.5px] font-mono px-1.5 py-0.5 rounded bg-gray-900/[0.04] dark:bg-white/[0.05] text-gray-500 dark:text-gray-400">
+                      {def.category}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 block mt-0.5">
+                    {def.description}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {isModified && !isRecording && (
+                    <WarmTooltip
+                      content={`Reset to ${def.defaultKey}`}
+                      side="top"
+                      surfaceColor="#f5f5f5"
+                      inkColor="#18181b"
+                      size="md"
+                      radius={8}
+                      gap={8}
+                      arrow
+                      popDuration={160}
+                      popScale={0.94}
+                      popBlur={4}
+                      showFuse={false}
+                    >
+                      <button
+                        type="button"
+                        aria-label={`Reset to ${def.defaultKey}`}
+                        onClick={() => handleResetSingleHotkey(def.id, def.defaultKey)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-colors cursor-pointer border-none bg-transparent"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </button>
+                    </WarmTooltip>
+                  )}
+
+                  <WarmTooltip
+                    content={isRecording ? 'Press Esc to cancel' : 'Click to record new shortcut'}
+                    side="top"
+                    surfaceColor="#f5f5f5"
+                    inkColor="#18181b"
+                    size="md"
+                    radius={8}
+                    gap={8}
+                    arrow
+                    popDuration={160}
+                    popScale={0.94}
+                    popBlur={4}
+                    showFuse={false}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHotkeyConflictError(null);
+                        setRecordingActionId(isRecording ? null : def.id);
+                      }}
+                      className={`h-8 min-w-[110px] px-3 rounded-lg font-mono text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                        hasConflict
+                          ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400'
+                          : isRecording
+                          ? 'border-gray-900 dark:border-white bg-gray-900 text-white dark:bg-white dark:text-gray-950 shadow-sm animate-pulse'
+                          : 'border-gray-200 dark:border-[#252836] bg-gray-50 dark:bg-[#1a1c24] hover:border-gray-400 dark:hover:border-gray-600 text-gray-800 dark:text-gray-100'
+                      }`}
+                    >
+                      {isRecording ? (
+                        <span>Press keys...</span>
+                      ) : (
+                        currentVal.split('+').map((part, idx, arr) => (
+                          <React.Fragment key={idx}>
+                            <span>{part}</span>
+                            {idx < arr.length - 1 && (
+                              <span className="text-gray-400 dark:text-gray-500 font-normal">+</span>
+                            )}
+                          </React.Fragment>
+                        ))
+                      )}
+                    </button>
+                  </WarmTooltip>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* 1. Window Sizing & Display Mode */}
@@ -611,5 +877,6 @@ export const StudioSettingsTab: React.FC<StudioSettingsTabProps> = ({
         </div>
       </div>
     </div>
+    </WarmTooltipGroup>
   );
 };

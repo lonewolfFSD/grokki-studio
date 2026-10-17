@@ -20,9 +20,10 @@ import { ChevronDownIcon } from '@animateicons/react/lucide/chevron-down-icon';
 import { PanelLeftIcon } from '@animateicons/react/lucide/panel-left-icon';
 import { PanelLeftCloseIcon } from '@animateicons/react/lucide/panel-left-close-icon';
 import { PanelLeftOpenIcon } from '@animateicons/react/lucide/panel-left-open-icon';
-import { GoogleProfile, Conversation } from '../types/jarvis';
+import { GoogleProfile, Conversation, StudioHotkeys } from '../types/jarvis';
 import BranchedMenu, { BranchedMenuItem } from './BranchedMenu';
 import WarmTooltip, { WarmTooltipGroup, type WarmTooltipSide } from './WarmTooltip';
+import { DEFAULT_HOTKEYS } from '../utils/hotkeys';
 
 export type TabId = 'chat' | 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
 
@@ -38,18 +39,20 @@ type AnimatedIconComponent = React.ForwardRefExoticComponent<
 const AnimatedSidebarRow: React.FC<{
   Icon: AnimatedIconComponent;
   label: string;
+  shortcut?: string;
   isActive: boolean;
   isCollapsed?: boolean;
   onClick: () => void;
   rightSlot?: React.ReactNode;
-}> = ({ Icon, label, isActive, isCollapsed = false, onClick, rightSlot }) => {
+}> = ({ Icon, label, shortcut, isActive, isCollapsed = false, onClick, rightSlot }) => {
   const iconRef = useRef<IconHandle | null>(null);
 
   return (
     <WarmTooltip
       content={label}
+      shortcut={shortcut}
       side="right"
-      disabled={!isCollapsed}
+      disabled={!isCollapsed && !shortcut}
       surfaceColor="#f5f5f5"
       inkColor="#18181b"
       size="md"
@@ -88,12 +91,13 @@ const AnimatedIconButton: React.FC<{
   Icon: AnimatedIconComponent;
   iconSize?: number;
   title?: string;
+  shortcut?: string;
   tooltipSide?: WarmTooltipSide;
   onClick: (e: React.MouseEvent) => void;
   className?: string;
   label?: string;
   iconClassName?: string;
-}> = ({ Icon, iconSize = 14, title, tooltipSide = 'right', onClick, className = '', label, iconClassName = '' }) => {
+}> = ({ Icon, iconSize = 14, title, shortcut, tooltipSide = 'right', onClick, className = '', label, iconClassName = '' }) => {
   const iconRef = useRef<IconHandle | null>(null);
 
   const button = (
@@ -115,6 +119,7 @@ const AnimatedIconButton: React.FC<{
   return (
     <WarmTooltip
       content={title}
+      shortcut={shortcut}
       side={tooltipSide}
       surfaceColor="#f5f5f5"
       inkColor="#18181b"
@@ -140,6 +145,7 @@ interface SidebarProps {
   googleProfile: GoogleProfile | null;
   googleConnected?: boolean;
   hotkey?: string;
+  hotkeys?: StudioHotkeys;
   conversations?: Conversation[];
   activeConversationId?: string;
   onSelectConversation?: (id: string) => void;
@@ -157,6 +163,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   userName,
   googleProfile,
   googleConnected = false,
+  hotkeys,
   conversations = [],
   activeConversationId,
   onSelectConversation,
@@ -166,6 +173,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSwitchGoogle,
   onDisconnectGoogle,
 }) => {
+  const effectiveHotkeys: StudioHotkeys = { ...DEFAULT_HOTKEYS, ...(hotkeys || {}) };
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -177,13 +185,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const openLogoIconRef = useRef<IconHandle | null>(null);
 
   const handleToggleSidebar = () => {
-    if (isCollapsed) {
-      setIsCollapsed(false);
-      setSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
-    } else {
-      setIsCollapsed(true);
-    }
+    setIsCollapsed((prev) => {
+      if (prev) {
+        setSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
+        return false;
+      }
+      return true;
+    });
   };
+
+  useEffect(() => {
+    const onToggleEvent = () => handleToggleSidebar();
+    window.addEventListener('grokki:toggle-sidebar', onToggleEvent);
+    return () => window.removeEventListener('grokki:toggle-sidebar', onToggleEvent);
+  }, []);
 
   const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -336,6 +351,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onSelectTab('chat');
           }}
           title="New Conversation"
+          shortcut={effectiveHotkeys.newChat}
           className="p-1 rounded-md text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#252836] transition-all cursor-pointer border-none bg-transparent"
         />
       ),
@@ -406,6 +422,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex flex-col items-center pt-1 pb-1">
               <WarmTooltip
                 content="Maximize sidebar"
+                shortcut={effectiveHotkeys.toggleSidebar}
                 side="right"
                 surfaceColor="#f5f5f5"
                 inkColor="#18181b"
@@ -453,6 +470,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 iconSize={17}
                 onClick={handleToggleSidebar}
                 title="Minimize sidebar"
+                shortcut={effectiveHotkeys.toggleSidebar}
                 className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent"
               />
             </div>
@@ -561,6 +579,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={item.id}
               Icon={item.Icon}
               label={item.label}
+              shortcut={item.id === 'settings' ? effectiveHotkeys.openSettings : undefined}
               isActive={activeTab === item.id}
               isCollapsed={isCollapsed}
               onClick={() => onSelectTab(item.id)}

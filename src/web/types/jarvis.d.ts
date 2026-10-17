@@ -1,3 +1,14 @@
+export interface StudioHotkeys {
+  newChat: string;
+  toggleSidebar: string;
+  attachFile: string;
+  voiceRecord: string;
+  openCamera: string;
+  focusInput: string;
+  toggleTheme: string;
+  openSettings: string;
+}
+
 export interface JarvisConfig {
   provider: 'gemini' | 'groq' | 'ollama' | 'openrouter';
   geminiApiKey?: string;
@@ -9,6 +20,7 @@ export interface JarvisConfig {
   openrouterModel?: string;
   wakeWord?: string;
   hotkey?: string;
+  hotkeys?: StudioHotkeys;
   voiceEnabled?: boolean;
   ttsEnabled?: boolean;
   pillTheme?: 'glass' | 'original';

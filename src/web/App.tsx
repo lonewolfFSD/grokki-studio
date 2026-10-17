@@ -13,6 +13,7 @@ import { StudioSettingsTab } from './components/tabs/StudioSettingsTab';
 import { AboutTab } from './components/tabs/AboutTab';
 import { JarvisConfig, GoogleProfile, SystemInfo } from './types/jarvis';
 import { useConversations } from './hooks/useConversations';
+import { DEFAULT_HOTKEYS, getEffectiveHotkeys, matchesHotkey } from './utils/hotkeys';
 
 const DEFAULT_CONFIG: JarvisConfig = {
   provider: 'gemini',
@@ -28,6 +29,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
   wakeWordEnabled: true,
   pillTheme: 'glass',
   hotkey: 'Alt+Q',
+  hotkeys: DEFAULT_HOTKEYS,
   userName: '',
   userNickname: '',
   userTone: 'companion',
@@ -338,6 +340,48 @@ export const App: React.FC = () => {
     }
   };
 
+  const effectiveHotkeys = getEffectiveHotkeys(config);
+
+  // Global Studio Keyboard Shortcuts Listener
+  useEffect(() => {
+    const handleGlobalHotkeys = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+
+      if (matchesHotkey(e, effectiveHotkeys.newChat)) {
+        e.preventDefault();
+        createConversation();
+        setActiveTab('chat');
+      } else if (matchesHotkey(e, effectiveHotkeys.toggleSidebar)) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('grokki:toggle-sidebar'));
+      } else if (matchesHotkey(e, effectiveHotkeys.toggleTheme)) {
+        e.preventDefault();
+        handleToggleTheme();
+      } else if (matchesHotkey(e, effectiveHotkeys.openSettings)) {
+        e.preventDefault();
+        setActiveTab('settings');
+      } else if (activeTab !== 'chat') {
+        // Allow chat-specific hotkeys from other tabs to jump into Chat and trigger the action
+        let chatAction: string | null = null;
+        if (matchesHotkey(e, effectiveHotkeys.attachFile)) chatAction = 'attachFile';
+        else if (matchesHotkey(e, effectiveHotkeys.voiceRecord)) chatAction = 'voiceRecord';
+        else if (matchesHotkey(e, effectiveHotkeys.openCamera)) chatAction = 'openCamera';
+        else if (matchesHotkey(e, effectiveHotkeys.focusInput)) chatAction = 'focusInput';
+
+        if (chatAction) {
+          e.preventDefault();
+          setActiveTab('chat');
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('grokki:chat-hotkey', { detail: chatAction }));
+          }, 60);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalHotkeys);
+    return () => window.removeEventListener('keydown', handleGlobalHotkeys);
+  }, [effectiveHotkeys, activeTab, theme, config, createConversation]);
+
   // Derive Display Name: Google Name > userNickname > userName > 'Friend'
   const displayName =
     (googleConnected && googleProfile?.name) ||
@@ -375,6 +419,7 @@ export const App: React.FC = () => {
         onRenameConversation={renameConversation}
         onSwitchGoogle={handleSwitchGoogle}
         onDisconnectGoogle={handleDisconnectGoogle}
+        hotkeys={effectiveHotkeys}
       />
 
       {/* Main Content Column */}
@@ -383,6 +428,7 @@ export const App: React.FC = () => {
           title={tabTitles[activeTab]}
           theme={theme}
           onToggleTheme={handleToggleTheme}
+          toggleThemeShortcut={effectiveHotkeys.toggleTheme}
           onMinimize={handleMinimize}
           onMaximize={handleMaximize}
           isMaximized={isMaximized}

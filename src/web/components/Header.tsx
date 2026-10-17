@@ -6,6 +6,7 @@ interface HeaderProps {
   title: string;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
+  toggleThemeShortcut?: string;
   onMinimize: () => void;
   onMaximize?: () => void;
   isMaximized?: boolean;
@@ -30,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
   title,
   theme,
   onToggleTheme,
+  toggleThemeShortcut,
   onMinimize,
   onMaximize,
   isMaximized = false,
@@ -164,6 +166,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Light / Dark Mode Toggle */}
           <WarmTooltip
             content={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+            shortcut={toggleThemeShortcut || 'Ctrl+Shift+L'}
             side="bottom"
             surfaceColor="#f5f5f5"
             inkColor="#18181b"
