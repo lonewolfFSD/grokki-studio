@@ -967,6 +967,28 @@ ipcMain.handle('jarvis:open-notion-portal', async () => {
   return { success: true };
 });
 
+// Obsidian Workspace Integration
+ipcMain.handle('jarvis:select-obsidian-vault', async () => {
+  const obsidianWorkspace = require('./obsidian_workspace');
+  return await obsidianWorkspace.selectVault(dashboardWindow || mainWindow);
+});
+
+ipcMain.handle('jarvis:get-obsidian-status', async () => {
+  const obsidianWorkspace = require('./obsidian_workspace');
+  return obsidianWorkspace.getStatus();
+});
+
+ipcMain.handle('jarvis:disconnect-obsidian', async () => {
+  const obsidianWorkspace = require('./obsidian_workspace');
+  return obsidianWorkspace.disconnect();
+});
+
+ipcMain.handle('jarvis:open-obsidian-vault', async (event, notePath) => {
+  const obsidianWorkspace = require('./obsidian_workspace');
+  obsidianWorkspace.openVaultInObsidian(notePath);
+  return { success: true };
+});
+
 // Dashboard Studio Controls & Live Tests
 ipcMain.on('dashboard:close', () => {
   const config = loadConfig();

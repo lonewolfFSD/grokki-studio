@@ -71,6 +71,13 @@ export interface NotionStatusResponse {
   profile?: NotionProfile | null;
 }
 
+export interface ObsidianStatusResponse {
+  connected: boolean;
+  vaultPath?: string | null;
+  vaultName?: string | null;
+  notesCount?: number;
+}
+
 export interface SystemInfo {
   platform: string;
   arch: string;
@@ -120,6 +127,10 @@ export interface JarvisAPI {
   openNotionPortal?: () => Promise<{ success: boolean }>;
   saveNotionOAuth?: (creds: { clientId: string; clientSecret: string }) => Promise<{ success: boolean; error?: string }>;
   onNotionConnected?: (callback: (profile: NotionProfile) => void) => () => void;
+  selectObsidianVault?: () => Promise<{ success?: boolean; canceled?: boolean; vaultPath?: string; vaultName?: string; notesCount?: number }>;
+  getObsidianStatus?: () => Promise<ObsidianStatusResponse>;
+  disconnectObsidian?: () => Promise<{ success: boolean }>;
+  openObsidianVault?: (notePath?: string) => Promise<{ success: boolean }>;
   closeDashboard: () => void;
   minimizeDashboard: () => void;
   maximizeDashboard?: () => void;

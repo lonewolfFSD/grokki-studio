@@ -482,6 +482,30 @@ class AgentBrain {
             },
           },
           {
+            name: 'create_obsidian_note',
+            description: 'Creates a new local markdown note or appends to a daily note in Obsidian',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                title: { type: 'STRING', description: 'Note title or filename' },
+                content: { type: 'STRING', description: 'Markdown note content or lecture summary' },
+                is_daily: { type: 'BOOLEAN', description: 'Whether to append to today daily note' },
+              },
+              required: ['content'],
+            },
+          },
+          {
+            name: 'search_obsidian_vault',
+            description: 'Searches through your local Obsidian vault notes and knowledge base',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                query: { type: 'STRING', description: 'Search keywords, topic, or note title' },
+              },
+              required: ['query'],
+            },
+          },
+          {
             name: 'search_google_contact',
             description: 'Searches Google Contacts for a person name, phone number, or email',
             parameters: {
@@ -2352,6 +2376,41 @@ Rules:
           };
         } catch (e) {
           return { success: false, message: `Notion Search Error: ${e.message}` };
+        }
+      }
+
+      case 'create_obsidian_note': {
+        const obsidianWorkspace = require('./obsidian_workspace');
+        if (!obsidianWorkspace.isConnected()) {
+          return { success: false, message: 'Obsidian vault is not connected yet. Select your vault folder in the Workspace tab.' };
+        }
+        try {
+          if (args.is_daily) {
+            const res = obsidianWorkspace.appendDailyNote(args.content);
+            return { success: true, message: `Appended to Obsidian daily note (${res.date}): ${res.path}` };
+          } else {
+            const res = obsidianWorkspace.createNote(args.title || 'Note', args.content);
+            return { success: true, message: `Created Obsidian note "${res.title}" in vault "${obsidianWorkspace.vaultName}".` };
+          }
+        } catch (e) {
+          return { success: false, message: `Obsidian Error: ${e.message}` };
+        }
+      }
+
+      case 'search_obsidian_vault': {
+        const obsidianWorkspace = require('./obsidian_workspace');
+        if (!obsidianWorkspace.isConnected()) {
+          return { success: false, message: 'Obsidian vault is not connected yet. Select your vault folder in the Workspace tab.' };
+        }
+        try {
+          const notes = obsidianWorkspace.searchNotes(args.query || '', 8);
+          if (notes.length === 0) {
+            return { success: true, message: `No Obsidian notes found matching "${args.query}" in vault "${obsidianWorkspace.vaultName}".` };
+          }
+          const list = notes.map((n) => `- **${n.name}** (${n.relativePath})`).join('\n');
+          return { success: true, message: `Found in Obsidian (${obsidianWorkspace.vaultName}):\n${list}` };
+        } catch (e) {
+          return { success: false, message: `Obsidian Search Error: ${e.message}` };
         }
       }
 

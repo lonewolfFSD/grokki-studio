@@ -87,6 +87,10 @@ try {
       ipcRenderer.on('notion:connected', handler);
       return () => ipcRenderer.removeListener('notion:connected', handler);
     },
+    selectObsidianVault: () => ipcRenderer.invoke('jarvis:select-obsidian-vault'),
+    getObsidianStatus: () => ipcRenderer.invoke('jarvis:get-obsidian-status'),
+    disconnectObsidian: () => ipcRenderer.invoke('jarvis:disconnect-obsidian'),
+    openObsidianVault: (notePath) => ipcRenderer.invoke('jarvis:open-obsidian-vault', notePath),
 
     closeDashboard: () => ipcRenderer.send('dashboard:close'),
     minimizeDashboard: () => ipcRenderer.send('dashboard:minimize'),

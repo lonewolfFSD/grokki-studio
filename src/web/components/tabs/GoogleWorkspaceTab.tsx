@@ -13,6 +13,9 @@ import {
   BookOpen,
   Key,
   ChevronDown,
+  Network,
+  Layers,
+  ExternalLink,
 } from 'lucide-react';
 import { GoogleProfile, NotionProfile } from '../../types/jarvis';
 
@@ -45,6 +48,32 @@ const NotionLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' })
   </svg>
 );
 
+// Official Authentic Obsidian Brand Logo SVG (Signature Purple Crystal)
+const ObsidianLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+  <svg className={className} viewBox="0 0 100 100" fill="none">
+    <path
+      d="M60.1 4.5c-4.2-2.7-9.5-2.7-13.7 0L24.9 19.3c-4.2 2.7-6.8 7.3-6.8 12.3v36.8c0 5 2.6 9.6 6.8 12.3l21.5 14.8c4.2 2.7 9.5 2.7 13.7 0l21.5-14.8c4.2-2.7 6.8-7.3 6.8-12.3V31.6c0-5-2.6-9.6-6.8-12.3L60.1 4.5z"
+      fill="#7C3AED"
+    />
+    <path
+      d="M48.2 5.9c.9-.6 2.7-.6 3.6 0l21.5 14.8c1.6 1.1 2.6 2.9 2.6 4.9v36.8c0 2-1 3.8-2.6 4.9L51.8 82.1c-.9.6-2.7.6-3.6 0L26.7 67.3c-1.6-1.1-2.6-2.9-2.6-4.9V25.6c0-2 1-3.8 2.6-4.9L48.2 5.9z"
+      fill="#8B5CF6"
+    />
+    <path
+      d="M48.7 10L32.2 25.1l-6.8 32.5 15.6 19.8 14.3-33.1L48.7 10z"
+      fill="#6D28D9"
+    />
+    <path
+      d="M48.7 10l6.6 34.3 14.3 33.1 11.2-23.2-5.4-31.1L48.7 10z"
+      fill="#A78BFA"
+    />
+    <path
+      d="M55.3 44.3L41 77.4l14.3 9.8 14.3-9.8L55.3 44.3z"
+      fill="#C4B5FD"
+    />
+  </svg>
+);
+
 interface GoogleWorkspaceTabProps {
   connected: boolean;
   profile: GoogleProfile | null;
@@ -69,8 +98,17 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
   const [notionStatusMessage, setNotionStatusMessage] = useState<string | null>(null);
   const [notionError, setNotionError] = useState<string | null>(null);
 
+  // Obsidian State
+  const [obsidianConnected, setObsidianConnected] = useState(false);
+  const [obsidianVaultName, setObsidianVaultName] = useState<string | null>(null);
+  const [obsidianVaultPath, setObsidianVaultPath] = useState<string | null>(null);
+  const [obsidianNotesCount, setObsidianNotesCount] = useState<number>(0);
+  const [obsidianExpanded, setObsidianExpanded] = useState(true);
+  const [selectingVault, setSelectingVault] = useState(false);
+
   useEffect(() => {
     loadNotionStatus();
+    loadObsidianStatus();
 
     let unsub: (() => void) | undefined;
     if (window.jarvisAPI?.onNotionConnected) {
@@ -103,6 +141,26 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
     } catch (e) {
       setNotionConnected(false);
       setNotionProfile(null);
+    }
+  };
+
+  const loadObsidianStatus = async () => {
+    if (!window.jarvisAPI?.getObsidianStatus) return;
+    try {
+      const res = await window.jarvisAPI.getObsidianStatus();
+      if (res && res.connected) {
+        setObsidianConnected(true);
+        setObsidianVaultName(res.vaultName || null);
+        setObsidianVaultPath(res.vaultPath || null);
+        setObsidianNotesCount(res.notesCount || 0);
+      } else {
+        setObsidianConnected(false);
+        setObsidianVaultName(null);
+        setObsidianVaultPath(null);
+        setObsidianNotesCount(0);
+      }
+    } catch (e) {
+      setObsidianConnected(false);
     }
   };
 
@@ -187,6 +245,46 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
     }
   };
 
+  const handleSelectObsidianVault = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.jarvisAPI?.selectObsidianVault) return;
+    setSelectingVault(true);
+    try {
+      const res = await window.jarvisAPI.selectObsidianVault();
+      if (res && res.success) {
+        setObsidianConnected(true);
+        setObsidianVaultName(res.vaultName || null);
+        setObsidianVaultPath(res.vaultPath || null);
+        setObsidianNotesCount(res.notesCount || 0);
+      }
+    } catch (err: any) {
+      alert('Failed to select Obsidian vault: ' + err.message);
+    } finally {
+      setSelectingVault(false);
+    }
+  };
+
+  const handleDisconnectObsidian = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.jarvisAPI?.disconnectObsidian) return;
+    try {
+      await window.jarvisAPI.disconnectObsidian();
+      setObsidianConnected(false);
+      setObsidianVaultName(null);
+      setObsidianVaultPath(null);
+      setObsidianNotesCount(0);
+    } catch (e) {
+      console.error('Failed to disconnect Obsidian:', e);
+    }
+  };
+
+  const handleOpenInObsidian = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (window.jarvisAPI?.openObsidianVault) {
+      window.jarvisAPI.openObsidianVault();
+    }
+  };
+
   const googleApps = [
     { label: 'Gmail Automation', icon: <Mail className="w-4 h-4 text-gray-400" /> },
     { label: 'Google Calendar', icon: <Calendar className="w-4 h-4 text-gray-400" /> },
@@ -205,6 +303,15 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
     { label: 'Workspace Search', icon: <Search className="w-4 h-4 text-gray-400" /> },
   ];
 
+  const obsidianApps = [
+    { label: 'Local Markdown Vault', icon: <FileText className="w-4 h-4 text-gray-400" /> },
+    { label: 'Daily Notes & Journal', icon: <Calendar className="w-4 h-4 text-gray-400" /> },
+    { label: 'Bi-directional Backlinks', icon: <Network className="w-4 h-4 text-gray-400" /> },
+    { label: 'Flashcards & Canvas', icon: <Layers className="w-4 h-4 text-gray-400" /> },
+    { label: 'Tag & Folder Indexing', icon: <Folder className="w-4 h-4 text-gray-400" /> },
+    { label: 'Fast Offline Vault Search', icon: <Search className="w-4 h-4 text-gray-400" /> },
+  ];
+
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-16">
       <div>
@@ -212,19 +319,17 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
           Workspace Integrations
         </h2>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          Connect your productivity accounts via 1-click browser OAuth to enable autonomous calendar scheduling, email actions, notes, and document management.
+          Connect your productivity accounts and offline note vaults to enable autonomous calendar scheduling, email actions, notes, and document management.
         </p>
       </div>
 
       {/* 1. Google Workspace Accordion Card */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-200">
-        {/* Accordion Header */}
         <div
           onClick={() => setGoogleExpanded((prev) => !prev)}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
         >
           <div className="flex items-center gap-3.5 min-w-0">
-            {/* Authentic Google Brand Logo */}
             <div className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
               <GoogleLogo className="w-5 h-5" />
             </div>
@@ -266,7 +371,6 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
               )}
             </button>
 
-            {/* Accordion Chevron Toggle */}
             <button
               type="button"
               onClick={() => setGoogleExpanded((prev) => !prev)}
@@ -282,7 +386,6 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
           </div>
         </div>
 
-        {/* Accordion Content: Integrated Google Apps Grid */}
         {googleExpanded && (
           <div className="px-5 pb-5 pt-0 border-t border-[#e4e4eb] dark:border-[#1e2029] animate-in fade-in duration-200">
             <div className="grid grid-cols-3 gap-3 w-full pt-4">
@@ -302,13 +405,11 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
 
       {/* 2. Notion Workspace Accordion Card */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-200">
-        {/* Accordion Header */}
         <div
           onClick={() => setNotionExpanded((prev) => !prev)}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
         >
           <div className="flex items-center gap-3.5 min-w-0">
-            {/* Authentic Notion Brand Logo */}
             <div className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center text-gray-900 dark:text-white flex-shrink-0 shadow-xs">
               <NotionLogo className="w-5 h-5" />
             </div>
@@ -357,7 +458,6 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
               </button>
             )}
 
-            {/* Accordion Chevron Toggle */}
             <button
               type="button"
               onClick={() => setNotionExpanded((prev) => !prev)}
@@ -373,7 +473,6 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
           </div>
         </div>
 
-        {/* Live Status Message / Error Banner */}
         {notionStatusMessage && !notionConnected && (
           <div className="mx-5 mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400">
             <span>{notionStatusMessage}</span>
@@ -393,7 +492,6 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
           </div>
         )}
 
-        {/* Manual Token Fallback */}
         {showTokenFallback && !notionConnected && (
           <form
             onSubmit={handleConnectNotionToken}
@@ -431,11 +529,114 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
           </form>
         )}
 
-        {/* Accordion Content: Integrated Notion Capabilities Grid */}
         {notionExpanded && (
           <div className="px-5 pb-5 pt-0 border-t border-[#e4e4eb] dark:border-[#1e2029] animate-in fade-in duration-200">
             <div className="grid grid-cols-3 gap-3 w-full pt-4">
               {notionApps.map((app, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200"
+                >
+                  {app.icon}
+                  <span>{app.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 3. Obsidian Vault Accordion Card */}
+      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-200">
+        <div
+          onClick={() => setObsidianExpanded((prev) => !prev)}
+          className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
+        >
+          <div className="flex items-center gap-3.5 min-w-0">
+            {/* Authentic Obsidian Brand Logo */}
+            <div className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
+              <ObsidianLogo className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+                Obsidian Vault Status
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 m-0 truncate">
+                {obsidianConnected
+                  ? `Linked Vault: ${obsidianVaultName || 'Vault'} (${obsidianNotesCount} notes)`
+                  : 'Not connected. Select your local Obsidian Vault directory for 100% offline note sync.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0 ml-4" onClick={(e) => e.stopPropagation()}>
+            {obsidianConnected ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleOpenInObsidian}
+                  title="Open vault in Obsidian desktop app"
+                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all"
+                >
+                  <span>Open App</span>
+                  <ExternalLink className="w-3 h-3 opacity-60" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSelectObsidianVault}
+                  className="inline-flex items-center justify-center h-9 px-3 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all"
+                >
+                  Switch
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDisconnectObsidian}
+                  className="inline-flex items-center justify-center h-9 px-3 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all"
+                >
+                  Disconnect
+                </button>
+                <div className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-semibold border bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 border-gray-300 dark:border-[#1e2029] shadow-xs select-none">
+                  <Check className="w-3.5 h-3.5" />
+                  <span className="font-bold">Vault Linked</span>
+                </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                disabled={selectingVault}
+                onClick={handleSelectObsidianVault}
+                className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-semibold cursor-pointer border bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 border-transparent transition-all shadow-xs"
+              >
+                {selectingVault ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Selecting...</span>
+                  </>
+                ) : (
+                  'Connect Vault'
+                )}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setObsidianExpanded((prev) => !prev)}
+              aria-label={obsidianExpanded ? 'Collapse section' : 'Expand section'}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border-none bg-transparent"
+            >
+              <ChevronDown
+                className={`w-4 h-4 transition-transform duration-200 ${
+                  obsidianExpanded ? 'rotate-180 text-gray-700 dark:text-gray-200' : 'text-gray-400'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {obsidianExpanded && (
+          <div className="px-5 pb-5 pt-0 border-t border-[#e4e4eb] dark:border-[#1e2029] animate-in fade-in duration-200">
+            <div className="grid grid-cols-3 gap-3 w-full pt-4">
+              {obsidianApps.map((app, idx) => (
                 <div
                   key={idx}
                   className="flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200"
