@@ -38,11 +38,7 @@ class NotionWorkspaceManager {
       } catch (e) {}
     }
 
-    // 3. Built-in default OAuth application credentials
-    return {
-      clientId: '3fcd872b-594c-81bd-a2c7-0037af25c152',
-      clientSecret: 'secret_8zK4oEjc0zAm4NuRDafr41EdkAvGT1r7g6QWgRhuL9d',
-    };
+    return null;
   }
 
   saveCredentials(clientId, clientSecret) {
