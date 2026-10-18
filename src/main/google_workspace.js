@@ -45,15 +45,21 @@ class GoogleWorkspaceManager {
       return { clientId: envId, clientSecret: envSecret };
     }
 
-    // 2. From data/google_credentials.json
-    if (fs.existsSync(this.credentialsPath)) {
-      try {
-        const raw = JSON.parse(fs.readFileSync(this.credentialsPath, 'utf8'));
-        const creds = raw.installed || raw.web || raw;
-        if (creds.client_id && creds.client_secret) {
-          return { clientId: creds.client_id, clientSecret: creds.client_secret };
-        }
-      } catch (e) {}
+    // 2. From google_credentials.json in dataDir or fallback project data dir
+    const candidatePaths = [
+      this.credentialsPath,
+      path.resolve(__dirname, '../../data/google_credentials.json'),
+    ];
+    for (const p of candidatePaths) {
+      if (p && fs.existsSync(p)) {
+        try {
+          const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
+          const creds = raw.installed || raw.web || raw;
+          if (creds.client_id && creds.client_secret) {
+            return { clientId: creds.client_id, clientSecret: creds.client_secret };
+          }
+        } catch (e) {}
+      }
     }
 
     return null;

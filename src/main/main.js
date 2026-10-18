@@ -6,8 +6,6 @@ const { exec, spawn } = require('child_process');
 const { GoogleGenAI } = require('@google/genai');
 const agentBrain = require('./agent_brain');
 const kokoroTTS = require('./kokoro_tts');
-require('dotenv').config();
-
 app.setName('Grokki Studio');
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.grokki.studio');
@@ -18,6 +16,29 @@ const grokkiDataDir = getDataDir();
 if (!app.isPackaged) {
   try { app.setPath('userData', grokkiDataDir); } catch (e) {}
 }
+
+// Multi-path dotenv loader (supporting user AppData, dev root, and packaged resources)
+const dotenv = require('dotenv');
+const candidateEnvPaths = [
+  path.join(grokkiDataDir, '.env'),
+  path.resolve(__dirname, '../../.env'),
+  path.join(process.resourcesPath || '', '.env'),
+  path.join(process.cwd(), '.env'),
+];
+for (const envP of candidateEnvPaths) {
+  if (fs.existsSync(envP)) {
+    dotenv.config({ path: envP });
+  }
+}
+
+// Auto-sync project .env into AppData if available
+try {
+  const devEnv = path.resolve(__dirname, '../../.env');
+  const userEnv = path.join(grokkiDataDir, '.env');
+  if (fs.existsSync(devEnv) && !fs.existsSync(userEnv)) {
+    fs.copyFileSync(devEnv, userEnv);
+  }
+} catch (e) {}
 
 // Config file in userData
 const configPath = path.join(grokkiDataDir, 'jarvis-config.json');
