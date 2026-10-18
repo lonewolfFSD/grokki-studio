@@ -1,0 +1,54 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.grokki.studio",
+  "productName": "Grokki Studio",
+  "copyright": "Copyright © 2026 Grokki Studio",
+  "directories": {
+    "output": "release",
+    "buildResources": "assets"
+  },
+  "files": [
+    "dist/**/*",
+    "src/main/**/*",
+    "src/preload/**/*",
+    "src/renderer/**/*",
+    "assets/**/*",
+    "package.json",
+    "!src/web/**/*",
+    "!scripts/**/*",
+    "!vite.config.ts",
+    "!tsconfig.json"
+  ],
+  "asar": true,
+  "asarUnpack": [
+    "**/*.node",
+    "**/@picovoice/pvrecorder-node/**",
+    "**/src/main/os_input.ps1"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "assets/grokki_studio_icon.ico",
+    "artifactName": "${productName}-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "allowElevation": true,
+    "createDesktopShortcut": "always",
+    "createStartMenuShortcut": true,
+    "shortcutName": "Grokki Studio",
+    "installerIcon": "assets/grokki_studio_icon.ico",
+    "uninstallerIcon": "assets/grokki_studio_icon.ico",
+    "installerHeaderIcon": "assets/grokki_studio_icon.ico",
+    "deleteAppDataOnUninstall": false,
+    "runAfterFinish": true
+  }
+}

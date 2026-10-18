@@ -66,6 +66,12 @@ function loadConfig() {
   const envKey = (process.env.GEMINI_API_KEY || '').trim();
   const envGroqKey = (process.env.GROQ_API_KEY || '').trim();
   const envOpenRouterKey = (process.env.OPENROUTER_API_KEY || '').trim();
+  const envOpenAiKey = (process.env.OPENAI_API_KEY || '').trim();
+  const envGrokKey = (process.env.XAI_API_KEY || '').trim();
+  const envDeepSeekKey = (process.env.DEEPSEEK_API_KEY || '').trim();
+  const envQwenKey = (process.env.DASHSCOPE_API_KEY || '').trim();
+  const envOmniRouterKey = (process.env.OMNIROUTER_API_KEY || '').trim();
+
   try {
     if (fs.existsSync(configPath)) {
       const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
@@ -73,11 +79,22 @@ function loadConfig() {
       if (!data.geminiApiKey && envKey) data.geminiApiKey = envKey;
       if (!data.geminiModel) data.geminiModel = 'gemini-2.5-flash';
       if (!data.groqApiKey && envGroqKey) data.groqApiKey = envGroqKey;
-      if (!data.groqModel) data.groqModel = 'openai/gpt-oss-120b';
+      if (!data.groqModel) data.groqModel = 'llama-3.3-70b-versatile';
       if (!data.ollamaEndpoint) data.ollamaEndpoint = 'http://127.0.0.1:11434';
       if (!data.ollamaModel) data.ollamaModel = 'llama3.2';
       if (!data.openrouterApiKey && envOpenRouterKey) data.openrouterApiKey = envOpenRouterKey;
-      if (!data.openrouterModel) data.openrouterModel = 'meta-llama/llama-3.3-70b-instruct:free';
+      if (!data.openrouterModel) data.openrouterModel = 'openrouter/auto';
+      if (!data.openaiApiKey && envOpenAiKey) data.openaiApiKey = envOpenAiKey;
+      if (!data.openaiModel) data.openaiModel = 'gpt-4o';
+      if (!data.grokApiKey && envGrokKey) data.grokApiKey = envGrokKey;
+      if (!data.grokModel) data.grokModel = 'grok-2-1212';
+      if (!data.deepseekApiKey && envDeepSeekKey) data.deepseekApiKey = envDeepSeekKey;
+      if (!data.deepseekModel) data.deepseekModel = 'deepseek-chat';
+      if (!data.qwenApiKey && envQwenKey) data.qwenApiKey = envQwenKey;
+      if (!data.qwenModel) data.qwenModel = 'qwen-max';
+      if (!data.omnirouterApiKey && envOmniRouterKey) data.omnirouterApiKey = envOmniRouterKey;
+      if (!data.omnirouterModel) data.omnirouterModel = 'omnirouter/auto';
+      if (!data.omnirouterEndpoint) data.omnirouterEndpoint = 'https://api.omnirouter.ai/v1';
       if (!data.pillTheme) data.pillTheme = 'original';
       if (!data.wakeWord) data.wakeWord = 'Hey Grokki';
       if (data.wakeWordEnabled === undefined) data.wakeWordEnabled = true;
@@ -113,11 +130,22 @@ function loadConfig() {
     geminiApiKey: envKey,
     geminiModel: 'gemini-2.5-flash',
     groqApiKey: envGroqKey,
-    groqModel: 'openai/gpt-oss-120b',
+    groqModel: 'llama-3.3-70b-versatile',
     ollamaEndpoint: 'http://127.0.0.1:11434',
     ollamaModel: 'llama3.2',
     openrouterApiKey: envOpenRouterKey,
-    openrouterModel: 'meta-llama/llama-3.3-70b-instruct:free',
+    openrouterModel: 'openrouter/auto',
+    openaiApiKey: envOpenAiKey,
+    openaiModel: 'gpt-4o',
+    grokApiKey: envGrokKey,
+    grokModel: 'grok-2-1212',
+    deepseekApiKey: envDeepSeekKey,
+    deepseekModel: 'deepseek-chat',
+    qwenApiKey: envQwenKey,
+    qwenModel: 'qwen-max',
+    omnirouterApiKey: envOmniRouterKey,
+    omnirouterModel: 'omnirouter/auto',
+    omnirouterEndpoint: 'https://api.omnirouter.ai/v1',
     wakeWord: 'Hey Grokki',
     hotkey: 'Alt+Q',
     voiceEnabled: true,
@@ -1416,6 +1444,130 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
       return { success: true, latencyMs, reply: data.data?.label ? `Verified (${data.data.label})` : 'Verified' };
     }
 
+    if (provider === 'openai') {
+      const apiKey = (key || '').trim();
+      if (!apiKey) return { success: false, error: 'OpenAI API key is empty.' };
+      const fetch = global.fetch || require('node-fetch');
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: model || 'gpt-4o-mini',
+          messages: [{ role: 'user', content: 'Respond with ONLY "READY".' }],
+          max_tokens: 10,
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        return { success: false, error: `OpenAI error (${res.status}): ${errText.slice(0, 150)}` };
+      }
+      const data = await res.json();
+      const latencyMs = Date.now() - startTime;
+      return { success: true, latencyMs, reply: data.choices?.[0]?.message?.content?.trim() || 'READY' };
+    }
+
+    if (provider === 'grok') {
+      const apiKey = (key || '').trim();
+      if (!apiKey) return { success: false, error: 'xAI Grok API key is empty.' };
+      const fetch = global.fetch || require('node-fetch');
+      const res = await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: model || 'grok-2-1212',
+          messages: [{ role: 'user', content: 'Respond with ONLY "READY".' }],
+          max_tokens: 10,
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        return { success: false, error: `xAI Grok error (${res.status}): ${errText.slice(0, 150)}` };
+      }
+      const data = await res.json();
+      const latencyMs = Date.now() - startTime;
+      return { success: true, latencyMs, reply: data.choices?.[0]?.message?.content?.trim() || 'READY' };
+    }
+
+    if (provider === 'deepseek') {
+      const apiKey = (key || '').trim();
+      if (!apiKey) return { success: false, error: 'DeepSeek API key is empty.' };
+      const fetch = global.fetch || require('node-fetch');
+      const res = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: model || 'deepseek-chat',
+          messages: [{ role: 'user', content: 'Respond with ONLY "READY".' }],
+          max_tokens: 10,
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        return { success: false, error: `DeepSeek error (${res.status}): ${errText.slice(0, 150)}` };
+      }
+      const data = await res.json();
+      const latencyMs = Date.now() - startTime;
+      return { success: true, latencyMs, reply: data.choices?.[0]?.message?.content?.trim() || 'READY' };
+    }
+
+    if (provider === 'qwen') {
+      const apiKey = (key || '').trim();
+      if (!apiKey) return { success: false, error: 'Qwen API key is empty.' };
+      const fetch = global.fetch || require('node-fetch');
+      const res = await fetch('https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: model || 'qwen-plus',
+          messages: [{ role: 'user', content: 'Respond with ONLY "READY".' }],
+          max_tokens: 10,
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        return { success: false, error: `Qwen error (${res.status}): ${errText.slice(0, 150)}` };
+      }
+      const data = await res.json();
+      const latencyMs = Date.now() - startTime;
+      return { success: true, latencyMs, reply: data.choices?.[0]?.message?.content?.trim() || 'READY' };
+    }
+
+    if (provider === 'omnirouter') {
+      const ep = (endpoint || 'https://api.omnirouter.ai/v1').replace(/\/+$/, '');
+      const apiKey = (key || 'free').trim();
+      const fetch = global.fetch || require('node-fetch');
+      const headers = { 'Content-Type': 'application/json' };
+      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+      const res = await fetch(`${ep}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: model || 'omnirouter/auto',
+          messages: [{ role: 'user', content: 'Respond with ONLY "READY".' }],
+          max_tokens: 10,
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        return { success: false, error: `OmniRouter error (${res.status}): ${errText.slice(0, 150)}` };
+      }
+      const data = await res.json();
+      const latencyMs = Date.now() - startTime;
+      return { success: true, latencyMs, reply: data.choices?.[0]?.message?.content?.trim() || 'READY' };
+    }
+
     return { success: false, error: `Unknown provider: ${provider}` };
   } catch (err) {
     return { success: false, error: err.message };
@@ -1468,6 +1620,68 @@ ipcMain.handle('dashboard:fetch-provider-models', async (event, { provider, key,
       const rest = rawList.filter(id => !autoSet.has(id));
       const allModels = [...autoList, ...rest];
       return { success: true, models: allModels };
+    }
+
+    if (provider === 'openai') {
+      const apiKey = (key || '').trim();
+      if (!apiKey) return { success: false, error: 'OpenAI API key is required.' };
+      const res = await fetch('https://api.openai.com/v1/models', {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const models = (data.data || [])
+        .map(m => m.id)
+        .filter(id => id.startsWith('gpt-') || id.startsWith('o1') || id.startsWith('o3') || id.startsWith('chatgpt-'));
+      return { success: true, models };
+    }
+
+    if (provider === 'grok') {
+      const apiKey = (key || '').trim();
+      if (!apiKey) return { success: false, error: 'xAI Grok API key is required.' };
+      const res = await fetch('https://api.x.ai/v1/models', {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const models = (data.data || []).map(m => m.id);
+      return { success: true, models };
+    }
+
+    if (provider === 'deepseek') {
+      const apiKey = (key || '').trim();
+      if (!apiKey) return { success: false, error: 'DeepSeek API key is required.' };
+      const res = await fetch('https://api.deepseek.com/models', {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const models = (data.data || []).map(m => m.id);
+      return { success: true, models };
+    }
+
+    if (provider === 'qwen') {
+      const apiKey = (key || '').trim();
+      if (!apiKey) return { success: false, error: 'Qwen API key is required.' };
+      const res = await fetch('https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models', {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const models = (data.data || []).map(m => m.id);
+      return { success: true, models };
+    }
+
+    if (provider === 'omnirouter') {
+      const ep = (endpoint || 'https://api.omnirouter.ai/v1').replace(/\/+$/, '');
+      const apiKey = (key || 'free').trim();
+      const headers = {};
+      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+      const res = await fetch(`${ep}/models`, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const models = (data.data || []).map(m => m.id);
+      return { success: true, models };
     }
 
     return { success: false, error: `Unknown provider: ${provider}` };

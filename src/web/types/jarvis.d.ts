@@ -9,8 +9,19 @@ export interface StudioHotkeys {
   openSettings: string;
 }
 
+export type AiProvider =
+  | 'gemini'
+  | 'groq'
+  | 'ollama'
+  | 'openrouter'
+  | 'omnirouter'
+  | 'openai'
+  | 'grok'
+  | 'deepseek'
+  | 'qwen';
+
 export interface JarvisConfig {
-  provider: 'gemini' | 'groq' | 'ollama' | 'openrouter';
+  provider: AiProvider;
   geminiApiKey?: string;
   geminiModel?: string;
   groqApiKey?: string;
@@ -19,6 +30,17 @@ export interface JarvisConfig {
   ollamaModel?: string;
   openrouterApiKey?: string;
   openrouterModel?: string;
+  openaiApiKey?: string;
+  openaiModel?: string;
+  grokApiKey?: string;
+  grokModel?: string;
+  deepseekApiKey?: string;
+  deepseekModel?: string;
+  qwenApiKey?: string;
+  qwenModel?: string;
+  omnirouterApiKey?: string;
+  omnirouterModel?: string;
+  omnirouterEndpoint?: string;
   wakeWord?: string;
   hotkey?: string;
   hotkeys?: StudioHotkeys;

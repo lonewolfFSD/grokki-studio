@@ -280,10 +280,15 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
 
   const providerLabel =
     {
-      gemini: 'Gemini 3.5 Flash',
-      groq: 'Groq (openai/gpt-oss-120b)',
-      ollama: 'Ollama (Offline Air-Gap)',
-      openrouter: 'OpenRouter Multi-Model',
+      gemini: `Gemini (${config.geminiModel || '2.5-flash'})`,
+      groq: `Groq (${config.groqModel || 'llama-3.3-70b'})`,
+      ollama: `Ollama (${config.ollamaModel || 'llama3.2'})`,
+      openrouter: `OpenRouter (${config.openrouterModel || 'auto'})`,
+      omnirouter: `OmniRouter (${config.omnirouterModel || 'auto'})`,
+      openai: `ChatGPT (${config.openaiModel || 'gpt-4o'})`,
+      grok: `xAI Grok (${config.grokModel || 'grok-2'})`,
+      deepseek: `DeepSeek (${config.deepseekModel || 'chat'})`,
+      qwen: `Qwen (${config.qwenModel || 'max'})`,
     }[config.provider] || config.provider;
 
   const hotkeyParts = (config.hotkey || 'Alt+Q').split('+').map((k) => k.trim());

@@ -22,6 +22,50 @@ const { convertGeminiToolsToOpenAI, callOpenAICompatible, transcribeWithGroqWhis
 const studyEngine = require('./study_engine');
 const powerTools = require('./power_tools');
 
+function resolveOpenAIEndpointAndKey(provider, config = {}) {
+  let endpoint = 'https://api.groq.com/openai/v1';
+  let apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
+  let model = config.groqModel || 'llama-3.3-70b-versatile';
+
+  if (provider === 'groq') {
+    endpoint = 'https://api.groq.com/openai/v1';
+    apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
+    model = config.groqModel || 'llama-3.3-70b-versatile';
+  } else if (provider === 'ollama') {
+    const base = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+    endpoint = `${base}/v1`;
+    apiKey = 'ollama';
+    model = config.ollamaModel || 'llama3.2';
+  } else if (provider === 'openrouter') {
+    endpoint = 'https://openrouter.ai/api/v1';
+    apiKey = (config.openrouterApiKey || process.env.OPENROUTER_API_KEY || '').trim();
+    model = config.openrouterModel || 'openrouter/auto';
+  } else if (provider === 'openai') {
+    endpoint = 'https://api.openai.com/v1';
+    apiKey = (config.openaiApiKey || process.env.OPENAI_API_KEY || '').trim();
+    model = config.openaiModel || 'gpt-4o';
+  } else if (provider === 'grok') {
+    endpoint = 'https://api.x.ai/v1';
+    apiKey = (config.grokApiKey || process.env.XAI_API_KEY || '').trim();
+    model = config.grokModel || 'grok-2-1212';
+  } else if (provider === 'deepseek') {
+    endpoint = 'https://api.deepseek.com';
+    apiKey = (config.deepseekApiKey || process.env.DEEPSEEK_API_KEY || '').trim();
+    model = config.deepseekModel || 'deepseek-chat';
+  } else if (provider === 'qwen') {
+    endpoint = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1';
+    apiKey = (config.qwenApiKey || process.env.DASHSCOPE_API_KEY || '').trim();
+    model = config.qwenModel || 'qwen-max';
+  } else if (provider === 'omnirouter') {
+    const base = (config.omnirouterEndpoint || 'https://api.omnirouter.ai/v1').replace(/\/+$/, '');
+    endpoint = base;
+    apiKey = (config.omnirouterApiKey || process.env.OMNIROUTER_API_KEY || 'free').trim();
+    model = config.omnirouterModel || 'omnirouter/auto';
+  }
+
+  return { endpoint, apiKey, model };
+}
+
 const osInputScript = path.join(__dirname, 'os_input.ps1');
 
 function withTimeout(promise, ms) {
@@ -1274,11 +1318,14 @@ class AgentBrain {
     const provider = powerTools.airgapForced ? 'ollama' : (config.provider || 'groq');
     let endpoint = 'https://api.groq.com/openai/v1';
     let apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
-    let model = config.groqModel || 'openai/gpt-oss-120b';
+    let model = config.groqModel || 'llama-3.3-70b-versatile';
     let modelCandidates = [model];
 
     if (provider === 'groq') {
-      modelCandidates = Array.from(new Set([model, 'openai/gpt-oss-120b', 'openai/gpt-oss-20b']));
+      endpoint = 'https://api.groq.com/openai/v1';
+      apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
+      model = config.groqModel || 'llama-3.3-70b-versatile';
+      modelCandidates = Array.from(new Set([model, 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant']));
     } else if (provider === 'ollama') {
       const base = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
       endpoint = `${base}/v1`;
@@ -1288,11 +1335,37 @@ class AgentBrain {
     } else if (provider === 'openrouter') {
       endpoint = 'https://openrouter.ai/api/v1';
       apiKey = (config.openrouterApiKey || process.env.OPENROUTER_API_KEY || '').trim();
-      model = config.openrouterModel || 'meta-llama/llama-3.3-70b-instruct:free';
+      model = config.openrouterModel || 'openrouter/auto';
+      modelCandidates = [model];
+    } else if (provider === 'openai') {
+      endpoint = 'https://api.openai.com/v1';
+      apiKey = (config.openaiApiKey || process.env.OPENAI_API_KEY || '').trim();
+      model = config.openaiModel || 'gpt-4o';
+      modelCandidates = [model, 'gpt-4o-mini'];
+    } else if (provider === 'grok') {
+      endpoint = 'https://api.x.ai/v1';
+      apiKey = (config.grokApiKey || process.env.XAI_API_KEY || '').trim();
+      model = config.grokModel || 'grok-2-1212';
+      modelCandidates = [model, 'grok-beta'];
+    } else if (provider === 'deepseek') {
+      endpoint = 'https://api.deepseek.com';
+      apiKey = (config.deepseekApiKey || process.env.DEEPSEEK_API_KEY || '').trim();
+      model = config.deepseekModel || 'deepseek-chat';
+      modelCandidates = [model, 'deepseek-reasoner'];
+    } else if (provider === 'qwen') {
+      endpoint = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1';
+      apiKey = (config.qwenApiKey || process.env.DASHSCOPE_API_KEY || '').trim();
+      model = config.qwenModel || 'qwen-max';
+      modelCandidates = [model, 'qwen-plus'];
+    } else if (provider === 'omnirouter') {
+      const base = (config.omnirouterEndpoint || 'https://api.omnirouter.ai/v1').replace(/\/+$/, '');
+      endpoint = base;
+      apiKey = (config.omnirouterApiKey || process.env.OMNIROUTER_API_KEY || 'free').trim();
+      model = config.omnirouterModel || 'omnirouter/auto';
       modelCandidates = [model];
     }
 
-    if (provider !== 'ollama' && !apiKey) {
+    if (provider !== 'ollama' && provider !== 'omnirouter' && !apiKey) {
       return { success: false, error: `NO_${provider.toUpperCase()}_API_KEY` };
     }
 
@@ -1503,7 +1576,7 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
 
     const provider = config.provider || 'gemini';
 
-    if (provider === 'groq' || provider === 'ollama' || provider === 'openrouter') {
+    if (['groq', 'ollama', 'openrouter', 'omnirouter', 'openai', 'grok', 'deepseek', 'qwen'].includes(provider)) {
       return await this.runOpenAICompatible(prompt, config, context);
     }
 
@@ -2777,21 +2850,8 @@ Rules:
         });
         generatedMarkdown = res.text || '';
       } else {
-        // OpenAI Compatible: Groq, Ollama, OpenRouter
-        let endpoint = 'https://api.groq.com/openai/v1';
-        let apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
-        let model = config.groqModel || 'openai/gpt-oss-120b';
-
-        if (provider === 'ollama') {
-          const base = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
-          endpoint = `${base}/v1`;
-          apiKey = 'ollama';
-          model = config.ollamaModel || 'llama3.2';
-        } else if (provider === 'openrouter') {
-          endpoint = 'https://openrouter.ai/api/v1';
-          apiKey = (config.openrouterApiKey || process.env.OPENROUTER_API_KEY || '').trim();
-          model = config.openrouterModel || 'meta-llama/llama-3.3-70b-instruct:free';
-        }
+        // OpenAI Compatible: Groq, Ollama, OpenRouter, OpenAI, Grok, DeepSeek, Qwen, OmniRouter
+        const { endpoint, apiKey, model } = resolveOpenAIEndpointAndKey(provider, config);
 
         const data = await callOpenAICompatible({
           endpoint,
@@ -3001,22 +3061,9 @@ Keep it direct, accurate, and high-yield.`;
           return { success: true, message: (res.text || '').trim() };
         } catch (e) {}
       } else {
-        // Groq / Ollama / OpenRouter
+        // Groq / Ollama / OpenRouter / OpenAI / Grok / DeepSeek / Qwen / OmniRouter
         try {
-          let endpoint = 'https://api.groq.com/openai/v1';
-          let apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
-          let model = config.groqModel || 'openai/gpt-oss-120b';
-
-          if (provider === 'ollama') {
-            const base = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
-            endpoint = `${base}/v1`;
-            apiKey = 'ollama';
-            model = config.ollamaModel || 'llama3.2';
-          } else if (provider === 'openrouter') {
-            endpoint = 'https://openrouter.ai/api/v1';
-            apiKey = (config.openrouterApiKey || process.env.OPENROUTER_API_KEY || '').trim();
-            model = config.openrouterModel || 'meta-llama/llama-3.3-70b-instruct:free';
-          }
+          const { endpoint, apiKey, model } = resolveOpenAIEndpointAndKey(provider, config);
 
           const data = await callOpenAICompatible({
             endpoint,
@@ -3070,7 +3117,7 @@ Keep it direct, accurate, and high-yield.`;
     };
   }
 
-  // Multi-provider Academic LLM helper (Groq, Gemini, Ollama, OpenRouter)
+  // Multi-provider Academic LLM helper (Groq, Gemini, Ollama, OpenRouter, OpenAI, Grok, DeepSeek, Qwen, OmniRouter)
   async generateAcademicLLM(systemPrompt, userPrompt, maxTokens = 1400) {
     const config = this.activeConfig || {};
     const provider = powerTools.airgapForced ? 'ollama' : (config.provider || 'groq');
@@ -3089,20 +3136,7 @@ Keep it direct, accurate, and high-yield.`;
       return (res.text || '').trim();
     }
 
-    let endpoint = 'https://api.groq.com/openai/v1';
-    let apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
-    let model = config.groqModel || 'openai/gpt-oss-120b';
-
-    if (provider === 'ollama') {
-      const base = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
-      endpoint = `${base}/v1`;
-      apiKey = 'ollama';
-      model = config.ollamaModel || 'llama3.2';
-    } else if (provider === 'openrouter') {
-      endpoint = 'https://openrouter.ai/api/v1';
-      apiKey = (config.openrouterApiKey || process.env.OPENROUTER_API_KEY || '').trim();
-      model = config.openrouterModel || 'meta-llama/llama-3.3-70b-instruct:free';
-    }
+    const { endpoint, apiKey, model } = resolveOpenAIEndpointAndKey(provider, config);
 
     const data = await callOpenAICompatible({
       endpoint,
