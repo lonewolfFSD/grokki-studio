@@ -4,7 +4,7 @@
   "productName": "Grokki Studio",
   "copyright": "Copyright © 2026 Grokki Studio",
   "directories": {
-    "output": "release",
+    "output": "dist-release",
     "buildResources": "assets"
   },
   "files": [
