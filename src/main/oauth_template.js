@@ -266,25 +266,6 @@ function renderOAuthCallbackHtml({
       background: #252836;
       border-color: #2a2d3d;
     }
-    .auto-close {
-      margin-top: 14px;
-      font-size: 11px;
-      color: #6b7280;
-    }
-    .progress-bar-bg {
-      height: 2px;
-      width: 100%;
-      background: #1e2029;
-      border-radius: 2px;
-      overflow: hidden;
-      margin-top: 8px;
-    }
-    .progress-bar-fill {
-      height: 100%;
-      background: ${isSuccess ? '#10b981' : '#ef4444'};
-      width: 100%;
-      transition: width 1s linear;
-    }
     .footer-brand {
       margin-top: 22px;
       font-size: 11px;
@@ -327,13 +308,6 @@ function renderOAuthCallbackHtml({
     <button type="button" class="btn ${isSuccess ? 'btn-primary' : 'btn-secondary'}" onclick="handleClose()">
       Return to Grokki Studio
     </button>
-
-    <div class="auto-close">
-      Closing tab in <span id="countdown">4</span>s...
-      <div class="progress-bar-bg">
-        <div id="prog-fill" class="progress-bar-fill"></div>
-      </div>
-    </div>
   </div>
 
   <div class="footer-brand">
@@ -346,20 +320,6 @@ function renderOAuthCallbackHtml({
         window.close();
       } catch (e) {}
     }
-
-    let remaining = 4;
-    const countEl = document.getElementById('countdown');
-    const fillEl = document.getElementById('prog-fill');
-
-    const timer = setInterval(() => {
-      remaining -= 1;
-      if (countEl) countEl.textContent = Math.max(0, remaining);
-      if (fillEl) fillEl.style.width = ((remaining / 4) * 100) + '%';
-      if (remaining <= 0) {
-        clearInterval(timer);
-        handleClose();
-      }
-    }, 1000);
   </script>
 </body>
 </html>`;
