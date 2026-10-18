@@ -213,7 +213,7 @@ Please ensure all TypeScript interfaces compile cleanly (`npm run build`) before
 
 ## 📄 License
 
-Distributed under the **Grokki Studio Non-Commercial License**. Free for personal and educational use; commercial redistribution, monetization, or selling is strictly prohibited. See [`LICENSE`](LICENSE) for more information.
+Distributed under the **Grokki Studio Non-Commercial License**. Free for personal and educational use; commercial redistribution, monetization, or selling is strictly prohibited. See [`LICENSE`](LICENSE), [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md), and [`TERMS_OF_SERVICE.md`](TERMS_OF_SERVICE.md) for more information.
 
 <div align="center">
   <sub>Built with ❤️ for autonomous desktop computing.</sub>
