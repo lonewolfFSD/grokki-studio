@@ -1,67 +1,73 @@
 /**
- * Grokki Studio - High-End Apple/Grok Glassmorphic OAuth Callback Page
- * Renders connected / failed state with visual dual-logo connection beam
+ * Grokki Studio - Native OAuth Callback Page
+ * Clean, dark obsidian styling matching Grokki Studio UI exactly.
+ * Features authentic Grokki Studio logo and service logos with clean connected/failed bridge.
  */
 
-function getGrokkiLogoSvg() {
-  return `<svg width="44" height="44" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="orbGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#181a24" />
-        <stop offset="100%" stop-color="#07080d" />
-      </linearGradient>
-      <radialGradient id="cyanAura" cx="12%" cy="46%" r="68%">
-        <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9" />
-        <stop offset="50%" stop-color="#2563eb" stop-opacity="0.6" />
-        <stop offset="100%" stop-color="#05060d" stop-opacity="0" />
-      </radialGradient>
-      <radialGradient id="purpleAura" cx="88%" cy="44%" r="62%">
-        <stop offset="0%" stop-color="#c084fc" stop-opacity="0.9" />
-        <stop offset="50%" stop-color="#7c3aed" stop-opacity="0.5" />
-        <stop offset="100%" stop-color="#05060d" stop-opacity="0" />
-      </radialGradient>
-      <clipPath id="circleClip">
-        <circle cx="256" cy="256" r="240" />
-      </clipPath>
-    </defs>
-    <circle cx="256" cy="256" r="248" fill="#0a0c12" stroke="rgba(255,255,255,0.12)" stroke-width="6"/>
-    <g clip-path="url(#circleClip)">
-      <circle cx="256" cy="256" r="240" fill="url(#orbGrad)" />
-      <circle cx="256" cy="256" r="240" fill="url(#cyanAura)" />
-      <circle cx="256" cy="256" r="240" fill="url(#purpleAura)" />
-      <g transform="translate(328, 216) rotate(-21.8)">
-        <rect x="-54" y="-45" width="45" height="118" rx="22.5" fill="#ffffff" />
-        <rect x="9" y="-75" width="45" height="150" rx="22.5" fill="#ffffff" />
-      </g>
-    </g>
-  </svg>`;
+const fs = require('fs');
+const path = require('path');
+
+// Cache assets as Base64 data URIs
+function loadAssetBase64(relPath, mimeType = 'image/png') {
+  try {
+    const fullPath = path.resolve(__dirname, relPath);
+    if (fs.existsSync(fullPath)) {
+      return `data:${mimeType};base64,${fs.readFileSync(fullPath).toString('base64')}`;
+    }
+  } catch (e) {
+    console.warn(`[oauth_template] Failed to load asset ${relPath}:`, e.message);
+  }
+  return null;
 }
 
-function getServiceLogoSvg(service) {
-  const s = (service || '').toLowerCase();
-  if (s.includes('google')) {
-    return `<svg width="40" height="40" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+const CACHED_LOGOS = {
+  grokki: loadAssetBase64('../web/assets/grokki_logo.png', 'image/png'),
+  google: loadAssetBase64('../web/assets/logos/google.png', 'image/png'),
+  github: loadAssetBase64('../web/assets/logos/github.png', 'image/png'),
+  notion: loadAssetBase64('../web/assets/logos/notion.png', 'image/png'),
+};
+
+function getServiceLogoHtml(serviceType, serviceName) {
+  const type = (serviceType || '').toLowerCase();
+  const isGithub = type.includes('github');
+  const cached = CACHED_LOGOS[type] || (isGithub ? CACHED_LOGOS.github : (type.includes('google') ? CACHED_LOGOS.google : (type.includes('notion') ? CACHED_LOGOS.notion : null)));
+
+  if (cached) {
+    return `<img src="${cached}" alt="${serviceName}" style="width: 26px; height: 26px; object-fit: contain; ${isGithub ? 'filter: brightness(0) invert(1);' : ''}" />`;
+  }
+
+  // Pure SVG fallbacks if image asset is unavailable
+  if (type.includes('google')) {
+    return `<svg width="26" height="26" viewBox="0 0 48 48">
       <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
       <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
       <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
       <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
     </svg>`;
   }
-  if (s.includes('github')) {
-    return `<svg width="40" height="40" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+  if (isGithub) {
+    return `<svg width="26" height="26" viewBox="0 0 24 24" fill="#ffffff">
       <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
     </svg>`;
   }
-  if (s.includes('notion')) {
-    return `<svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100" height="100" rx="22" fill="#ffffff"/>
+  if (type.includes('notion')) {
+    return `<svg width="26" height="26" viewBox="0 0 100 100">
+      <rect width="100" height="100" rx="20" fill="#ffffff"/>
       <path d="M28 28H42L62 64V28H72V72H58L38 36V72H28V28Z" fill="#000000"/>
     </svg>`;
   }
-  // Generic Fallback
-  return `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+  return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+}
+
+function getGrokkiLogoHtml() {
+  if (CACHED_LOGOS.grokki) {
+    return `<img src="${CACHED_LOGOS.grokki}" alt="Grokki Studio" style="width: 32px; height: 32px; object-fit: contain; border-radius: 6px;" />`;
+  }
+  // SVG fallback: official Grokki parallel slashes on dark tile
+  return `<svg width="32" height="32" viewBox="0 0 64 64">
+    <rect x="3" y="3" width="58" height="58" rx="14" fill="#0f1013" stroke="#373a46" stroke-width="2"/>
+    <line x1="23" y1="46" x2="31" y2="18" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+    <line x1="35" y1="46" x2="43" y2="18" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
   </svg>`;
 }
 
@@ -76,18 +82,30 @@ function renderOAuthCallbackHtml({
 }) {
   const isSuccess = status === 'success';
   const defaultTitle = isSuccess
-    ? `${serviceName} Connected!`
+    ? `${serviceName} Connected to Grokki Studio`
     : `${serviceName} Connection Failed`;
   const defaultDesc = isSuccess
-    ? `Grokki Studio now has autonomous access to your ${serviceName}. You can return to your desktop.`
+    ? `Grokki Studio now has authorized access to your ${serviceName}. You can return to your desktop.`
     : (errorMessage || 'The authorization was cancelled or encountered an error. Please try again.');
 
   const heading = title || defaultTitle;
   const desc = description || defaultDesc;
 
-  const accentColor = isSuccess ? '#10b981' : '#ef4444';
-  const accentGlow = isSuccess ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)';
-  const beamColor = isSuccess ? '#3b82f6' : '#64748b';
+  const serviceLogoHtml = getServiceLogoHtml(serviceType, serviceName);
+  const grokkiLogoHtml = getGrokkiLogoHtml();
+
+  const statusBadgeHtml = isSuccess
+    ? `<div class="status-badge status-success" title="Connected">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>`
+    : `<div class="status-badge status-error" title="Failed">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </div>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -97,7 +115,7 @@ function renderOAuthCallbackHtml({
   <title>${isSuccess ? 'Connected' : 'Connection Failed'} • Grokki Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
@@ -106,349 +124,247 @@ function renderOAuthCallbackHtml({
     }
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #08090d;
-      color: #ffffff;
+      background: #0b0c10;
+      color: #f3f4f6;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 24px;
-      overflow: hidden;
-      position: relative;
+      -webkit-font-smoothing: antialiased;
     }
-
-    /* Ambient Cosmic Backdrop */
-    .bg-glow {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, ${isSuccess ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.12)'} 0%, rgba(8, 9, 13, 0) 70%);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* Glass Card */
     .card {
-      position: relative;
-      z-index: 1;
       width: 100%;
-      max-width: 460px;
-      background: rgba(18, 20, 29, 0.72);
-      backdrop-filter: blur(28px);
-      -webkit-backdrop-filter: blur(28px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 28px;
-      padding: 44px 36px 36px;
+      max-width: 420px;
+      background: #13141a;
+      border: 1px solid #1e2029;
+      border-radius: 16px;
+      padding: 36px 30px;
       text-align: center;
-      box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.05);
-      animation: cardAppear 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
     }
-
-    @keyframes cardAppear {
-      from {
-        opacity: 0;
-        transform: translateY(20px) scale(0.97);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    /* Dual Logo Connection Bridge */
-    .bridge-container {
+    /* Logo Bridge */
+    .bridge-row {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 16px;
-      margin-bottom: 28px;
-      position: relative;
+      gap: 12px;
+      margin-bottom: 24px;
     }
-
-    .logo-badge {
-      width: 72px;
-      height: 72px;
-      border-radius: 20px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+    .logo-pod {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: #1a1c24;
+      border: 1px solid #1e2029;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.5);
-      transition: transform 0.3s ease;
+      flex-shrink: 0;
     }
-    .logo-badge:hover {
-      transform: translateY(-2px);
+    .connector {
+      flex: 1;
+      height: 1px;
+      background: #222533;
     }
-
-    /* Animated Beam Link */
-    .beam-link {
-      position: relative;
-      width: 64px;
-      height: 2px;
-      background: rgba(255, 255, 255, 0.12);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .beam-link::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, #3b82f6, ${accentColor});
-      opacity: ${isSuccess ? '0.9' : '0.4'};
-    }
-
-    .beam-pulse-dot {
-      position: absolute;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #ffffff;
-      box-shadow: 0 0 8px #ffffff;
-      animation: pulseTravel 2s infinite ease-in-out;
-    }
-
-    @keyframes pulseTravel {
-      0% { left: 0%; opacity: 0; }
-      50% { opacity: 1; }
-      100% { left: 100%; opacity: 0; }
-    }
-
     .status-badge {
-      position: absolute;
-      top: -12px;
       width: 24px;
       height: 24px;
       border-radius: 50%;
-      background: ${accentColor};
-      color: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 13px;
-      font-weight: 800;
-      box-shadow: 0 0 16px ${accentGlow};
-      border: 2px solid #08090d;
-      z-index: 2;
+      flex-shrink: 0;
     }
-
-    /* Typography */
-    .pill-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 12px;
-      border-radius: 999px;
-      background: ${isSuccess ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)'};
-      border: 1px solid ${isSuccess ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'};
-      color: ${accentColor};
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 14px;
+    .status-success {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
     }
-
-    .pill-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: ${accentColor};
-      box-shadow: 0 0 6px ${accentColor};
+    .status-error {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
     }
-
     h1 {
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      margin-bottom: 10px;
-      color: #ffffff;
+      font-size: 19px;
+      font-weight: 600;
+      color: #f3f4f6;
+      margin: 0 0 8px 0;
+      letter-spacing: -0.01em;
     }
-
-    p.description {
-      font-size: 13.5px;
-      line-height: 1.55;
-      color: #94a3b8;
-      margin-bottom: 24px;
+    p.desc {
+      font-size: 13px;
+      color: #8b92a2;
+      line-height: 1.5;
+      margin: 0 0 20px 0;
     }
-
-    /* User Profile Card */
     .user-chip {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      gap: 7px;
+      padding: 6px 12px;
+      background: #181a22;
+      border: 1px solid #222533;
+      border-radius: 8px;
       font-size: 12px;
-      color: #cbd5e1;
-      font-weight: 500;
-      margin-bottom: 24px;
+      color: #d1d5db;
+      margin-bottom: 22px;
+      max-width: 100%;
     }
-
-    /* Actions */
-    .btn-action {
+    .user-chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      flex-shrink: 0;
+    }
+    .user-chip-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .error-box {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #f87171;
+      margin-bottom: 20px;
+      text-align: left;
+      word-break: break-word;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+    .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       width: 100%;
-      padding: 13px 20px;
-      border-radius: 14px;
-      background: #ffffff;
-      color: #090a0f;
+      height: 38px;
+      border-radius: 8px;
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
       text-decoration: none;
       border: none;
-      cursor: pointer;
-      box-shadow: 0 4px 14px rgba(255, 255, 255, 0.15);
-      transition: all 0.2s ease;
     }
-    .btn-action:hover {
-      background: #f1f5f9;
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(255, 255, 255, 0.22);
+    .btn-primary {
+      background: #ffffff;
+      color: #0d0e12;
     }
-    .btn-action:active {
-      transform: translateY(0);
+    .btn-primary:hover {
+      background: #e5e7eb;
     }
-
-    .countdown-text {
-      margin-top: 18px;
-      font-size: 11.5px;
-      color: #64748b;
-      font-weight: 500;
+    .btn-secondary {
+      background: #1a1c24;
+      color: #f3f4f6;
+      border: 1px solid #1e2029;
     }
-
-    .countdown-bar {
-      margin-top: 8px;
+    .btn-secondary:hover {
+      background: #252836;
+      border-color: #2a2d3d;
+    }
+    .auto-close {
+      margin-top: 14px;
+      font-size: 11px;
+      color: #6b7280;
+    }
+    .progress-bar-bg {
+      height: 2px;
       width: 100%;
-      height: 3px;
-      background: rgba(255, 255, 255, 0.06);
-      border-radius: 3px;
+      background: #1e2029;
+      border-radius: 2px;
       overflow: hidden;
+      margin-top: 8px;
     }
-
-    .countdown-fill {
-      width: 100%;
+    .progress-bar-fill {
       height: 100%;
-      background: ${accentColor};
+      background: ${isSuccess ? '#10b981' : '#ef4444'};
+      width: 100%;
       transition: width 1s linear;
     }
-
-    /* Footer Brand */
-    .footer {
-      margin-top: 24px;
+    .footer-brand {
+      margin-top: 22px;
       font-size: 11px;
-      color: #475569;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-    .footer-dot {
-      color: #334155;
+      color: #4b5563;
+      letter-spacing: 0.02em;
     }
   </style>
 </head>
 <body>
-  <div class="bg-glow"></div>
-
   <div class="card">
-    <!-- Visual Logo Connection Beam -->
-    <div class="bridge-container">
-      <div class="logo-badge" title="${serviceName}">
-        ${getServiceLogoSvg(serviceType)}
+    <!-- Clean Minimalist Dual-Logo Bridge -->
+    <div class="bridge-row">
+      <div class="logo-pod" title="${serviceName}">
+        ${serviceLogoHtml}
       </div>
-
-      <div class="beam-link">
-        ${isSuccess ? '<div class="beam-pulse-dot"></div>' : ''}
-        <div class="status-badge">${isSuccess ? '✓' : '✕'}</div>
-      </div>
-
-      <div class="logo-badge" title="Grokki Studio">
-        ${getGrokkiLogoSvg()}
+      <div class="connector"></div>
+      ${statusBadgeHtml}
+      <div class="connector"></div>
+      <div class="logo-pod" title="Grokki Studio">
+        ${grokkiLogoHtml}
       </div>
     </div>
 
-    <!-- Status Tag -->
-    <div class="pill-tag">
-      <div class="pill-dot"></div>
-      <span>${isSuccess ? 'Authorization Verified' : 'Authentication Error'}</span>
-    </div>
-
-    <!-- Main Title -->
     <h1>${heading}</h1>
-
-    <!-- Description -->
-    <p class="description">${desc}</p>
+    <p class="desc">${desc}</p>
 
     ${userIdentifier ? `
       <div class="user-chip">
-        <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#10b981;"></span>
-        <span>${userIdentifier}</span>
+        <span class="user-chip-dot"></span>
+        <span class="user-chip-text">${userIdentifier}</span>
       </div>
     ` : ''}
 
-    <!-- Return to App Button -->
-    <button class="btn-action" onclick="closeTab()">
+    ${!isSuccess && errorMessage ? `
+      <div class="error-box">
+        ${errorMessage}
+      </div>
+    ` : ''}
+
+    <button type="button" class="btn ${isSuccess ? 'btn-primary' : 'btn-secondary'}" onclick="handleClose()">
       Return to Grokki Studio
     </button>
 
-    ${isSuccess ? `
-      <div class="countdown-text" id="countdownLabel">Closing tab in <b id="countdownSec">5</b>s...</div>
-      <div class="countdown-bar">
-        <div class="countdown-fill" id="countdownFill"></div>
+    <div class="auto-close">
+      Closing tab in <span id="countdown">4</span>s...
+      <div class="progress-bar-bg">
+        <div id="prog-fill" class="progress-bar-fill"></div>
       </div>
-    ` : ''}
+    </div>
   </div>
 
-  <div class="footer">
-    <span>Grokki Studio</span>
-    <span class="footer-dot">•</span>
-    <span>Autonomous Multimodal Companion</span>
-    <span class="footer-dot">•</span>
-    <span>100% Local Privacy</span>
+  <div class="footer-brand">
+    Grokki Studio
   </div>
 
   <script>
-    function closeTab() {
-      window.close();
-      // If browser security blocks window.close()
-      setTimeout(() => {
-        const btn = document.querySelector('.btn-action');
-        if (btn) btn.textContent = 'Ready! You can switch back to Grokki';
-      }, 400);
+    function handleClose() {
+      try {
+        window.close();
+      } catch (e) {}
     }
 
-    ${isSuccess ? `
-      let timeLeft = 5;
-      const secEl = document.getElementById('countdownSec');
-      const fillEl = document.getElementById('countdownFill');
-      const timer = setInterval(() => {
-        timeLeft--;
-        if (secEl) secEl.textContent = timeLeft;
-        if (fillEl) fillEl.style.width = ((timeLeft / 5) * 100) + '%';
-        if (timeLeft <= 0) {
-          clearInterval(timer);
-          closeTab();
-        }
-      }, 1000);
-    ` : ''}
+    let remaining = 4;
+    const countEl = document.getElementById('countdown');
+    const fillEl = document.getElementById('prog-fill');
+
+    const timer = setInterval(() => {
+      remaining -= 1;
+      if (countEl) countEl.textContent = Math.max(0, remaining);
+      if (fillEl) fillEl.style.width = ((remaining / 4) * 100) + '%';
+      if (remaining <= 0) {
+        clearInterval(timer);
+        handleClose();
+      }
+    }, 1000);
   </script>
 </body>
 </html>`;
 }
 
-module.exports = { renderOAuthCallbackHtml };
+module.exports = {
+  renderOAuthCallbackHtml,
+};
