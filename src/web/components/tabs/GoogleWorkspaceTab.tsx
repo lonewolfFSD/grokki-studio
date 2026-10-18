@@ -35,6 +35,10 @@ import {
   Send,
   Share2,
   Mic,
+  Play,
+  Music,
+  ListMusic,
+  Radio,
 } from 'lucide-react';
 import {
   GoogleProfile,
@@ -46,9 +50,62 @@ import {
 
 import googleLogo from '../../assets/logos/google.png';
 import whatsappLogo from '../../assets/logos/whatsapp.svg';
+import spotifyLogo from '../../assets/logos/spotify.svg';
+import applemusicLogo from '../../assets/logos/applemusic.svg';
+import ytmusicLogo from '../../assets/logos/ytmusic.svg';
+import amazonmusicLogo from '../../assets/logos/amazonmusic.svg';
+import soundcloudLogo from '../../assets/logos/soundcloud.svg';
 import notionLogo from '../../assets/logos/notion.png';
 import obsidianLogo from '../../assets/logos/obsidian.png';
 import githubLogo from '../../assets/logos/github.png';
+
+import GlideSelect, { GlideSelectOption } from '../../../effects/GlideSelect';
+
+export interface MusicService {
+  id: string;
+  name: string;
+  logo: string;
+  appUrl: string;
+  webUrl: string;
+}
+
+export const MUSIC_SERVICES: Record<string, MusicService> = {
+  spotify: {
+    id: 'spotify',
+    name: 'Spotify',
+    logo: spotifyLogo,
+    appUrl: 'spotify://',
+    webUrl: 'https://open.spotify.com',
+  },
+  applemusic: {
+    id: 'applemusic',
+    name: 'Apple Music',
+    logo: applemusicLogo,
+    appUrl: 'music://',
+    webUrl: 'https://music.apple.com',
+  },
+  ytmusic: {
+    id: 'ytmusic',
+    name: 'YouTube Music',
+    logo: ytmusicLogo,
+    appUrl: 'https://music.youtube.com',
+    webUrl: 'https://music.youtube.com',
+  },
+  amazonmusic: {
+    id: 'amazonmusic',
+    name: 'Amazon Music',
+    logo: amazonmusicLogo,
+    appUrl: 'https://music.amazon.com',
+    webUrl: 'https://music.amazon.com',
+  },
+  soundcloud: {
+    id: 'soundcloud',
+    name: 'SoundCloud',
+    logo: soundcloudLogo,
+    appUrl: 'https://soundcloud.com',
+    webUrl: 'https://soundcloud.com',
+  },
+};
 
 // Official Authentic Google Brand Logo
 const GoogleLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
@@ -101,6 +158,22 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       window.jarvisAPI.openUrl('whatsapp://');
     } else {
       window.open('https://web.whatsapp.com', '_blank');
+    }
+  };
+
+  // Music Streaming State
+  const [selectedMusic, setSelectedMusic] = useState<string>(() => {
+    return localStorage.getItem('grokki_music_platform') || 'spotify';
+  });
+  const [musicExpanded, setMusicExpanded] = useState(false);
+
+  const currentMusic = MUSIC_SERVICES[selectedMusic] || MUSIC_SERVICES.spotify;
+
+  const handleOpenMusic = () => {
+    if (window.jarvisAPI?.openUrl) {
+      window.jarvisAPI.openUrl(currentMusic.appUrl || currentMusic.webUrl);
+    } else {
+      window.open(currentMusic.webUrl, '_blank');
     }
   };
 
@@ -685,6 +758,63 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
     { label: 'Notification Sync', icon: <CheckCircle2 className="w-4 h-4 text-gray-400" /> },
   ];
 
+  const musicApps = [
+    { label: 'Now Playing & Playback', icon: <Play className="w-4 h-4 text-gray-400" /> },
+    { label: 'Voice Command Controls', icon: <Mic className="w-4 h-4 text-gray-400" /> },
+    { label: 'Playlist & Queue Sync', icon: <ListMusic className="w-4 h-4 text-gray-400" /> },
+    { label: 'Desktop & Web Protocol', icon: <ExternalLink className="w-4 h-4 text-gray-400" /> },
+    { label: 'Smart Focus Audio', icon: <Radio className="w-4 h-4 text-gray-400" /> },
+    { label: 'Background Mode', icon: <Music className="w-4 h-4 text-gray-400" /> },
+  ];
+
+  const musicSelectOptions: GlideSelectOption[] = [
+    {
+      value: 'spotify',
+      label: (
+        <span className="flex items-center gap-2">
+          <img src={spotifyLogo} alt="" className="w-3.5 h-3.5 object-contain" />
+          <span>Spotify</span>
+        </span>
+      ),
+    },
+    {
+      value: 'applemusic',
+      label: (
+        <span className="flex items-center gap-2">
+          <img src={applemusicLogo} alt="" className="w-3.5 h-3.5 object-contain" />
+          <span>Apple Music</span>
+        </span>
+      ),
+    },
+    {
+      value: 'ytmusic',
+      label: (
+        <span className="flex items-center gap-2">
+          <img src={ytmusicLogo} alt="" className="w-3.5 h-3.5 object-contain" />
+          <span>YouTube Music</span>
+        </span>
+      ),
+    },
+    {
+      value: 'amazonmusic',
+      label: (
+        <span className="flex items-center gap-2">
+          <img src={amazonmusicLogo} alt="" className="w-3.5 h-3.5 object-contain" />
+          <span>Amazon Music</span>
+        </span>
+      ),
+    },
+    {
+      value: 'soundcloud',
+      label: (
+        <span className="flex items-center gap-2">
+          <img src={soundcloudLogo} alt="" className="w-3.5 h-3.5 object-contain" />
+          <span>SoundCloud</span>
+        </span>
+      ),
+    },
+  ];
+
   const notionApps = [
     { label: 'Pages & Sub-pages', icon: <FileText className="w-4 h-4 text-gray-400" /> },
     { label: 'Databases & Tables', icon: <Table className="w-4 h-4 text-gray-400" /> },
@@ -826,10 +956,10 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
               type="button"
               onClick={handleOpenWhatsApp}
               title="Open WhatsApp desktop app"
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all"
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all"
             >
               <span>Open App</span>
-              <ExternalLink className="w-3 h-3 opacity-60" />
+              
             </button>
 
             <div className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-semibold border bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 border-gray-300 dark:border-[#1e2029] shadow-xs select-none">
@@ -876,7 +1006,101 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
         </div>
       </div>
 
-      {/* 3. Notion Workspace Accordion Card */}
+      {/* 3. Music Streaming Accordion Card */}
+      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs transition-all duration-300">
+        <div
+          onClick={() => setMusicExpanded((prev) => !prev)}
+          className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
+        >
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
+              <img
+                src={currentMusic.logo}
+                alt={currentMusic.name}
+                className="w-5 h-5 object-contain transition-all"
+              />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+                Music Streaming
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 m-0 truncate">
+                Active: {currentMusic.name}. Seamless playback integration for Grokki to launch tracks, playlists, and audio.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0 ml-4" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={handleOpenMusic}
+              title={`Open ${currentMusic.name}`}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all"
+            >
+              <span>Open App</span>
+              <ExternalLink className="w-3 h-3 opacity-60" />
+            </button>
+
+            {/* Dropdown to select streaming app using GlideSelect */}
+            <div className="[--music-select-bg:#f3f4f6] dark:[--music-select-bg:#1a1c24] [--music-select-hover:#e5e7eb] dark:[--music-select-hover:#252836] [--music-select-text:#111827] dark:[--music-select-text:#f3f4f6] border border-gray-200 dark:border-[#1e2029] rounded-lg shadow-xs flex items-center h-9">
+              <GlideSelect
+                options={musicSelectOptions}
+                value={selectedMusic}
+                onChange={(val) => {
+                  setSelectedMusic(val);
+                  localStorage.setItem('grokki_music_platform', val);
+                }}
+                size="md"
+                radius={8}
+                menuWidth={180}
+                align="right"
+                placement="bottom"
+                surfaceColor="var(--music-select-bg)"
+                highlightColor="var(--music-select-hover)"
+                textColor="var(--music-select-text)"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setMusicExpanded((prev) => !prev)}
+              aria-label={musicExpanded ? 'Collapse section' : 'Expand section'}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border-none bg-transparent"
+            >
+              <ChevronDown
+                className={`w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                  musicExpanded ? 'rotate-180 text-gray-700 dark:text-gray-200' : 'text-gray-400'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Smooth Accordion Content: Integrated Music Apps Grid */}
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            musicExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none'
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="px-5 pb-5 pt-4 border-t border-[#e4e4eb] dark:border-[#1e2029]">
+              <div className="grid grid-cols-3 gap-3 w-full">
+                {musicApps.map((app, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    {app.icon}
+                    <span>{app.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Notion Workspace Accordion Card */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
         <div
           onClick={() => setNotionExpanded((prev) => !prev)}

@@ -23,6 +23,7 @@ import whatsappLogo from '../../assets/logos/whatsapp.svg';
 import notionLogo from '../../assets/logos/notion.png';
 import obsidianLogo from '../../assets/logos/obsidian.png';
 import githubLogo from '../../assets/logos/github.png';
+import { MUSIC_SERVICES } from './GoogleWorkspaceTab';
 
 export interface UpdateItem {
   id: string;
@@ -77,7 +78,7 @@ const BASE_QUICK_ACCESS: QuickAccessItem[] = [
   {
     id: 'integrations',
     label: 'Integrations',
-    description: 'Google, WhatsApp, Notion, Obsidian, GitHub',
+    description: 'Google, WhatsApp, Music, Notion, Obsidian, GitHub',
     icon: <Link2 className="w-4 h-4" />,
     tab: INTEGRATIONS_TAB,
   },
@@ -287,9 +288,12 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
 
   const hotkeyParts = (config.hotkey || 'Alt+Q').split('+').map((k) => k.trim());
   const wakeWordOn = config.wakeWordEnabled !== false;
-  const spokenOn = config.ttsEnabled !== false;
+  const [selectedMusic] = useState<string>(() => {
+    return localStorage.getItem('grokki_music_platform') || 'spotify';
+  });
+  const currentMusic = MUSIC_SERVICES[selectedMusic] || MUSIC_SERVICES.spotify;
 
-  const connectedCount = [googleConnected, true, notionConnected, obsidianConnected, githubConnected].filter(
+  const connectedCount = [googleConnected, true, true, notionConnected, obsidianConnected, githubConnected].filter(
     Boolean
   ).length;
 
@@ -476,7 +480,7 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
             title="Linked accounts"
             action={
               <span className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums">
-                {connectedCount} of 5 connected
+                {connectedCount} of 6 connected
               </span>
             }
           >
@@ -498,6 +502,13 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
                 logo={whatsappLogo}
                 name="WhatsApp"
                 detail="Desktop bridge active (Auto-connected)"
+                connected={true}
+                onClick={goToIntegrations}
+              />
+              <AccountRow
+                logo={currentMusic.logo}
+                name={currentMusic.name}
+                detail="Music streaming active (Ready)"
                 connected={true}
                 onClick={goToIntegrations}
               />
