@@ -8,6 +8,11 @@ const agentBrain = require('./agent_brain');
 const kokoroTTS = require('./kokoro_tts');
 require('dotenv').config();
 
+app.setName('Grokki Studio');
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.grokki.studio');
+}
+
 const grokkiDataDir = path.resolve(__dirname, '../../data');
 if (!fs.existsSync(grokkiDataDir)) {
   try { fs.mkdirSync(grokkiDataDir, { recursive: true }); } catch (e) {}

@@ -1,6 +1,7 @@
 {
-  "name": "assistant-ai",
-  "version": "1.0.0",
+  "name": "grokki-studio",
+  "productName": "Grokki Studio",
+  "version": "2.5.0",
   "description": "Grokki Studio & Island - Autonomous AI Assistant for Windows",
   "main": "src/main/main.js",
   "scripts": {
@@ -8,7 +9,8 @@
     "build": "vite build",
     "start": "npm run build && electron .",
     "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder --win nsis"
+    "dist": "npm run build && electron-builder --win nsis",
+    "release": "npm run build && electron-builder --win nsis --publish always"
   },
   "keywords": [],
   "author": "",

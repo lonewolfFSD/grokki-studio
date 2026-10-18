@@ -19,6 +19,7 @@ data/jarvis-config.json
 # Build outputs
 dist/
 build/
+release/
 
 # Electron & OS Cache
 data/Cache/
