@@ -2924,7 +2924,7 @@ Rules:
     };
   }
 
-  async captureScreenBase64(width = 1280, height = 720) {
+  async captureScreenBase64(width = 1920, height = 1080) {
     if (desktopCapturer) {
       try {
         const sources = await desktopCapturer.getSources({
@@ -2932,7 +2932,7 @@ Rules:
           thumbnailSize: { width, height },
         });
         if (sources && sources.length > 0) {
-          return sources[0].thumbnail.toJPEG(85).toString('base64');
+          return sources[0].thumbnail.toJPEG(90).toString('base64');
         }
       } catch (e) {}
     }
@@ -3406,7 +3406,17 @@ Instructions:
     const config = this.activeConfig || {};
     const groqKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
     const geminiKey = (apiKey || config.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
-    const promptText = `User asked: "${task}". Look at this screenshot of the user's monitor. Describe what application/website is open, what is visible on the screen, or answer their question about their display accurately and concisely.`;
+
+    const cleanTask = (task && typeof task === 'string' && task.trim() && task !== 'undefined')
+      ? task.trim()
+      : 'What is currently on my screen?';
+
+    const visionSystemPrompt = `You are Grokki, an intelligent desktop AI assistant. Look closely at the screenshot of the user's monitor and provide a helpful, natural, and comprehensive description of what is displayed.
+Guidelines:
+1. Identify the open application(s), active browser tabs, websites, IDEs, or windows.
+2. Summarize the key content, headlines, code, documents, or media visible on the screen.
+3. Directly answer the user's inquiry: "${cleanTask}".
+4. Write in clean Markdown, keeping the explanation concise (2 to 4 informative sentences). Never output isolated word fragments or cut-off labels.`;
 
     if (groqKey && (config.provider === 'groq' || !geminiKey)) {
       try {
@@ -3416,19 +3426,27 @@ Instructions:
           model: 'meta-llama/llama-4-scout-17b-16e-instruct',
           messages: [
             {
+              role: 'system',
+              content: visionSystemPrompt,
+            },
+            {
               role: 'user',
               content: [
-                { type: 'text', text: promptText },
+                { type: 'text', text: `Please inspect my screen: "${cleanTask}"` },
                 { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
               ],
             },
           ],
-          temperature: 0.2,
+          temperature: 0.3,
           timeout: 25000,
         });
         const reply = visionData?.choices?.[0]?.message?.content;
-        if (reply) return { success: true, message: reply.trim() };
-      } catch (e) {}
+        if (reply && reply.trim().length > 30 && !reply.trim().startsWith('-oss-120b')) {
+          return { success: true, message: reply.trim() };
+        }
+      } catch (e) {
+        console.warn('[AgentBrain] Groq vision failed, trying Gemini fallback:', e.message);
+      }
     }
 
     if (!geminiKey) {
@@ -3443,7 +3461,7 @@ Instructions:
           {
             role: 'user',
             parts: [
-              { text: promptText },
+              { text: `${visionSystemPrompt}\n\nUser Question: ${cleanTask}` },
               {
                 inlineData: {
                   mimeType: 'image/jpeg',
@@ -3454,8 +3472,8 @@ Instructions:
           },
         ],
         config: {
-          maxOutputTokens: 300,
-          temperature: 0.1,
+          maxOutputTokens: 500,
+          temperature: 0.2,
         },
       });
 
