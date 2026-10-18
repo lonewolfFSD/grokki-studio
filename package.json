@@ -1,12 +1,14 @@
 {
   "name": "assistant-ai",
   "version": "1.0.0",
-  "description": "",
+  "description": "Grokki Studio & Island - Autonomous AI Assistant for Windows",
   "main": "src/main/main.js",
   "scripts": {
     "dev": "node scripts/dev.js",
     "build": "vite build",
-    "start": "npm run build && electron ."
+    "start": "npm run build && electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder --win nsis"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +23,7 @@
     "autoprefixer": "^10.6.1",
     "concurrently": "^10.0.6",
     "electron": "^44.7.2",
+    "electron-builder": "^26.15.3",
     "postcss": "^8.5.30",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",

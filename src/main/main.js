@@ -19,10 +19,6 @@ const configPath = path.join(grokkiDataDir, 'jarvis-config.json');
 let cachedConfig = null;
 
 app.commandLine.appendSwitch('disable-gpu-cache');
-app.commandLine.appendSwitch('enable-gpu-rasterization');
-app.commandLine.appendSwitch('enable-zero-copy');
-app.commandLine.appendSwitch('enable-accelerated-2d-canvas');
-app.commandLine.appendSwitch('enable-features', 'CanvasOopRasterization,VaapiVideoDecoder');
 
 const initialConfig = loadConfig();
 if (initialConfig.hardwareAcceleration === false) {
@@ -38,7 +34,18 @@ if (!gotTheLock) {
 }
 
 app.on('second-instance', () => {
-  if (mainWindow) {
+  if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+    if (dashboardWindow.isMinimized()) dashboardWindow.restore();
+    dashboardWindow.show();
+    dashboardWindow.focus();
+  } else if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.focus();
+  } else {
+    createSplashWindow(() => {
+      openDashboardWindow(true);
+    });
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
     showWindow();
   }
 });
@@ -364,8 +371,16 @@ function createSplashWindow(onFinish) {
   splashWindow.loadFile(path.join(__dirname, '../renderer/splash.html'));
 
   splashWindow.once('ready-to-show', () => {
-    splashWindow.show();
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.show();
+    }
   });
+
+  setTimeout(() => {
+    if (splashWindow && !splashWindow.isDestroyed() && !splashWindow.isVisible()) {
+      splashWindow.show();
+    }
+  }, 200);
 
   let finished = false;
   const finish = () => {
