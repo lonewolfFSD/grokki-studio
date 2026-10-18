@@ -248,17 +248,26 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     loadGitHub();
     loadGit();
 
-    let unsub: (() => void) | undefined;
+    let unsubNotion: (() => void) | undefined;
     if (window.jarvisAPI?.onNotionConnected) {
-      unsub = window.jarvisAPI.onNotionConnected((newProfile: NotionProfile) => {
+      unsubNotion = window.jarvisAPI.onNotionConnected((newProfile: NotionProfile) => {
         setNotionConnected(true);
         setNotionProfile(newProfile);
       });
     }
 
+    let unsubGitHub: (() => void) | undefined;
+    if (window.jarvisAPI?.onGitHubConnected) {
+      unsubGitHub = window.jarvisAPI.onGitHubConnected((newProfile: GitHubProfile) => {
+        setGithubConnected(true);
+        setGithubProfile(newProfile);
+      });
+    }
+
     return () => {
       cancelled = true;
-      if (unsub) unsub();
+      if (unsubNotion) unsubNotion();
+      if (unsubGitHub) unsubGitHub();
     };
   }, []);
 

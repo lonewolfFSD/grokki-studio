@@ -29,6 +29,8 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  Copy,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   GoogleProfile,
@@ -107,7 +109,14 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
   const [githubToken, setGithubToken] = useState('');
   const [showGitHubTokenInput, setShowGitHubTokenInput] = useState(false);
   const [showTokenSecret, setShowTokenSecret] = useState(false);
+  const [githubStatusMessage, setGithubStatusMessage] = useState<string | null>(null);
   const [githubError, setGithubError] = useState<string | null>(null);
+  const [showGitHubOAuthModal, setShowGitHubOAuthModal] = useState(false);
+  const [githubClientId, setGithubClientId] = useState('');
+  const [githubClientSecret, setGithubClientSecret] = useState('');
+  const [savingOAuthCreds, setSavingOAuthCreds] = useState(false);
+  const [githubAuthMode, setGithubAuthMode] = useState<'oauth' | 'pat'>('oauth');
+  const [copiedCallback, setCopiedCallback] = useState(false);
   const [githubSubTab, setGithubSubTab] = useState<'local' | 'cloud'>('local');
   const [isDefaultOAuth, setIsDefaultOAuth] = useState(true);
 
@@ -130,9 +139,9 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
     loadGitHubStatus();
     loadGitStatus();
 
-    let unsub: (() => void) | undefined;
+    let unsubNotion: (() => void) | undefined;
     if (window.jarvisAPI?.onNotionConnected) {
-      unsub = window.jarvisAPI.onNotionConnected((newProfile) => {
+      unsubNotion = window.jarvisAPI.onNotionConnected((newProfile) => {
         setNotionConnected(true);
         setNotionProfile(newProfile);
         setConnectingNotion(false);
@@ -142,8 +151,23 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
       });
     }
 
+    let unsubGitHub: (() => void) | undefined;
+    if (window.jarvisAPI?.onGitHubConnected) {
+      unsubGitHub = window.jarvisAPI.onGitHubConnected((newProfile) => {
+        setGithubConnected(true);
+        setGithubProfile(newProfile);
+        setConnectingGitHub(false);
+        setShowGitHubOAuthModal(false);
+        setShowGitHubTokenInput(false);
+        setGithubStatusMessage(null);
+        setGithubError(null);
+        loadGitHubRepos();
+      });
+    }
+
     return () => {
-      if (unsub) unsub();
+      if (unsubNotion) unsubNotion();
+      if (unsubGitHub) unsubGitHub();
     };
   }, []);
 
@@ -359,21 +383,67 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
     if (!window.jarvisAPI?.connectGitHub) return;
     setConnectingGitHub(true);
     setGithubError(null);
+    setGithubStatusMessage('Opening GitHub authorization in your browser...');
     try {
       const res = await window.jarvisAPI.connectGitHub();
       if (res && res.success) {
-        setGithubConnected(true);
-        setGithubProfile(res.profile || null);
-        setIsDefaultOAuth(true);
-        setShowGitHubTokenInput(false);
-        loadGitHubRepos();
+        if (res.mode === 'oauth') {
+          setGithubStatusMessage('Browser opened! Authorize Grokki in GitHub to complete connection.');
+        } else {
+          setGithubConnected(true);
+          setGithubProfile(res.profile || null);
+          setIsDefaultOAuth(true);
+          setShowGitHubTokenInput(false);
+          setShowGitHubOAuthModal(false);
+          setGithubStatusMessage(null);
+          loadGitHubRepos();
+        }
+      } else if (res && res.needsCredentials) {
+        setShowGitHubOAuthModal(true);
+        setGithubExpanded(true);
+        setGithubStatusMessage(null);
+        setConnectingGitHub(false);
       } else {
-        setGithubError(res?.error || 'Failed to connect with GitHub OAuth.');
+        setGithubError(res?.error || res?.message || 'Failed to start GitHub OAuth flow.');
+        setGithubStatusMessage(null);
+        setConnectingGitHub(false);
       }
     } catch (err: any) {
       setGithubError(err.message || 'Failed to connect with GitHub OAuth');
-    } finally {
+      setGithubStatusMessage(null);
       setConnectingGitHub(false);
+    }
+  };
+
+  const handleSaveGitHubCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!githubClientId.trim() || !githubClientSecret.trim()) return;
+    if (!window.jarvisAPI?.saveGitHubOAuth) return;
+    setSavingOAuthCreds(true);
+    setGithubError(null);
+    try {
+      const res = await window.jarvisAPI.saveGitHubOAuth({
+        clientId: githubClientId.trim(),
+        clientSecret: githubClientSecret.trim(),
+      });
+      if (res && res.success) {
+        setShowGitHubOAuthModal(false);
+        setSavingOAuthCreds(false);
+        handleConnectGitHubOAuth();
+      } else {
+        setGithubError(res?.error || 'Failed to save GitHub credentials.');
+        setSavingOAuthCreds(false);
+      }
+    } catch (err: any) {
+      setGithubError(err.message || 'Failed to save credentials.');
+      setSavingOAuthCreds(false);
+    }
+  };
+
+  const handleOpenGitHubPortal = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (window.jarvisAPI?.openGitHubPortal) {
+      await window.jarvisAPI.openGitHubPortal();
     }
   };
 
@@ -389,7 +459,9 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
         setGithubProfile(res.profile || null);
         setIsDefaultOAuth(false);
         setShowGitHubTokenInput(false);
+        setShowGitHubOAuthModal(false);
         setGithubToken('');
+        setGithubStatusMessage(null);
         loadGitHubRepos();
       } else {
         setGithubError(res?.error || 'Verification failed. Please check your Personal Access Token.');
@@ -403,23 +475,7 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
 
   const handleRestoreDefaultOAuth = async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!window.jarvisAPI?.restoreDefaultGitHubOAuth) return;
-    setConnectingGitHub(true);
-    setGithubError(null);
-    try {
-      const res = await window.jarvisAPI.restoreDefaultGitHubOAuth();
-      if (res && res.success) {
-        setGithubConnected(true);
-        setGithubProfile(res.profile || null);
-        setIsDefaultOAuth(true);
-        setShowGitHubTokenInput(false);
-        loadGitHubRepos();
-      }
-    } catch (err: any) {
-      setGithubError(err.message || 'Failed to restore default OAuth');
-    } finally {
-      setConnectingGitHub(false);
-    }
+    handleConnectGitHubOAuth();
   };
 
   const handleDisconnectGitHub = async (e?: React.MouseEvent) => {
@@ -431,6 +487,8 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
       setGithubProfile(null);
       setRepos([]);
       setShowGitHubTokenInput(false);
+      setShowGitHubOAuthModal(false);
+      setGithubStatusMessage(null);
       setGithubError(null);
     } catch (e) {
       console.error('Failed to disconnect GitHub:', e);
@@ -618,7 +676,7 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-16">
       <div>
-        <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+        <h2 className="text-xl mt-16 font-bold tracking-tight text-gray-900 dark:text-gray-100">
           Workspace Integrations
         </h2>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -1062,78 +1120,264 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
         >
           <div className="overflow-hidden">
             <div className="px-5 pb-5 pt-4 border-t border-[#e4e4eb] dark:border-[#1e2029] flex flex-col gap-4">
-              {/* Custom Token Verification Form */}
-              {(!githubConnected || showGitHubTokenInput) && (
-                <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029] flex flex-col gap-3">
+              {/* Live Status Message Banner */}
+              {githubStatusMessage && !githubConnected && (
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                    <span>{githubStatusMessage}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConnectingGitHub(false);
+                      setGithubStatusMessage(null);
+                    }}
+                    className="text-[11px] underline opacity-70 hover:opacity-100 bg-transparent border-none cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              {/* Error Banner */}
+              {githubError && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{githubError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setGithubError(null)}
+                    className="text-[11px] underline opacity-70 hover:opacity-100 bg-transparent border-none cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
+              {/* GitHub OAuth 2.0 Credentials Setup Form */}
+              {showGitHubOAuthModal && !githubConnected && (
+                <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#161822] border border-blue-500/30 flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Key className="w-4 h-4 text-gray-500" />
+                      <Key className="w-4 h-4 text-blue-500" />
                       <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                        {githubConnected ? 'Connect Custom Repository Token' : 'Connect Personal Access Token / Custom Repo'}
+                        GitHub OAuth 2.0 Application Setup
                       </span>
                     </div>
                     <button
                       type="button"
-                      onClick={(e) => handleOpenExternal('https://github.com/settings/tokens', e)}
+                      onClick={() => setShowGitHubOAuthModal(false)}
+                      className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0 leading-relaxed">
+                    Register a GitHub OAuth App to authorize Grokki directly from your web browser. Set the Authorization callback URL in your GitHub app settings to:
+                  </p>
+
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-[#101117] border border-gray-200 dark:border-[#252836]">
+                    <code className="text-xs font-mono text-gray-800 dark:text-gray-200 selection:bg-blue-500/20">
+                      http://localhost:8587/githubcallback
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText('http://localhost:8587/githubcallback');
+                        setCopiedCallback(true);
+                        setTimeout(() => setCopiedCallback(false), 2000);
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline bg-transparent border-none cursor-pointer ml-2 flex-shrink-0"
+                    >
+                      {copiedCallback ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedCallback ? 'Copied!' : 'Copy'}</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleOpenGitHubPortal}
                       className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline bg-transparent border-none cursor-pointer"
                     >
-                      <span>Get Token on GitHub</span>
+                      <span>Register New OAuth App on GitHub</span>
                       <ExternalLink className="w-3 h-3" />
                     </button>
                   </div>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
-                    Provide your own personal access token (<code className="font-mono text-[10px] bg-gray-200 dark:bg-[#202330] px-1 py-0.5 rounded">ghp_...</code> or fine-grained <code className="font-mono text-[10px] bg-gray-200 dark:bg-[#202330] px-1 py-0.5 rounded">github_pat_...</code>) with <code className="font-mono text-[10px] bg-gray-200 dark:bg-[#202330] px-1 py-0.5 rounded">repo</code> and <code className="font-mono text-[10px] bg-gray-200 dark:bg-[#202330] px-1 py-0.5 rounded">read:user</code> permissions to verify your personal repositories.
-                  </p>
-                  <form onSubmit={handleConnectCustomGitHubToken} className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type={showTokenSecret ? 'text' : 'password'}
-                        value={githubToken}
-                        onChange={(e) => setGithubToken(e.target.value)}
-                        placeholder="ghp_... or github_pat_..."
-                        className="w-full h-9 pl-3 pr-9 rounded-lg border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-900 dark:text-gray-100 text-xs font-mono placeholder:text-gray-400 focus:outline-none"
-                      />
+
+                  <form onSubmit={handleSaveGitHubCredentials} className="flex flex-col gap-2.5 mt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">
+                          Client ID
+                        </label>
+                        <input
+                          type="text"
+                          value={githubClientId}
+                          onChange={(e) => setGithubClientId(e.target.value)}
+                          placeholder="e.g. Ov23li..."
+                          className="w-full h-8 px-2.5 rounded-lg border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-900 dark:text-gray-100 text-xs font-mono placeholder:text-gray-400 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">
+                          Client Secret
+                        </label>
+                        <input
+                          type="password"
+                          value={githubClientSecret}
+                          onChange={(e) => setGithubClientSecret(e.target.value)}
+                          placeholder="e.g. 78f..."
+                          className="w-full h-8 px-2.5 rounded-lg border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-900 dark:text-gray-100 text-xs font-mono placeholder:text-gray-400 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
                       <button
                         type="button"
-                        onClick={() => setShowTokenSecret(!showTokenSecret)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer p-0"
+                        onClick={() => {
+                          setShowGitHubOAuthModal(false);
+                          setGithubAuthMode('pat');
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer underline"
                       >
-                        {showTokenSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        Or connect with Personal Access Token
+                      </button>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowGitHubOAuthModal(false)}
+                          className="h-8 px-3 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#252836] bg-transparent text-gray-500 hover:bg-gray-100 dark:hover:bg-[#1a1c24]"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={savingOAuthCreds || !githubClientId.trim() || !githubClientSecret.trim()}
+                          className="h-8 px-3.5 rounded-lg text-xs font-semibold cursor-pointer border bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 border-transparent transition-all disabled:opacity-40 flex items-center gap-1.5"
+                        >
+                          {savingOAuthCreds ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                          <span>Save & Authorize</span>
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* Not Connected Auth Card */}
+              {!githubConnected && !showGitHubOAuthModal && (
+                <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029] flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 p-0.5 rounded-lg bg-gray-200/60 dark:bg-[#101117] border border-gray-200 dark:border-[#252836]">
+                      <button
+                        type="button"
+                        onClick={() => setGithubAuthMode('oauth')}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer transition-all border-none ${
+                          githubAuthMode === 'oauth'
+                            ? 'bg-white dark:bg-[#1f222e] text-gray-900 dark:text-white shadow-xs font-semibold'
+                            : 'bg-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                        }`}
+                      >
+                        1-Click Browser OAuth
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGithubAuthMode('pat')}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer transition-all border-none ${
+                          githubAuthMode === 'pat'
+                            ? 'bg-white dark:bg-[#1f222e] text-gray-900 dark:text-white shadow-xs font-semibold'
+                            : 'bg-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                        }`}
+                      >
+                        Personal Access Token (PAT)
                       </button>
                     </div>
-                    <button
-                      type="submit"
-                      disabled={connectingGitHub || !githubToken.trim()}
-                      className="h-9 px-4 rounded-lg text-xs font-semibold cursor-pointer border bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 border-transparent transition-all disabled:opacity-40 flex items-center gap-1.5"
-                    >
-                      {connectingGitHub ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                      <span>Verify & Link</span>
-                    </button>
-                    {!githubConnected && (
+
+                    {githubAuthMode === 'oauth' && (
+                      <button
+                        type="button"
+                        onClick={() => setShowGitHubOAuthModal(true)}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-gray-900 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer"
+                      >
+                        <span>App Credentials</span>
+                        <Key className="w-3 h-3" />
+                      </button>
+                    )}
+
+                    {githubAuthMode === 'pat' && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenExternal('https://github.com/settings/tokens', e)}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline bg-transparent border-none cursor-pointer"
+                      >
+                        <span>Get Token on GitHub</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  {githubAuthMode === 'oauth' && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 m-0">
+                          Authorize in Web Browser
+                        </p>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0 mt-0.5 max-w-md">
+                          Click below to open GitHub in your default browser, grant permissions, and return seamlessly via local callback (<code className="font-mono text-[10px]">localhost:8587</code>).
+                        </p>
+                      </div>
+
                       <button
                         type="button"
                         disabled={connectingGitHub}
                         onClick={handleConnectGitHubOAuth}
-                        className="h-9 px-3.5 rounded-lg text-xs font-semibold cursor-pointer border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#1a1c24] text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#202330] transition-all"
+                        className="h-9 px-4 rounded-lg text-xs font-semibold cursor-pointer border bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 border-transparent transition-all disabled:opacity-40 flex items-center justify-center gap-2 flex-shrink-0 shadow-xs"
                       >
-                        Use Default OAuth
+                        {connectingGitHub ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitHubLogo className="w-3.5 h-3.5" />}
+                        <span>{connectingGitHub ? 'Authorizing...' : 'Authorize GitHub in Browser'}</span>
                       </button>
-                    )}
-                    {githubConnected && (
-                      <button
-                        type="button"
-                        onClick={() => setShowGitHubTokenInput(false)}
-                        className="h-9 px-3 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#252836] bg-transparent text-gray-500 hover:bg-gray-100 dark:hover:bg-[#1a1c24]"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </form>
-                  {githubError && (
-                    <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                      <span>{githubError}</span>
                     </div>
+                  )}
+
+                  {githubAuthMode === 'pat' && (
+                    <form onSubmit={handleConnectCustomGitHubToken} className="flex flex-col gap-2 pt-1">
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
+                        Provide your Personal Access Token (<code className="font-mono text-[10px] bg-gray-200 dark:bg-[#202330] px-1 py-0.5 rounded">ghp_...</code> or fine-grained <code className="font-mono text-[10px] bg-gray-200 dark:bg-[#202330] px-1 py-0.5 rounded">github_pat_...</code>) with <code className="font-mono text-[10px] bg-gray-200 dark:bg-[#202330] px-1 py-0.5 rounded">repo</code> and <code className="font-mono text-[10px] bg-gray-200 dark:bg-[#202330] px-1 py-0.5 rounded">read:user</code> scopes.
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type={showTokenSecret ? 'text' : 'password'}
+                            value={githubToken}
+                            onChange={(e) => setGithubToken(e.target.value)}
+                            placeholder="ghp_... or github_pat_..."
+                            className="w-full h-9 pl-3 pr-9 rounded-lg border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-900 dark:text-gray-100 text-xs font-mono placeholder:text-gray-400 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowTokenSecret(!showTokenSecret)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer p-0"
+                          >
+                            {showTokenSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={connectingGitHub || !githubToken.trim()}
+                          className="h-9 px-4 rounded-lg text-xs font-semibold cursor-pointer border bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 border-transparent transition-all disabled:opacity-40 flex items-center gap-1.5 flex-shrink-0"
+                        >
+                          {connectingGitHub ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                          <span>Verify & Link</span>
+                        </button>
+                      </div>
+                    </form>
                   )}
                 </div>
               )}
@@ -1160,7 +1404,7 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
                             ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
                             : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                         }`}>
-                          {isDefaultOAuth ? 'Built-in OAuth' : 'Custom Verified Token'}
+                          {isDefaultOAuth ? 'OAuth Connected' : 'Verified PAT Token'}
                         </span>
                       </div>
                       {githubProfile.bio && (
@@ -1182,26 +1426,15 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
                       </span>
                     </div>
 
-                    {!isDefaultOAuth ? (
-                      <button
-                        type="button"
-                        onClick={handleRestoreDefaultOAuth}
-                        title="Switch back to built-in Grokki OAuth"
-                        className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-white dark:bg-[#101117] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all"
-                      >
-                        <span>Restore OAuth</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setShowGitHubTokenInput((prev) => !prev)}
-                        title="Connect your personal repository token for verification"
-                        className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-white dark:bg-[#101117] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all"
-                      >
-                        <Key className="w-3 h-3" />
-                        <span>Custom Repo</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowGitHubTokenInput((prev) => !prev)}
+                      title="Switch token or connect custom repository token"
+                      className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-white dark:bg-[#101117] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all"
+                    >
+                      <Key className="w-3 h-3" />
+                      <span>Switch Token</span>
+                    </button>
 
                     <button
                       type="button"
@@ -1214,6 +1447,50 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
                     </button>
                   </div>
                 </div>
+              )}
+
+              {/* Token Switch Form when already connected */}
+              {githubConnected && showGitHubTokenInput && (
+                <form onSubmit={handleConnectCustomGitHubToken} className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029] flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                      Connect Personal Access Token (PAT)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowGitHubTokenInput(false)}
+                      className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={showTokenSecret ? 'text' : 'password'}
+                        value={githubToken}
+                        onChange={(e) => setGithubToken(e.target.value)}
+                        placeholder="ghp_... or github_pat_..."
+                        className="w-full h-8 pl-3 pr-9 rounded-lg border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-900 dark:text-gray-100 text-xs font-mono placeholder:text-gray-400 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowTokenSecret(!showTokenSecret)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer p-0"
+                      >
+                        {showTokenSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={connectingGitHub || !githubToken.trim()}
+                      className="h-8 px-3 rounded-lg text-xs font-semibold cursor-pointer border bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 border-transparent transition-all disabled:opacity-40 flex items-center gap-1.5"
+                    >
+                      {connectingGitHub ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      <span>Verify & Link</span>
+                    </button>
+                  </div>
+                </form>
               )}
 
               {/* Sub-tab Navigation */}

@@ -612,11 +612,11 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h2 className="m-0 text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+            <h2 className="m-0 text-2xl mt-16 font-bold tracking-tight text-gray-900 dark:text-gray-100">
               Voice Models
             </h2>
             {activeVoice && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+              <span className="inline-flex mt-16 items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] text-[11px] font-semibold text-gray-600 dark:text-gray-300">
                 <span
                   className="w-2 h-2 rounded-full"
                   style={{ background: activeVoice.sphere.mid }}

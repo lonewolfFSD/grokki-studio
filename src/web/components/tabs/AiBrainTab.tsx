@@ -339,7 +339,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-16">
       <div>
-        <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+        <h2 className="text-xl mt-16 font-bold tracking-tight text-gray-900 dark:text-gray-100">
           AI Brain & Providers
         </h2>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

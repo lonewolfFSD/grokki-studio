@@ -95,6 +95,13 @@ try {
     connectGitHub: (token) => ipcRenderer.invoke('jarvis:connect-github', token),
     disconnectGitHub: () => ipcRenderer.invoke('jarvis:disconnect-github'),
     getGitHubStatus: () => ipcRenderer.invoke('jarvis:get-github-status'),
+    openGitHubPortal: () => ipcRenderer.invoke('jarvis:open-github-portal'),
+    saveGitHubOAuth: (creds) => ipcRenderer.invoke('jarvis:save-github-oauth', creds),
+    onGitHubConnected: (callback) => {
+      const handler = (event, profile) => callback(profile);
+      ipcRenderer.on('github:connected', handler);
+      return () => ipcRenderer.removeListener('github:connected', handler);
+    },
     getGitHubRepos: (options) => ipcRenderer.invoke('jarvis:get-github-repos', options),
     getGitStatus: (cwd) => ipcRenderer.invoke('jarvis:git-status', cwd),
     gitFetch: (cwd) => ipcRenderer.invoke('jarvis:git-fetch', cwd),

@@ -994,7 +994,25 @@ ipcMain.handle('jarvis:open-obsidian-vault', async (event, notePath) => {
 // GitHub Workspace & Git CLI Integration
 ipcMain.handle('jarvis:connect-github', async (event, token) => {
   const githubWorkspace = require('./github_workspace');
-  return await githubWorkspace.connect(token);
+  return await githubWorkspace.connect(token, (profile) => {
+    if (dashboardWindow && !dashboardWindow.isDestroyed() && dashboardWindow.webContents) {
+      dashboardWindow.webContents.send('github:connected', profile);
+    }
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+      mainWindow.webContents.send('github:connected', profile);
+    }
+  });
+});
+
+ipcMain.handle('jarvis:save-github-oauth', async (event, { clientId, clientSecret }) => {
+  const githubWorkspace = require('./github_workspace');
+  return githubWorkspace.saveCredentials(clientId, clientSecret);
+});
+
+ipcMain.handle('jarvis:open-github-portal', async () => {
+  const githubWorkspace = require('./github_workspace');
+  githubWorkspace.openOAuthPortal();
+  return { success: true };
 });
 
 ipcMain.handle('jarvis:disconnect-github', async () => {

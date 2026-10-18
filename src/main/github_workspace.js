@@ -1,19 +1,68 @@
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const url = require('url');
+const crypto = require('crypto');
 const { exec } = require('child_process');
-const { dialog, shell } = require('electron');
-
-// Built-in hardcoded default GitHub OAuth token (like Notion's built-in OAuth credentials)
-const DEFAULT_HARDCODED_GITHUB_TOKEN = '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';
+const { dialog, shell, Notification } = require('electron');
 
 class GitHubWorkspaceManager {
   constructor() {
     this.storagePath = path.resolve(__dirname, '../../data/github_tokens.json');
-    this.defaultToken = DEFAULT_HARDCODED_GITHUB_TOKEN;
+    this.credentialsPath = path.resolve(__dirname, '../../data/github_credentials.json');
+    this.port = 8587;
+    this.redirectUri = `http://localhost:${this.port}/githubcallback`;
     this.token = null;
     this.profile = null;
+    this.authServer = null;
     this.cachedRepos = [];
     this.loadSavedToken();
+  }
+
+  getClientCredentials() {
+    // 1. From environment variables
+    const envId = (process.env.GITHUB_CLIENT_ID || '').trim();
+    const envSecret = (process.env.GITHUB_CLIENT_SECRET || '').trim();
+    if (envId && envSecret) {
+      return { clientId: envId, clientSecret: envSecret };
+    }
+
+    // 2. From data/github_credentials.json
+    if (fs.existsSync(this.credentialsPath)) {
+      try {
+        const raw = JSON.parse(fs.readFileSync(this.credentialsPath, 'utf8'));
+        const creds = raw.installed || raw.web || raw;
+        if (creds.client_id && creds.client_secret) {
+          return { clientId: creds.client_id, clientSecret: creds.client_secret };
+        }
+      } catch (e) {}
+    }
+
+    return null;
+  }
+
+  saveCredentials(clientId, clientSecret) {
+    try {
+      const dir = path.dirname(this.credentialsPath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        this.credentialsPath,
+        JSON.stringify({ client_id: clientId.trim(), client_secret: clientSecret.trim() }, null, 2),
+        'utf8'
+      );
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  openOAuthPortal() {
+    const params = new URLSearchParams({
+      'oauth_application[name]': 'Grokki Studio',
+      'oauth_application[url]': 'http://localhost:8587',
+      'oauth_application[callback_url]': this.redirectUri,
+    });
+    shell.openExternal(`https://github.com/settings/applications/new?${params.toString()}`);
   }
 
   loadSavedToken() {
@@ -33,8 +82,9 @@ class GitHubWorkspaceManager {
       return;
     }
 
-    // Default to built-in hardcoded OAuth token (like Notion)
-    this.token = this.defaultToken;
+    // Clean initial state: not connected until user authorizes
+    this.token = null;
+    this.profile = null;
   }
 
   saveToken(token, profile) {
@@ -54,7 +104,7 @@ class GitHubWorkspaceManager {
   }
 
   isConnected() {
-    return Boolean(this.token && this.profile);
+    return Boolean(this.token);
   }
 
   getProfile() {
@@ -68,12 +118,15 @@ class GitHubWorkspaceManager {
         this.saveToken(this.token, this.profile);
       } catch (e) {
         console.warn('[GitHub] Auto-verify token failed:', e.message);
+        this.token = null;
+        this.profile = null;
       }
     }
+    const creds = this.getClientCredentials();
     return {
       connected: this.isConnected(),
       profile: this.getProfile(),
-      isDefaultToken: this.token === this.defaultToken,
+      hasCredentials: Boolean(creds),
     };
   }
 
@@ -107,28 +160,188 @@ class GitHubWorkspaceManager {
     };
   }
 
-  async connect(token) {
-    try {
-      const candidate = (token || '').trim() || this.defaultToken;
-      if (!candidate) throw new Error('GitHub token is empty');
-      const profile = await this.verifyToken(candidate);
-      this.saveToken(candidate, profile);
+  /**
+   * 1-Click Interactive GitHub OAuth 2.0 Flow via browser on port 8587
+   */
+  async startOAuthFlow(onSuccessCallback) {
+    const creds = this.getClientCredentials();
+    if (!creds) {
       return {
-        success: true,
-        profile,
-        isDefaultToken: candidate === this.defaultToken,
+        success: false,
+        needsCredentials: true,
+        message: 'GitHub OAuth credentials (Client ID & Secret) are not yet configured.',
       };
-    } catch (err) {
-      return { success: false, error: err.message };
     }
+
+    const state = crypto.randomBytes(16).toString('hex');
+    const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
+      creds.clientId
+    )}&redirect_uri=${encodeURIComponent(this.redirectUri)}&scope=repo,read:user,user:email&state=${state}`;
+
+    if (this.authServer) {
+      try {
+        this.authServer.close();
+      } catch (e) {}
+      this.authServer = null;
+    }
+
+    return new Promise((resolve) => {
+      let handled = false;
+
+      this.authServer = http.createServer(async (req, res) => {
+        try {
+          const reqUrl = url.parse(req.url, true);
+          if (reqUrl.pathname === '/githubcallback') {
+            const code = reqUrl.query.code;
+            const error = reqUrl.query.error;
+            const errorDescription = reqUrl.query.error_description;
+
+            if (error) {
+              handled = true;
+              res.writeHead(400, { 'Content-Type': 'text/html' });
+              res.end(`
+                <html>
+                  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #08090d; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(239,68,68,0.3); text-align: center; max-width: 440px;">
+                      <h2 style="color: #ef4444; margin: 0 0 12px 0; font-size: 20px;">GitHub Authorization Cancelled</h2>
+                      <p style="color: #9aa0a6; font-size: 13px; line-height: 1.6; margin-bottom: 24px;">${errorDescription || error}</p>
+                      <p style="color: #9aa0a6; font-size: 13px;">You can close this tab and return to Grokki Studio.</p>
+                    </div>
+                  </body>
+                </html>
+              `);
+              try { this.authServer.close(); } catch (e) {}
+              this.authServer = null;
+              return;
+            }
+
+            if (code) {
+              handled = true;
+              const fetch = global.fetch || require('node-fetch');
+              const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+                method: 'POST',
+                headers: {
+                  Accept: 'application/json',
+                  'Content-Type': 'application/json',
+                  'User-Agent': 'Grokki-Studio-Desktop',
+                },
+                body: JSON.stringify({
+                  client_id: creds.clientId,
+                  client_secret: creds.clientSecret,
+                  code,
+                  redirect_uri: this.redirectUri,
+                }),
+              });
+
+              const tokenData = await tokenRes.json();
+              if (tokenData.error || !tokenData.access_token) {
+                throw new Error(tokenData.error_description || tokenData.error || 'Failed to exchange authorization code for access token');
+              }
+
+              const accessToken = tokenData.access_token;
+              const profile = await this.verifyToken(accessToken);
+              this.saveToken(accessToken, profile);
+
+              res.writeHead(200, { 'Content-Type': 'text/html' });
+              res.end(`
+                <html>
+                  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #08090d; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); text-align: center; max-width: 440px;">
+                      <img src="${profile.avatar_url || ''}" style="width: 64px; height: 64px; border-radius: 50%; margin-bottom: 16px; border: 2px solid #10b981;" />
+                      <h2 style="margin: 0 0 12px 0; font-size: 20px;">Connected to GitHub!</h2>
+                      <p style="color: #9aa0a6; font-size: 13px; line-height: 1.6; margin-bottom: 24px;">Grokki is now linked to <b>@${profile.login}</b> (${profile.name || profile.login}). Git repositories and push/pull sync are ready.</p>
+                      <p style="color: #10b981; font-weight: 600; font-size: 13px;">You can close this tab and return to Grokki Studio.</p>
+                    </div>
+                  </body>
+                </html>
+              `);
+
+              if (Notification.isSupported()) {
+                new Notification({
+                  title: 'GitHub Connected',
+                  body: `Grokki successfully linked to @${profile.login}!`,
+                }).show();
+              }
+
+              if (typeof onSuccessCallback === 'function') {
+                onSuccessCallback(profile);
+              }
+
+              try {
+                this.authServer.close();
+              } catch (e) {}
+              this.authServer = null;
+            } else {
+              res.writeHead(400);
+              res.end('Authorization code missing.');
+              try { this.authServer.close(); } catch (e) {}
+              this.authServer = null;
+            }
+          }
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'text/html' });
+          res.end(`
+            <html>
+              <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #08090d; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0;">
+                <div style="background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(239,68,68,0.3); text-align: center; max-width: 440px;">
+                  <h2 style="color: #ef4444; margin: 0 0 12px 0; font-size: 20px;">Connection Error</h2>
+                  <p style="color: #9aa0a6; font-size: 13px; line-height: 1.6; margin-bottom: 24px;">${err.message}</p>
+                </div>
+              </body>
+            </html>
+          `);
+          try { this.authServer.close(); } catch (e) {}
+          this.authServer = null;
+        }
+      });
+
+      this.authServer.listen(this.port, () => {
+        shell.openExternal(authUrl);
+        resolve({
+          success: true,
+          mode: 'oauth',
+          message: 'GitHub Authorization opened in your browser! Authorize access to complete connection.',
+        });
+      });
+
+      this.authServer.on('error', (err) => {
+        resolve({ success: false, message: `Could not start local GitHub auth server on port ${this.port}: ${err.message}` });
+      });
+
+      // 5-minute cleanup timeout
+      setTimeout(() => {
+        if (!handled && this.authServer) {
+          try {
+            this.authServer.close();
+          } catch (e) {}
+          this.authServer = null;
+        }
+      }, 300000);
+    });
+  }
+
+  async connect(candidateToken, onSuccessCallback) {
+    if (candidateToken && typeof candidateToken === 'string' && candidateToken.trim()) {
+      try {
+        const clean = candidateToken.trim();
+        const profile = await this.verifyToken(clean);
+        this.saveToken(clean, profile);
+        return {
+          success: true,
+          mode: 'token',
+          profile,
+        };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    }
+
+    // Interactive OAuth 2.0 Flow
+    return this.startOAuthFlow(onSuccessCallback);
   }
 
   async restoreDefaultOAuth() {
-    try {
-      return await this.connect(this.defaultToken);
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
+    return this.startOAuthFlow();
   }
 
   disconnect() {
