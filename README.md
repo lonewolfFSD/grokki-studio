@@ -1,5 +1,3 @@
-# 🖤 Grokki — Autonomous Windows OS Companion & Agentic AI
-
 <div align="center">
 
 <img src="assets/grokki_wordmark.png" alt="Grokki Wordmark" width="480"/>
