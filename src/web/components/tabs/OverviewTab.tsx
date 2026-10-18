@@ -288,16 +288,33 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
 
   const hotkeyParts = (config.hotkey || 'Alt+Q').split('+').map((k) => k.trim());
   const wakeWordOn = config.wakeWordEnabled !== false;
+  const spokenOn = config.ttsEnabled !== false;
   const selectedMusic = config.musicProvider || 'spotify';
-  const currentMusic = MUSIC_SERVICES[selectedMusic] || MUSIC_SERVICES.spotify;
+  const currentMusic =
+    (MUSIC_SERVICES && MUSIC_SERVICES[selectedMusic]) ||
+    (MUSIC_SERVICES && MUSIC_SERVICES.spotify) || {
+      id: 'spotify',
+      name: 'Spotify',
+      logo: '',
+      appUrl: 'spotify://',
+      webUrl: 'https://open.spotify.com',
+    };
 
   const connectedCount = [googleConnected, true, true, notionConnected, obsidianConnected, githubConnected].filter(
     Boolean
   ).length;
 
   const openExternal = (url: string) => {
-    if (window.jarvisAPI?.openUrl) window.jarvisAPI.openUrl(url);
-    else window.open(url, '_blank');
+    if (!url) return;
+    if (window.jarvisAPI?.openUrl) {
+      window.jarvisAPI.openUrl(url).catch((err) => console.warn('[OverviewTab] openUrl failed:', err));
+    } else {
+      try {
+        window.open(url, '_blank');
+      } catch (err) {
+        console.warn('[OverviewTab] window.open failed:', err);
+      }
+    }
   };
 
   // Default quick access: fixed tiles plus quick launch for anything that is linked.

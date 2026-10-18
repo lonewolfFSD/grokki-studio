@@ -41,6 +41,7 @@ import {
   Radio,
 } from 'lucide-react';
 import {
+  JarvisConfig,
   GoogleProfile,
   NotionProfile,
   GitHubProfile,
@@ -141,7 +142,7 @@ interface GoogleWorkspaceTabProps {
   profile: GoogleProfile | null;
   onRefreshStatus: () => void;
   config?: JarvisConfig;
-  onChangeConfig?: (key: keyof JarvisConfig, value: any) => void;
+  onChangeConfig?: (patch: Partial<JarvisConfig>) => void;
 }
 
 export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
@@ -159,9 +160,15 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
 
   const handleOpenWhatsApp = () => {
     if (window.jarvisAPI?.openUrl) {
-      window.jarvisAPI.openUrl('whatsapp://');
+      window.jarvisAPI.openUrl('whatsapp://').catch(() => {
+        window.jarvisAPI?.openUrl('https://web.whatsapp.com');
+      });
     } else {
-      window.open('https://web.whatsapp.com', '_blank');
+      try {
+        window.open('https://web.whatsapp.com', '_blank');
+      } catch (e) {
+        console.warn('[GoogleWorkspaceTab] Failed to open WhatsApp:', e);
+      }
     }
   };
 
@@ -169,11 +176,19 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
   const selectedMusic = config?.musicProvider || 'spotify';
   const [musicExpanded, setMusicExpanded] = useState(false);
 
-  const currentMusic = MUSIC_SERVICES[selectedMusic] || MUSIC_SERVICES.spotify;
+  const currentMusic =
+    (MUSIC_SERVICES && MUSIC_SERVICES[selectedMusic]) ||
+    (MUSIC_SERVICES && MUSIC_SERVICES.spotify) || {
+      id: 'spotify',
+      name: 'Spotify',
+      logo: '',
+      appUrl: 'spotify://',
+      webUrl: 'https://open.spotify.com',
+    };
 
   const handleMusicChange = (val: string) => {
     if (onChangeConfig) {
-      onChangeConfig('musicProvider', val);
+      onChangeConfig({ musicProvider: val });
     }
     if (window.jarvisAPI?.saveConfig) {
       window.jarvisAPI.saveConfig({ musicProvider: val });
@@ -181,10 +196,19 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
   };
 
   const handleOpenMusic = () => {
+    const target = currentMusic.appUrl || currentMusic.webUrl;
     if (window.jarvisAPI?.openUrl) {
-      window.jarvisAPI.openUrl(currentMusic.appUrl || currentMusic.webUrl);
+      window.jarvisAPI.openUrl(target).catch(() => {
+        if (currentMusic.webUrl && currentMusic.webUrl !== target) {
+          window.jarvisAPI?.openUrl(currentMusic.webUrl);
+        }
+      });
     } else {
-      window.open(currentMusic.webUrl, '_blank');
+      try {
+        window.open(currentMusic.webUrl, '_blank');
+      } catch (e) {
+        console.warn('[GoogleWorkspaceTab] Failed to open Music:', e);
+      }
     }
   };
 

@@ -14,6 +14,7 @@ import { AboutTab } from './components/tabs/AboutTab';
 import { JarvisConfig, GoogleProfile, SystemInfo } from './types/jarvis';
 import { useConversations } from './hooks/useConversations';
 import { DEFAULT_HOTKEYS, getEffectiveHotkeys, matchesHotkey } from './utils/hotkeys';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const DEFAULT_CONFIG: JarvisConfig = {
   provider: 'gemini',
@@ -106,10 +107,11 @@ export const App: React.FC = () => {
       const url = anchor.getAttribute('data-external-href') || anchor.getAttribute('href') || '';
       if (url && (url !== '#' || anchor.hasAttribute('data-external-href'))) {
         if (url.startsWith('#') && !anchor.hasAttribute('data-external-href')) return;
+        if (url.startsWith('javascript:')) return;
         e.preventDefault();
         e.stopPropagation();
         anchor.removeAttribute('target');
-        window.jarvisAPI?.openUrl(url);
+        window.jarvisAPI?.openUrl(url).catch((err) => console.warn('[App] openUrl failed:', err));
       }
     };
 
@@ -454,71 +456,73 @@ export const App: React.FC = () => {
             />
           </div>
 
-          {activeTab === 'overview' && (
-            <OverviewTab
-              config={config}
-              userName={displayName}
-              onNavigateTab={setActiveTab}
-              googleConnected={googleConnected}
-            />
-          )}
+          <ErrorBoundary fallbackTabName={activeTab} onReset={() => setActiveTab('chat')}>
+            {activeTab === 'overview' && (
+              <OverviewTab
+                config={config}
+                userName={displayName}
+                onNavigateTab={setActiveTab}
+                googleConnected={googleConnected}
+              />
+            )}
 
-          {activeTab === 'voice' && (
-            <VoiceModelsTab
-              config={config}
-              onChangeConfig={handleConfigChange}
-              playingVoice={playingVoice}
-              onPreviewVoice={handlePreviewVoice}
-            />
-          )}
+            {activeTab === 'voice' && (
+              <VoiceModelsTab
+                config={config}
+                onChangeConfig={handleConfigChange}
+                playingVoice={playingVoice}
+                onPreviewVoice={handlePreviewVoice}
+              />
+            )}
 
-          {activeTab === 'ai' && (
-            <AiBrainTab
-              config={config}
-              onChangeConfig={handleConfigChange}
-            />
-          )}
+            {activeTab === 'ai' && (
+              <AiBrainTab
+                config={config}
+                onChangeConfig={handleConfigChange}
+              />
+            )}
 
-          {activeTab === 'profile' && (
-            <PersonalizationTab
-              config={config}
-              onChangeConfig={handleConfigChange}
-            />
-          )}
+            {activeTab === 'profile' && (
+              <PersonalizationTab
+                config={config}
+                onChangeConfig={handleConfigChange}
+              />
+            )}
 
-          {activeTab === 'google' && (
-            <GoogleWorkspaceTab
-              config={config}
-              onChangeConfig={handleConfigChange}
-              connected={googleConnected}
-              profile={googleProfile}
-              onRefreshStatus={loadGoogleStatus}
-            />
-          )}
+            {activeTab === 'google' && (
+              <GoogleWorkspaceTab
+                config={config}
+                onChangeConfig={handleConfigChange}
+                connected={googleConnected}
+                profile={googleProfile}
+                onRefreshStatus={loadGoogleStatus}
+              />
+            )}
 
-          {activeTab === 'appearance' && (
-            <AppearanceTab
-              config={config}
-              onChangeConfig={handleConfigChange}
-            />
-          )}
+            {activeTab === 'appearance' && (
+              <AppearanceTab
+                config={config}
+                onChangeConfig={handleConfigChange}
+              />
+            )}
 
-          {activeTab === 'settings' && (
-            <StudioSettingsTab
-              config={config}
-              onChangeConfig={handleConfigChange}
-              onClearConversations={() => {
-                conversations.forEach((c) => deleteConversation(c.id));
-              }}
-            />
-          )}
+            {activeTab === 'settings' && (
+              <StudioSettingsTab
+                config={config}
+                onChangeConfig={handleConfigChange}
+                onClearConversations={() => {
+                  conversations.forEach((c) => deleteConversation(c.id));
+                }}
+              />
+            )}
 
-          {activeTab === 'about' && (
-            <AboutTab
-              systemInfo={systemInfo}
-              hotkey={config.hotkey || 'Alt+Q'}
-            />
-          )}
+            {activeTab === 'about' && (
+              <AboutTab
+                systemInfo={systemInfo}
+                hotkey={config.hotkey || 'Alt+Q'}
+              />
+            )}
+          </ErrorBoundary>
         </main>
       </div>
 

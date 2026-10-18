@@ -433,8 +433,10 @@ function openDashboardWindow(showImmediately = true) {
   });
 
   dashboardWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^(https?:|mailto:)/i.test(url)) {
-      shell.openExternal(url);
+    if (/^(https?:|mailto:|spotify:|whatsapp:|music:)/i.test(url)) {
+      shell.openExternal(url).catch((err) => {
+        console.warn('[main] openExternal failed in setWindowOpenHandler:', err?.message);
+      });
     }
     return { action: 'deny' };
   });
@@ -664,15 +666,29 @@ ipcMain.handle('jarvis:write-file', async (event, { filename, content, openInEdi
 });
 
 ipcMain.handle('jarvis:open-url', async (event, url) => {
-  let targetUrl = url;
-  if (!/^https?:\/\//i.test(targetUrl)) {
+  if (!url || typeof url !== 'string') {
+    return { success: false, error: 'Invalid URL parameter' };
+  }
+  let targetUrl = url.trim();
+  if (!targetUrl || targetUrl === '#' || targetUrl.startsWith('javascript:')) {
+    return { success: false, error: 'Cannot open non-actionable URL' };
+  }
+
+  // Prepend https:// only if NO scheme is present (e.g. "google.com")
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(targetUrl)) {
     targetUrl = `https://${targetUrl}`;
   }
+
   try {
+    // If it is http or https, validate structure with URL constructor safely
+    if (/^https?:/i.test(targetUrl)) {
+      new URL(targetUrl);
+    }
     await shell.openExternal(targetUrl);
     return { success: true, message: `Opened ${targetUrl}` };
   } catch (err) {
-    return { success: false, error: err.message };
+    console.warn('[main] jarvis:open-url failed for', targetUrl, err?.message);
+    return { success: false, error: err?.message || 'Failed to open URL' };
   }
 });
 
