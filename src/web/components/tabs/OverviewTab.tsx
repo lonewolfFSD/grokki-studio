@@ -19,10 +19,10 @@ import {
 import { TabId } from '../Sidebar';
 
 import googleLogo from '../../assets/logos/google.png';
+import whatsappLogo from '../../assets/logos/whatsapp.svg';
 import notionLogo from '../../assets/logos/notion.png';
 import obsidianLogo from '../../assets/logos/obsidian.png';
 import githubLogo from '../../assets/logos/github.png';
-import { WhatsAppLogo } from './GoogleWorkspaceTab';
 
 export interface UpdateItem {
   id: string;
@@ -495,7 +495,7 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
                 onClick={!googleConnected && onConnectGoogle ? onConnectGoogle : goToIntegrations}
               />
               <AccountRow
-                logo={<WhatsAppLogo className="w-5 h-5" />}
+                logo={whatsappLogo}
                 name="WhatsApp"
                 detail="Desktop bridge active (Auto-connected)"
                 connected={true}
