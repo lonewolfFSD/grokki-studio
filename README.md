@@ -9,7 +9,7 @@
 [![React](https://img.shields.io/badge/React-19.3.1-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![License](https://img.shields.io/badge/License-ISC-black?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/License-Non--Commercial-red?style=for-the-badge)](LICENSE)
 
 **An autonomous AI desktop companion living in an Apple-style Dynamic Island at the top of your screen.**  
 *Equipped with real-time desktop vision, physical OS mouse/keyboard control, 65+ native Windows tools, and hybrid local/cloud intelligence.*
@@ -215,7 +215,7 @@ Please ensure all TypeScript interfaces compile cleanly (`npm run build`) before
 
 ## 📄 License
 
-Distributed under the **ISC License**. See `LICENSE` for more information.
+Distributed under the **Grokki Studio Non-Commercial License**. Free for personal and educational use; commercial redistribution, monetization, or selling is strictly prohibited. See [`LICENSE`](LICENSE) for more information.
 
 <div align="center">
   <sub>Built with ❤️ for autonomous desktop computing.</sub>
