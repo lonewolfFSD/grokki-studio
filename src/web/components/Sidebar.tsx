@@ -25,6 +25,8 @@ import BranchedMenu, { BranchedMenuItem } from './BranchedMenu';
 import WarmTooltip, { WarmTooltipGroup, type WarmTooltipSide } from './WarmTooltip';
 import { DEFAULT_HOTKEYS } from '../utils/hotkeys';
 import grokkiLogo from '../assets/grokki_logo.png';
+import grokkiWordmarkDark from '../assets/grokki_wordmark.png';
+import grokkiWordmarkLight from '../assets/grokki_wordmark_light.png';
 
 export type TabId = 'chat' | 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
 
@@ -463,9 +465,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 alt="Grokki Studio"
                 className="w-7 h-7 rounded-lg object-contain shadow-xs flex-shrink-0"
               />
-              <span className="font-bold text-sm tracking-tight text-gray-900 dark:text-gray-100 truncate">
-                Grokki Studio
-              </span>
+              <div className="flex items-center min-w-0">
+                <img
+                  src={grokkiWordmarkDark}
+                  alt="Grokki Studio"
+                  className="hidden dark:block h-5 w-auto max-w-[135px] object-contain select-none"
+                />
+                <img
+                  src={grokkiWordmarkLight}
+                  alt="Grokki Studio"
+                  className="block dark:hidden h-5 w-auto max-w-[135px] object-contain select-none"
+                />
+              </div>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               <AnimatedIconButton

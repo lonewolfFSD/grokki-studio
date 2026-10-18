@@ -2,6 +2,8 @@ import React from 'react';
 import { Cpu, ShieldCheck, Headphones } from 'lucide-react';
 import { SystemInfo } from '../../types/jarvis';
 import grokkiLogo from '../../assets/grokki_logo.png';
+import grokkiWordmarkDark from '../../assets/grokki_wordmark.png';
+import grokkiWordmarkLight from '../../assets/grokki_wordmark_light.png';
 
 interface AboutTabProps {
   systemInfo: SystemInfo | null;
@@ -34,9 +36,18 @@ export const AboutTab: React.FC<AboutTabProps> = ({ systemInfo, hotkey }) => {
             className="w-14 h-14 rounded-2xl object-contain shadow-md flex-shrink-0"
           />
           <div>
-            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 m-0">
-              Grokki Studio Desktop
-            </h3>
+            <div className="flex items-center gap-1.5 mb-1">
+              <img
+                src={grokkiWordmarkDark}
+                alt="Grokki Studio"
+                className="hidden dark:block h-6.5 w-auto object-contain select-none"
+              />
+              <img
+                src={grokkiWordmarkLight}
+                alt="Grokki Studio"
+                className="block dark:hidden h-6.5 w-auto object-contain select-none"
+              />
+            </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-1.5">
               Autonomous Multimodal Operating System Assistant
             </p>
