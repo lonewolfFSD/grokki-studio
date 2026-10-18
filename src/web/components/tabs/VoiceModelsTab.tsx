@@ -358,8 +358,8 @@ const VOICES: VoiceItem[] = [
 ];
 
 // Carousel layout, indexed by distance from the focused voice (0 = center).
-const OFFSET_X = [0, 270, 445, 565, 650];
-const OFFSET_SCALE = [1, 0.8, 0.6, 0.44, 0.34];
+const OFFSET_X = [0, 250, 445, 565, 650];
+const OFFSET_SCALE = [1, 0.85, 0.6, 0.44, 0.34];
 const OFFSET_OPACITY = [1, 1, 0.55, 0.2, 0];
 const LABEL_OPACITY = [1, 0.5, 0, 0, 0];
 const MAX_VISIBLE_OFFSET = 4;
@@ -415,9 +415,9 @@ const VoiceSphere: React.FC<{
       height: size,
       background: voice.sphere.base,
       isolation: 'isolate',
-      boxShadow: featured
-        ? `0 0 0 6px ${voice.sphere.mid}22, 0 28px 50px -18px ${voice.sphere.mid}aa`
-        : `0 0 0 0 ${voice.sphere.mid}00, 0 14px 28px -14px ${voice.sphere.mid}66`,
+      // boxShadow: featured
+      //   ? `0 0 0 6px ${voice.sphere.mid}22, 0 28px 50px -18px ${voice.sphere.mid}aa`
+      //   : `0 0 0 0 ${voice.sphere.mid}00, 0 14px 28px -14px ${voice.sphere.mid}66`,
       transition: `box-shadow 600ms ${CAROUSEL_EASE}`,
     }}
   >

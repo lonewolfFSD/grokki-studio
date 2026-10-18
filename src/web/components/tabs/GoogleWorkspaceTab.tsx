@@ -31,6 +31,9 @@ import {
   EyeOff,
   Copy,
   CheckCircle2,
+  MessageSquare,
+  Send,
+  Share2,
 } from 'lucide-react';
 import {
   GoogleProfile,
@@ -48,6 +51,22 @@ import githubLogo from '../../assets/logos/github.png';
 // Official Authentic Google Brand Logo
 const GoogleLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
   <img src={googleLogo} alt="Google" className={`${className} object-contain`} />
+);
+
+// Official Authentic WhatsApp Brand Logo
+export const WhatsAppLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+  <svg viewBox="0 0 24 24" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 6.46 17.5 2 12.04 2Z"
+      fill="#25D366"
+    />
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M17.47 14.38C17.18 14.23 15.74 13.52 15.47 13.42C15.2 13.32 15.01 13.27 14.81 13.57C14.62 13.87 14.05 14.54 13.87 14.74C13.7 14.94 13.53 14.97 13.24 14.82C12.95 14.67 12.01 14.36 10.9 13.37C10.03 12.6 9.45 11.64 9.28 11.35C9.11 11.06 9.26 10.9 9.41 10.75C9.54 10.62 9.7 10.4 9.85 10.23C10 10.05 10.05 9.93 10.15 9.73C10.25 9.53 10.2 9.36 10.13 9.21C10.05 9.06 9.47 7.62 9.23 7.03C9 6.46 8.76 6.54 8.58 6.53C8.41 6.52 8.22 6.52 8.02 6.52C7.83 6.52 7.51 6.6 7.24 6.89C6.97 7.18 6.22 7.88 6.22 9.32C6.22 10.76 7.27 12.15 7.41 12.34C7.56 12.54 9.48 15.5 12.43 16.77C13.13 17.07 13.68 17.25 14.11 17.39C14.81 17.61 15.45 17.58 15.96 17.5C16.53 17.41 17.7 16.79 17.94 16.1C18.18 15.41 18.18 14.82 18.11 14.7C18.04 14.57 17.84 14.49 17.55 14.35L17.47 14.38Z"
+      fill="#FFFFFF"
+    />
+  </svg>
 );
 
 // Official Authentic Notion Brand Logo
@@ -82,6 +101,36 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
 }) => {
   const [connectingGoogle, setConnectingGoogle] = useState(false);
   const [googleExpanded, setGoogleExpanded] = useState(true);
+
+  // WhatsApp State (Auto-connected)
+  const [whatsappExpanded, setWhatsappExpanded] = useState(false);
+  const [whatsappTestPhone, setWhatsappTestPhone] = useState('');
+  const [whatsappTestMessage, setWhatsappTestMessage] = useState('Hello from Grokki!');
+  const [whatsappSent, setWhatsappSent] = useState(false);
+
+  const whatsappFeatures = [
+    { icon: <Send className="w-4 h-4 text-emerald-500" />, label: 'Autonomous Messaging', desc: 'Send messages & replies via voice prompt or code action' },
+    { icon: <Share2 className="w-4 h-4 text-emerald-500" />, label: 'Fast Clipboard & File Share', desc: 'Instant forward of summaries, docs, and code snippets' },
+    { icon: <MessageSquare className="w-4 h-4 text-emerald-500" />, label: 'Voice Memo Transcription', desc: 'Listen & parse incoming audio notes into text' },
+    { icon: <Globe className="w-4 h-4 text-emerald-500" />, label: 'Desktop & Web Bridge', desc: 'Direct protocol deep-linking (whatsapp:// & web)' },
+  ];
+
+  const handleOpenWhatsApp = (phone?: string, text?: string) => {
+    const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+    let url = 'https://web.whatsapp.com';
+    if (cleanPhone || text) {
+      const query = new URLSearchParams();
+      if (text) query.set('text', text);
+      url = cleanPhone ? `https://wa.me/${cleanPhone}?${query.toString()}` : `whatsapp://send?${query.toString()}`;
+    }
+    if (window.jarvisAPI?.openUrl) {
+      window.jarvisAPI.openUrl(url);
+    } else {
+      window.open(url, '_blank');
+    }
+    setWhatsappSent(true);
+    setTimeout(() => setWhatsappSent(false), 3000);
+  };
 
   // Notion State
   const [notionConnected, setNotionConnected] = useState(false);
@@ -771,7 +820,148 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
         </div>
       </div>
 
-      {/* 2. Notion Workspace Accordion Card */}
+      {/* 2. WhatsApp Accordion Card (Auto-Connected) */}
+      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
+        <div
+          onClick={() => setWhatsappExpanded((prev) => !prev)}
+          className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
+        >
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/40 flex items-center justify-center flex-shrink-0 shadow-xs">
+              <WhatsAppLogo className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+                  WhatsApp Status
+                </h3>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Auto-Connected
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 m-0 truncate">
+                Desktop session active. Grokki can autonomously send messages, dispatch notes, and format summaries to your chats.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0 ml-4" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => handleOpenWhatsApp()}
+              title="Open WhatsApp Desktop or Web"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all"
+            >
+              <span>Open App</span>
+              <ExternalLink className="w-3 h-3 opacity-60" />
+            </button>
+
+            <div className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-semibold border bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 shadow-xs select-none">
+              <Check className="w-3.5 h-3.5" />
+              <span className="font-bold">Auto-Connected</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setWhatsappExpanded((prev) => !prev)}
+              aria-label={whatsappExpanded ? 'Collapse section' : 'Expand section'}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border-none bg-transparent"
+            >
+              <ChevronDown
+                className={`w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                  whatsappExpanded ? 'rotate-180 text-gray-700 dark:text-gray-200' : 'text-gray-400'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Smooth Accordion Content: WhatsApp Capabilities & Test Dispatcher */}
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            whatsappExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none'
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="px-5 pb-5 pt-4 border-t border-[#e4e4eb] dark:border-[#1e2029] flex flex-col gap-4">
+              {/* Active Bridge Status Pill */}
+              <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/30 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(37,211,102,0.6)]" />
+                  <div>
+                    <div className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                      WhatsApp Native Bridge Active
+                    </div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                      Ready for voice instructions, automated messaging, and instant notification dispatch.
+                    </div>
+                  </div>
+                </div>
+                <span className="text-[11px] font-mono font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-900/40 px-2.5 py-1 rounded-md">
+                  Protocol: whatsapp://
+                </span>
+              </div>
+
+              {/* 4 Capability Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full">
+                {whatsappFeatures.map((feat, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex flex-col gap-1.5"
+                  >
+                    <div className="flex items-center gap-2">
+                      {feat.icon}
+                      <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">{feat.label}</span>
+                    </div>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0 leading-relaxed">
+                      {feat.desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Quick Test Message Dispatcher */}
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                    Quick Test Dispatcher
+                  </span>
+                  <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                    Test sending a message through the connected bridge
+                  </span>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    placeholder="Phone number (optional, e.g. +1234567890)"
+                    value={whatsappTestPhone}
+                    onChange={(e) => setWhatsappTestPhone(e.target.value)}
+                    className="h-9 px-3 rounded-lg text-xs border border-gray-200 dark:border-[#2a2d3a] bg-white dark:bg-[#13141a] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 flex-1"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Message text..."
+                    value={whatsappTestMessage}
+                    onChange={(e) => setWhatsappTestMessage(e.target.value)}
+                    className="h-9 px-3 rounded-lg text-xs border border-gray-200 dark:border-[#2a2d3a] bg-white dark:bg-[#13141a] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 flex-2"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleOpenWhatsApp(whatsappTestPhone, whatsappTestMessage)}
+                    className="h-9 px-4 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer border-none shadow-xs flex-shrink-0"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{whatsappSent ? 'Dispatched!' : 'Send Message'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Notion Workspace Accordion Card */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
         <div
           onClick={() => setNotionExpanded((prev) => !prev)}

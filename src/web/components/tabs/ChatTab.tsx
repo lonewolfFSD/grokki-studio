@@ -1807,7 +1807,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           <GradientASCII
             colors={GRADIENT_ASCII_COLORS}
             shape="horizon"
-            characters=" =+xX0S8#@"
+            characters=" =GROKKIBYITZAJX@#"
             cellSize={18}
             density={0.56}
             glyphOpacity={0.3}

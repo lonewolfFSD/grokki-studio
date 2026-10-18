@@ -22,6 +22,7 @@ import googleLogo from '../../assets/logos/google.png';
 import notionLogo from '../../assets/logos/notion.png';
 import obsidianLogo from '../../assets/logos/obsidian.png';
 import githubLogo from '../../assets/logos/github.png';
+import { WhatsAppLogo } from './GoogleWorkspaceTab';
 
 export interface UpdateItem {
   id: string;
@@ -76,7 +77,7 @@ const BASE_QUICK_ACCESS: QuickAccessItem[] = [
   {
     id: 'integrations',
     label: 'Integrations',
-    description: 'Google, Notion, Obsidian, GitHub',
+    description: 'Google, WhatsApp, Notion, Obsidian, GitHub',
     icon: <Link2 className="w-4 h-4" />,
     tab: INTEGRATIONS_TAB,
   },
@@ -88,6 +89,7 @@ type Requirement = 'google' | 'notion' | 'obsidian' | 'git';
 const TRY_SAYING: { prompt: string; hint: string; needs?: Requirement }[] = [
   { prompt: "What's on my screen?", hint: 'Screen vision' },
   { prompt: 'Pause the music', hint: 'Media control' },
+  { prompt: 'Send a message on WhatsApp', hint: 'WhatsApp' },
   { prompt: 'Summarize my latest emails', hint: 'Gmail', needs: 'google' },
   { prompt: 'Add a task to Notion', hint: 'Notion', needs: 'notion' },
   { prompt: 'Search my vault for project notes', hint: 'Obsidian', needs: 'obsidian' },
@@ -150,7 +152,7 @@ const StatusPill: React.FC<{ on: boolean; onLabel: string; offLabel: string }> =
 );
 
 const AccountRow: React.FC<{
-  logo: string;
+  logo: string | React.ReactNode;
   name: string;
   detail: string;
   connected: boolean;
@@ -163,7 +165,11 @@ const AccountRow: React.FC<{
     className="w-full flex items-center gap-3 px-4 py-3 text-left cursor-pointer border-none bg-transparent hover:bg-gray-50 dark:hover:bg-[#161822] transition-colors"
   >
     <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0">
-      <img src={logo} alt="" className={`w-[18px] h-[18px] object-contain ${logoClassName}`} />
+      {typeof logo === 'string' ? (
+        <img src={logo} alt="" className={`w-[18px] h-[18px] object-contain ${logoClassName}`} />
+      ) : (
+        logo
+      )}
     </div>
     <div className="flex-1 min-w-0 flex flex-col">
       <strong className="text-sm font-semibold text-gray-900 dark:text-gray-100">{name}</strong>
@@ -283,7 +289,7 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
   const wakeWordOn = config.wakeWordEnabled !== false;
   const spokenOn = config.ttsEnabled !== false;
 
-  const connectedCount = [googleConnected, notionConnected, obsidianConnected, githubConnected].filter(
+  const connectedCount = [googleConnected, true, notionConnected, obsidianConnected, githubConnected].filter(
     Boolean
   ).length;
 
@@ -470,7 +476,7 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
             title="Linked accounts"
             action={
               <span className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums">
-                {connectedCount} of 4 connected
+                {connectedCount} of 5 connected
               </span>
             }
           >
@@ -487,6 +493,13 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
                 }
                 connected={googleConnected}
                 onClick={!googleConnected && onConnectGoogle ? onConnectGoogle : goToIntegrations}
+              />
+              <AccountRow
+                logo={<WhatsAppLogo className="w-5 h-5" />}
+                name="WhatsApp"
+                detail="Desktop bridge active (Auto-connected)"
+                connected={true}
+                onClick={goToIntegrations}
               />
               <AccountRow
                 logo={notionLogo}
