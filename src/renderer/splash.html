@@ -110,7 +110,7 @@
     function finish() {
       if (finished) return;
       finished = true;
-      splashCard.style.transition = 'opacity 0.35s ease-out, transform 0.35s ease-out';
+      splashCard.style.transition = 'opacity 0.45s ease-out, transform 0.45s ease-out';
       splashCard.style.opacity = '0';
       splashCard.style.transform = 'scale(0.98)';
       setTimeout(() => {
@@ -119,7 +119,7 @@
         } else {
           window.close();
         }
-      }, 350);
+      }, 450);
     }
 
     const timer = setInterval(() => {
@@ -129,12 +129,12 @@
         // Trigger reflow for clean re-fade
         statusEl.style.animation = 'none';
         void statusEl.offsetWidth;
-        statusEl.style.animation = 'fadeIn 0.18s ease-out';
+        statusEl.style.animation = 'fadeIn 0.22s ease-out';
       } else {
         clearInterval(timer);
-        setTimeout(finish, 320);
+        setTimeout(finish, 700);
       }
-    }, 240);
+    }, 450);
 
     // Click anywhere to fast-forward
     document.body.addEventListener('click', () => {
