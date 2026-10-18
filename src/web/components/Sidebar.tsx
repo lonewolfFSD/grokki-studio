@@ -463,7 +463,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <img
                 src={grokkiLogo}
                 alt="Grokki Studio"
-                className="w-7 h-7 rounded-lg object-contain shadow-xs flex-shrink-0"
+                className="w-6.5 h-6.5 rounded-lg object-contain shadow-xs flex-shrink-0"
               />
               <div className="flex items-center min-w-0">
                 <img
@@ -474,7 +474,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <img
                   src={grokkiWordmarkLight}
                   alt="Grokki Studio"
-                  className="block dark:hidden h-5 w-auto max-w-[160px] object-contain select-none"
+                  className="block dark:hidden h-9 w-auto max-w-[160px] object-contain select-none"
                 />
               </div>
             </div>

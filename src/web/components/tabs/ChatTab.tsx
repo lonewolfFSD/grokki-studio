@@ -1955,7 +1955,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
           {/* Suggestions Grid */}
           <div className="w-full max-w-xl mt-8 text-left">
-            <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 tracking-wider uppercase block mb-2.5">
+            <span className="text-[11px] font-semibold text-gray-300 dark:text-gray-400 tracking-wider uppercase block mb-2.5">
               Suggestions & Commands
             </span>
             <div className="grid grid-cols-2 gap-2.5 w-full">
