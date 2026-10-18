@@ -38,7 +38,7 @@ import LatticeLoader from './LatticeLoader';
 import WarmTooltip, { WarmTooltipGroup } from '../WarmTooltip';
 import { getEffectiveHotkeys, matchesHotkey } from '../../utils/hotkeys';
 
-import grokkiIcon from '../../assets/grokki_logo.png';
+import grokkiIcon from '../../assets/grokki_icon.svg';
 
 interface ChatTabProps {
   config: JarvisConfig;

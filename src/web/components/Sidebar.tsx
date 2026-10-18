@@ -469,12 +469,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <img
                   src={grokkiWordmarkDark}
                   alt="Grokki Studio"
-                  className="hidden dark:block h-5 w-auto max-w-[135px] object-contain select-none"
+                  className="hidden dark:block h-9 w-auto max-w-[160px] object-contain select-none"
                 />
                 <img
                   src={grokkiWordmarkLight}
                   alt="Grokki Studio"
-                  className="block dark:hidden h-5 w-auto max-w-[135px] object-contain select-none"
+                  className="block dark:hidden h-5 w-auto max-w-[160px] object-contain select-none"
                 />
               </div>
             </div>
