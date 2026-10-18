@@ -103,6 +103,7 @@ try {
     gitCommit: (cwd, options) => ipcRenderer.invoke('jarvis:git-commit', cwd, options),
     gitClone: (cloneUrl, targetPath) => ipcRenderer.invoke('jarvis:git-clone', cloneUrl, targetPath),
     gitSelectDir: () => ipcRenderer.invoke('jarvis:git-select-dir'),
+    restoreDefaultGitHubOAuth: () => ipcRenderer.invoke('jarvis:restore-default-github-oauth'),
 
     closeDashboard: () => ipcRenderer.send('dashboard:close'),
     minimizeDashboard: () => ipcRenderer.send('dashboard:minimize'),

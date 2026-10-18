@@ -1004,10 +1004,12 @@ ipcMain.handle('jarvis:disconnect-github', async () => {
 
 ipcMain.handle('jarvis:get-github-status', async () => {
   const githubWorkspace = require('./github_workspace');
-  return {
-    connected: githubWorkspace.isConnected(),
-    profile: githubWorkspace.getProfile(),
-  };
+  return await githubWorkspace.getStatus();
+});
+
+ipcMain.handle('jarvis:restore-default-github-oauth', async () => {
+  const githubWorkspace = require('./github_workspace');
+  return await githubWorkspace.restoreDefaultOAuth();
 });
 
 ipcMain.handle('jarvis:get-github-repos', async (event, options) => {

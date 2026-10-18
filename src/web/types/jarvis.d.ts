@@ -197,9 +197,10 @@ export interface JarvisAPI {
   getObsidianStatus?: () => Promise<ObsidianStatusResponse>;
   disconnectObsidian?: () => Promise<{ success: boolean }>;
   openObsidianVault?: (notePath?: string) => Promise<{ success: boolean }>;
-  connectGitHub?: (token: string) => Promise<{ success: boolean; profile?: GitHubProfile; error?: string }>;
+  connectGitHub?: (token?: string) => Promise<{ success: boolean; profile?: GitHubProfile; isDefaultToken?: boolean; error?: string }>;
   disconnectGitHub?: () => Promise<{ success: boolean }>;
-  getGitHubStatus?: () => Promise<{ connected: boolean; profile?: GitHubProfile }>;
+  getGitHubStatus?: () => Promise<{ connected: boolean; profile?: GitHubProfile; isDefaultToken?: boolean }>;
+  restoreDefaultGitHubOAuth?: () => Promise<{ success: boolean; profile?: GitHubProfile; isDefaultToken?: boolean; error?: string }>;
   getGitHubRepos?: (options?: { perPage?: number; page?: number; sort?: string }) => Promise<{ success: boolean; repos?: GitHubRepo[]; error?: string }>;
   getGitStatus?: (cwd?: string) => Promise<GitStatusResponse>;
   gitFetch?: (cwd?: string) => Promise<{ success: boolean; output?: string; error?: string }>;

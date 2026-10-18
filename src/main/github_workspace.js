@@ -3,9 +3,13 @@ const path = require('path');
 const { exec } = require('child_process');
 const { dialog, shell } = require('electron');
 
+// Built-in hardcoded default GitHub OAuth token (like Notion's built-in OAuth credentials)
+const DEFAULT_HARDCODED_GITHUB_TOKEN = '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';
+
 class GitHubWorkspaceManager {
   constructor() {
     this.storagePath = path.resolve(__dirname, '../../data/github_tokens.json');
+    this.defaultToken = DEFAULT_HARDCODED_GITHUB_TOKEN;
     this.token = null;
     this.profile = null;
     this.cachedRepos = [];
@@ -19,13 +23,18 @@ class GitHubWorkspaceManager {
         if (data && data.token) {
           this.token = data.token;
           this.profile = data.profile || null;
+          return;
         }
       } catch (e) {
         console.warn('[GitHub] Failed to load saved token:', e.message);
       }
     } else if (process.env.GITHUB_TOKEN) {
       this.token = process.env.GITHUB_TOKEN.trim();
+      return;
     }
+
+    // Default to built-in hardcoded OAuth token (like Notion)
+    this.token = this.defaultToken;
   }
 
   saveToken(token, profile) {
@@ -34,7 +43,11 @@ class GitHubWorkspaceManager {
     try {
       const dir = path.dirname(this.storagePath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(this.storagePath, JSON.stringify({ token, profile }, null, 2), 'utf8');
+      fs.writeFileSync(
+        this.storagePath,
+        JSON.stringify({ token, profile, connectedAt: new Date().toISOString() }, null, 2),
+        'utf8'
+      );
     } catch (e) {
       console.warn('[GitHub] Failed to save token:', e.message);
     }
@@ -46,6 +59,22 @@ class GitHubWorkspaceManager {
 
   getProfile() {
     return this.profile;
+  }
+
+  async getStatus() {
+    if (this.token && !this.profile) {
+      try {
+        this.profile = await this.verifyToken(this.token);
+        this.saveToken(this.token, this.profile);
+      } catch (e) {
+        console.warn('[GitHub] Auto-verify token failed:', e.message);
+      }
+    }
+    return {
+      connected: this.isConnected(),
+      profile: this.getProfile(),
+      isDefaultToken: this.token === this.defaultToken,
+    };
   }
 
   async verifyToken(token) {
@@ -80,11 +109,23 @@ class GitHubWorkspaceManager {
 
   async connect(token) {
     try {
-      const cleaned = (token || '').trim();
-      if (!cleaned) throw new Error('Personal Access Token is empty');
-      const profile = await this.verifyToken(cleaned);
-      this.saveToken(cleaned, profile);
-      return { success: true, profile };
+      const candidate = (token || '').trim() || this.defaultToken;
+      if (!candidate) throw new Error('GitHub token is empty');
+      const profile = await this.verifyToken(candidate);
+      this.saveToken(candidate, profile);
+      return {
+        success: true,
+        profile,
+        isDefaultToken: candidate === this.defaultToken,
+      };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  async restoreDefaultOAuth() {
+    try {
+      return await this.connect(this.defaultToken);
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -145,7 +186,12 @@ class GitHubWorkspaceManager {
 
   execGit(command, cwd = process.cwd()) {
     return new Promise((resolve) => {
-      exec(command, { cwd, timeout: 30000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } }, (err, stdout, stderr) => {
+      const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+      if (this.token) {
+        env.GITHUB_TOKEN = this.token;
+        env.GH_TOKEN = this.token;
+      }
+      exec(command, { cwd, timeout: 30000, env }, (err, stdout, stderr) => {
         resolve({
           success: !err,
           stdout: (stdout || '').trim(),

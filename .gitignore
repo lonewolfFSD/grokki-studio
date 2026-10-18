@@ -11,6 +11,8 @@ data/google_tokens.json
 data/google_credentials.json
 data/notion_tokens.json
 data/notion_credentials.json
+data/github_tokens.json
+data/github_credentials.json
 data/obsidian_vault.json
 data/jarvis-config.json
 
