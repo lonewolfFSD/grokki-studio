@@ -173,7 +173,7 @@ const AccountRow: React.FC<{
   </button>
 );
 
-export const OverviewTab: React.FC<OverviewTabProps> = ({
+export const OverviewTab = React.memo<OverviewTabProps>(({
   config,
   userName,
   onNavigateTab,
@@ -573,4 +573,4 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       </div>
     </div>
   );
-};
+});

@@ -417,12 +417,34 @@ class Grokbot {
   }
 
   startLoop() {
+    this.running = true;
+    this.paused = false;
     const animate = () => {
+      if (!this.running || this.paused) {
+        this.rafId = null;
+        return;
+      }
       this.update();
       this.draw();
-      requestAnimationFrame(animate);
+      this.rafId = requestAnimationFrame(animate);
     };
-    requestAnimationFrame(animate);
+    if (!this.rafId) {
+      this.rafId = requestAnimationFrame(animate);
+    }
+  }
+
+  pause() {
+    this.paused = true;
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+  }
+
+  resume() {
+    if (!this.paused) return;
+    this.paused = false;
+    this.startLoop();
   }
 }
 

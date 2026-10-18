@@ -1,6 +1,4 @@
-'use client';
-
-import { useEffect, useRef, type CSSProperties, type HTMLAttributes } from 'react';
+import React, { useEffect, useRef, type CSSProperties, type HTMLAttributes } from 'react';
 
 export type GradientASCIIShape = 'horizon' | 'pinch' | 'rise' | 'eclipse';
 
@@ -921,4 +919,4 @@ const GradientASCII = ({
   );
 };
 
-export default GradientASCII;
+export default React.memo(GradientASCII);

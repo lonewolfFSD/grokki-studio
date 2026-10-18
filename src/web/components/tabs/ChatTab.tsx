@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   ArrowUp,
   Mic,
@@ -39,6 +39,8 @@ import WarmTooltip, { WarmTooltipGroup } from '../WarmTooltip';
 import { getEffectiveHotkeys, matchesHotkey } from '../../utils/hotkeys';
 
 import grokkiIcon from '../../assets/grokki_icon.svg';
+
+const GRADIENT_ASCII_COLORS = ['#23378e', '#f6f8ff', '#a5d8ff', '#38bdf8'];
 
 interface ChatTabProps {
   config: JarvisConfig;
@@ -289,9 +291,17 @@ function getLanguageLogoSvg(lang: string): string {
   </svg>`;
 }
 
+const htmlRenderCache = new Map<string, string>();
+const MAX_CACHE_SIZE = 400;
+
 function formatRichMarkdownHtml(rawContent: string): string {
+  if (!rawContent) return '';
+  if (htmlRenderCache.has(rawContent)) {
+    return htmlRenderCache.get(rawContent)!;
+  }
+
   // Normalize inline or line-leading Unicode bullets (•) into numbered list items (1. 2. 3.)
-  let normalized = (rawContent || '')
+  let normalized = rawContent
     .replace(/\s+•\s+(\*\*\[)/g, '\n• $1')
     .replace(/\s+•\s+(\*\.\.\.)/g, '\n\n$1');
 
@@ -375,8 +385,59 @@ function formatRichMarkdownHtml(rawContent: string): string {
     }
   });
 
-  return doc.body.innerHTML;
+  const finalHtml = doc.body.innerHTML;
+  if (htmlRenderCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = htmlRenderCache.keys().next().value;
+    if (firstKey !== undefined) htmlRenderCache.delete(firstKey);
+  }
+  htmlRenderCache.set(rawContent, finalHtml);
+  return finalHtml;
 }
+
+const StaticMessageContent = React.memo<{ content: string }>(({ content }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const rawHtml = useMemo(() => formatRichMarkdownHtml(content), [content]);
+
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null;
+
+    // 1. Open links externally in the user's system browser
+    const anchor = target?.closest('a') as HTMLAnchorElement | null;
+    if (anchor) {
+      e.preventDefault();
+      e.stopPropagation();
+      const externalUrl = anchor.getAttribute('data-external-href') || anchor.getAttribute('href') || '';
+      if (externalUrl && externalUrl !== '#') {
+        window.jarvisAPI?.openUrl(externalUrl);
+      }
+      return;
+    }
+
+    // 2. Copy code block content
+    const copyBtn = target?.closest('.grokki-code-copy-btn') as HTMLButtonElement | null;
+    if (!copyBtn) return;
+    e.stopPropagation();
+    const codeWindow = copyBtn.closest('.grokki-code-window');
+    const codeEl = codeWindow?.querySelector('pre code, pre');
+    const rawCode = codeEl?.textContent || '';
+    navigator.clipboard.writeText(rawCode);
+    copyBtn.classList.add('copied');
+    copyBtn.innerHTML = `${CHECK_ICON_SVG}<span>Copied!</span>`;
+    setTimeout(() => {
+      copyBtn.classList.remove('copied');
+      copyBtn.innerHTML = `${COPY_ICON_SVG}<span>Copy</span>`;
+    }, 2000);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      onClick={handleContainerClick}
+      className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed select-text"
+      dangerouslySetInnerHTML={{ __html: rawHtml }}
+    />
+  );
+});
 
 const MARKDOWN_RENDER_REV = 3;
 
@@ -542,7 +603,7 @@ const AnimatedMessageContent: React.FC<{
   );
 };
 
-export const ChatTab: React.FC<ChatTabProps> = ({
+export const ChatTab = React.memo<ChatTabProps>(({
   config,
   userName,
   onNavigateTab,
@@ -870,15 +931,22 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     };
   }, []);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const scrollRafRef = useRef<number | null>(null);
+  const scrollToBottom = useCallback((smooth = false) => {
+    if (scrollRafRef.current !== null) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'end' });
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (messages.length > 0) {
-      scrollToBottom();
+      scrollToBottom(false);
     }
-  }, [messages, loading]);
+  }, [messages, loading, scrollToBottom]);
 
   // WhatsApp-style Attachment Menu & Camera Capture State
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
@@ -1736,7 +1804,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         style={{ width: '100%', height: '100%', position: 'absolute' }}
       >
         <GradientASCII
-          colors={['#23378e', '#f6f8ff', '#a5d8ff', '#38bdf8']}
+          colors={GRADIENT_ASCII_COLORS}
           shape="horizon"
           characters=" =+xX0S8#@"
           cellSize={18}
@@ -2058,14 +2126,18 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                           </div>
                         )}
 
-                        {/* Rendered Markdown Body with Per-Word Fade-In Typing */}
-                        <AnimatedMessageContent
-                          content={msg.content}
-                          isAnimated={config.streamingAnimation !== false && msg.isAnimated}
-                          speed={config.streamingSpeed}
-                          onScroll={scrollToBottom}
-                          onFinished={() => handleMessageFinished(msg.id)}
-                        />
+                        {/* Rendered Markdown Body: Animated if streaming, else Fast Cached Static */}
+                        {config.streamingAnimation !== false && msg.isAnimated ? (
+                          <AnimatedMessageContent
+                            content={msg.content}
+                            isAnimated={true}
+                            speed={config.streamingSpeed}
+                            onScroll={scrollToBottom}
+                            onFinished={() => handleMessageFinished(msg.id)}
+                          />
+                        ) : (
+                          <StaticMessageContent content={msg.content} />
+                        )}
 
                         {/* Pure Icon-Only Actions */}
                         <div className="flex items-center gap-1 mt-2">
@@ -2357,4 +2429,4 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     </div>
     </WarmTooltipGroup>
   );
-};
+});

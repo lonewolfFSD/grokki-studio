@@ -9,6 +9,15 @@ const kokoroTTS = require('./kokoro_tts');
 require('dotenv').config();
 
 app.commandLine.appendSwitch('disable-gpu-cache');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('enable-accelerated-2d-canvas');
+app.commandLine.appendSwitch('enable-features', 'CanvasOopRasterization,VaapiVideoDecoder');
+
+const initialConfig = loadConfig();
+if (initialConfig.hardwareAcceleration === false) {
+  app.disableHardwareAcceleration();
+}
 
 // Enforce single instance so Alt+Q hotkey is never hijacked by duplicate processes
 const gotTheLock = app.requestSingleInstanceLock();
@@ -40,11 +49,13 @@ let isQuitting = false;
 let isVisible = true;
 let hideTimeout = null;
 let wakeWordService = null;
+let cachedConfig = null;
 
 // Config file in userData
 const configPath = path.join(grokkiDataDir, 'jarvis-config.json');
 
 function loadConfig() {
+  if (cachedConfig) return cachedConfig;
   const envKey = (process.env.GEMINI_API_KEY || '').trim();
   const envGroqKey = (process.env.GROQ_API_KEY || '').trim();
   const envOpenRouterKey = (process.env.OPENROUTER_API_KEY || '').trim();
@@ -83,12 +94,13 @@ function loadConfig() {
       if (data.soundEffectsEnabled === undefined) data.soundEffectsEnabled = true;
       if (data.autoCheckUpdates === undefined) data.autoCheckUpdates = true;
       if (data.hardwareAcceleration === undefined) data.hardwareAcceleration = true;
-      return data;
+      cachedConfig = data;
+      return cachedConfig;
     }
   } catch (err) {
     console.error('Failed to load config:', err);
   }
-  return {
+  cachedConfig = {
     provider: 'gemini',
     geminiApiKey: envKey,
     geminiModel: 'gemini-2.5-flash',
@@ -125,12 +137,14 @@ function loadConfig() {
     autoCheckUpdates: true,
     hardwareAcceleration: true,
   };
+  return cachedConfig;
 }
 
 function saveConfig(newConfig) {
   try {
     const current = loadConfig();
     const updated = { ...current, ...newConfig };
+    cachedConfig = updated;
     fs.writeFileSync(configPath, JSON.stringify(updated, null, 2), 'utf8');
 
     if (newConfig.launchOnStartup !== undefined) {
@@ -320,6 +334,9 @@ function createSplashWindow(onFinish) {
     return;
   }
 
+  // Pre-warm dashboard window off-screen while splash screen plays so it shows instantly
+  openDashboardWindow(false);
+
   const studioIcoPath = path.join(__dirname, '../../assets/grokki_studio_icon.ico');
   const studioPngPath = path.join(__dirname, '../../assets/grokki_studio_tray.png');
   const appIconPath = fs.existsSync(studioIcoPath) ? studioIcoPath : (fs.existsSync(studioPngPath) ? studioPngPath : undefined);
@@ -370,6 +387,13 @@ function createSplashWindow(onFinish) {
 function openDashboardWindow(showImmediately = true) {
   if (dashboardWindow && !dashboardWindow.isDestroyed()) {
     if (showImmediately) {
+      const config = loadConfig();
+      const launchMode = config.launchMode || 'windowed';
+      if (launchMode === 'fullscreen') {
+        dashboardWindow.setFullScreen(true);
+      } else if (launchMode === 'maximized') {
+        dashboardWindow.maximize();
+      }
       dashboardWindow.show();
       dashboardWindow.focus();
     }
@@ -401,6 +425,8 @@ function openDashboardWindow(showImmediately = true) {
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: true,
+      spellcheck: false,
+      backgroundThrottling: false,
     },
   });
 
@@ -422,20 +448,7 @@ function openDashboardWindow(showImmediately = true) {
   if (process.env.VITE_DEV === 'true') {
     dashboardWindow.loadURL('http://127.0.0.1:5173/dashboard.html');
   } else {
-    const http = require('http');
-    const req = http.get('http://127.0.0.1:5173/dashboard.html', (res) => {
-      if (res.statusCode === 200) {
-        dashboardWindow.loadURL('http://127.0.0.1:5173/dashboard.html');
-      } else {
-        dashboardWindow.loadFile(distDashboard);
-      }
-    });
-    req.on('error', () => {
-      dashboardWindow.loadFile(distDashboard);
-    });
-    req.setTimeout(400, () => {
-      req.destroy();
-    });
+    dashboardWindow.loadFile(distDashboard);
   }
 
   dashboardWindow.once('ready-to-show', () => {

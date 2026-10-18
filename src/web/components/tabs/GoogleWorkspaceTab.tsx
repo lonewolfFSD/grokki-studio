@@ -75,7 +75,7 @@ interface GoogleWorkspaceTabProps {
   onRefreshStatus: () => void;
 }
 
-export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
+export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
   connected,
   profile,
   onRefreshStatus,
@@ -1949,4 +1949,4 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
       </div>
     </div>
   );
-};
+});

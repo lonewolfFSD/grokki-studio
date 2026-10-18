@@ -27,7 +27,7 @@ function compareSemverLocal(v1: string, v2: string) {
   return 0;
 }
 
-export const Header: React.FC<HeaderProps> = ({
+export const Header = React.memo<HeaderProps>(({
   title,
   theme,
   onToggleTheme,
@@ -344,4 +344,4 @@ export const Header: React.FC<HeaderProps> = ({
       </WarmTooltipGroup>
     </header>
   );
-};
+});

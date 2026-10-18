@@ -6,7 +6,7 @@ interface AppearanceTabProps {
   onChangeConfig: (patch: Partial<JarvisConfig>) => void;
 }
 
-export const AppearanceTab: React.FC<AppearanceTabProps> = ({ config, onChangeConfig }) => {
+export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeConfig }) => {
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-16">
       <div>
@@ -117,4 +117,4 @@ export const AppearanceTab: React.FC<AppearanceTabProps> = ({ config, onChangeCo
       </div>
     </div>
   );
-};
+});

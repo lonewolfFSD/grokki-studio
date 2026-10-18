@@ -99,7 +99,7 @@ const OPENROUTER_QUICK_FILTERS = [
   'mistral',
 ];
 
-export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }) => {
+export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig }) => {
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showGroqKey, setShowGroqKey] = useState(false);
   const [showOpenRouterKey, setShowOpenRouterKey] = useState(false);
@@ -761,4 +761,4 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({ config, onChangeConfig }
       </div>
     </div>
   );
-};
+});

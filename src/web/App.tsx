@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sidebar, TabId } from './components/Sidebar';
 import { Header } from './components/Header';
 import { UnsavedToast } from './components/UnsavedToast';
@@ -223,40 +223,42 @@ export const App: React.FC = () => {
   };
 
   // Track unsaved changes
-  const handleConfigChange = (patch: Partial<JarvisConfig>) => {
+  const handleConfigChange = useCallback((patch: Partial<JarvisConfig>) => {
     setConfig((prev) => {
       const next = { ...prev, ...patch };
       setHasUnsaved(true);
       return next;
     });
-  };
+  }, []);
 
-  const handleToggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    if (nextTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-      document.body.classList.add('dark');
-      document.body.classList.remove('light');
-    } else {
-      document.documentElement.classList.add('light');
-      document.documentElement.classList.remove('dark');
-      document.body.classList.add('light');
-      document.body.classList.remove('dark');
-    }
-    setConfig((prev) => ({ ...prev, dashboardTheme: nextTheme }));
-    setOriginalConfig((prev) => ({ ...prev, dashboardTheme: nextTheme }));
-    if (window.jarvisAPI?.saveConfig) {
-      window.jarvisAPI.saveConfig({ ...config, dashboardTheme: nextTheme });
-    }
-  };
+  const handleToggleTheme = useCallback(() => {
+    setConfig((prev) => {
+      const nextTheme = (prev.dashboardTheme || 'light') === 'dark' ? 'light' : 'dark';
+      if (nextTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+        document.body.classList.add('dark');
+        document.body.classList.remove('light');
+      } else {
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+        document.body.classList.add('light');
+        document.body.classList.remove('dark');
+      }
+      setOriginalConfig((orig) => ({ ...orig, dashboardTheme: nextTheme }));
+      if (window.jarvisAPI?.saveConfig) {
+        window.jarvisAPI.saveConfig({ ...prev, dashboardTheme: nextTheme });
+      }
+      return { ...prev, dashboardTheme: nextTheme };
+    });
+  }, []);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setConfig(originalConfig);
     setHasUnsaved(false);
-  };
+  }, [originalConfig]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     const api = window.jarvisAPI;
     if (!api?.saveConfig) return;
     setSaving(true);
@@ -271,10 +273,10 @@ export const App: React.FC = () => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [config]);
 
   // Close guard: if dirty, shake the toast; else close
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (hasUnsaved) {
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 450);
@@ -285,22 +287,22 @@ export const App: React.FC = () => {
     } else {
       window.close();
     }
-  };
+  }, [hasUnsaved]);
 
-  const handleMinimize = () => {
+  const handleMinimize = useCallback(() => {
     if (window.jarvisAPI?.minimizeDashboard) {
       window.jarvisAPI.minimizeDashboard();
     }
-  };
+  }, []);
 
-  const handleMaximize = () => {
+  const handleMaximize = useCallback(() => {
     if (window.jarvisAPI?.maximizeDashboard) {
       window.jarvisAPI.maximizeDashboard();
     }
-  };
+  }, []);
 
   // Voice Sample Preview
-  const handlePreviewVoice = async (voiceId: string, customText?: string) => {
+  const handlePreviewVoice = useCallback(async (voiceId: string, customText?: string) => {
     if (playingVoice === voiceId) {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -339,7 +341,7 @@ export const App: React.FC = () => {
       console.error('TTS error:', err);
       setPlayingVoice(null);
     }
-  };
+  }, [playingVoice]);
 
   const effectiveHotkeys = getEffectiveHotkeys(config);
 
@@ -439,7 +441,7 @@ export const App: React.FC = () => {
 
         {/* Tab Panels */}
         <main className={`flex-1 min-h-0 overflow-y-auto ${activeTab === 'chat' ? 'h-full flex flex-col relative bg-[#f7f7fa] dark:bg-[#0b0c10] overflow-hidden' : 'px-8 py-6'}`}>
-          {activeTab === 'chat' && (
+          <div className={activeTab === 'chat' ? 'h-full flex flex-col relative w-full overflow-hidden' : 'hidden'}>
             <ChatTab
               config={config}
               userName={displayName}
@@ -448,7 +450,7 @@ export const App: React.FC = () => {
               onUpdateMessages={updateActiveMessages}
               onNewChat={createConversation}
             />
-          )}
+          </div>
 
           {activeTab === 'overview' && (
             <OverviewTab

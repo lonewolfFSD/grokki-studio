@@ -462,7 +462,7 @@ const VoiceSphere: React.FC<{
   </div>
 );
 
-export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
+export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
   config,
   onChangeConfig,
   playingVoice,
@@ -1084,4 +1084,4 @@ export const VoiceModelsTab: React.FC<VoiceModelsTabProps> = ({
       </section>
     </div>
   );
-};
+});

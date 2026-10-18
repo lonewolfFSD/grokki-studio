@@ -35,7 +35,7 @@ interface StudioSettingsTabProps {
   onClearConversations?: () => void;
 }
 
-export const StudioSettingsTab: React.FC<StudioSettingsTabProps> = ({
+export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
   config,
   onChangeConfig,
   onClearConversations,
@@ -879,4 +879,4 @@ export const StudioSettingsTab: React.FC<StudioSettingsTabProps> = ({
     </div>
     </WarmTooltipGroup>
   );
-};
+});

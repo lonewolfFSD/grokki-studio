@@ -1557,8 +1557,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   window.jarvisAPI.onWindowStateChanged(({ visible }) => {
     if (visible) {
+      grokbot.resume();
       playLaunchAnimation();
     } else {
+      grokbot.pause();
       if (launchTimer) clearTimeout(launchTimer);
       if (impactSoundTimer) clearTimeout(impactSoundTimer);
       if (hiGreetingTimer) clearTimeout(hiGreetingTimer);

@@ -10,7 +10,7 @@ interface AboutTabProps {
   hotkey: string;
 }
 
-export const AboutTab: React.FC<AboutTabProps> = ({ systemInfo, hotkey }) => {
+export const AboutTab = React.memo<AboutTabProps>(({ systemInfo, hotkey }) => {
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-16">
       <div className="flex items-end justify-between gap-4">
@@ -138,4 +138,4 @@ export const AboutTab: React.FC<AboutTabProps> = ({ systemInfo, hotkey }) => {
       </div>
     </div>
   );
-};
+});

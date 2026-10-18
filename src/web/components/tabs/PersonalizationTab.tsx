@@ -6,7 +6,7 @@ interface PersonalizationTabProps {
   onChangeConfig: (patch: Partial<JarvisConfig>) => void;
 }
 
-export const PersonalizationTab: React.FC<PersonalizationTabProps> = ({
+export const PersonalizationTab = React.memo<PersonalizationTabProps>(({
   config,
   onChangeConfig,
 }) => {
@@ -132,4 +132,4 @@ export const PersonalizationTab: React.FC<PersonalizationTabProps> = ({
       </div>
     </div>
   );
-};
+});

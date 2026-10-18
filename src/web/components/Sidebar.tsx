@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { type IconHandle } from '@animateicons/react';
 import { MessageSquareIcon } from '@animateicons/react/lucide/message-square-icon';
 import { HouseIcon } from '@animateicons/react/lucide/house-icon';
@@ -159,7 +159,7 @@ interface SidebarProps {
   onDisconnectGoogle?: () => Promise<void> | void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+export const Sidebar = React.memo<SidebarProps>(({
   activeTab,
   onSelectTab,
   theme,
@@ -207,18 +207,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
     e.preventDefault();
     setIsResizing(true);
 
+    let rafId: number | null = null;
+    let latestClientX = e.clientX;
+
     const onMouseMove = (moveEvent: MouseEvent) => {
-      const newWidth = moveEvent.clientX;
-      if (newWidth < 130) {
-        setIsCollapsed(true);
-      } else {
-        setIsCollapsed(false);
-        const clamped = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_EXPANDED_WIDTH, newWidth));
-        setSidebarWidth(clamped);
+      latestClientX = moveEvent.clientX;
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          if (latestClientX < 130) {
+            setIsCollapsed(true);
+          } else {
+            setIsCollapsed(false);
+            const clamped = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_EXPANDED_WIDTH, latestClientX));
+            setSidebarWidth(clamped);
+          }
+        });
       }
     };
 
     const onMouseUp = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
       setIsResizing(false);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
@@ -327,7 +339,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isChatActive = activeTab === 'chat';
 
-  const chatBranchedItems: BranchedMenuItem[] = [
+  const chatBranchedItems: BranchedMenuItem[] = useMemo(() => [
     {
       label: 'Chat',
       icon: <MessageSquareIcon size={16} className="flex-shrink-0" />,
@@ -393,7 +405,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }
       ],
     },
-  ];
+  ], [isChatActive, activeTab, conversations, onSelectTab, onCreateConversation, onDeleteConversation, effectiveHotkeys.newChat]);
 
   const effectiveWidth = isCollapsed ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth;
 
@@ -754,4 +766,4 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </aside>
     </WarmTooltipGroup>
   );
-};
+});
