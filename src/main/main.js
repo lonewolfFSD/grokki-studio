@@ -13,11 +13,11 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.grokki.studio');
 }
 
-const grokkiDataDir = path.resolve(__dirname, '../../data');
-if (!fs.existsSync(grokkiDataDir)) {
-  try { fs.mkdirSync(grokkiDataDir, { recursive: true }); } catch (e) {}
+const { getDataDir } = require('./data_dir');
+const grokkiDataDir = getDataDir();
+if (!app.isPackaged) {
+  try { app.setPath('userData', grokkiDataDir); } catch (e) {}
 }
-app.setPath('userData', grokkiDataDir);
 
 // Config file in userData
 const configPath = path.join(grokkiDataDir, 'jarvis-config.json');
@@ -740,11 +740,12 @@ ipcMain.handle('jarvis:open-url', async (event, url) => {
   }
 });
 
+const osInputScript = path.join(__dirname, 'os_input.ps1').replace('app.asar', 'app.asar.unpacked');
+
 ipcMain.handle('jarvis:type-text', async (event, text) => {
   return new Promise((resolve) => {
-    const scriptPath = path.join(__dirname, 'os_input.ps1');
     const safeText = String(text || '').replace(/'/g, "''");
-    exec(`powershell.exe -NoProfile -File "${scriptPath}" -action type -text '${safeText}'`, (err, stdout, stderr) => {
+    exec(`powershell.exe -NoProfile -File "${osInputScript}" -action type -text '${safeText}'`, (err, stdout, stderr) => {
       resolve({ success: !err, message: (stdout || stderr || '').trim() });
     });
   });
@@ -767,8 +768,7 @@ ipcMain.handle('jarvis:capture-screen', async (event, { width = 640, height = 36
 
 ipcMain.handle('jarvis:mouse-click', async (event, { x, y }) => {
   return new Promise((resolve) => {
-    const scriptPath = path.join(__dirname, 'os_input.ps1');
-    exec(`powershell.exe -NoProfile -File "${scriptPath}" -action click -x ${Math.round(x)} -y ${Math.round(y)}`, (err, stdout, stderr) => {
+    exec(`powershell.exe -NoProfile -File "${osInputScript}" -action click -x ${Math.round(x)} -y ${Math.round(y)}`, (err, stdout, stderr) => {
       resolve({ success: !err, message: (stdout || stderr || '').trim() });
     });
   });
@@ -776,8 +776,7 @@ ipcMain.handle('jarvis:mouse-click', async (event, { x, y }) => {
 
 ipcMain.handle('jarvis:mouse-double-click', async (event, { x, y }) => {
   return new Promise((resolve) => {
-    const scriptPath = path.join(__dirname, 'os_input.ps1');
-    exec(`powershell.exe -NoProfile -File "${scriptPath}" -action doubleclick -x ${Math.round(x)} -y ${Math.round(y)}`, (err, stdout, stderr) => {
+    exec(`powershell.exe -NoProfile -File "${osInputScript}" -action doubleclick -x ${Math.round(x)} -y ${Math.round(y)}`, (err, stdout, stderr) => {
       resolve({ success: !err, message: (stdout || stderr || '').trim() });
     });
   });
@@ -785,8 +784,7 @@ ipcMain.handle('jarvis:mouse-double-click', async (event, { x, y }) => {
 
 ipcMain.handle('jarvis:mouse-right-click', async (event, { x, y }) => {
   return new Promise((resolve) => {
-    const scriptPath = path.join(__dirname, 'os_input.ps1');
-    exec(`powershell.exe -NoProfile -File "${scriptPath}" -action rightclick -x ${Math.round(x)} -y ${Math.round(y)}`, (err, stdout, stderr) => {
+    exec(`powershell.exe -NoProfile -File "${osInputScript}" -action rightclick -x ${Math.round(x)} -y ${Math.round(y)}`, (err, stdout, stderr) => {
       resolve({ success: !err, message: (stdout || stderr || '').trim() });
     });
   });
@@ -794,8 +792,7 @@ ipcMain.handle('jarvis:mouse-right-click', async (event, { x, y }) => {
 
 ipcMain.handle('jarvis:mouse-move', async (event, { x, y }) => {
   return new Promise((resolve) => {
-    const scriptPath = path.join(__dirname, 'os_input.ps1');
-    exec(`powershell.exe -NoProfile -File "${scriptPath}" -action move -x ${Math.round(x)} -y ${Math.round(y)}`, (err, stdout, stderr) => {
+    exec(`powershell.exe -NoProfile -File "${osInputScript}" -action move -x ${Math.round(x)} -y ${Math.round(y)}`, (err, stdout, stderr) => {
       resolve({ success: !err, message: (stdout || stderr || '').trim() });
     });
   });
@@ -825,7 +822,6 @@ ipcMain.handle('jarvis:send-email', async (event, { to = '', subject = '', body 
 
 ipcMain.handle('jarvis:system-control', async (event, payload) => {
   return new Promise((resolve) => {
-    const scriptPath = path.join(__dirname, 'os_input.ps1');
     const action = typeof payload === 'string' ? payload : (payload?.action || '');
     const level = typeof payload === 'object' ? payload.level : undefined;
     const normalized = action.toLowerCase();
@@ -867,7 +863,7 @@ ipcMain.handle('jarvis:system-control', async (event, payload) => {
       return;
     }
 
-    exec(`powershell.exe -NoProfile -File "${scriptPath}" ${psArgs}`, (err, stdout, stderr) => {
+    exec(`powershell.exe -NoProfile -File "${osInputScript}" ${psArgs}`, (err, stdout, stderr) => {
       const output = (stdout || stderr || '').trim();
       if (output.startsWith('MUTED:')) {
         const isMuted = output.includes('True');

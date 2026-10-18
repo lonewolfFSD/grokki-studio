@@ -23,7 +23,8 @@
   "asarUnpack": [
     "**/*.node",
     "**/@picovoice/pvrecorder-node/**",
-    "**/src/main/os_input.ps1"
+    "**/src/main/os_input.ps1",
+    "**/src/main/native_wake_detector.ps1"
   ],
   "win": {
     "target": [

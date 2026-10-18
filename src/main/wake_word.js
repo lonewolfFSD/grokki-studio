@@ -27,7 +27,7 @@ class WakeWordService {
       return false;
     }
 
-    const scriptPath = path.resolve(__dirname, 'native_wake_detector.ps1');
+    const scriptPath = path.resolve(__dirname, 'native_wake_detector.ps1').replace('app.asar', 'app.asar.unpacked');
 
     // Strict two-word phrases ONLY to prevent false triggers from mobile speakers or casual speech
     const phraseSet = new Set([

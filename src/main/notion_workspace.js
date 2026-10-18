@@ -3,11 +3,13 @@ const path = require('path');
 const http = require('http');
 const url = require('url');
 const { shell, Notification } = require('electron');
+const { getDataDir } = require('./data_dir');
 
 class NotionWorkspaceManager {
   constructor() {
-    this.tokenPath = path.resolve(__dirname, '../../data/notion_tokens.json');
-    this.credentialsPath = path.resolve(__dirname, '../../data/notion_credentials.json');
+    const dataDir = getDataDir();
+    this.tokenPath = path.join(dataDir, 'notion_tokens.json');
+    this.credentialsPath = path.join(dataDir, 'notion_credentials.json');
     this.port = 8586;
     this.redirectUri = `http://localhost:${this.port}/notioncallback`;
     this.notionVersion = '2022-06-28';

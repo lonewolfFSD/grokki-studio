@@ -6,10 +6,13 @@ const crypto = require('crypto');
 const { exec } = require('child_process');
 const { dialog, shell, Notification } = require('electron');
 
+const { getDataDir } = require('./data_dir');
+
 class GitHubWorkspaceManager {
   constructor() {
-    this.storagePath = path.resolve(__dirname, '../../data/github_tokens.json');
-    this.credentialsPath = path.resolve(__dirname, '../../data/github_credentials.json');
+    const dataDir = getDataDir();
+    this.storagePath = path.join(dataDir, 'github_tokens.json');
+    this.credentialsPath = path.join(dataDir, 'github_credentials.json');
     this.port = 8587;
     this.redirectUri = `http://localhost:${this.port}/githubcallback`;
     this.token = null;

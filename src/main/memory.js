@@ -1,14 +1,10 @@
 const fs = require('fs');
 const path = require('path');
+const { getDataDir } = require('./data_dir');
 
 class MemoryManager {
   constructor() {
-    this.storageDir = path.resolve(__dirname, '../../data');
-    if (!fs.existsSync(this.storageDir)) {
-      try {
-        fs.mkdirSync(this.storageDir, { recursive: true });
-      } catch (e) {}
-    }
+    this.storageDir = getDataDir();
 
     this.profilePath = path.join(this.storageDir, 'grokki_profile.json');
     this.profile = this.loadProfile();

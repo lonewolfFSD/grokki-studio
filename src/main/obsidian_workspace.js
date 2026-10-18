@@ -1,10 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const { dialog, shell } = require('electron');
+const { getDataDir } = require('./data_dir');
 
 class ObsidianWorkspaceManager {
   constructor() {
-    this.storagePath = path.resolve(__dirname, '../../data/obsidian_vault.json');
+    this.storagePath = path.join(getDataDir(), 'obsidian_vault.json');
     this.vaultPath = null;
     this.vaultName = null;
     this.loadSavedVault();

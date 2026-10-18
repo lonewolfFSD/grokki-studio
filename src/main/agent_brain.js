@@ -66,7 +66,7 @@ function resolveOpenAIEndpointAndKey(provider, config = {}) {
   return { endpoint, apiKey, model };
 }
 
-const osInputScript = path.join(__dirname, 'os_input.ps1');
+const osInputScript = path.join(__dirname, 'os_input.ps1').replace('app.asar', 'app.asar.unpacked');
 
 function withTimeout(promise, ms) {
   return Promise.race([

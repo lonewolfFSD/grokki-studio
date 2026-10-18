@@ -4,11 +4,13 @@ const http = require('http');
 const url = require('url');
 const { shell, Notification } = require('electron');
 const { google } = require('googleapis');
+const { getDataDir } = require('./data_dir');
 
 class GoogleWorkspaceManager {
   constructor() {
-    this.tokenPath = path.resolve(__dirname, '../../data/google_tokens.json');
-    this.credentialsPath = path.resolve(__dirname, '../../data/google_credentials.json');
+    const dataDir = getDataDir();
+    this.tokenPath = path.join(dataDir, 'google_tokens.json');
+    this.credentialsPath = path.join(dataDir, 'google_credentials.json');
     this.port = 8585;
     this.redirectUri = `http://127.0.0.1:${this.port}/oauth2callback`;
 

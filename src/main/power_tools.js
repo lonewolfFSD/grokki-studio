@@ -14,14 +14,11 @@ const { transcribeWithGroqWhisper } = require('./ai_providers');
  * 5. 100% Offline Air-Gapped Mode (offline_airgap_mode)
  */
 
+const { getDataDir } = require('./data_dir');
+
 class PowerToolsEngine {
   constructor() {
-    this.storageDir = path.resolve(__dirname, '../../data');
-    if (!fs.existsSync(this.storageDir)) {
-      try {
-        fs.mkdirSync(this.storageDir, { recursive: true });
-      } catch (e) {}
-    }
+    this.storageDir = getDataDir();
 
     this.profilePath = path.join(this.storageDir, 'student_profile.json');
     this.ensureDefaultProfile();
