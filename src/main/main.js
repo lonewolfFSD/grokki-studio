@@ -8,6 +8,16 @@ const agentBrain = require('./agent_brain');
 const kokoroTTS = require('./kokoro_tts');
 require('dotenv').config();
 
+const grokkiDataDir = path.resolve(__dirname, '../../data');
+if (!fs.existsSync(grokkiDataDir)) {
+  try { fs.mkdirSync(grokkiDataDir, { recursive: true }); } catch (e) {}
+}
+app.setPath('userData', grokkiDataDir);
+
+// Config file in userData
+const configPath = path.join(grokkiDataDir, 'jarvis-config.json');
+let cachedConfig = null;
+
 app.commandLine.appendSwitch('disable-gpu-cache');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('enable-zero-copy');
@@ -33,12 +43,6 @@ app.on('second-instance', () => {
   }
 });
 
-const grokkiDataDir = path.resolve(__dirname, '../../data');
-if (!fs.existsSync(grokkiDataDir)) {
-  try { fs.mkdirSync(grokkiDataDir, { recursive: true }); } catch (e) {}
-}
-app.setPath('userData', grokkiDataDir);
-
 const { WakeWordService } = require('./wake_word');
 
 let mainWindow = null;
@@ -49,10 +53,6 @@ let isQuitting = false;
 let isVisible = true;
 let hideTimeout = null;
 let wakeWordService = null;
-let cachedConfig = null;
-
-// Config file in userData
-const configPath = path.join(grokkiDataDir, 'jarvis-config.json');
 
 function loadConfig() {
   if (cachedConfig) return cachedConfig;
