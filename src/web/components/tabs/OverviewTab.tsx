@@ -288,9 +288,7 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
 
   const hotkeyParts = (config.hotkey || 'Alt+Q').split('+').map((k) => k.trim());
   const wakeWordOn = config.wakeWordEnabled !== false;
-  const [selectedMusic] = useState<string>(() => {
-    return localStorage.getItem('grokki_music_platform') || 'spotify';
-  });
+  const selectedMusic = config.musicProvider || 'spotify';
   const currentMusic = MUSIC_SERVICES[selectedMusic] || MUSIC_SERVICES.spotify;
 
   const connectedCount = [googleConnected, true, true, notionConnected, obsidianConnected, githubConnected].filter(

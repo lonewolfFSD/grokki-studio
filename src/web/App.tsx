@@ -29,6 +29,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
   ttsEnabled: true,
   wakeWordEnabled: true,
   pillTheme: 'glass',
+  musicProvider: 'spotify',
   hotkey: 'Alt+Q',
   hotkeys: DEFAULT_HOTKEYS,
   userName: '',
@@ -487,6 +488,8 @@ export const App: React.FC = () => {
 
           {activeTab === 'google' && (
             <GoogleWorkspaceTab
+              config={config}
+              onChangeConfig={handleConfigChange}
               connected={googleConnected}
               profile={googleProfile}
               onRefreshStatus={loadGoogleStatus}

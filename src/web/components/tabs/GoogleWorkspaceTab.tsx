@@ -140,12 +140,16 @@ interface GoogleWorkspaceTabProps {
   connected: boolean;
   profile: GoogleProfile | null;
   onRefreshStatus: () => void;
+  config?: JarvisConfig;
+  onChangeConfig?: (key: keyof JarvisConfig, value: any) => void;
 }
 
 export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
   connected,
   profile,
   onRefreshStatus,
+  config,
+  onChangeConfig,
 }) => {
   const [connectingGoogle, setConnectingGoogle] = useState(false);
   const [googleExpanded, setGoogleExpanded] = useState(true);
@@ -161,13 +165,20 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
     }
   };
 
-  // Music Streaming State
-  const [selectedMusic, setSelectedMusic] = useState<string>(() => {
-    return localStorage.getItem('grokki_music_platform') || 'spotify';
-  });
+  // Music Streaming State - synced with central Grokki config
+  const selectedMusic = config?.musicProvider || 'spotify';
   const [musicExpanded, setMusicExpanded] = useState(false);
 
   const currentMusic = MUSIC_SERVICES[selectedMusic] || MUSIC_SERVICES.spotify;
+
+  const handleMusicChange = (val: string) => {
+    if (onChangeConfig) {
+      onChangeConfig('musicProvider', val);
+    }
+    if (window.jarvisAPI?.saveConfig) {
+      window.jarvisAPI.saveConfig({ musicProvider: val });
+    }
+  };
 
   const handleOpenMusic = () => {
     if (window.jarvisAPI?.openUrl) {
@@ -1046,10 +1057,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
               <GlideSelect
                 options={musicSelectOptions}
                 value={selectedMusic}
-                onChange={(val) => {
-                  setSelectedMusic(val);
-                  localStorage.setItem('grokki_music_platform', val);
-                }}
+                onChange={handleMusicChange}
                 size="md"
                 radius={8}
                 menuWidth={180}

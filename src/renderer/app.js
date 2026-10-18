@@ -716,12 +716,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if (updated.ttsVoice && voice && typeof voice.setVoice === 'function') {
         voice.setVoice(updated.ttsVoice);
+        if (ttsVoiceSelect) ttsVoiceSelect.value = updated.ttsVoice;
       }
       if (updated.provider && typeof updateProviderUI === 'function') {
         updateProviderUI(updated.provider);
+        if (providerSelect) providerSelect.value = updated.provider;
       }
       if (updated.wakeWord && voice && typeof voice.setWakeWord === 'function') {
         voice.setWakeWord(updated.wakeWord);
+        if (wakeWordInput) wakeWordInput.value = updated.wakeWord;
+      }
+      if (updated.wakeWordEnabled !== undefined && wakeWordToggle) {
+        wakeWordToggle.checked = updated.wakeWordEnabled === true;
+      }
+      if (updated.ttsEnabled !== undefined && ttsEnabledToggle) {
+        ttsEnabledToggle.checked = updated.ttsEnabled !== false;
+        if (voice && typeof voice.setTTSEnabled === 'function') {
+          voice.setTTSEnabled(updated.ttsEnabled !== false);
+        }
+      }
+      if (updated.hotkey && hotkeyInput) {
+        hotkeyInput.value = updated.hotkey;
+      }
+      if (updated.musicProvider && musicProviderSelect) {
+        musicProviderSelect.value = updated.musicProvider;
+        musicProviderSelect.dispatchEvent(new Event('change', { bubbles: true }));
       }
     });
   }
