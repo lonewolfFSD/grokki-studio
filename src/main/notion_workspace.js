@@ -229,18 +229,18 @@ class NotionWorkspaceManager {
 
               this.saveTokenData(accessToken, profile);
 
-              res.writeHead(200, { 'Content-Type': 'text/html' });
-              res.end(`
-                <html>
-                  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #08090d; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0;">
-                    <div style="background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); text-align: center; max-width: 440px;">
-                      <h2 style="margin: 0 0 12px 0; font-size: 20px;">Connected to Notion!</h2>
-                      <p style="color: #9aa0a6; font-size: 13px; line-height: 1.6; margin-bottom: 24px;">Grokki is now linked to <b>${profile.workspaceName}</b>. Pages, notes, and databases are ready to sync.</p>
-                      <p style="color: #10b981; font-weight: 600; font-size: 13px;">You can close this tab and return to Grokki Studio.</p>
-                    </div>
-                  </body>
-                </html>
-              `);
+              const { renderOAuthCallbackHtml } = require('./oauth_template');
+              const html = renderOAuthCallbackHtml({
+                serviceName: 'Notion',
+                serviceType: 'notion',
+                status: 'success',
+                title: 'Notion Connected to Grokki!',
+                description: `Grokki is now linked to ${profile.workspaceName || 'your workspace'}. Pages, notes, and databases are ready to sync.`,
+                userIdentifier: profile.workspaceName ? `Workspace: ${profile.workspaceName}` : '',
+              });
+
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(html);
 
               if (Notification.isSupported()) {
                 new Notification({
@@ -253,26 +253,43 @@ class NotionWorkspaceManager {
                 onSuccessCallback(profile);
               }
 
-              try {
-                this.authServer.close();
-              } catch (e) {}
-              this.authServer = null;
+              setTimeout(() => {
+                try { if (this.authServer) this.authServer.close(); } catch (e) {}
+                this.authServer = null;
+              }, 2000);
             } else {
-              res.writeHead(400);
-              res.end('Authorization code missing.');
-              try {
-                this.authServer.close();
-              } catch (e) {}
-              this.authServer = null;
+              const { renderOAuthCallbackHtml } = require('./oauth_template');
+              const html = renderOAuthCallbackHtml({
+                serviceName: 'Notion',
+                serviceType: 'notion',
+                status: 'error',
+                title: 'Notion Authorization Incomplete',
+                description: 'Authorization code was not provided.',
+              });
+              res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(html);
+              setTimeout(() => {
+                try { if (this.authServer) this.authServer.close(); } catch (e) {}
+                this.authServer = null;
+              }, 2000);
             }
           }
         } catch (err) {
-          res.writeHead(500);
-          res.end(`Error: ${err.message}`);
-          try {
-            this.authServer.close();
-          } catch (e) {}
-          this.authServer = null;
+          const { renderOAuthCallbackHtml } = require('./oauth_template');
+          const html = renderOAuthCallbackHtml({
+            serviceName: 'Notion',
+            serviceType: 'notion',
+            status: 'error',
+            title: 'Notion Connection Error',
+            description: 'Encountered an unexpected error during Notion authentication.',
+            errorMessage: err.message,
+          });
+          res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(html);
+          setTimeout(() => {
+            try { if (this.authServer) this.authServer.close(); } catch (e) {}
+            this.authServer = null;
+          }, 2000);
         }
       });
 

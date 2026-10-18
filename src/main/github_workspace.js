@@ -201,20 +201,21 @@ class GitHubWorkspaceManager {
 
             if (error) {
               handled = true;
-              res.writeHead(400, { 'Content-Type': 'text/html' });
-              res.end(`
-                <html>
-                  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #08090d; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0;">
-                    <div style="background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(239,68,68,0.3); text-align: center; max-width: 440px;">
-                      <h2 style="color: #ef4444; margin: 0 0 12px 0; font-size: 20px;">GitHub Authorization Cancelled</h2>
-                      <p style="color: #9aa0a6; font-size: 13px; line-height: 1.6; margin-bottom: 24px;">${errorDescription || error}</p>
-                      <p style="color: #9aa0a6; font-size: 13px;">You can close this tab and return to Grokki Studio.</p>
-                    </div>
-                  </body>
-                </html>
-              `);
-              try { this.authServer.close(); } catch (e) {}
-              this.authServer = null;
+              const { renderOAuthCallbackHtml } = require('./oauth_template');
+              const html = renderOAuthCallbackHtml({
+                serviceName: 'GitHub',
+                serviceType: 'github',
+                status: 'error',
+                title: 'GitHub Authorization Cancelled',
+                description: 'The GitHub authorization flow was cancelled or denied.',
+                errorMessage: errorDescription || error,
+              });
+              res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(html);
+              setTimeout(() => {
+                try { if (this.authServer) this.authServer.close(); } catch (e) {}
+                this.authServer = null;
+              }, 2000);
               return;
             }
 
@@ -245,19 +246,18 @@ class GitHubWorkspaceManager {
               const profile = await this.verifyToken(accessToken);
               this.saveToken(accessToken, profile);
 
-              res.writeHead(200, { 'Content-Type': 'text/html' });
-              res.end(`
-                <html>
-                  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #08090d; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0;">
-                    <div style="background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); text-align: center; max-width: 440px;">
-                      <img src="${profile.avatar_url || ''}" style="width: 64px; height: 64px; border-radius: 50%; margin-bottom: 16px; border: 2px solid #10b981;" />
-                      <h2 style="margin: 0 0 12px 0; font-size: 20px;">Connected to GitHub!</h2>
-                      <p style="color: #9aa0a6; font-size: 13px; line-height: 1.6; margin-bottom: 24px;">Grokki is now linked to <b>@${profile.login}</b> (${profile.name || profile.login}). Git repositories and push/pull sync are ready.</p>
-                      <p style="color: #10b981; font-weight: 600; font-size: 13px;">You can close this tab and return to Grokki Studio.</p>
-                    </div>
-                  </body>
-                </html>
-              `);
+              const { renderOAuthCallbackHtml } = require('./oauth_template');
+              const html = renderOAuthCallbackHtml({
+                serviceName: 'GitHub',
+                serviceType: 'github',
+                status: 'success',
+                title: 'GitHub Connected to Grokki!',
+                description: `Grokki is now linked to @${profile.login} (${profile.name || profile.login}). Git repositories and push/pull sync are ready.`,
+                userIdentifier: `@${profile.login}`,
+              });
+
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(html);
 
               if (Notification.isSupported()) {
                 new Notification({
@@ -270,31 +270,43 @@ class GitHubWorkspaceManager {
                 onSuccessCallback(profile);
               }
 
-              try {
-                this.authServer.close();
-              } catch (e) {}
-              this.authServer = null;
+              setTimeout(() => {
+                try { if (this.authServer) this.authServer.close(); } catch (e) {}
+                this.authServer = null;
+              }, 2000);
             } else {
-              res.writeHead(400);
-              res.end('Authorization code missing.');
-              try { this.authServer.close(); } catch (e) {}
-              this.authServer = null;
+              const { renderOAuthCallbackHtml } = require('./oauth_template');
+              const html = renderOAuthCallbackHtml({
+                serviceName: 'GitHub',
+                serviceType: 'github',
+                status: 'error',
+                title: 'GitHub Authorization Incomplete',
+                description: 'Authorization code was not provided.',
+              });
+              res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(html);
+              setTimeout(() => {
+                try { if (this.authServer) this.authServer.close(); } catch (e) {}
+                this.authServer = null;
+              }, 2000);
             }
           }
         } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'text/html' });
-          res.end(`
-            <html>
-              <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #08090d; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0;">
-                <div style="background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(239,68,68,0.3); text-align: center; max-width: 440px;">
-                  <h2 style="color: #ef4444; margin: 0 0 12px 0; font-size: 20px;">Connection Error</h2>
-                  <p style="color: #9aa0a6; font-size: 13px; line-height: 1.6; margin-bottom: 24px;">${err.message}</p>
-                </div>
-              </body>
-            </html>
-          `);
-          try { this.authServer.close(); } catch (e) {}
-          this.authServer = null;
+          const { renderOAuthCallbackHtml } = require('./oauth_template');
+          const html = renderOAuthCallbackHtml({
+            serviceName: 'GitHub',
+            serviceType: 'github',
+            status: 'error',
+            title: 'GitHub Connection Error',
+            description: 'Encountered an unexpected error during GitHub authentication.',
+            errorMessage: err.message,
+          });
+          res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(html);
+          setTimeout(() => {
+            try { if (this.authServer) this.authServer.close(); } catch (e) {}
+            this.authServer = null;
+          }, 2000);
         }
       });
 

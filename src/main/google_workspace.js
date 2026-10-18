@@ -231,18 +231,24 @@ class GoogleWorkspaceManager {
               const { tokens } = await this.oauth2Client.getToken(code);
               this.saveTokens(tokens);
 
-              res.writeHead(200, { 'Content-Type': 'text/html' });
-              res.end(`
-                <html>
-                  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1115; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0;">
-                    <div style="background: rgba(255,255,255,0.06); padding: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); text-align: center; max-width: 420px;">
-                      <h2 style="margin: 0 0 12px 0;">🎉 Connected to Grokki!</h2>
-                      <p style="color: #9aa0a6; font-size: 14px; margin-bottom: 24px;">Grokki now has autonomous access to your Gmail, Calendar, Drive, Sheets, Docs, and Tasks.</p>
-                      <p style="color: #34a853; font-weight: 600; font-size: 13px;">You can close this tab and return to your PC.</p>
-                    </div>
-                  </body>
-                </html>
-              `);
+              let userIdentifier = '';
+              try {
+                const profile = await this.getUserProfile();
+                userIdentifier = profile?.email || '';
+              } catch (e) {}
+
+              const { renderOAuthCallbackHtml } = require('./oauth_template');
+              const html = renderOAuthCallbackHtml({
+                serviceName: 'Google Workspace',
+                serviceType: 'google',
+                status: 'success',
+                title: 'Google Connected to Grokki!',
+                description: 'Grokki now has autonomous access to your Gmail, Calendar, Drive, Sheets, Docs, and Tasks.',
+                userIdentifier,
+              });
+
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(html);
 
               if (Notification.isSupported()) {
                 new Notification({
@@ -251,20 +257,45 @@ class GoogleWorkspaceManager {
                 }).show();
               }
 
-              try { this.authServer.close(); } catch (e) {}
-              this.authServer = null;
+              setTimeout(() => {
+                try { if (this.authServer) this.authServer.close(); } catch (e) {}
+                this.authServer = null;
+              }, 2000);
             } else {
-              res.writeHead(400);
-              res.end('Authorization code missing.');
-              try { this.authServer.close(); } catch (e) {}
-              this.authServer = null;
+              const { renderOAuthCallbackHtml } = require('./oauth_template');
+              const errorParam = reqUrl.query.error || '';
+              const html = renderOAuthCallbackHtml({
+                serviceName: 'Google Workspace',
+                serviceType: 'google',
+                status: 'error',
+                title: 'Google Authorization Cancelled',
+                description: 'The Google authorization flow was not completed.',
+                errorMessage: reqUrl.query.error_description || errorParam || 'Authorization code was not provided.',
+              });
+              res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(html);
+              setTimeout(() => {
+                try { if (this.authServer) this.authServer.close(); } catch (e) {}
+                this.authServer = null;
+              }, 2000);
             }
           }
         } catch (err) {
-          res.writeHead(500);
-          res.end(`Error: ${err.message}`);
-          try { this.authServer.close(); } catch (e) {}
-          this.authServer = null;
+          const { renderOAuthCallbackHtml } = require('./oauth_template');
+          const html = renderOAuthCallbackHtml({
+            serviceName: 'Google Workspace',
+            serviceType: 'google',
+            status: 'error',
+            title: 'Google Connection Error',
+            description: 'Encountered an unexpected error during Google authentication.',
+            errorMessage: err.message,
+          });
+          res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(html);
+          setTimeout(() => {
+            try { if (this.authServer) this.authServer.close(); } catch (e) {}
+            this.authServer = null;
+          }, 2000);
         }
       });
 
