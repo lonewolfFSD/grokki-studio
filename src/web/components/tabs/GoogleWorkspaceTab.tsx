@@ -16,12 +16,32 @@ import {
   Network,
   Layers,
   ExternalLink,
+  GitBranch,
+  GitCommit,
+  UploadCloud,
+  DownloadCloud,
+  RefreshCw,
+  FolderGit2,
+  Star,
+  GitFork,
+  Lock,
+  Globe,
+  AlertCircle,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
-import { GoogleProfile, NotionProfile } from '../../types/jarvis';
+import {
+  GoogleProfile,
+  NotionProfile,
+  GitHubProfile,
+  GitHubRepo,
+  GitStatusResponse,
+} from '../../types/jarvis';
 
 import googleLogo from '../../assets/logos/google.png';
 import notionLogo from '../../assets/logos/notion.png';
 import obsidianLogo from '../../assets/logos/obsidian.png';
+import githubLogo from '../../assets/logos/github.png';
 
 // Official Authentic Google Brand Logo
 const GoogleLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
@@ -36,6 +56,11 @@ const NotionLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' })
 // Official Authentic Obsidian Brand Logo
 const ObsidianLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
   <img src={obsidianLogo} alt="Obsidian" className={`${className} object-contain`} />
+);
+
+// Official Authentic GitHub Brand Logo
+const GitHubLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+  <img src={githubLogo} alt="GitHub" className={`${className} object-contain`} />
 );
 
 interface GoogleWorkspaceTabProps {
@@ -70,9 +95,35 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
   const [obsidianExpanded, setObsidianExpanded] = useState(false);
   const [selectingVault, setSelectingVault] = useState(false);
 
+  // GitHub & Git CLI State
+  const [githubConnected, setGithubConnected] = useState(false);
+  const [githubProfile, setGithubProfile] = useState<GitHubProfile | null>(null);
+  const [githubExpanded, setGithubExpanded] = useState(false);
+  const [connectingGitHub, setConnectingGitHub] = useState(false);
+  const [githubToken, setGithubToken] = useState('');
+  const [showGitHubTokenInput, setShowGitHubTokenInput] = useState(false);
+  const [showTokenSecret, setShowTokenSecret] = useState(false);
+  const [githubError, setGithubError] = useState<string | null>(null);
+  const [githubSubTab, setGithubSubTab] = useState<'local' | 'cloud'>('local');
+
+  // Local Git Workspace State
+  const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
+  const [loadingGitStatus, setLoadingGitStatus] = useState(false);
+  const [gitActionLoading, setGitActionLoading] = useState<'fetch' | 'pull' | 'push' | 'commit' | null>(null);
+  const [commitMessage, setCommitMessage] = useState('');
+  const [gitActionResult, setGitActionResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Cloud Repos State
+  const [repos, setRepos] = useState<GitHubRepo[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState(false);
+  const [repoSearch, setRepoSearch] = useState('');
+  const [cloningRepoId, setCloningRepoId] = useState<number | null>(null);
+
   useEffect(() => {
     loadNotionStatus();
     loadObsidianStatus();
+    loadGitHubStatus();
+    loadGitStatus();
 
     let unsub: (() => void) | undefined;
     if (window.jarvisAPI?.onNotionConnected) {
@@ -246,6 +297,243 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
     if (e) e.stopPropagation();
     if (window.jarvisAPI?.openObsidianVault) {
       window.jarvisAPI.openObsidianVault();
+    }
+  };
+
+  const loadGitHubStatus = async () => {
+    if (!window.jarvisAPI?.getGitHubStatus) return;
+    try {
+      const res = await window.jarvisAPI.getGitHubStatus();
+      if (res && res.connected) {
+        setGithubConnected(true);
+        setGithubProfile(res.profile || null);
+        loadGitHubRepos();
+      } else {
+        setGithubConnected(false);
+        setGithubProfile(null);
+      }
+    } catch {
+      setGithubConnected(false);
+      setGithubProfile(null);
+    }
+  };
+
+  const loadGitHubRepos = async () => {
+    if (!window.jarvisAPI?.getGitHubRepos) return;
+    setLoadingRepos(true);
+    try {
+      const res = await window.jarvisAPI.getGitHubRepos({ perPage: 60, sort: 'updated' });
+      if (res && res.success && res.repos) {
+        setRepos(res.repos);
+      }
+    } catch (e) {
+      console.warn('Failed to load GitHub repos:', e);
+    } finally {
+      setLoadingRepos(false);
+    }
+  };
+
+  const loadGitStatus = async (cwd?: string) => {
+    if (!window.jarvisAPI?.getGitStatus) return;
+    setLoadingGitStatus(true);
+    try {
+      const res = await window.jarvisAPI.getGitStatus(cwd);
+      if (res && res.success) {
+        setGitStatus(res);
+      }
+    } catch (e) {
+      console.warn('Failed to load Git status:', e);
+    } finally {
+      setLoadingGitStatus(false);
+    }
+  };
+
+  const handleConnectGitHub = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!githubToken.trim() || !window.jarvisAPI?.connectGitHub) return;
+    setConnectingGitHub(true);
+    setGithubError(null);
+    try {
+      const res = await window.jarvisAPI.connectGitHub(githubToken.trim());
+      if (res && res.success) {
+        setGithubConnected(true);
+        setGithubProfile(res.profile || null);
+        setShowGitHubTokenInput(false);
+        setGithubToken('');
+        loadGitHubRepos();
+      } else {
+        setGithubError(res?.error || 'Authentication failed. Please check your Personal Access Token.');
+      }
+    } catch (err: any) {
+      setGithubError(err.message || 'Failed to connect to GitHub');
+    } finally {
+      setConnectingGitHub(false);
+    }
+  };
+
+  const handleDisconnectGitHub = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.jarvisAPI?.disconnectGitHub) return;
+    try {
+      await window.jarvisAPI.disconnectGitHub();
+      setGithubConnected(false);
+      setGithubProfile(null);
+      setRepos([]);
+      setShowGitHubTokenInput(false);
+      setGithubError(null);
+    } catch (e) {
+      console.error('Failed to disconnect GitHub:', e);
+    }
+  };
+
+  const handleGitFetch = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.jarvisAPI?.gitFetch) return;
+    setGitActionLoading('fetch');
+    setGitActionResult(null);
+    try {
+      const res = await window.jarvisAPI.gitFetch(gitStatus?.cwd);
+      setGitActionResult({
+        success: res.success,
+        message: res.output || (res.success ? 'Git Fetch completed successfully' : res.error || 'Fetch failed'),
+      });
+      await loadGitStatus(gitStatus?.cwd);
+    } catch (err: any) {
+      setGitActionResult({ success: false, message: err.message });
+    } finally {
+      setGitActionLoading(null);
+    }
+  };
+
+  const handleGitPull = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.jarvisAPI?.gitPull) return;
+    setGitActionLoading('pull');
+    setGitActionResult(null);
+    try {
+      const res = await window.jarvisAPI.gitPull(gitStatus?.cwd);
+      setGitActionResult({
+        success: res.success,
+        message: res.output || (res.success ? 'Git Pull completed successfully' : res.error || 'Pull failed'),
+      });
+      await loadGitStatus(gitStatus?.cwd);
+    } catch (err: any) {
+      setGitActionResult({ success: false, message: err.message });
+    } finally {
+      setGitActionLoading(null);
+    }
+  };
+
+  const handleGitPush = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.jarvisAPI?.gitPush) return;
+    setGitActionLoading('push');
+    setGitActionResult(null);
+    try {
+      const res = await window.jarvisAPI.gitPush(gitStatus?.cwd, { branch: gitStatus?.branch });
+      setGitActionResult({
+        success: res.success,
+        message: res.output || (res.success ? 'Git Push completed successfully' : res.error || 'Push failed'),
+      });
+      await loadGitStatus(gitStatus?.cwd);
+    } catch (err: any) {
+      setGitActionResult({ success: false, message: err.message });
+    } finally {
+      setGitActionLoading(null);
+    }
+  };
+
+  const handleGitCommitAndPush = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!commitMessage.trim() || !window.jarvisAPI?.gitCommit) return;
+    setGitActionLoading('commit');
+    setGitActionResult(null);
+    try {
+      const commitRes = await window.jarvisAPI.gitCommit(gitStatus?.cwd, {
+        message: commitMessage.trim(),
+        stageAll: true,
+      });
+      if (!commitRes.success) {
+        setGitActionResult({
+          success: false,
+          message: commitRes.error || 'Commit failed',
+        });
+        setGitActionLoading(null);
+        return;
+      }
+      if (window.jarvisAPI?.gitPush) {
+        const pushRes = await window.jarvisAPI.gitPush(gitStatus?.cwd, { branch: gitStatus?.branch });
+        setGitActionResult({
+          success: pushRes.success,
+          message: pushRes.success
+            ? `Successfully committed & pushed: "${commitMessage.trim()}"`
+            : `Committed, but push failed: ${pushRes.error || pushRes.output}`,
+        });
+      } else {
+        setGitActionResult({
+          success: true,
+          message: `Successfully committed: "${commitMessage.trim()}"`,
+        });
+      }
+      setCommitMessage('');
+      await loadGitStatus(gitStatus?.cwd);
+    } catch (err: any) {
+      setGitActionResult({ success: false, message: err.message });
+    } finally {
+      setGitActionLoading(null);
+    }
+  };
+
+  const handleSelectRepoDir = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.jarvisAPI?.gitSelectDir) return;
+    try {
+      const res = await window.jarvisAPI.gitSelectDir();
+      if (res && res.success && res.path) {
+        if (res.status) {
+          setGitStatus(res.status);
+        } else {
+          loadGitStatus(res.path);
+        }
+      }
+    } catch (err: any) {
+      console.warn('Failed to select repo dir:', err);
+    }
+  };
+
+  const handleCloneRepo = async (repo: GitHubRepo, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.jarvisAPI?.gitClone) return;
+    setCloningRepoId(repo.id);
+    setGitActionResult(null);
+    try {
+      const res = await window.jarvisAPI.gitClone(repo.clone_url);
+      if (res && res.success && res.targetPath) {
+        setGitActionResult({
+          success: true,
+          message: `Cloned ${repo.full_name} to ${res.targetPath}`,
+        });
+        await loadGitStatus(res.targetPath);
+        setGithubSubTab('local');
+      } else if (res && !res.canceled) {
+        setGitActionResult({
+          success: false,
+          message: res.error || 'Failed to clone repository',
+        });
+      }
+    } catch (err: any) {
+      setGitActionResult({ success: false, message: err.message });
+    } finally {
+      setCloningRepoId(null);
+    }
+  };
+
+  const handleOpenExternal = (url: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (window.jarvisAPI?.openUrl) {
+      window.jarvisAPI.openUrl(url);
+    } else {
+      window.open(url, '_blank');
     }
   };
 
@@ -631,6 +919,658 @@ export const GoogleWorkspaceTab: React.FC<GoogleWorkspaceTabProps> = ({
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. GitHub & Git CLI Workspace Accordion Card */}
+      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
+        <div
+          onClick={() => setGithubExpanded((prev) => !prev)}
+          className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
+        >
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
+              <GitHubLogo className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+                GitHub & Git Integration
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 m-0 truncate">
+                {githubConnected && githubProfile
+                  ? `Connected as @${githubProfile.login} (${githubProfile.public_repos || 0} repos) • Branch: ${gitStatus?.branch || 'main'}`
+                  : gitStatus?.isRepo
+                  ? `Local Git repo active (${gitStatus.branch}) • Connect GitHub to sync & manage cloud repos.`
+                  : 'Connect GitHub and local Git workspaces to fetch, pull, commit, and push.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0 ml-4" onClick={(e) => e.stopPropagation()}>
+            {githubConnected ? (
+              <>
+                {githubProfile?.avatar_url && (
+                  <img
+                    src={githubProfile.avatar_url}
+                    alt={githubProfile.login}
+                    className="w-7 h-7 rounded-full border border-gray-300 dark:border-[#2a2d3d]"
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={handleDisconnectGitHub}
+                  className="inline-flex items-center justify-center h-9 px-3 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all"
+                >
+                  Disconnect
+                </button>
+                <div className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-semibold border bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 border-gray-300 dark:border-[#1e2029] shadow-xs select-none">
+                  <Check className="w-3.5 h-3.5" />
+                  <span className="font-bold">Connected</span>
+                </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setGithubExpanded(true);
+                  setShowGitHubTokenInput(true);
+                }}
+                className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-semibold cursor-pointer border bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 border-transparent transition-all shadow-xs"
+              >
+                Connect GitHub
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setGithubExpanded((prev) => !prev)}
+              aria-label={githubExpanded ? 'Collapse section' : 'Expand section'}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border-none bg-transparent"
+            >
+              <ChevronDown
+                className={`w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                  githubExpanded ? 'rotate-180 text-gray-700 dark:text-gray-200' : 'text-gray-400'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Smooth Accordion Content */}
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            githubExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none'
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="px-5 pb-5 pt-4 border-t border-[#e4e4eb] dark:border-[#1e2029] flex flex-col gap-4">
+              {/* GitHub Connection Input Form (When disconnected or editing) */}
+              {(!githubConnected || showGitHubTokenInput) && (
+                <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029] flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Key className="w-4 h-4 text-gray-500" />
+                      <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                        GitHub Personal Access Token
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => handleOpenExternal('https://github.com/settings/tokens', e)}
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline bg-transparent border-none cursor-pointer"
+                    >
+                      <span>Get Token on GitHub</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0">
+                    Paste a classic token (<code className="font-mono text-[10px] bg-gray-200 dark:bg-[#202330] px-1 py-0.5 rounded">ghp_...</code>) or fine-grained token with <code className="font-mono text-[10px] bg-gray-200 dark:bg-[#202330] px-1 py-0.5 rounded">repo</code> and <code className="font-mono text-[10px] bg-gray-200 dark:bg-[#202330] px-1 py-0.5 rounded">read:user</code> scopes to browse repositories and sync.
+                  </p>
+                  <form onSubmit={handleConnectGitHub} className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={showTokenSecret ? 'text' : 'password'}
+                        value={githubToken}
+                        onChange={(e) => setGithubToken(e.target.value)}
+                        placeholder="ghp_... or github_pat_..."
+                        className="w-full h-9 pl-3 pr-9 rounded-lg border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-900 dark:text-gray-100 text-xs font-mono placeholder:text-gray-400 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowTokenSecret(!showTokenSecret)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer p-0"
+                      >
+                        {showTokenSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={connectingGitHub || !githubToken.trim()}
+                      className="h-9 px-4 rounded-lg text-xs font-semibold cursor-pointer border bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 border-transparent transition-all disabled:opacity-40 flex items-center gap-1.5"
+                    >
+                      {connectingGitHub ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      <span>Connect</span>
+                    </button>
+                    {githubConnected && (
+                      <button
+                        type="button"
+                        onClick={() => setShowGitHubTokenInput(false)}
+                        className="h-9 px-3 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#252836] bg-transparent text-gray-500 hover:bg-gray-100 dark:hover:bg-[#1a1c24]"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </form>
+                  {githubError && (
+                    <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      <span>{githubError}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Connected GitHub Profile Header */}
+              {githubConnected && githubProfile && (
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029]">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={githubProfile.avatar_url}
+                      alt={githubProfile.login}
+                      className="w-10 h-10 rounded-full border border-gray-300 dark:border-[#2a2d3d]"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                          {githubProfile.name || githubProfile.login}
+                        </span>
+                        <span className="text-[11px] text-gray-500 font-mono">
+                          @{githubProfile.login}
+                        </span>
+                      </div>
+                      {githubProfile.bio && (
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0 line-clamp-1">
+                          {githubProfile.bio}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400 font-medium px-3 py-1.5 rounded-lg bg-white dark:bg-[#101117] border border-gray-200 dark:border-[#252836]">
+                      <span>
+                        <strong className="text-gray-800 dark:text-gray-200 font-semibold">{githubProfile.public_repos || 0}</strong> public repos
+                      </span>
+                      <span>•</span>
+                      <span>
+                        <strong className="text-gray-800 dark:text-gray-200 font-semibold">{githubProfile.followers || 0}</strong> followers
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => handleOpenExternal(githubProfile.html_url, e)}
+                      title="View profile on GitHub"
+                      className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-white dark:bg-[#101117] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all"
+                    >
+                      <span>Profile</span>
+                      <ExternalLink className="w-3 h-3 opacity-60" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-tab Navigation */}
+              <div className="flex items-center justify-between border-b border-[#e4e4eb] dark:border-[#1e2029] pb-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setGithubSubTab('local')}
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                      githubSubTab === 'local'
+                        ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 border-transparent shadow-xs'
+                        : 'bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#1a1c24] border-transparent'
+                    }`}
+                  >
+                    <GitBranch className="w-3.5 h-3.5" />
+                    <span>Active Git Workspace</span>
+                    {gitStatus?.branch && (
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+                        githubSubTab === 'local' ? 'bg-white/20 text-white dark:bg-black/20 dark:text-gray-900' : 'bg-gray-200 dark:bg-[#252836] text-gray-600 dark:text-gray-300'
+                      }`}>
+                        {gitStatus.branch}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setGithubSubTab('cloud')}
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                      githubSubTab === 'cloud'
+                        ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 border-transparent shadow-xs'
+                        : 'bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#1a1c24] border-transparent'
+                    }`}
+                  >
+                    <FolderGit2 className="w-3.5 h-3.5" />
+                    <span>Cloud Repositories</span>
+                    {repos.length > 0 && (
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+                        githubSubTab === 'cloud' ? 'bg-white/20 text-white dark:bg-black/20 dark:text-gray-900' : 'bg-gray-200 dark:bg-[#252836] text-gray-600 dark:text-gray-300'
+                      }`}>
+                        {repos.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {githubSubTab === 'local' && (
+                  <button
+                    type="button"
+                    onClick={() => loadGitStatus(gitStatus?.cwd)}
+                    title="Refresh Git status"
+                    className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white bg-transparent border-none cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingGitStatus ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
+                  </button>
+                )}
+
+                {githubSubTab === 'cloud' && (
+                  <button
+                    type="button"
+                    onClick={loadGitHubRepos}
+                    title="Refresh repositories"
+                    className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white bg-transparent border-none cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingRepos ? 'animate-spin' : ''}`} />
+                    <span>Refresh Repos</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Feedback Alert Banner */}
+              {gitActionResult && (
+                <div className={`p-3 rounded-lg text-xs flex items-center justify-between ${
+                  gitActionResult.success
+                    ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                    : 'bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400'
+                }`}>
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    {gitActionResult.success ? (
+                      <Check className="w-3.5 h-3.5 flex-shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    )}
+                    <span className="font-mono truncate">{gitActionResult.message}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setGitActionResult(null)}
+                    className="text-[11px] font-semibold underline cursor-pointer bg-transparent border-none ml-2 flex-shrink-0"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
+              {/* Sub-tab 1: Active Local Git Workspace */}
+              {githubSubTab === 'local' && (
+                <div className="flex flex-col gap-4">
+                  {/* Repo Directory & Switch Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029]">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Folder className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">
+                          Current Git Directory
+                        </span>
+                        <span className="text-xs font-mono text-gray-700 dark:text-gray-300 truncate block">
+                          {gitStatus?.cwd || 'e:/Assistant AI'}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSelectRepoDir}
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all shadow-xs"
+                    >
+                      <Folder className="w-3.5 h-3.5 text-gray-400" />
+                      <span>Switch Repo</span>
+                    </button>
+                  </div>
+
+                  {gitStatus?.isRepo ? (
+                    <>
+                      {/* Live Sync Status Cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {/* Branch */}
+                        <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029]">
+                          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">
+                            Current Branch
+                          </span>
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900 dark:text-gray-100 font-mono">
+                            <GitBranch className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="truncate">{gitStatus.branch}</span>
+                          </div>
+                        </div>
+
+                        {/* Ahead / Behind Sync */}
+                        <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029]">
+                          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">
+                            Remote Sync
+                          </span>
+                          <div className="flex items-center gap-3 text-xs font-semibold">
+                            <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400" title="Commits ahead of remote (ready to push)">
+                              <UploadCloud className="w-3.5 h-3.5" />
+                              <span>{gitStatus.ahead || 0} ahead</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400" title="Commits behind remote (need pull)">
+                              <DownloadCloud className="w-3.5 h-3.5" />
+                              <span>{gitStatus.behind || 0} behind</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Changes Working Tree */}
+                        <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029]">
+                          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">
+                            Uncommitted Changes
+                          </span>
+                          <div className="flex items-center gap-2 text-xs font-semibold">
+                            <span className="text-amber-600 dark:text-amber-400">{gitStatus.modifiedCount || 0} modified</span>
+                            <span>•</span>
+                            <span className="text-gray-500">{gitStatus.untrackedCount || 0} new</span>
+                          </div>
+                        </div>
+
+                        {/* Staged Changes */}
+                        <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029]">
+                          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">
+                            Staged for Commit
+                          </span>
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                            <CheckSquare className="w-3.5 h-3.5" />
+                            <span>{gitStatus.stagedCount || 0} staged</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Fast Action Buttons Bar */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={Boolean(gitActionLoading)}
+                          onClick={handleGitFetch}
+                          className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-xs font-semibold cursor-pointer border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#161822] text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all disabled:opacity-50"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${gitActionLoading === 'fetch' ? 'animate-spin' : ''}`} />
+                          <span>Fetch (Origin)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={Boolean(gitActionLoading)}
+                          onClick={handleGitPull}
+                          className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-xs font-semibold cursor-pointer border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#161822] text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all disabled:opacity-50"
+                        >
+                          <DownloadCloud className={`w-3.5 h-3.5 ${gitActionLoading === 'pull' ? 'animate-bounce' : ''}`} />
+                          <span>Pull (Origin/{gitStatus.branch || 'main'})</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={Boolean(gitActionLoading)}
+                          onClick={handleGitPush}
+                          className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-xs font-semibold cursor-pointer border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#161822] text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all disabled:opacity-50"
+                        >
+                          <UploadCloud className={`w-3.5 h-3.5 ${gitActionLoading === 'push' ? 'animate-pulse' : ''}`} />
+                          <span>Push (Origin/{gitStatus.branch || 'main'})</span>
+                          {(gitStatus.ahead || 0) > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500 text-white font-mono">
+                              +{gitStatus.ahead}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Quick Commit & Push Form */}
+                      <form
+                        onSubmit={handleGitCommitAndPush}
+                        className="flex flex-col gap-2 p-3.5 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029]"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                            <GitCommit className="w-3.5 h-3.5 text-gray-400" />
+                            Live Commit & Push
+                          </span>
+                          <span className="text-[11px] text-gray-500">
+                            Stages all modified & untracked files automatically
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={commitMessage}
+                            onChange={(e) => setCommitMessage(e.target.value)}
+                            placeholder="Enter commit message (e.g., feat: update components)..."
+                            className="flex-1 h-9 px-3 rounded-lg border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-900 dark:text-gray-100 text-xs placeholder:text-gray-400 focus:outline-none"
+                          />
+                          <button
+                            type="submit"
+                            disabled={gitActionLoading === 'commit' || !commitMessage.trim()}
+                            className="h-9 px-4 rounded-lg text-xs font-semibold cursor-pointer border bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 border-transparent transition-all disabled:opacity-40 flex items-center gap-1.5 flex-shrink-0"
+                          >
+                            {gitActionLoading === 'commit' ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <span>Committing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <UploadCloud className="w-3.5 h-3.5" />
+                                <span>Commit & Push</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </form>
+
+                      {/* Changed Files Summary */}
+                      {gitStatus.files && gitStatus.files.length > 0 && (
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                            Working Tree Files ({gitStatus.files.length})
+                          </span>
+                          <div className="max-h-40 overflow-y-auto rounded-lg border border-gray-200 dark:border-[#1e2029] bg-white dark:bg-[#101117] divide-y divide-gray-100 dark:divide-[#1a1c24]">
+                            {gitStatus.files.map((file, idx) => (
+                              <div key={idx} className="flex items-center justify-between px-3 py-1.5 text-xs font-mono">
+                                <span className="text-gray-700 dark:text-gray-300 truncate">{file.path}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase flex-shrink-0 ml-2 ${
+                                  file.status === 'staged'
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                    : file.status === 'modified'
+                                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                    : 'bg-gray-500/10 text-gray-600 dark:text-gray-400'
+                                }`}>
+                                  {file.status}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recent Commits Log */}
+                      {gitStatus.recentCommits && gitStatus.recentCommits.length > 0 && (
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                            Recent Commits
+                          </span>
+                          <div className="rounded-lg border border-gray-200 dark:border-[#1e2029] bg-white dark:bg-[#101117] divide-y divide-gray-100 dark:divide-[#1a1c24]">
+                            {gitStatus.recentCommits.map((c, idx) => (
+                              <div key={idx} className="flex items-center justify-between px-3 py-2 text-xs">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="font-mono text-[11px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded">
+                                    {c.hash}
+                                  </span>
+                                  <span className="font-medium text-gray-800 dark:text-gray-200 truncate">
+                                    {c.message}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-[11px] text-gray-400 flex-shrink-0 ml-3">
+                                  <span>{c.author}</span>
+                                  <span>•</span>
+                                  <span>{c.date}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400 flex items-center justify-between">
+                      <span>Selected directory is not an initialized Git repository.</span>
+                      <button
+                        type="button"
+                        onClick={handleSelectRepoDir}
+                        className="font-semibold underline cursor-pointer bg-transparent border-none text-amber-700 dark:text-amber-400"
+                      >
+                        Choose Git Repository
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sub-tab 2: Cloud Repositories Browser */}
+              {githubSubTab === 'cloud' && (
+                <div className="flex flex-col gap-3">
+                  {!githubConnected ? (
+                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029] text-center flex flex-col items-center gap-2">
+                      <FolderGit2 className="w-8 h-8 text-gray-400" />
+                      <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                        GitHub Account Not Connected
+                      </span>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0 max-w-sm">
+                        Connect your GitHub Personal Access Token above to browse, search, and clone all your private and public repositories.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowGitHubTokenInput(true)}
+                        className="mt-1 h-8 px-3 rounded-lg text-xs font-semibold cursor-pointer border bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-xs"
+                      >
+                        Enter Token
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Search & Counter Bar */}
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={repoSearch}
+                            onChange={(e) => setRepoSearch(e.target.value)}
+                            placeholder="Search repositories by name or language..."
+                            className="w-full h-8 pl-8 pr-3 rounded-lg border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-900 dark:text-gray-100 text-xs placeholder:text-gray-400 focus:outline-none"
+                          />
+                        </div>
+                        <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">
+                          {repos.filter((r) =>
+                            r.name.toLowerCase().includes(repoSearch.toLowerCase()) ||
+                            (r.language && r.language.toLowerCase().includes(repoSearch.toLowerCase()))
+                          ).length} repositories
+                        </span>
+                      </div>
+
+                      {/* Repositories Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-96 overflow-y-auto pr-1">
+                        {repos
+                          .filter((r) =>
+                            r.name.toLowerCase().includes(repoSearch.toLowerCase()) ||
+                            (r.language && r.language.toLowerCase().includes(repoSearch.toLowerCase()))
+                          )
+                          .map((repo) => (
+                            <div
+                              key={repo.id}
+                              className="p-3 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029] flex flex-col justify-between gap-2.5 hover:border-gray-300 dark:hover:border-[#2a2d3d] transition-all"
+                            >
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    {repo.private ? (
+                                      <Lock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                                    ) : (
+                                      <Globe className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                                    )}
+                                    <span className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
+                                      {repo.name}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold uppercase bg-gray-200 dark:bg-[#202330] text-gray-600 dark:text-gray-400 flex-shrink-0">
+                                    {repo.private ? 'Private' : 'Public'}
+                                  </span>
+                                </div>
+                                {repo.description && (
+                                  <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0 line-clamp-2">
+                                    {repo.description}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="flex items-center justify-between pt-1 border-t border-gray-200/50 dark:border-[#1e2029]/50">
+                                <div className="flex items-center gap-3 text-[10px] text-gray-400">
+                                  {repo.language && (
+                                    <span className="font-semibold text-gray-600 dark:text-gray-300">
+                                      {repo.language}
+                                    </span>
+                                  )}
+                                  <span className="flex items-center gap-1">
+                                    <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                                    {repo.stargazers_count}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <GitFork className="w-3 h-3" />
+                                    {repo.forks_count}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    disabled={cloningRepoId === repo.id}
+                                    onClick={(e) => handleCloneRepo(repo, e)}
+                                    className="h-7 px-2 rounded-md text-[11px] font-semibold cursor-pointer border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    {cloningRepoId === repo.id ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <DownloadCloud className="w-3 h-3" />
+                                    )}
+                                    <span>Clone</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleOpenExternal(repo.html_url, e)}
+                                    title="Open repo on GitHub"
+                                    className="h-7 w-7 rounded-md flex items-center justify-center cursor-pointer border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-500 hover:text-gray-900 dark:hover:text-white transition-all"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

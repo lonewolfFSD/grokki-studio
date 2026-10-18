@@ -92,6 +92,18 @@ try {
     disconnectObsidian: () => ipcRenderer.invoke('jarvis:disconnect-obsidian'),
     openObsidianVault: (notePath) => ipcRenderer.invoke('jarvis:open-obsidian-vault', notePath),
 
+    connectGitHub: (token) => ipcRenderer.invoke('jarvis:connect-github', token),
+    disconnectGitHub: () => ipcRenderer.invoke('jarvis:disconnect-github'),
+    getGitHubStatus: () => ipcRenderer.invoke('jarvis:get-github-status'),
+    getGitHubRepos: (options) => ipcRenderer.invoke('jarvis:get-github-repos', options),
+    getGitStatus: (cwd) => ipcRenderer.invoke('jarvis:git-status', cwd),
+    gitFetch: (cwd) => ipcRenderer.invoke('jarvis:git-fetch', cwd),
+    gitPull: (cwd) => ipcRenderer.invoke('jarvis:git-pull', cwd),
+    gitPush: (cwd, options) => ipcRenderer.invoke('jarvis:git-push', cwd, options),
+    gitCommit: (cwd, options) => ipcRenderer.invoke('jarvis:git-commit', cwd, options),
+    gitClone: (cloneUrl, targetPath) => ipcRenderer.invoke('jarvis:git-clone', cloneUrl, targetPath),
+    gitSelectDir: () => ipcRenderer.invoke('jarvis:git-select-dir'),
+
     closeDashboard: () => ipcRenderer.send('dashboard:close'),
     minimizeDashboard: () => ipcRenderer.send('dashboard:minimize'),
     maximizeDashboard: () => ipcRenderer.send('dashboard:maximize'),

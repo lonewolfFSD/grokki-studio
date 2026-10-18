@@ -79,6 +79,71 @@ export interface ObsidianStatusResponse {
   notesCount?: number;
 }
 
+export interface GitHubProfile {
+  login: string;
+  name: string;
+  avatar_url: string;
+  html_url: string;
+  bio?: string;
+  public_repos?: number;
+  total_private_repos?: number;
+  followers?: number;
+  following?: number;
+  email?: string;
+  company?: string;
+  location?: string;
+}
+
+export interface GitHubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  description: string;
+  html_url: string;
+  clone_url: string;
+  ssh_url: string;
+  default_branch: string;
+  private: boolean;
+  stargazers_count: number;
+  forks_count: number;
+  language: string;
+  updated_at: string;
+  pushed_at?: string;
+  open_issues_count?: number;
+}
+
+export interface GitFileStatus {
+  path: string;
+  status: 'modified' | 'staged' | 'untracked';
+  code?: string;
+}
+
+export interface GitCommitInfo {
+  hash: string;
+  author: string;
+  date: string;
+  message: string;
+}
+
+export interface GitStatusResponse {
+  success: boolean;
+  gitInstalled?: boolean;
+  gitVersion?: string;
+  isRepo?: boolean;
+  cwd?: string;
+  branch?: string;
+  remoteUrl?: string;
+  remoteBranch?: string | null;
+  ahead?: number;
+  behind?: number;
+  modifiedCount?: number;
+  stagedCount?: number;
+  untrackedCount?: number;
+  files?: GitFileStatus[];
+  recentCommits?: GitCommitInfo[];
+  error?: string;
+}
+
 export interface SystemInfo {
   platform: string;
   arch: string;
@@ -132,6 +197,17 @@ export interface JarvisAPI {
   getObsidianStatus?: () => Promise<ObsidianStatusResponse>;
   disconnectObsidian?: () => Promise<{ success: boolean }>;
   openObsidianVault?: (notePath?: string) => Promise<{ success: boolean }>;
+  connectGitHub?: (token: string) => Promise<{ success: boolean; profile?: GitHubProfile; error?: string }>;
+  disconnectGitHub?: () => Promise<{ success: boolean }>;
+  getGitHubStatus?: () => Promise<{ connected: boolean; profile?: GitHubProfile }>;
+  getGitHubRepos?: (options?: { perPage?: number; page?: number; sort?: string }) => Promise<{ success: boolean; repos?: GitHubRepo[]; error?: string }>;
+  getGitStatus?: (cwd?: string) => Promise<GitStatusResponse>;
+  gitFetch?: (cwd?: string) => Promise<{ success: boolean; output?: string; error?: string }>;
+  gitPull?: (cwd?: string) => Promise<{ success: boolean; output?: string; error?: string }>;
+  gitPush?: (cwd?: string, options?: { branch?: string }) => Promise<{ success: boolean; output?: string; error?: string }>;
+  gitCommit?: (cwd?: string, options?: { message: string; stageAll?: boolean }) => Promise<{ success: boolean; output?: string; error?: string }>;
+  gitClone?: (cloneUrl: string, targetPath?: string) => Promise<{ success: boolean; targetPath?: string; output?: string; error?: string; canceled?: boolean }>;
+  gitSelectDir?: () => Promise<{ success?: boolean; canceled?: boolean; path?: string; status?: GitStatusResponse }>;
   closeDashboard: () => void;
   minimizeDashboard: () => void;
   maximizeDashboard?: () => void;

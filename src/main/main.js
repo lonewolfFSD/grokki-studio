@@ -991,6 +991,65 @@ ipcMain.handle('jarvis:open-obsidian-vault', async (event, notePath) => {
   return { success: true };
 });
 
+// GitHub Workspace & Git CLI Integration
+ipcMain.handle('jarvis:connect-github', async (event, token) => {
+  const githubWorkspace = require('./github_workspace');
+  return await githubWorkspace.connect(token);
+});
+
+ipcMain.handle('jarvis:disconnect-github', async () => {
+  const githubWorkspace = require('./github_workspace');
+  return githubWorkspace.disconnect();
+});
+
+ipcMain.handle('jarvis:get-github-status', async () => {
+  const githubWorkspace = require('./github_workspace');
+  return {
+    connected: githubWorkspace.isConnected(),
+    profile: githubWorkspace.getProfile(),
+  };
+});
+
+ipcMain.handle('jarvis:get-github-repos', async (event, options) => {
+  const githubWorkspace = require('./github_workspace');
+  return await githubWorkspace.getRepos(options);
+});
+
+ipcMain.handle('jarvis:git-status', async (event, cwd) => {
+  const githubWorkspace = require('./github_workspace');
+  return await githubWorkspace.getGitStatus(cwd);
+});
+
+ipcMain.handle('jarvis:git-fetch', async (event, cwd) => {
+  const githubWorkspace = require('./github_workspace');
+  return await githubWorkspace.gitFetch(cwd);
+});
+
+ipcMain.handle('jarvis:git-pull', async (event, cwd) => {
+  const githubWorkspace = require('./github_workspace');
+  return await githubWorkspace.gitPull(cwd);
+});
+
+ipcMain.handle('jarvis:git-push', async (event, cwd, options) => {
+  const githubWorkspace = require('./github_workspace');
+  return await githubWorkspace.gitPush(cwd, options);
+});
+
+ipcMain.handle('jarvis:git-commit', async (event, cwd, options) => {
+  const githubWorkspace = require('./github_workspace');
+  return await githubWorkspace.gitCommit(cwd, options);
+});
+
+ipcMain.handle('jarvis:git-clone', async (event, cloneUrl, targetPath) => {
+  const githubWorkspace = require('./github_workspace');
+  return await githubWorkspace.gitClone(cloneUrl, targetPath);
+});
+
+ipcMain.handle('jarvis:git-select-dir', async () => {
+  const githubWorkspace = require('./github_workspace');
+  return await githubWorkspace.selectDirectory();
+});
+
 // Dashboard Studio Controls & Live Tests
 ipcMain.on('dashboard:close', () => {
   const config = loadConfig();
