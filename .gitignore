@@ -23,6 +23,7 @@ release/
 dist-release/
 
 # Electron & OS Cache
+data/lockfile
 data/Cache/
 data/Code Cache/
 data/DawnGraphiteCache/

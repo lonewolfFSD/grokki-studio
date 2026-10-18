@@ -48,7 +48,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
   userNickname: '',
   userTone: 'companion',
   userBio: '',
-  dashboardTheme: 'light',
+  dashboardTheme: 'dark',
   launchOnStartup: false,
   autoOpenStudioOnStartup: false,
   closeAction: 'tray',
@@ -93,7 +93,7 @@ export const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize theme from config
-  const theme = config.dashboardTheme || 'light';
+  const theme = config.dashboardTheme || 'dark';
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -144,7 +144,7 @@ export const App: React.FC = () => {
         const merged = { ...DEFAULT_CONFIG, ...cfg };
         setConfig(merged);
         setOriginalConfig(merged);
-        const initialTheme = merged.dashboardTheme || 'light';
+        const initialTheme = merged.dashboardTheme || 'dark';
         if (initialTheme === 'dark') {
           document.documentElement.classList.add('dark');
           document.documentElement.classList.remove('light');
@@ -248,7 +248,7 @@ export const App: React.FC = () => {
 
   const handleToggleTheme = useCallback(() => {
     setConfig((prev) => {
-      const nextTheme = (prev.dashboardTheme || 'light') === 'dark' ? 'light' : 'dark';
+      const nextTheme = (prev.dashboardTheme || 'dark') === 'dark' ? 'light' : 'dark';
       if (nextTheme === 'dark') {
         document.documentElement.classList.add('dark');
         document.documentElement.classList.remove('light');
@@ -262,7 +262,7 @@ export const App: React.FC = () => {
       }
       setOriginalConfig((orig) => ({ ...orig, dashboardTheme: nextTheme }));
       if (window.jarvisAPI?.saveConfig) {
-        window.jarvisAPI.saveConfig({ ...prev, dashboardTheme: nextTheme });
+        window.jarvisAPI.saveConfig({ dashboardTheme: nextTheme });
       }
       return { ...prev, dashboardTheme: nextTheme };
     });

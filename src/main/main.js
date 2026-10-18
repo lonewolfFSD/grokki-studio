@@ -130,7 +130,7 @@ function loadConfig() {
       if (!data.userNickname) data.userNickname = '';
       if (!data.userTone) data.userTone = 'companion';
       if (!data.userBio) data.userBio = '';
-      if (!data.dashboardTheme) data.dashboardTheme = 'light';
+      if (!data.dashboardTheme) data.dashboardTheme = 'dark';
       if (data.launchOnStartup === undefined) data.launchOnStartup = false;
       if (data.autoOpenStudioOnStartup === undefined) data.autoOpenStudioOnStartup = false;
       if (!data.closeAction) data.closeAction = 'tray';
@@ -184,7 +184,7 @@ function loadConfig() {
     userNickname: '',
     userTone: 'companion',
     userBio: '',
-    dashboardTheme: 'light',
+    dashboardTheme: 'dark',
     launchOnStartup: false,
     autoOpenStudioOnStartup: false,
     closeAction: 'tray',
@@ -222,19 +222,21 @@ function saveConfig(newConfig) {
       }
     }
 
-    // Dynamic live window adjustments
+    // Dynamic live window adjustments - only apply if user explicitly changed the setting
     if (dashboardWindow && !dashboardWindow.isDestroyed()) {
-      if (newConfig.alwaysOnTop !== undefined) {
+      if (newConfig.alwaysOnTop !== undefined && newConfig.alwaysOnTop !== current.alwaysOnTop) {
         dashboardWindow.setAlwaysOnTop(!!newConfig.alwaysOnTop);
       }
-      if (newConfig.launchMode === 'fullscreen') {
-        dashboardWindow.setFullScreen(true);
-      } else if (newConfig.launchMode === 'maximized') {
-        if (dashboardWindow.isFullScreen()) dashboardWindow.setFullScreen(false);
-        dashboardWindow.maximize();
-      } else if (newConfig.launchMode === 'windowed') {
-        if (dashboardWindow.isFullScreen()) dashboardWindow.setFullScreen(false);
-        if (dashboardWindow.isMaximized()) dashboardWindow.unmaximize();
+      if (newConfig.launchMode !== undefined && newConfig.launchMode !== current.launchMode) {
+        if (newConfig.launchMode === 'fullscreen') {
+          dashboardWindow.setFullScreen(true);
+        } else if (newConfig.launchMode === 'maximized') {
+          if (dashboardWindow.isFullScreen()) dashboardWindow.setFullScreen(false);
+          dashboardWindow.maximize();
+        } else if (newConfig.launchMode === 'windowed') {
+          if (dashboardWindow.isFullScreen()) dashboardWindow.setFullScreen(false);
+          if (dashboardWindow.isMaximized()) dashboardWindow.unmaximize();
+        }
       }
     }
 
