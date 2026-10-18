@@ -46,6 +46,7 @@ export interface JarvisConfig {
   soundEffectsEnabled?: boolean;
   autoCheckUpdates?: boolean;
   hardwareAcceleration?: boolean;
+  chatBackgroundGradient?: boolean;
   notionApiKey?: string;
 }
 

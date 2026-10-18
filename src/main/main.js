@@ -94,6 +94,7 @@ function loadConfig() {
       if (data.soundEffectsEnabled === undefined) data.soundEffectsEnabled = true;
       if (data.autoCheckUpdates === undefined) data.autoCheckUpdates = true;
       if (data.hardwareAcceleration === undefined) data.hardwareAcceleration = true;
+      if (data.chatBackgroundGradient === undefined) data.chatBackgroundGradient = true;
       cachedConfig = data;
       return cachedConfig;
     }
@@ -136,6 +137,7 @@ function loadConfig() {
     soundEffectsEnabled: true,
     autoCheckUpdates: true,
     hardwareAcceleration: true,
+    chatBackgroundGradient: true,
   };
   return cachedConfig;
 }

@@ -98,6 +98,33 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
         </div>
       </div>
 
+      {/* Chat Background Effect */}
+      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl px-5 py-4 flex items-center justify-between shadow-xs">
+        <div>
+          <strong className="block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+            Chat Background Gradient
+          </strong>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            Ambient WebGL wave gradient animation in the Chat canvas. Turn off for a clean, flat surface.
+          </span>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={config.chatBackgroundGradient !== false}
+          onClick={() => onChangeConfig({ chatBackgroundGradient: config.chatBackgroundGradient === false })}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-none p-0.5 transition-colors duration-200 ${
+            config.chatBackgroundGradient !== false ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-[#2a2d3a]'
+          }`}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-black shadow-sm transition-transform duration-200 ${
+              config.chatBackgroundGradient !== false ? 'translate-x-5' : 'translate-x-0'
+            }`}
+          />
+        </button>
+      </div>
+
       {/* Hotkey Configuration */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl px-5 py-4 flex items-center justify-between shadow-xs">
         <div>

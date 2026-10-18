@@ -1799,34 +1799,36 @@ export const ChatTab = React.memo<ChatTabProps>(({
       {renderCameraModal()}
 
       {/* Background GradientASCII Effect */}
-      <div
-        className="absolute inset-0 pointer-events-none overflow-hidden z-0"
-        style={{ width: '100%', height: '100%', position: 'absolute' }}
-      >
-        <GradientASCII
-          colors={GRADIENT_ASCII_COLORS}
-          shape="horizon"
-          characters=" =+xX0S8#@"
-          cellSize={18}
-          density={0.56}
-          glyphOpacity={0.3}
-          glow={0.2}
-          depthOfField={0.8}
-          flicker={0.2}
-          softness={0.5}
-          scale={1}
-          flow={0.5}
-          speed={1}
-          gradientOpacity={0.9}
-          grain={0.08}
-          variation={0}
-          mouseInteraction
-          scrambleRadius={0.1}
-          clickEffect="wave"
-          intro
-          lightMode={!isDarkTheme}
-        />
-      </div>
+      {config.chatBackgroundGradient !== false && (
+        <div
+          className="absolute inset-0 pointer-events-none overflow-hidden z-0"
+          style={{ width: '100%', height: '100%', position: 'absolute' }}
+        >
+          <GradientASCII
+            colors={GRADIENT_ASCII_COLORS}
+            shape="horizon"
+            characters=" =+xX0S8#@"
+            cellSize={18}
+            density={0.56}
+            glyphOpacity={0.3}
+            glow={0.2}
+            depthOfField={0.8}
+            flicker={0.2}
+            softness={0.5}
+            scale={1}
+            flow={0.5}
+            speed={1}
+            gradientOpacity={0.9}
+            grain={0.08}
+            variation={0}
+            mouseInteraction
+            scrambleRadius={0.1}
+            clickEffect="wave"
+            intro
+            lightMode={!isDarkTheme}
+          />
+        </div>
+      )}
 
       {/* Main Content Column */}
       <div className="flex flex-col h-full w-full max-w-3xl mx-auto justify-between relative z-10 min-h-0">

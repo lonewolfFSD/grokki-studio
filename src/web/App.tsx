@@ -49,6 +49,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
   soundEffectsEnabled: true,
   autoCheckUpdates: true,
   hardwareAcceleration: true,
+  chatBackgroundGradient: true,
 };
 
 export const App: React.FC = () => {

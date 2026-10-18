@@ -689,12 +689,37 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
               type="button"
               onClick={() => onChangeConfig({ streamingAnimation: config.streamingAnimation === false ? true : false })}
               className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out border-none ${
-                config.streamingAnimation !== false ? 'bg-black' : 'bg-gray-300 dark:bg-[#252836]'
+                config.streamingAnimation !== false ? 'bg-black dark:bg-white' : 'bg-gray-300 dark:bg-[#252836]'
               }`}
             >
               <div
-                className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
-                  config.streamingAnimation !== false ? 'translate-x-5' : 'translate-x-0'
+                className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                  config.streamingAnimation !== false ? 'bg-white dark:bg-black translate-x-5' : 'bg-white translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Chat Background Gradient Effect */}
+          <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-[#1e2029]/60">
+            <div>
+              <strong className="block text-xs font-bold text-gray-900 dark:text-gray-100">
+                Chat Background Gradient
+              </strong>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                Display animated WebGL ambient wave shader on the Chat tab canvas. Turn off for pure flat canvas.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => onChangeConfig({ chatBackgroundGradient: config.chatBackgroundGradient === false ? true : false })}
+              className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out border-none ${
+                config.chatBackgroundGradient !== false ? 'bg-black dark:bg-white' : 'bg-gray-300 dark:bg-[#252836]'
+              }`}
+            >
+              <div
+                className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                  config.chatBackgroundGradient !== false ? 'bg-white dark:bg-black translate-x-5' : 'bg-white translate-x-0'
                 }`}
               />
             </button>

@@ -29,23 +29,23 @@ export const AboutTab = React.memo<AboutTabProps>(({ systemInfo, hotkey }) => {
 
       {/* Hero Identity Card */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-2xl p-6 shadow-xs flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center -mt-2 gap-4">
           <img
             src={grokkiLogo}
             alt="Grokki Studio"
-            className="w-14 h-14 rounded-2xl object-contain shadow-md flex-shrink-0"
+            className="w-14 h-14 mt-2 rounded-2xl object-contain  flex-shrink-0"
           />
           <div>
             <div className="flex items-center gap-1.5 mb-1">
               <img
                 src={grokkiWordmarkDark}
                 alt="Grokki Studio"
-                className="hidden dark:block h-6.5 w-auto object-contain select-none"
+                className="hidden dark:block h-14 -mb-4 w-auto object-contain select-none"
               />
               <img
                 src={grokkiWordmarkLight}
                 alt="Grokki Studio"
-                className="block dark:hidden h-6.5 w-auto object-contain select-none"
+                className="block dark:hidden h-14 -mb-4 w-auto object-contain select-none"
               />
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-1.5">
