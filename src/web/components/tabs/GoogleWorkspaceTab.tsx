@@ -60,7 +60,11 @@ const ObsidianLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' 
 
 // Official Authentic GitHub Brand Logo
 const GitHubLogo: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
-  <img src={githubLogo} alt="GitHub" className={`${className} object-contain`} />
+  <img
+    src={githubLogo}
+    alt="GitHub"
+    className={`${className} object-contain transition-all dark:brightness-0 dark:invert`}
+  />
 );
 
 interface GoogleWorkspaceTabProps {
