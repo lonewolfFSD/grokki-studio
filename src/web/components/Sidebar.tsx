@@ -24,6 +24,7 @@ import { GoogleProfile, Conversation, StudioHotkeys } from '../types/jarvis';
 import BranchedMenu, { BranchedMenuItem } from './BranchedMenu';
 import WarmTooltip, { WarmTooltipGroup, type WarmTooltipSide } from './WarmTooltip';
 import { DEFAULT_HOTKEYS } from '../utils/hotkeys';
+import grokkiLogo from '../assets/grokki_logo.png';
 
 export type TabId = 'chat' | 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
 
@@ -442,9 +443,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="group/logo w-9 h-9 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent"
                 >
                   {/* Default: Grokki Studio Logo */}
-                  <div className="group-hover/logo:hidden w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-xs">
-                    //
-                  </div>
+                  <img
+                    src={grokkiLogo}
+                    alt="Grokki Studio"
+                    className="group-hover/logo:hidden w-7 h-7 rounded-lg object-contain shadow-xs"
+                  />
                   {/* On Hover: Maximize Sidebar Icon */}
                   <div className="hidden group-hover/logo:flex items-center justify-center text-gray-700 dark:text-gray-200">
                     <PanelLeftOpenIcon ref={openLogoIconRef} size={20} />
@@ -454,10 +457,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
           <div className="flex items-center justify-between px-1.5 pt-1 pb-1 gap-1.5">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-xs tracking-tighter shadow-xs flex-shrink-0">
-                //
-              </div>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <img
+                src={grokkiLogo}
+                alt="Grokki Studio"
+                className="w-7 h-7 rounded-lg object-contain shadow-xs flex-shrink-0"
+              />
               <span className="font-bold text-sm tracking-tight text-gray-900 dark:text-gray-100 truncate">
                 Grokki Studio
               </span>

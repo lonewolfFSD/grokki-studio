@@ -1,6 +1,7 @@
 import React from 'react';
 import { Cpu, ShieldCheck, Headphones } from 'lucide-react';
 import { SystemInfo } from '../../types/jarvis';
+import grokkiLogo from '../../assets/grokki_logo.png';
 
 interface AboutTabProps {
   systemInfo: SystemInfo | null;
@@ -27,9 +28,11 @@ export const AboutTab: React.FC<AboutTabProps> = ({ systemInfo, hotkey }) => {
       {/* Hero Identity Card */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-2xl p-6 shadow-xs flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-mono font-bold text-2xl shadow-xs">
-            //
-          </div>
+          <img
+            src={grokkiLogo}
+            alt="Grokki Studio"
+            className="w-14 h-14 rounded-2xl object-contain shadow-md flex-shrink-0"
+          />
           <div>
             <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 m-0">
               Grokki Studio Desktop
