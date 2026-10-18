@@ -38,7 +38,11 @@ class GitHubWorkspaceManager {
       } catch (e) {}
     }
 
-    return null;
+    // 3. Built-in default OAuth application credentials (FOR ALL USERS)
+    return {
+      clientId: 'Iv23li2d4mthyD4gFupe',
+      clientSecret: '3413f0010ec856360de4d2b07edd828bf08467a8',
+    };
   }
 
   saveCredentials(clientId, clientSecret) {
