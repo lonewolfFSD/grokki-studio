@@ -2049,7 +2049,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         </div>
       ) : (
         /* Active Conversation Thread (Clean, Modern Chat Bubbles) */
-        <div className="flex-1 flex flex-col overflow-y-auto no-scrollbar px-1 py-3 space-y-5">
+        <div id="grokki-chat-scroll" className="flex-1 flex flex-col overflow-y-auto no-scrollbar px-1 py-3 space-y-5">
           {/* Header Action Bar */}
           <div className="flex items-center justify-between pb-2.5 border-b border-gray-200 dark:border-[#1e2029]">
             <div className="flex items-center gap-2">

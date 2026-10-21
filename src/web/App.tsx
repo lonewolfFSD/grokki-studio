@@ -83,7 +83,7 @@ export const App: React.FC = () => {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
 
-  useSmoothScroll(config.smoothScroll !== false, config.smoothScrollIntensity ?? 5);
+  useSmoothScroll(config.smoothScroll !== false, config.smoothScrollIntensity ?? 5, activeTab);
 
   const {
     conversations,
@@ -473,7 +473,7 @@ export const App: React.FC = () => {
         />
 
         {/* Tab Panels */}
-        <main className={`flex-1 min-h-0 overflow-y-auto ${activeTab === 'chat' ? 'h-full flex flex-col relative bg-[#f7f7fa] dark:bg-[#0b0c10] overflow-hidden' : 'px-8 py-6'}`}>
+        <main id="grokki-main-scroll" className={`flex-1 min-h-0 overflow-y-auto ${activeTab === 'chat' ? 'h-full flex flex-col relative bg-[#f7f7fa] dark:bg-[#0b0c10] overflow-hidden' : 'px-8 py-6'}`}>
           <div className={activeTab === 'chat' ? 'h-full flex flex-col relative w-full overflow-hidden' : 'hidden'}>
             <ChatTab
               config={config}

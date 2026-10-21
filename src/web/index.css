@@ -500,3 +500,9 @@ html.smooth-scroll, html.smooth-scroll * {
 html.normal-scroll, html.normal-scroll * {
   scroll-behavior: auto !important;
 }
+
+/* Lenis Smooth Scrolling Engine (Portfolio Standard) */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: clip; }
