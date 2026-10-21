@@ -33,6 +33,15 @@
   }
 }
 
+* {
+  cursor: none !important;
+}
+input,
+textarea,
+select {
+  cursor: text !important;
+}
+
 /* Custom Minimal Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
