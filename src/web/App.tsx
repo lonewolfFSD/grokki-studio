@@ -297,7 +297,12 @@ export const App: React.FC = () => {
     if (!api?.saveConfig) return;
     setSaving(true);
     try {
+      const startTime = Date.now();
       const saved = await api.saveConfig(config);
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 1000) {
+        await new Promise((resolve) => setTimeout(resolve, 1000 - elapsed));
+      }
       const merged = { ...DEFAULT_CONFIG, ...saved };
       setConfig(merged);
       setOriginalConfig(merged);
