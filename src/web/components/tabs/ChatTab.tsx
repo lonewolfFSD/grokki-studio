@@ -35,6 +35,8 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { ArtifactCanvasPane, Artifact } from '../ArtifactCanvasPane';
+import { PerplexitySourcesBar } from '../PerplexitySourcesBar';
+import { GroundingMetadata } from '../../types/jarvis';
 import { highlightCode } from '../../utils/syntaxHighlight';
 import { AnimatePresence, motion } from 'motion/react';
 import { marked } from 'marked';
@@ -357,10 +359,11 @@ function getLanguageLogoSvg(lang: string): string {
 const htmlRenderCache = new Map<string, string>();
 const MAX_CACHE_SIZE = 400;
 
-function formatRichMarkdownHtml(rawContent: string): string {
+function formatRichMarkdownHtml(rawContent: string, grounding?: GroundingMetadata): string {
   if (!rawContent) return '';
-  if (htmlRenderCache.has(rawContent)) {
-    return htmlRenderCache.get(rawContent)!;
+  const cacheKey = grounding && grounding.sources ? `${rawContent}__g_${grounding.sources.length}` : rawContent;
+  if (htmlRenderCache.has(cacheKey)) {
+    return htmlRenderCache.get(cacheKey)!;
   }
 
   // Normalize inline or line-leading Unicode bullets (•) into numbered list items (1. 2. 3.)
@@ -459,21 +462,59 @@ function formatRichMarkdownHtml(rawContent: string): string {
     }
   });
 
-  const finalHtml = doc.body.innerHTML;
+  let finalHtml = doc.body.innerHTML;
+
+  // Transform [1], [2], [1, 2] citations into interactive Perplexity citation badges
+  finalHtml = finalHtml.replace(/\[(\d+(?:\s*,\s*\d+)*)\]/g, (match, digits) => {
+    const ids = digits.split(',').map((s: string) => s.trim());
+    let titleAttr = `Source ${digits}`;
+    if (grounding && grounding.sources) {
+      const matchedTitles = ids
+        .map((id: string) => grounding.sources.find((s) => s.id === parseInt(id, 10))?.title)
+        .filter(Boolean);
+      if (matchedTitles.length > 0) {
+        titleAttr = matchedTitles.join(' • ');
+      }
+    }
+    return `<button type="button" class="grokki-citation-pill" data-citation="${digits.replace(/\s+/g, '')}" title="${titleAttr}">[${digits}]</button>`;
+  });
+
   if (htmlRenderCache.size >= MAX_CACHE_SIZE) {
     const firstKey = htmlRenderCache.keys().next().value;
     if (firstKey !== undefined) htmlRenderCache.delete(firstKey);
   }
-  htmlRenderCache.set(rawContent, finalHtml);
+  htmlRenderCache.set(cacheKey, finalHtml);
   return finalHtml;
 }
 
-const StaticMessageContent = React.memo<{ content: string; onOpenArtifact?: (artifact: Artifact) => void }>(({ content, onOpenArtifact }) => {
+const StaticMessageContent = React.memo<{
+  content: string;
+  grounding?: GroundingMetadata;
+  onOpenArtifact?: (artifact: Artifact) => void;
+}>(({ content, grounding, onOpenArtifact }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const rawHtml = useMemo(() => formatRichMarkdownHtml(content), [content]);
+  const rawHtml = useMemo(() => formatRichMarkdownHtml(content, grounding), [content, grounding]);
 
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement | null;
+
+    // 0. Handle Citation pill click
+    const citationBtn = target?.closest('.grokki-citation-pill') as HTMLElement | null;
+    if (citationBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const citationIds = (citationBtn.getAttribute('data-citation') || '').split(',');
+      const firstId = parseInt(citationIds[0], 10);
+      const matchedSource = grounding?.sources?.find((s) => s.id === firstId);
+      if (matchedSource && matchedSource.url) {
+        if (window.jarvisAPI?.openUrl) {
+          window.jarvisAPI.openUrl(matchedSource.url);
+        } else {
+          window.open(matchedSource.url, '_blank');
+        }
+      }
+      return;
+    }
 
     // 1. Open links externally in the user's system browser
     const anchor = target?.closest('a') as HTMLAnchorElement | null;
@@ -535,16 +576,35 @@ const MARKDOWN_RENDER_REV = 3;
 
 const AnimatedMessageContent: React.FC<{
   content: string;
+  grounding?: GroundingMetadata;
   isAnimated?: boolean;
   speed?: 'fast' | 'normal' | 'relaxed';
   onScroll?: () => void;
   onFinished?: () => void;
   onOpenArtifact?: (artifact: Artifact) => void;
-}> = ({ content, isAnimated, speed = 'fast', onScroll, onFinished, onOpenArtifact }) => {
+}> = ({ content, grounding, isAnimated, speed = 'fast', onScroll, onFinished, onOpenArtifact }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement | null;
+
+    // 0. Handle Citation pill click
+    const citationBtn = target?.closest('.grokki-citation-pill') as HTMLElement | null;
+    if (citationBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const citationIds = (citationBtn.getAttribute('data-citation') || '').split(',');
+      const firstId = parseInt(citationIds[0], 10);
+      const matchedSource = grounding?.sources?.find((s) => s.id === firstId);
+      if (matchedSource && matchedSource.url) {
+        if (window.jarvisAPI?.openUrl) {
+          window.jarvisAPI.openUrl(matchedSource.url);
+        } else {
+          window.open(matchedSource.url, '_blank');
+        }
+      }
+      return;
+    }
 
     // 1. Open links externally in the user's system browser
     const anchor = target?.closest('a') as HTMLAnchorElement | null;
@@ -728,6 +788,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const [loading, setLoading] = useState(false);
   const [activeArtifact, setActiveArtifact] = useState<Artifact | null>(null);
   const [attachedFile, setAttachedFile] = useState<AttachedFileInfo | null>(null);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
 
@@ -1508,6 +1569,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
           context.filePath = currentAttachment.path;
           context.attachedFile = currentAttachment;
         }
+        if (webSearchEnabled) {
+          context.webSearch = true;
+          context.webSearchEnabled = true;
+        }
         const res = await window.jarvisAPI.executeAI(text, context);
         let replyContent = res.reply || res.message;
         if (!replyContent) {
@@ -1614,6 +1679,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           content: replyContent,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           actionsExecuted: res.actionsExecuted,
+          grounding: res.grounding,
           isAnimated: true,
         };
         onUpdateMessages((prev) => [...prev, assistantMsg]);
@@ -2289,6 +2355,36 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
                   {/* AI Brain Model Selector Dropdown below the input next to plus */}
                   {renderModelSelector('top', 'left')}
+
+                  {/* Perplexity-Style Web Grounding Search Toggle */}
+                  <WarmTooltip
+                    content={webSearchEnabled ? 'Live Web Search: ON' : 'Live Web Search: OFF (Click to enable)'}
+                    side="top"
+                    surfaceColor="#f5f5f5"
+                    inkColor="#18181b"
+                    size="md"
+                    radius={8}
+                    gap={8}
+                    arrow
+                    popDuration={160}
+                    popScale={0.94}
+                    popBlur={4}
+                    showFuse={false}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Toggle Web Search Grounding"
+                      onClick={() => setWebSearchEnabled((prev) => !prev)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all cursor-pointer border select-none ${
+                        webSearchEnabled
+                          ? 'bg-sky-500/15 text-sky-400 border-sky-500/35 shadow-xs font-semibold'
+                          : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:bg-gray-100 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      <Globe className="w-3.5 h-3.5 shrink-0" />
+                      <span>Search</span>
+                    </button>
+                  </WarmTooltip>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -2473,10 +2569,16 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           </div>
                         )}
 
+                        {/* Perplexity-Style Sources Bar */}
+                        {msg.role === 'assistant' && msg.grounding && (
+                          <PerplexitySourcesBar grounding={msg.grounding} />
+                        )}
+
                         {/* Rendered Markdown Body: Animated if streaming, else Fast Cached Static */}
                         {config.streamingAnimation !== false && msg.isAnimated ? (
                           <AnimatedMessageContent
                             content={msg.content}
+                            grounding={msg.grounding}
                             isAnimated={true}
                             speed={config.streamingSpeed}
                             onScroll={scrollToBottom}
@@ -2484,7 +2586,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
                             onOpenArtifact={setActiveArtifact}
                           />
                         ) : (
-                          <StaticMessageContent content={msg.content} onOpenArtifact={setActiveArtifact} />
+                          <StaticMessageContent
+                            content={msg.content}
+                            grounding={msg.grounding}
+                            onOpenArtifact={setActiveArtifact}
+                          />
                         )}
 
                         {/* Claude-Style Artifact Card */}

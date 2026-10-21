@@ -504,6 +504,34 @@ code .grokki-word-fade {
   font-style: italic;
 }
 
+/* Perplexity-Style Citation Pills */
+.grokki-citation-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.12rem 0.38rem;
+  margin: 0 0.18rem;
+  border-radius: 0.35rem;
+  background-color: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  cursor: pointer;
+  vertical-align: 0.18rem;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.grokki-citation-pill:hover {
+  background-color: rgba(56, 189, 248, 0.25);
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #7dd3fc;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(56, 189, 248, 0.2);
+}
+
 /* Tables */
 .grokki-table-wrapper {
   margin: 0.75rem 0;

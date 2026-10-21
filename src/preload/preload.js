@@ -64,6 +64,7 @@ try {
     executeAIAudio: (data) => ipcRenderer.invoke('jarvis:execute-ai-audio', data),
     speakText: (text, voice) => ipcRenderer.invoke('jarvis:speak', { text, voice }),
     selectFile: () => ipcRenderer.invoke('jarvis:select-file'),
+    searchWeb: (query, maxResults) => ipcRenderer.invoke('jarvis:search-web', query, maxResults),
 
     // Presentation Slide Changer (Gesture + Voice)
     slideControl: (action) => ipcRenderer.invoke('jarvis:slide-control', action),

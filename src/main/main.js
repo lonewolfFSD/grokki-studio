@@ -5,6 +5,7 @@ const os = require('os');
 const { exec, spawn } = require('child_process');
 const { GoogleGenAI } = require('@google/genai');
 const agentBrain = require('./agent_brain');
+const { searchWeb } = require('./web_search');
 const kokoroTTS = require('./kokoro_tts');
 app.setName('Grokki Studio');
 if (process.platform === 'win32') {
@@ -951,6 +952,10 @@ ipcMain.handle('jarvis:run-command', async (event, command) => {
 ipcMain.handle('jarvis:execute-ai', async (event, prompt, context = {}) => {
   const config = loadConfig();
   return await agentBrain.run(prompt, config, context);
+});
+
+ipcMain.handle('jarvis:search-web', async (event, query, maxResults = 5) => {
+  return await searchWeb(query, maxResults);
 });
 
 ipcMain.handle('jarvis:select-file', async () => {

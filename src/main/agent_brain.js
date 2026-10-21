@@ -21,6 +21,7 @@ const googleWorkspace = require('./google_workspace');
 const { convertGeminiToolsToOpenAI, callOpenAICompatible, transcribeWithGroqWhisper } = require('./ai_providers');
 const studyEngine = require('./study_engine');
 const powerTools = require('./power_tools');
+const { searchWeb, buildGroundingPrompt } = require('./web_search');
 
 function resolveOpenAIEndpointAndKey(provider, config = {}) {
   let endpoint = 'https://api.groq.com/openai/v1';
@@ -1391,6 +1392,23 @@ class AgentBrain {
 
     fullPrompt = expandSlashDirective(fullPrompt);
 
+    let groundingSources = [];
+    const isWebSearchActive = Boolean(
+      context && (context.webSearch || context.webSearchEnabled) ||
+      /\b(search\s+(the\s+)?web|current\s+news|today'?s\s+news|latest\s+news|live\s+search)\b/i.test(prompt || '')
+    );
+    if (isWebSearchActive) {
+      try {
+        console.log(`[AgentBrain] Performing live web grounding for: "${prompt}"...`);
+        groundingSources = await searchWeb(prompt, 5);
+        if (groundingSources.length > 0) {
+          fullPrompt = `${fullPrompt}${buildGroundingPrompt(groundingSources, prompt)}`;
+        }
+      } catch (err) {
+        console.warn('[AgentBrain] Web grounding error:', err.message);
+      }
+    }
+
     memory.addTurn('user', fullPrompt);
 
     const rawHistory = memory.getHistory();
@@ -1510,6 +1528,7 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
         success: true,
         reply: replyText,
         actionsExecuted: executed,
+        grounding: groundingSources && groundingSources.length > 0 ? { query: prompt, sources: groundingSources } : undefined,
       };
     } catch (err) {
       this.abortController = null;
@@ -1610,6 +1629,23 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
 
     fullPrompt = expandSlashDirective(fullPrompt);
 
+    let groundingSources = [];
+    const isWebSearchActive = Boolean(
+      context && (context.webSearch || context.webSearchEnabled) ||
+      /\b(search\s+(the\s+)?web|current\s+news|today'?s\s+news|latest\s+news|live\s+search)\b/i.test(prompt || '')
+    );
+    if (isWebSearchActive) {
+      try {
+        console.log(`[AgentBrain] Performing live web grounding for: "${prompt}"...`);
+        groundingSources = await searchWeb(prompt, 5);
+        if (groundingSources.length > 0) {
+          fullPrompt = `${fullPrompt}${buildGroundingPrompt(groundingSources, prompt)}`;
+        }
+      } catch (err) {
+        console.warn('[AgentBrain] Web grounding error:', err.message);
+      }
+    }
+
     const ai = new GoogleGenAI({ apiKey });
     const tools = this.getToolsDeclaration();
     const systemInstruction = memory.buildSystemPrompt(config);
@@ -1633,7 +1669,7 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
             maxOutputTokens: 800,
             temperature: 0.1,
           },
-        }), 12000), signal);
+        }), 25000), signal);
 
         const functionCalls = response.functionCalls || [];
         const executed = [];
@@ -1742,7 +1778,7 @@ Rules:
                 maxOutputTokens: 800,
                 temperature: 0.2,
               },
-            }), 12000), signal);
+            }), 25000), signal);
 
             if (synth && synth.text && synth.text.trim().length > 10) {
               replyText = synth.text.trim();
@@ -1774,6 +1810,7 @@ Rules:
           success: true,
           reply: replyText,
           actionsExecuted: executed,
+          grounding: groundingSources && groundingSources.length > 0 ? { query: prompt, sources: groundingSources } : undefined,
         };
       } catch (err) {
         if (err.message === 'TASK_CANCELLED' || (signal && signal.aborted)) {
@@ -1797,7 +1834,10 @@ Rules:
           model: groqModel,
           messages: [
             { role: 'system', content: systemInstruction },
-            ...memory.getHistory(),
+            ...memory.getHistory().map(turn => ({
+              role: turn.role === 'model' ? 'assistant' : turn.role,
+              content: (turn.parts || []).map(p => p.text || '').join('\n') || (turn.content || ''),
+            })),
           ],
           signal,
           timeout: 25000,

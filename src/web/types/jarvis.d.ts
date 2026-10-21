@@ -193,6 +193,20 @@ export interface AttachedFileInfo {
   previewUrl?: string;
 }
 
+export interface GroundingSource {
+  id: number;
+  title: string;
+  url: string;
+  snippet: string;
+  hostname: string;
+  favicon?: string;
+}
+
+export interface GroundingMetadata {
+  query: string;
+  sources: GroundingSource[];
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -201,6 +215,7 @@ export interface ChatMessage {
   actionsExecuted?: any[];
   attachedFile?: AttachedFileInfo | string;
   isAnimated?: boolean;
+  grounding?: GroundingMetadata;
 }
 
 export interface Conversation {
@@ -250,7 +265,8 @@ export interface JarvisAPI {
   fetchProviderModels?: (options: { provider: string; key?: string; endpoint?: string }) => Promise<{ success: boolean; models?: string[]; error?: string }>;
   getSystemInfo: () => Promise<SystemInfo>;
   speakText: (text: string, voice: string) => Promise<{ success: boolean; base64Audio?: string; error?: string }>;
-  executeAI?: (prompt: string, context?: any) => Promise<{ success: boolean; reply?: string; message?: string; actionsExecuted?: any[]; error?: string }>;
+  executeAI?: (prompt: string, context?: any) => Promise<{ success: boolean; reply?: string; message?: string; actionsExecuted?: any[]; grounding?: GroundingMetadata; error?: string }>;
+  searchWeb?: (query: string, maxResults?: number) => Promise<GroundingSource[]>;
   executeAIAudio?: (data: { base64Audio: string; mimeType: string }) => Promise<{ success?: boolean; transcript?: string; reply?: string }>;
   selectFile?: (options?: any) => Promise<{ canceled: boolean; path?: string; name?: string; filePaths?: string[]; size?: number; ext?: string }>;
   getPathForFile?: (file: File) => string;
