@@ -723,7 +723,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     return opts;
   }, [activeBrain, currentBrainInfo.Logo, currentModelValue]);
 
-  const renderModelSelector = (placement: 'top' | 'bottom') => {
+  const renderModelSelector = (placement: 'top' | 'bottom' = 'top', align: 'left' | 'right' = 'left') => {
     const isDark =
       config.dashboardTheme === 'dark' ||
       (typeof document !== 'undefined' &&
@@ -748,7 +748,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           textColor={isDark ? '#f3f4f6' : '#111827'}
           accentColor={isDark ? '#38bdf8' : '#0284c7'}
           placement={placement}
-          align="right"
+          align={align}
           popDuration={180}
           glideDuration={200}
           ariaLabel={`AI Brain: ${currentBrainInfo.name} Model Selector`}
@@ -2125,42 +2125,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
             {renderSlashMenu()}
             {renderSynthesizerVisualizer()}
 
-            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full py-3 px-3.5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5">
-              {/* Attach Tool Button + WhatsApp-style Popover */}
-              <div ref={attachMenuRef} className="relative flex items-center">
-                {renderAttachMenu('bottom')}
-                <WarmTooltip
-                  content="Attach files"
-                  shortcut={hotkeys.attachFile}
-                  side="top"
-                  disabled={attachMenuOpen}
-                  surfaceColor="#f5f5f5"
-                  inkColor="#18181b"
-                  size="md"
-                  radius={8}
-                  gap={8}
-                  arrow
-                  popDuration={160}
-                  popScale={0.94}
-                  popBlur={4}
-                  showFuse={false}
-                >
-                  <button
-                    type="button"
-                    aria-label="Attach files"
-                    onClick={() => setAttachMenuOpen((prev) => !prev)}
-                    className={`transition-all duration-200 cursor-pointer border-none p-1 rounded-full flex items-center justify-center ${
-                      attachMenuOpen
-                        ? 'bg-gray-200 dark:bg-[#252836] text-gray-900 dark:text-white rotate-45'
-                        : 'bg-transparent text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </WarmTooltip>
-              </div>
-
-              {/* Input Field */}
+            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5">
+              {/* Input Field on Top */}
               <input
                 ref={inputRef}
                 type="text"
@@ -2176,77 +2142,118 @@ export const ChatTab = React.memo<ChatTabProps>(({
                       : `Ask Grokki about ${attachedFile.name}...`
                     : "Type / for slash commands, or ask Grokki anything..."
                 }
-                className="flex-1 bg-transparent border-none outline-none text-xs md:text-[12px] text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
+                className="w-full bg-transparent border-none outline-none text-xs md:text-[13px] text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans px-1 pt-0.5 pb-0.5"
                 autoFocus
               />
 
-              {/* Pill Badge */}
-              {renderModelSelector('bottom')}
+              {/* Bottom Row Below Input: Plus & Model Selector on Left, Mic & Send on Right */}
+              <div className="flex items-center justify-between gap-2 pt-0.5">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {/* Attach Tool Button + WhatsApp-style Popover */}
+                  <div ref={attachMenuRef} className="relative flex items-center">
+                    {renderAttachMenu('top')}
+                    <WarmTooltip
+                      content="Attach files"
+                      shortcut={hotkeys.attachFile}
+                      side="top"
+                      disabled={attachMenuOpen}
+                      surfaceColor="#f5f5f5"
+                      inkColor="#18181b"
+                      size="md"
+                      radius={8}
+                      gap={8}
+                      arrow
+                      popDuration={160}
+                      popScale={0.94}
+                      popBlur={4}
+                      showFuse={false}
+                    >
+                      <button
+                        type="button"
+                        aria-label="Attach files"
+                        onClick={() => setAttachMenuOpen((prev) => !prev)}
+                        className={`transition-all duration-200 cursor-pointer border-none p-1.5 rounded-full flex items-center justify-center ${
+                          attachMenuOpen
+                            ? 'bg-gray-200 dark:bg-[#252836] text-gray-900 dark:text-white rotate-45'
+                            : 'bg-transparent text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </WarmTooltip>
+                  </div>
 
-              {/* Voice-to-Text Button: Mic when idle, Square Stop when recording */}
-              <WarmTooltip
-                content={isRecording ? 'Stop voice recording' : 'Voice to text'}
-                shortcut={hotkeys.voiceRecord}
-                side="top"
-                surfaceColor="#f5f5f5"
-                inkColor="#18181b"
-                size="md"
-                radius={8}
-                gap={8}
-                arrow
-                popDuration={160}
-                popScale={0.94}
-                popBlur={4}
-                showFuse={false}
-              >
-                <button
-                  type="button"
-                  aria-label={isRecording ? 'Stop voice recording' : 'Voice to text'}
-                  onClick={toggleVoiceRecording}
-                  className={`transition-all cursor-pointer border-none flex items-center justify-center rounded-full ${
-                    isRecording
-                      ? 'w-7 h-7 bg-red-500 hover:bg-red-600 text-white shadow-md shadow-red-500/30 animate-pulse flex-shrink-0'
-                      : 'p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white bg-transparent'
-                  }`}
-                >
-                  {isRecording ? (
-                    <Square className="w-3.5 h-3.5 fill-current" />
-                  ) : (
-                    <Mic className="w-4 h-4" />
-                  )}
-                </button>
-              </WarmTooltip>
+                  {/* AI Brain Model Selector Dropdown below the input next to plus */}
+                  {renderModelSelector('top', 'left')}
+                </div>
 
-              {/* Send Arrow Button */}
-              <WarmTooltip
-                content="Send message"
-                shortcut="↵"
-                side="top"
-                surfaceColor="#f5f5f5"
-                inkColor="#18181b"
-                size="md"
-                radius={8}
-                gap={8}
-                arrow
-                popDuration={160}
-                popScale={0.94}
-                popBlur={4}
-                showFuse={false}
-              >
-                <button
-                  type="button"
-                  aria-label="Send message"
-                  onClick={() => handleSendMessage()}
-                  disabled={!inputValue.trim() && !attachedFile}
-                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
-                    inputValue.trim() || attachedFile
-                      ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
-                      : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
-                </button>
-              </WarmTooltip>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Voice-to-Text Button: Mic when idle, Square Stop when recording */}
+                  <WarmTooltip
+                    content={isRecording ? 'Stop voice recording' : 'Voice to text'}
+                    shortcut={hotkeys.voiceRecord}
+                    side="top"
+                    surfaceColor="#f5f5f5"
+                    inkColor="#18181b"
+                    size="md"
+                    radius={8}
+                    gap={8}
+                    arrow
+                    popDuration={160}
+                    popScale={0.94}
+                    popBlur={4}
+                    showFuse={false}
+                  >
+                    <button
+                      type="button"
+                      aria-label={isRecording ? 'Stop voice recording' : 'Voice to text'}
+                      onClick={toggleVoiceRecording}
+                      className={`transition-all cursor-pointer border-none flex items-center justify-center rounded-full ${
+                        isRecording
+                          ? 'w-7 h-7 bg-red-500 hover:bg-red-600 text-white shadow-md shadow-red-500/30 animate-pulse flex-shrink-0'
+                          : 'p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white bg-transparent'
+                      }`}
+                    >
+                      {isRecording ? (
+                        <Square className="w-3.5 h-3.5 fill-current" />
+                      ) : (
+                        <Mic className="w-4 h-4" />
+                      )}
+                    </button>
+                  </WarmTooltip>
+
+                  {/* Send Arrow Button */}
+                  <WarmTooltip
+                    content="Send message"
+                    shortcut="↵"
+                    side="top"
+                    surfaceColor="#f5f5f5"
+                    inkColor="#18181b"
+                    size="md"
+                    radius={8}
+                    gap={8}
+                    arrow
+                    popDuration={160}
+                    popScale={0.94}
+                    popBlur={4}
+                    showFuse={false}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Send message"
+                      onClick={() => handleSendMessage()}
+                      disabled={!inputValue.trim() && !attachedFile}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
+                        inputValue.trim() || attachedFile
+                          ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
+                          : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
+                    </button>
+                  </WarmTooltip>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -2545,41 +2552,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
             {renderSlashMenu('top')}
             {renderSynthesizerVisualizer()}
 
-            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-full mb-8 py-3 px-3.5 transition-all flex items-center gap-2.5">
-              {/* Attach Tool Button + WhatsApp-style Popover */}
-              <div ref={attachMenuRef} className="relative flex items-center">
-                {renderAttachMenu('top')}
-                <WarmTooltip
-                  content="Attach files"
-                  shortcut={hotkeys.attachFile}
-                  side="top"
-                  disabled={attachMenuOpen}
-                  surfaceColor="#f5f5f5"
-                  inkColor="#18181b"
-                  size="md"
-                  radius={8}
-                  gap={8}
-                  arrow
-                  popDuration={160}
-                  popScale={0.94}
-                  popBlur={4}
-                  showFuse={false}
-                >
-                  <button
-                    type="button"
-                    aria-label="Attach files"
-                    onClick={() => setAttachMenuOpen((prev) => !prev)}
-                    className={`transition-all duration-200 cursor-pointer border-none p-1 rounded-full flex items-center justify-center ${
-                      attachMenuOpen
-                        ? 'bg-gray-200 dark:bg-[#252836] text-gray-900 dark:text-white rotate-45'
-                        : 'bg-transparent text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </WarmTooltip>
-              </div>
-
+            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl mb-8 p-3 transition-all flex flex-col gap-2.5 shadow-sm hover:shadow-md">
+              {/* Input Field on Top */}
               <input
                 ref={inputRef}
                 type="text"
@@ -2595,74 +2569,117 @@ export const ChatTab = React.memo<ChatTabProps>(({
                       : `Ask Grokki about ${attachedFile.name}...`
                     : "Type / for direct slash commands, or ask anything..."
                 }
-                className="flex-1 bg-transparent border-none outline-none text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
+                className="w-full bg-transparent border-none outline-none text-xs md:text-[13px] text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans px-1 pt-0.5 pb-0.5"
               />
 
-              {renderModelSelector('top')}
+              {/* Bottom Row Below Input: Plus & Model Selector on Left, Mic & Send on Right */}
+              <div className="flex items-center justify-between gap-2 pt-0.5">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {/* Attach Tool Button + WhatsApp-style Popover */}
+                  <div ref={attachMenuRef} className="relative flex items-center">
+                    {renderAttachMenu('top')}
+                    <WarmTooltip
+                      content="Attach files"
+                      shortcut={hotkeys.attachFile}
+                      side="top"
+                      disabled={attachMenuOpen}
+                      surfaceColor="#f5f5f5"
+                      inkColor="#18181b"
+                      size="md"
+                      radius={8}
+                      gap={8}
+                      arrow
+                      popDuration={160}
+                      popScale={0.94}
+                      popBlur={4}
+                      showFuse={false}
+                    >
+                      <button
+                        type="button"
+                        aria-label="Attach files"
+                        onClick={() => setAttachMenuOpen((prev) => !prev)}
+                        className={`transition-all duration-200 cursor-pointer border-none p-1.5 rounded-full flex items-center justify-center ${
+                          attachMenuOpen
+                            ? 'bg-gray-200 dark:bg-[#252836] text-gray-900 dark:text-white rotate-45'
+                            : 'bg-transparent text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </WarmTooltip>
+                  </div>
 
-              {/* Voice-to-Text Button: Mic when idle, Square Stop when recording */}
-              <WarmTooltip
-                content={isRecording ? 'Stop voice recording' : 'Voice to text'}
-                shortcut={hotkeys.voiceRecord}
-                side="top"
-                surfaceColor="#f5f5f5"
-                inkColor="#18181b"
-                size="md"
-                radius={8}
-                gap={8}
-                arrow
-                popDuration={160}
-                popScale={0.94}
-                popBlur={4}
-                showFuse={false}
-              >
-                <button
-                  type="button"
-                  aria-label={isRecording ? 'Stop voice recording' : 'Voice to text'}
-                  onClick={toggleVoiceRecording}
-                  className={`transition-all cursor-pointer border-none flex items-center justify-center rounded-full ${
-                    isRecording
-                      ? 'w-7 h-7 bg-red-500 hover:bg-red-600 text-white shadow-md shadow-red-500/30 animate-pulse flex-shrink-0'
-                      : 'p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white bg-transparent'
-                  }`}
-                >
-                  {isRecording ? (
-                    <Square className="w-3.5 h-3.5 fill-current" />
-                  ) : (
-                    <Mic className="w-4 h-4" />
-                  )}
-                </button>
-              </WarmTooltip>
+                  {/* AI Brain Model Selector Dropdown below the input next to plus */}
+                  {renderModelSelector('top', 'left')}
+                </div>
 
-              <WarmTooltip
-                content="Send message"
-                shortcut="↵"
-                side="top"
-                surfaceColor="#f5f5f5"
-                inkColor="#18181b"
-                size="md"
-                radius={8}
-                gap={8}
-                arrow
-                popDuration={160}
-                popScale={0.94}
-                popBlur={4}
-                showFuse={false}
-              >
-                <button
-                  type="button"
-                  aria-label="Send message"
-                  onClick={() => handleSendMessage()}
-                  disabled={!inputValue.trim() && !attachedFile}
-                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
-                    inputValue.trim() || attachedFile
-                      ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
-                      : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
-                </button>
-              </WarmTooltip>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Voice-to-Text Button: Mic when idle, Square Stop when recording */}
+                  <WarmTooltip
+                    content={isRecording ? 'Stop voice recording' : 'Voice to text'}
+                    shortcut={hotkeys.voiceRecord}
+                    side="top"
+                    surfaceColor="#f5f5f5"
+                    inkColor="#18181b"
+                    size="md"
+                    radius={8}
+                    gap={8}
+                    arrow
+                    popDuration={160}
+                    popScale={0.94}
+                    popBlur={4}
+                    showFuse={false}
+                  >
+                    <button
+                      type="button"
+                      aria-label={isRecording ? 'Stop voice recording' : 'Voice to text'}
+                      onClick={toggleVoiceRecording}
+                      className={`transition-all cursor-pointer border-none flex items-center justify-center rounded-full ${
+                        isRecording
+                          ? 'w-7 h-7 bg-red-500 hover:bg-red-600 text-white shadow-md shadow-red-500/30 animate-pulse flex-shrink-0'
+                          : 'p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white bg-transparent'
+                      }`}
+                    >
+                      {isRecording ? (
+                        <Square className="w-3.5 h-3.5 fill-current" />
+                      ) : (
+                        <Mic className="w-4 h-4" />
+                      )}
+                    </button>
+                  </WarmTooltip>
+
+                  {/* Send Arrow Button */}
+                  <WarmTooltip
+                    content="Send message"
+                    shortcut="↵"
+                    side="top"
+                    surfaceColor="#f5f5f5"
+                    inkColor="#18181b"
+                    size="md"
+                    radius={8}
+                    gap={8}
+                    arrow
+                    popDuration={160}
+                    popScale={0.94}
+                    popBlur={4}
+                    showFuse={false}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Send message"
+                      onClick={() => handleSendMessage()}
+                      disabled={!inputValue.trim() && !attachedFile}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
+                        inputValue.trim() || attachedFile
+                          ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
+                          : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
+                    </button>
+                  </WarmTooltip>
+                </div>
+              </div>
             </div>
           </div>
         </div>
