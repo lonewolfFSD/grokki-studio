@@ -112,53 +112,37 @@ export const ChatImageAttachment: React.FC<ChatImageAttachmentProps> = ({
     );
   }
 
-  // Full in-chat message card (like ChatGPT / Claude / Grok)
+  // Full in-chat message compact square thumbnail
   return (
-    <div className="mb-2.5 w-64 sm:w-72 rounded-xl overflow-hidden border border-gray-300/80 dark:border-[#2a2d3a] bg-gray-50/80 dark:bg-[#12141c]/90 shadow-2xs group flex flex-col">
-      <div
-        onClick={handleClick}
-        className="relative overflow-hidden cursor-zoom-in bg-black/5 dark:bg-black/30 w-full h-48 sm:h-52 flex items-center justify-center"
-      >
-        {imgSrc && !error ? (
-          <>
-            <img
-              src={imgSrc}
-              alt={fileName}
-              loading="lazy"
-              className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300 block"
-            />
-            {/* Hover overlay hint */}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-              <span className="px-3 py-1.5 rounded-full bg-black/70 text-white text-xs font-sans font-medium flex items-center gap-1.5 backdrop-blur-xs shadow-md">
-                <Maximize2 className="w-3.5 h-3.5" />
-                <span>Click to zoom</span>
-              </span>
+    <div
+      onClick={handleClick}
+      className="mb-2 w-36 h-36 sm:w-40 sm:h-40 rounded-2xl overflow-hidden border border-gray-300/80 dark:border-white/10 bg-black/5 dark:bg-black/30 shadow-xs cursor-pointer relative group flex-shrink-0"
+      title="Click to view full image"
+    >
+      {imgSrc && !error ? (
+        <>
+          <img
+            src={imgSrc}
+            alt={fileName}
+            loading="lazy"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 block"
+          />
+          {/* Subtle fade-in Expand icon on hover */}
+          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-black/60 text-white backdrop-blur-sm flex items-center justify-center shadow-md transform scale-90 group-hover:scale-100 transition-transform duration-200">
+              <Maximize2 className="w-4 h-4 text-white" />
             </div>
-          </>
-        ) : loading ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-8 text-gray-400 text-xs">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>Loading image...</span>
           </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center gap-1.5 py-6 text-gray-400 text-xs">
-            <ImageIcon className="w-6 h-6" />
-            <span>Image preview unavailable</span>
-          </div>
-        )}
-      </div>
-
-      {/* Info bar below image */}
-      <div className="px-3 py-1.5 flex items-center justify-between text-xs font-mono bg-white/70 dark:bg-[#151722]/80 border-t border-gray-200/80 dark:border-white/5">
-        <span className="truncate max-w-[190px] font-semibold text-gray-900 dark:text-gray-100">
-          {fileName}
-        </span>
-        {fileSize ? (
-          <span className="text-[10px] text-gray-500 dark:text-gray-400 flex-shrink-0 ml-2">
-            {formatFileSize(fileSize)}
-          </span>
-        ) : null}
-      </div>
+        </>
+      ) : loading ? (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-400 text-xs">
+          <Loader2 className="w-5 h-5 animate-spin" />
+        </div>
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-gray-400 text-xs">
+          <ImageIcon className="w-6 h-6" />
+        </div>
+      )}
     </div>
   );
 };
