@@ -29,7 +29,10 @@ import {
   Trash2,
   Camera,
   Lock,
+  Sparkles,
+  ExternalLink,
 } from 'lucide-react';
+import { ArtifactCanvasPane, Artifact } from '../ArtifactCanvasPane';
 import { AnimatePresence, motion } from 'motion/react';
 import { marked } from 'marked';
 import { JarvisConfig, AiProvider, Conversation, ChatMessage, AttachedFileInfo } from '../../types/jarvis';
@@ -199,6 +202,34 @@ function getFileIcon(ext?: string) {
 
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
 const CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+const CANVAS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>`;
+
+export function extractArtifactFromMessage(content: string): Artifact | null {
+  const match = content.match(/```([a-zA-Z0-9_+-]+)?\n([\s\S]*?)```/);
+  if (!match) return null;
+
+  const lang = (match[1] || 'code').toLowerCase().trim();
+  const code = match[2].trim();
+
+  if (code.split('\n').length < 4 && !['html', 'svg', 'tsx', 'jsx'].includes(lang)) {
+    return null;
+  }
+
+  let title = `${lang.toUpperCase()} Component`;
+  if (lang === 'html') title = 'Interactive Web Artifact';
+  else if (lang === 'svg') title = 'Vector Graphic';
+  else if (['tsx', 'jsx', 'react'].includes(lang)) title = 'React Component';
+  else if (lang === 'python' || lang === 'py') title = 'Python Script';
+  else if (lang === 'javascript' || lang === 'js') title = 'JavaScript Application';
+  else if (lang === 'markdown' || lang === 'md') title = 'Markdown Document';
+
+  return {
+    id: `art-${code.length}-${lang}`,
+    title,
+    language: lang,
+    content: code,
+  };
+}
 
 function getLanguageLogoSvg(lang: string): string {
   const l = (lang || 'code').toLowerCase().trim();
@@ -363,10 +394,16 @@ function formatRichMarkdownHtml(rawContent: string): string {
         <span class="grokki-code-lang-icon">${langLogoSvg}</span>
         <span class="grokki-code-lang">${lang}</span>
       </div>
-      <button type="button" class="grokki-code-copy-btn" aria-label="Copy code">
-        ${COPY_ICON_SVG}
-        <span>Copy</span>
-      </button>
+      <div class="grokki-code-header-actions">
+        <button type="button" class="grokki-canvas-open-btn" aria-label="Open in Canvas">
+          ${CANVAS_ICON_SVG}
+          <span>Canvas</span>
+        </button>
+        <button type="button" class="grokki-code-copy-btn" aria-label="Copy code">
+          ${COPY_ICON_SVG}
+          <span>Copy</span>
+        </button>
+      </div>
     `;
 
     pre.classList.add('grokki-code-pre');
@@ -411,7 +448,7 @@ function formatRichMarkdownHtml(rawContent: string): string {
   return finalHtml;
 }
 
-const StaticMessageContent = React.memo<{ content: string }>(({ content }) => {
+const StaticMessageContent = React.memo<{ content: string; onOpenArtifact?: (artifact: Artifact) => void }>(({ content, onOpenArtifact }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const rawHtml = useMemo(() => formatRichMarkdownHtml(content), [content]);
 
@@ -430,7 +467,25 @@ const StaticMessageContent = React.memo<{ content: string }>(({ content }) => {
       return;
     }
 
-    // 2. Copy code block content
+    // 2. Open code block in Canvas
+    const canvasBtn = target?.closest('.grokki-canvas-open-btn') as HTMLButtonElement | null;
+    if (canvasBtn) {
+      e.stopPropagation();
+      const codeWindow = canvasBtn.closest('.grokki-code-window');
+      const codeEl = codeWindow?.querySelector('pre code, pre');
+      const rawCode = codeEl?.textContent || '';
+      const langEl = codeWindow?.querySelector('.grokki-code-lang');
+      const language = (langEl?.textContent || 'code').toLowerCase().trim();
+      onOpenArtifact?.({
+        id: 'art-' + Date.now(),
+        title: `${language.toUpperCase()} Snippet`,
+        language,
+        content: rawCode,
+      });
+      return;
+    }
+
+    // 3. Copy code block content
     const copyBtn = target?.closest('.grokki-code-copy-btn') as HTMLButtonElement | null;
     if (!copyBtn) return;
     e.stopPropagation();
@@ -464,7 +519,8 @@ const AnimatedMessageContent: React.FC<{
   speed?: 'fast' | 'normal' | 'relaxed';
   onScroll?: () => void;
   onFinished?: () => void;
-}> = ({ content, isAnimated, speed = 'fast', onScroll, onFinished }) => {
+  onOpenArtifact?: (artifact: Artifact) => void;
+}> = ({ content, isAnimated, speed = 'fast', onScroll, onFinished, onOpenArtifact }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -482,7 +538,25 @@ const AnimatedMessageContent: React.FC<{
       return;
     }
 
-    // 2. Copy code block content
+    // 2. Open code block in Canvas
+    const canvasBtn = target?.closest('.grokki-canvas-open-btn') as HTMLButtonElement | null;
+    if (canvasBtn) {
+      e.stopPropagation();
+      const codeWindow = canvasBtn.closest('.grokki-code-window');
+      const codeEl = codeWindow?.querySelector('pre code, pre');
+      const rawCode = codeEl?.textContent || '';
+      const langEl = codeWindow?.querySelector('.grokki-code-lang');
+      const language = (langEl?.textContent || 'code').toLowerCase().trim();
+      onOpenArtifact?.({
+        id: 'art-' + Date.now(),
+        title: `${language.toUpperCase()} Snippet`,
+        language,
+        content: rawCode,
+      });
+      return;
+    }
+
+    // 3. Copy code block content
     const copyBtn = target?.closest('.grokki-code-copy-btn') as HTMLButtonElement | null;
     if (!copyBtn) return;
     e.stopPropagation();
@@ -632,6 +706,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const messages = activeConversation.messages;
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
+  const [activeArtifact, setActiveArtifact] = useState<Artifact | null>(null);
   const [attachedFile, setAttachedFile] = useState<AttachedFileInfo | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
@@ -2008,7 +2083,9 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
   return (
     <WarmTooltipGroup delay={400} warmWindow={300} travel={320} lean={false}>
-    <div className="relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-4">
+    <div className={`relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-4 transition-all duration-300 ${
+      activeArtifact ? 'lg:pr-[50vw]' : ''
+    }`}>
       {/* Hidden Native File Picker Input for Category Filtering */}
       <input
         ref={fileInputRef}
@@ -2377,10 +2454,44 @@ export const ChatTab = React.memo<ChatTabProps>(({
                             speed={config.streamingSpeed}
                             onScroll={scrollToBottom}
                             onFinished={() => handleMessageFinished(msg.id)}
+                            onOpenArtifact={setActiveArtifact}
                           />
                         ) : (
-                          <StaticMessageContent content={msg.content} />
+                          <StaticMessageContent content={msg.content} onOpenArtifact={setActiveArtifact} />
                         )}
+
+                        {/* Interactive Claude-Style Artifact Card Preview */}
+                        {msg.role === 'assistant' && (() => {
+                          const artifact = extractArtifactFromMessage(msg.content);
+                          if (!artifact) return null;
+                          return (
+                            <div
+                              onClick={() => setActiveArtifact(artifact)}
+                              className="mt-3 p-3 rounded-xl bg-sky-500/[0.08] hover:bg-sky-500/[0.14] border border-sky-500/25 flex items-center justify-between transition-all cursor-pointer group shadow-xs select-none"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-8 h-8 rounded-lg bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                                  <Sparkles className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate flex items-center gap-2">
+                                    <span>{artifact.title}</span>
+                                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-semibold">
+                                      {artifact.language}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                                    Open in Canvas for live interactive preview and side-by-side editing
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-sky-500 group-hover:text-sky-400 shrink-0 ml-2">
+                                <span>Canvas</span>
+                                <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         {/* Pure Icon-Only Actions */}
                         <div className="flex items-center gap-1 mt-2">
@@ -2686,6 +2797,17 @@ export const ChatTab = React.memo<ChatTabProps>(({
       )}
       </div>
     </div>
+      {/* Interactive Artifacts / Canvas Split Pane */}
+      <AnimatePresence>
+        {activeArtifact && (
+          <ArtifactCanvasPane
+            artifact={activeArtifact}
+            onClose={() => setActiveArtifact(null)}
+            isDark={isDarkTheme}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Big Scale Image Zoom Lightbox Modal */}
       <ImageLightboxModal
         isOpen={lightboxState.isOpen}

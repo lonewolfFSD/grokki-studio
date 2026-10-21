@@ -389,6 +389,34 @@ code .grokki-word-fade {
   line-height: 1;
 }
 
+.grokki-code-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.grokki-canvas-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.55rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  background-color: rgba(56, 189, 248, 0.08);
+  color: #38bdf8;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.grokki-canvas-open-btn:hover {
+  background-color: rgba(56, 189, 248, 0.2);
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
 .grokki-code-copy-btn {
   display: inline-flex;
   align-items: center;
