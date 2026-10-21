@@ -67,6 +67,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
   chatBackgroundGradient: true,
   glowCursorEnabled: true,
   smoothScroll: true,
+  smoothScrollIntensity: 5,
 };
 
 export const App: React.FC = () => {
@@ -82,7 +83,7 @@ export const App: React.FC = () => {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
 
-  useSmoothScroll(config.smoothScroll !== false);
+  useSmoothScroll(config.smoothScroll !== false, config.smoothScrollIntensity ?? 5);
 
   const {
     conversations,

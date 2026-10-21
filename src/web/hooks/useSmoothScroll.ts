@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 function getScrollParent(node: HTMLElement | null): HTMLElement | null {
   while (node && node !== document.body && node !== document.documentElement) {
@@ -11,7 +11,10 @@ function getScrollParent(node: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
-export function useSmoothScroll(enabled: boolean = true) {
+export function useSmoothScroll(enabled: boolean = true, intensity: number = 5) {
+  const intensityRef = useRef(intensity);
+  intensityRef.current = intensity;
+
   useEffect(() => {
     if (!enabled) {
       document.documentElement.classList.remove('smooth-scroll');
@@ -42,7 +45,12 @@ export function useSmoothScroll(enabled: boolean = true) {
         return;
       }
 
-      currentTarget.scrollTop = current + diff * 0.18;
+      // Intensity scale (1 = snappy/fast, 10 = ultra smooth/cinematic)
+      // Range: 0.55 (level 1) down to 0.16 (level 10). Default level 5 is 0.38 (snappy & fluid)
+      const currentIntensity = Math.max(1, Math.min(10, intensityRef.current || 5));
+      const lerpFactor = 0.60 - (currentIntensity / 10) * 0.44;
+
+      currentTarget.scrollTop = current + diff * lerpFactor;
       animId = requestAnimationFrame(smoothStep);
     };
 
