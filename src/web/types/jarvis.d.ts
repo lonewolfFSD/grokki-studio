@@ -69,6 +69,7 @@ export interface JarvisConfig {
   autoCheckUpdates?: boolean;
   hardwareAcceleration?: boolean;
   chatBackgroundGradient?: boolean;
+  glowCursorEnabled?: boolean;
   notionApiKey?: string;
 }
 
