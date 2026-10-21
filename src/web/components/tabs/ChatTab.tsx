@@ -958,14 +958,21 @@ export const ChatTab = React.memo<ChatTabProps>(({
     name: string;
     size?: number;
     path?: string;
+    originRect?: { top: number; left: number; width: number; height: number };
   }>({
     isOpen: false,
     src: '',
     name: '',
   });
 
-  const openLightbox = (src: string, name: string, size?: number, path?: string) => {
-    setLightboxState({ isOpen: true, src, name, size, path });
+  const openLightbox = (
+    src: string,
+    name: string,
+    size?: number,
+    path?: string,
+    originRect?: { top: number; left: number; width: number; height: number }
+  ) => {
+    setLightboxState({ isOpen: true, src, name, size, path, originRect });
   };
 
   const closeLightbox = () => {
@@ -1935,7 +1942,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   <ChatImageAttachment
                     file={attachedFile}
                     compact
-                    onZoom={(src, name, size, path) => openLightbox(src, name, size, path)}
+                    onZoom={(src, name, size, path, originRect) => openLightbox(src, name, size, path, originRect)}
                   />
                 ) : (
                   <div className="w-8 h-8 rounded-lg bg-gray-900/[0.03] dark:bg-white/[0.035] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.05] dark:border-white/[0.05]">
@@ -2166,7 +2173,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                         isImageAttachment(msg.attachedFile) ? (
                           <ChatImageAttachment
                             file={msg.attachedFile}
-                            onZoom={(src, name, size, path) => openLightbox(src, name, size, path)}
+                            onZoom={(src, name, size, path, originRect) => openLightbox(src, name, size, path, originRect)}
                           />
                         ) : (
                           <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#12141c] border border-gray-200/90 dark:border-white/10 mb-2 text-xs font-mono shadow-2xs">
@@ -2357,7 +2364,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   <ChatImageAttachment
                     file={attachedFile}
                     compact
-                    onZoom={(src, name, size, path) => openLightbox(src, name, size, path)}
+                    onZoom={(src, name, size, path, originRect) => openLightbox(src, name, size, path, originRect)}
                   />
                 ) : (
                   <div className="w-8 h-8 rounded-lg bg-gray-900/[0.03] dark:bg-white/[0.035] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.05] dark:border-white/[0.05]">
@@ -2540,6 +2547,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         fileName={lightboxState.name}
         fileSize={lightboxState.size}
         filePath={lightboxState.path}
+        originRect={lightboxState.originRect}
         onClose={closeLightbox}
       />
     </WarmTooltipGroup>
