@@ -121,9 +121,9 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   originRect,
   onClose,
 }) => {
-  // Annotation tool state
+  // Annotation tool state (default: sketch selected, black color selected)
   const [activeTool, setActiveTool] = useState<'sketch' | 'text'>('sketch');
-  const [activeColor, setActiveColor] = useState<string>('#ff5252');
+  const [activeColor, setActiveColor] = useState<string>('#000000');
   const [actions, setActions] = useState<AnnotationAction[]>([]);
   const [redoStack, setRedoStack] = useState<AnnotationAction[]>([]);
 
@@ -277,6 +277,18 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
       }
     }
   }, [redrawCanvas]);
+
+  // Reset annotations and auto-default to sketch tool & black color when opened
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTool('sketch');
+      setActiveColor('#000000');
+      setActions([]);
+      setRedoStack([]);
+      setSelectedTextId(null);
+      setDragBox(null);
+    }
+  }, [isOpen, src]);
 
   useEffect(() => {
     syncCanvasSize();
@@ -647,21 +659,21 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
               type="button"
               onClick={onClose}
               aria-label="Back"
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              className="w-11 h-11 rounded-full flex items-center justify-center text-white/90 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-6 h-6" />
             </button>
 
             {/* Right Action Icons & Save button */}
-            <div className="flex items-center gap-4 text-white/90">
+            <div className="flex items-center gap-3 text-white/90">
               {/* Share */}
               <button
                 type="button"
                 onClick={handleShare}
                 title="Share image"
-                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
               >
-                <Share2 className="w-4 h-4" />
+                <Share2 className="w-5 h-5" />
               </button>
 
               {/* Copy */}
@@ -669,9 +681,9 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 type="button"
                 onClick={handleCopy}
                 title="Copy image to clipboard"
-                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
               >
-                <Copy className="w-4 h-4" />
+                <Copy className="w-5 h-5" />
               </button>
 
               {/* Download */}
@@ -679,9 +691,9 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 type="button"
                 onClick={handleDownload}
                 title="Download image"
-                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-5 h-5" />
               </button>
 
               {/* Undo */}
@@ -690,13 +702,13 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 onClick={handleUndo}
                 disabled={actions.length === 0}
                 title="Undo (Ctrl+Z)"
-                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
                   actions.length === 0
                     ? 'opacity-35 cursor-not-allowed text-white/50'
                     : 'hover:bg-white/10 hover:text-white cursor-pointer text-white/90'
                 }`}
               >
-                <Undo2 className="w-4 h-4" />
+                <Undo2 className="w-5 h-5" />
               </button>
 
               {/* Redo */}
@@ -705,20 +717,20 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 onClick={handleRedo}
                 disabled={redoStack.length === 0}
                 title="Redo (Ctrl+Y)"
-                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
                   redoStack.length === 0
                     ? 'opacity-35 cursor-not-allowed text-white/50'
                     : 'hover:bg-white/10 hover:text-white cursor-pointer text-white/90'
                 }`}
               >
-                <Redo2 className="w-4 h-4" />
+                <Redo2 className="w-5 h-5" />
               </button>
 
               {/* Save Button (Pill) */}
               <button
                 type="button"
                 onClick={handleSave}
-                className="ml-1 px-5 py-1.5 rounded-full bg-white text-black font-semibold text-xs tracking-tight hover:bg-gray-100 transition-colors shadow-sm cursor-pointer"
+                className="ml-1 px-5 py-2 rounded-full bg-white text-black font-semibold text-sm tracking-tight hover:bg-gray-100 transition-colors shadow-sm cursor-pointer"
               >
                 Save
               </button>
