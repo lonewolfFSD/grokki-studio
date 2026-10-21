@@ -33,16 +33,6 @@
   }
 }
 
-html.custom-cursor,
-html.custom-cursor * {
-  cursor: none !important;
-}
-html.custom-cursor input,
-html.custom-cursor textarea,
-html.custom-cursor select {
-  cursor: text !important;
-}
-
 /* Custom Minimal Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

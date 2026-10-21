@@ -17,6 +17,7 @@ import { useSmoothScroll } from './hooks/useSmoothScroll';
 import { DEFAULT_HOTKEYS, getEffectiveHotkeys, matchesHotkey } from './utils/hotkeys';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import GlowCursor from './components/GlowCursor';
+import { SmoothCursor } from '@/components/ui/smooth-cursor';
 
 const DEFAULT_CONFIG: JarvisConfig = {
   provider: 'gemini',
@@ -429,17 +430,19 @@ export const App: React.FC = () => {
   };
 
   return (
-    <GlowCursor
-      color="#5f8bff"
-      intensity={1.3}
-      trailWidth={3}
-      linger={1.4}
-      glow={1.2}
-      clickBurst
-      theme={theme === 'dark' ? 'dark' : 'light'}
-      enabled={config.glowCursorEnabled !== false}
-      className="w-screen h-screen"
-    >
+    <>
+      {config.smoothCursorEnabled !== false && <SmoothCursor />}
+      <GlowCursor
+        color="#5f8bff"
+        intensity={1.3}
+        trailWidth={3}
+        linger={1.4}
+        glow={1.2}
+        clickBurst
+        theme={theme === 'dark' ? 'dark' : 'light'}
+        enabled={config.glowCursorEnabled !== false}
+        className="w-screen h-screen"
+      >
       <div className="w-full h-full flex flex-row overflow-hidden bg-[#f7f7fa] dark:bg-[#0c0d12] text-gray-900 dark:text-gray-100 font-sans">
       {/* Sidebar Navigation */}
       <Sidebar
@@ -566,6 +569,7 @@ export const App: React.FC = () => {
         onSave={handleSave}
       />
       </div>
-    </GlowCursor>
+      </GlowCursor>
+    </>
   );
 };
