@@ -2500,11 +2500,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
                               <div className="flex items-center gap-3 min-w-0">
                                 <div className="w-9 h-9 rounded-lg bg-white/[0.05] text-gray-200 flex items-center justify-center shrink-0 border border-white/[0.08] group-hover:border-sky-500/40 transition-colors">
                                   {artifact.language === 'html' ? (
-                                    <Globe className="w-4 h-4 text-sky-400" />
+                                    <Globe className="w-6 h-6 text-white" />
                                   ) : artifact.language === 'svg' ? (
-                                    <Shapes className="w-4 h-4 text-amber-400" />
+                                    <Shapes className="w-6 h-6 text-amber-400" />
                                   ) : ['tsx', 'jsx', 'react'].includes(artifact.language) ? (
-                                    <Code2 className="w-4 h-4 text-indigo-400" />
+                                    <Code2 className="w-6 h-6 text-indigo-400" />
                                   ) : (
                                     <FileCode className="w-4 h-4 text-emerald-400" />
                                   )}
@@ -2521,9 +2521,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
                                   </p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] group-hover:bg-sky-500/10 group-hover:border-sky-500/30 text-xs font-medium text-gray-300 group-hover:text-sky-400 transition-all shrink-0 ml-3">
+                              <div className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] group-hover:bg-sky-500/10 group-hover:border-sky-500/30 text-xs font-medium text-gray-300 group-hover:text-sky-400 transition-all shrink-0 ml-3">
                                 <span>Canvas</span>
-                                <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                               </div>
                             </div>
                           );

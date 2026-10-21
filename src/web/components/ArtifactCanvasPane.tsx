@@ -253,8 +253,8 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
       {/* Top Header Bar */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#1c202c] bg-[#12141f]/90 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.08] flex items-center justify-center shrink-0">
-            {renderArtifactIcon()}
+          <div className="w-10 h-10 rounded-lg bg-white/[0.05] border border-white/[0.08] flex items-center justify-center shrink-0">
+            <FileCode />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -274,11 +274,11 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
         {/* View Switcher Tabs (Preview vs Code) */}
         <div className="flex items-center gap-2">
           {canPreview && (
-            <div className="flex items-center p-0.5 rounded-lg bg-black/40 border border-white/[0.08]">
+            <div className="flex items-center p-1 rounded-lg bg-black/40 border border-white/[0.08]">
               <button
                 type="button"
                 onClick={() => setActiveTab('preview')}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                   activeTab === 'preview'
                     ? 'bg-white/15 text-white shadow-xs font-semibold'
                     : 'text-gray-400 hover:text-white'
@@ -290,7 +290,7 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('code')}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                   activeTab === 'code'
                     ? 'bg-white/15 text-white shadow-xs font-semibold'
                     : 'text-gray-400 hover:text-white'
