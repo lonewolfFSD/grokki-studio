@@ -100,7 +100,7 @@ interface AiBrainTabProps {
   onChangeConfig: (patch: Partial<JarvisConfig>) => void;
 }
 
-const CURATED_MODELS: Record<string, { value: string; label: string; tag?: string }[]> = {
+export const CURATED_MODELS: Record<string, { value: string; label: string; tag?: string }[]> = {
   gemini: [
     { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash', tag: 'Fast & Free' },
     { value: 'gemini-2.5-pro', label: 'gemini-2.5-pro', tag: 'Deep Reasoning' },

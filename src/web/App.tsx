@@ -256,6 +256,15 @@ export const App: React.FC = () => {
     });
   }, []);
 
+  // Immediate save for chat model selection (syncs with AiBrainTab and persists)
+  const handleChatModelChange = useCallback((patch: Partial<JarvisConfig>) => {
+    setConfig((prev) => ({ ...prev, ...patch }));
+    setOriginalConfig((prev) => ({ ...prev, ...patch }));
+    if (window.jarvisAPI?.saveConfig) {
+      window.jarvisAPI.saveConfig(patch);
+    }
+  }, []);
+
   const handleToggleTheme = useCallback(() => {
     setConfig((prev) => {
       const nextTheme = (prev.dashboardTheme || 'dark') === 'dark' ? 'light' : 'dark';
@@ -482,6 +491,7 @@ export const App: React.FC = () => {
           <div className={activeTab === 'chat' ? 'h-full flex flex-col relative w-full overflow-hidden' : 'hidden'}>
             <ChatTab
               config={config}
+              onChangeConfig={handleChatModelChange}
               userName={displayName}
               onNavigateTab={setActiveTab}
               activeConversation={activeConversation}

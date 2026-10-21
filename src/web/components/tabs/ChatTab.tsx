@@ -32,7 +32,21 @@ import {
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { marked } from 'marked';
-import { JarvisConfig, Conversation, ChatMessage, AttachedFileInfo } from '../../types/jarvis';
+import { JarvisConfig, AiProvider, Conversation, ChatMessage, AttachedFileInfo } from '../../types/jarvis';
+import GlideSelect, { GlideSelectOption } from './GlideSelect';
+import {
+  CURATED_MODELS,
+  GeminiLogo,
+  GroqLogo,
+  OllamaLogo,
+  OpenRouterLogo,
+  OmniRouterLogo,
+  OpenAILogo,
+  GrokLogo,
+  DeepSeekLogo,
+  QwenLogo,
+} from './AiBrainTab';
+import { Sliders } from 'lucide-react';
 import GradientASCII from './GradientASCII';
 import LatticeLoader from './LatticeLoader';
 import WarmTooltip, { WarmTooltipGroup } from '../WarmTooltip';
@@ -51,6 +65,7 @@ interface ChatTabProps {
   activeConversation: Conversation;
   onUpdateMessages: (updater: (prevMessages: ChatMessage[]) => ChatMessage[]) => void;
   onNewChat: () => void;
+  onChangeConfig?: (patch: Partial<JarvisConfig>) => void;
 }
 
 interface SlashCommand {
@@ -612,6 +627,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
   activeConversation,
   onUpdateMessages,
   onNewChat,
+  onChangeConfig,
 }) => {
   const messages = activeConversation.messages;
   const [inputValue, setInputValue] = useState('');
@@ -623,6 +639,123 @@ export const ChatTab = React.memo<ChatTabProps>(({
   // Slash Commands state
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashDismissed, setSlashDismissed] = useState(false);
+
+  // AI Brain Detection & Model Selection
+  const activeBrain = (config.provider || 'gemini') as AiProvider;
+
+  const brainMeta: Record<AiProvider, {
+    name: string;
+    modelField: keyof JarvisConfig;
+    defaultModel: string;
+    Logo: React.FC<{ className?: string }>;
+  }> = useMemo(() => ({
+    gemini: { name: 'Gemini', modelField: 'geminiModel', defaultModel: 'gemini-2.5-flash', Logo: GeminiLogo },
+    groq: { name: 'Groq', modelField: 'groqModel', defaultModel: 'llama-3.3-70b-versatile', Logo: GroqLogo },
+    ollama: { name: 'Ollama', modelField: 'ollamaModel', defaultModel: 'llama3.2', Logo: OllamaLogo },
+    openrouter: { name: 'OpenRouter', modelField: 'openrouterModel', defaultModel: 'openrouter/auto', Logo: OpenRouterLogo },
+    omnirouter: { name: 'OmniRouter', modelField: 'omnirouterModel', defaultModel: 'omnirouter/auto', Logo: OmniRouterLogo },
+    openai: { name: 'OpenAI', modelField: 'openaiModel', defaultModel: 'gpt-4o', Logo: OpenAILogo },
+    grok: { name: 'Grok', modelField: 'grokModel', defaultModel: 'grok-2-1212', Logo: GrokLogo },
+    deepseek: { name: 'DeepSeek', modelField: 'deepseekModel', defaultModel: 'deepseek-chat', Logo: DeepSeekLogo },
+    qwen: { name: 'Qwen', modelField: 'qwenModel', defaultModel: 'qwen-max', Logo: QwenLogo },
+  }), []);
+
+  const currentBrainInfo = brainMeta[activeBrain] || brainMeta.gemini;
+  const currentModelValue = (config[currentBrainInfo.modelField] as string) || currentBrainInfo.defaultModel;
+
+  const handleSelectModel = useCallback((selectedVal: string) => {
+    if (selectedVal === '__switch_brain__') {
+      onNavigateTab('ai');
+      return;
+    }
+    const patch: Partial<JarvisConfig> = {
+      [currentBrainInfo.modelField]: selectedVal,
+    };
+    onChangeConfig?.(patch);
+    if (window.jarvisAPI?.saveConfig) {
+      window.jarvisAPI.saveConfig(patch);
+    }
+  }, [currentBrainInfo.modelField, onChangeConfig, onNavigateTab]);
+
+  const modelOptions: GlideSelectOption[] = useMemo(() => {
+    const rawList = CURATED_MODELS[activeBrain] || [];
+    const BrainLogo = currentBrainInfo.Logo;
+
+    const opts: GlideSelectOption[] = rawList.map((m) => {
+      const displayLabel = m.label.replace(/^openrouter\/|^omnirouter\//, '');
+      return {
+        value: m.value,
+        label: (
+          <span className="flex items-center gap-1.5 truncate max-w-[210px] text-[11px]">
+            <BrainLogo className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{displayLabel}</span>
+          </span>
+        ),
+        tag: m.tag,
+      };
+    });
+
+    if (currentModelValue && !opts.some((o) => o.value === currentModelValue)) {
+      const displayLabel = currentModelValue.replace(/^openrouter\/|^omnirouter\//, '');
+      opts.unshift({
+        value: currentModelValue,
+        label: (
+          <span className="flex items-center gap-1.5 truncate max-w-[210px] text-[11px]">
+            <BrainLogo className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{displayLabel}</span>
+          </span>
+        ),
+        tag: 'Active',
+      });
+    }
+
+    opts.push({
+      value: '__switch_brain__',
+      label: (
+        <span className="flex items-center gap-1.5 text-sky-400 font-semibold text-[11px]">
+          <Sliders className="w-3.5 h-3.5 shrink-0 text-sky-400" />
+          <span>Configure AI Brains...</span>
+        </span>
+      ),
+      tag: 'Settings',
+    });
+
+    return opts;
+  }, [activeBrain, currentBrainInfo.Logo, currentModelValue]);
+
+  const renderModelSelector = (placement: 'top' | 'bottom') => {
+    const isDark =
+      config.dashboardTheme === 'dark' ||
+      (typeof document !== 'undefined' &&
+        (document.documentElement.classList.contains('dark') ||
+          document.body.classList.contains('dark')));
+
+    return (
+      <div
+        className="flex items-center shrink-0"
+        title={`Active Brain: ${currentBrainInfo.name} • Model: ${currentModelValue}`}
+      >
+        <GlideSelect
+          options={modelOptions}
+          value={currentModelValue}
+          onChange={(val) => handleSelectModel(val)}
+          placeholder="Model"
+          size="sm"
+          radius={8}
+          menuWidth={290}
+          surfaceColor={isDark ? '#1a1c24' : '#f3f4f6'}
+          highlightColor={isDark ? '#272a38' : '#e5e7eb'}
+          textColor={isDark ? '#f3f4f6' : '#111827'}
+          accentColor={isDark ? '#38bdf8' : '#0284c7'}
+          placement={placement}
+          align="right"
+          popDuration={180}
+          glideDuration={200}
+          ariaLabel={`AI Brain: ${currentBrainInfo.name} Model Selector`}
+        />
+      </div>
+    );
+  };
 
   const isSlashMode = inputValue.startsWith('/') && !inputValue.includes(' ') && !slashDismissed;
   const slashQuery = isSlashMode ? inputValue.slice(1).toLowerCase().trim() : '';
@@ -2048,9 +2181,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
               />
 
               {/* Pill Badge */}
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono select-none">
-                Beta
-              </span>
+              {renderModelSelector('bottom')}
 
               {/* Voice-to-Text Button: Mic when idle, Square Stop when recording */}
               <WarmTooltip
@@ -2467,9 +2598,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 className="flex-1 bg-transparent border-none outline-none text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans"
               />
 
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono select-none">
-                v2.5
-              </span>
+              {renderModelSelector('top')}
 
               {/* Voice-to-Text Button: Mic when idle, Square Stop when recording */}
               <WarmTooltip
