@@ -143,8 +143,9 @@ class AgentBrain {
     this.abortController = null;
     this.models = [
       'gemini-3.5-flash',
-      'gemini-3.1-flash-lite',
       'gemini-3.8-flash',
+      'gemini-3.1-flash-lite',
+      'gemini-flash-latest',
     ];
   }
 
@@ -1616,7 +1617,7 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
     memory.addTurn('user', fullPrompt);
 
     let lastError = null;
-    const selectedGeminiModel = config.geminiModel || 'gemini-2.5-flash';
+    const selectedGeminiModel = config.geminiModel || 'gemini-3.5-flash';
     const activeModels = [selectedGeminiModel, ...this.models.filter(m => m !== selectedGeminiModel)];
 
     for (const modelName of activeModels) {
@@ -1781,6 +1782,40 @@ Rules:
           return { success: false, cancelled: true, reply: 'Cancelled.' };
         }
         lastError = err;
+      }
+    }
+
+    // Auto-failover to Groq if Gemini models failed and Groq API key is configured
+    const groqKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
+    if (groqKey && (!signal || !signal.aborted)) {
+      console.warn('[AgentBrain] Gemini models failed. Auto-failing over to Groq...');
+      try {
+        const groqModel = config.groqModel || 'llama-3.3-70b-versatile';
+        const groqData = await callOpenAICompatible({
+          endpoint: 'https://api.groq.com/openai/v1',
+          apiKey: groqKey,
+          model: groqModel,
+          messages: [
+            { role: 'system', content: systemInstruction },
+            ...memory.getHistory(),
+          ],
+          signal,
+          timeout: 25000,
+        });
+        const groqReply = groqData?.choices?.[0]?.message?.content;
+        if (groqReply && groqReply.trim()) {
+          const cleanGroqReply = groqReply.trim();
+          memory.addTurn('model', cleanGroqReply);
+          this.abortController = null;
+          return {
+            success: true,
+            reply: cleanGroqReply,
+            actionsExecuted: [],
+            fallbackProvider: 'groq',
+          };
+        }
+      } catch (groqErr) {
+        console.error('[AgentBrain] Groq auto-failover failed:', groqErr.message);
       }
     }
 

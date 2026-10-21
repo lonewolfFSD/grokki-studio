@@ -1489,7 +1489,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
           context.attachedFile = currentAttachment;
         }
         const res = await window.jarvisAPI.executeAI(text, context);
-        let replyContent = res.reply || res.message || 'Action executed successfully.';
+        let replyContent = res.reply || res.message;
+        if (!replyContent) {
+          if (res.error) {
+            replyContent = `⚠️ **Could not generate response**: ${res.error}\n\nTip: You can switch model/provider in the dropdown below or check API keys in **AI Brain**.`;
+          } else {
+            replyContent = 'I processed your request, but received an empty response. Please try again.';
+          }
+        }
 
         // Live HMR Vision fallback if the main process hasn't restarted and returned the legacy placeholder
         const attachExt = (currentAttachment?.ext || '').toLowerCase();

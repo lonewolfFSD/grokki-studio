@@ -102,12 +102,13 @@ interface AiBrainTabProps {
 
 export const CURATED_MODELS: Record<string, { value: string; label: string; tag?: string }[]> = {
   gemini: [
-    { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash', tag: 'Fast & Free' },
-    { value: 'gemini-2.5-pro', label: 'gemini-2.5-pro', tag: 'Deep Reasoning' },
-    { value: 'gemini-2.0-flash', label: 'gemini-2.0-flash', tag: 'Multimodal' },
-    { value: 'gemini-2.0-flash-lite', label: 'gemini-2.0-flash-lite', tag: 'Ultra-Fast' },
-    { value: 'gemini-1.5-pro', label: 'gemini-1.5-pro', tag: '2M Context' },
-    { value: 'gemini-1.5-flash', label: 'gemini-1.5-flash', tag: 'Standard' },
+    { value: 'gemini-3.5-flash', label: 'gemini-3.5-flash', tag: 'Fast & Free' },
+    { value: 'gemini-3.8-flash', label: 'gemini-3.8-flash', tag: 'Next-Gen Fast' },
+    { value: 'gemini-3.1-flash-lite', label: 'gemini-3.1-flash-lite', tag: 'Ultra-Fast' },
+    { value: 'gemini-3.1-pro-preview', label: 'gemini-3.1-pro-preview', tag: 'Deep Reasoning' },
+    { value: 'gemini-flash-latest', label: 'gemini-flash-latest', tag: 'Latest Auto' },
+    { value: 'gemini-pro-latest', label: 'gemini-pro-latest', tag: 'Latest Pro' },
+    { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash', tag: 'Legacy' },
   ],
   groq: [
     { value: 'llama-3.3-70b-versatile', label: 'llama-3.3-70b-versatile', tag: 'Recommended' },
