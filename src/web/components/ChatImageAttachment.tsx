@@ -112,12 +112,12 @@ export const ChatImageAttachment: React.FC<ChatImageAttachmentProps> = ({
     );
   }
 
-  // Full in-chat message card
+  // Full in-chat message card (like ChatGPT / Claude / Grok)
   return (
-    <div className="mb-2.5 w-full rounded-xl overflow-hidden border border-gray-300/80 dark:border-[#2a2d3a] bg-gray-50/80 dark:bg-[#12141c]/90 shadow-2xs group flex flex-col">
+    <div className="mb-2.5 w-64 sm:w-72 rounded-xl overflow-hidden border border-gray-300/80 dark:border-[#2a2d3a] bg-gray-50/80 dark:bg-[#12141c]/90 shadow-2xs group flex flex-col">
       <div
         onClick={handleClick}
-        className="relative overflow-hidden cursor-zoom-in bg-black/5 dark:bg-black/20 flex items-center justify-center w-full"
+        className="relative overflow-hidden cursor-zoom-in bg-black/5 dark:bg-black/30 w-full h-48 sm:h-52 flex items-center justify-center"
       >
         {imgSrc && !error ? (
           <>
@@ -125,7 +125,7 @@ export const ChatImageAttachment: React.FC<ChatImageAttachmentProps> = ({
               src={imgSrc}
               alt={fileName}
               loading="lazy"
-              className="w-full h-auto max-h-[750px] object-contain group-hover:scale-[1.01] transition-transform duration-200 block"
+              className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300 block"
             />
             {/* Hover overlay hint */}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -150,7 +150,7 @@ export const ChatImageAttachment: React.FC<ChatImageAttachmentProps> = ({
 
       {/* Info bar below image */}
       <div className="px-3 py-1.5 flex items-center justify-between text-xs font-mono bg-white/70 dark:bg-[#151722]/80 border-t border-gray-200/80 dark:border-white/5">
-        <span className="truncate max-w-[280px] font-semibold text-gray-900 dark:text-gray-100">
+        <span className="truncate max-w-[190px] font-semibold text-gray-900 dark:text-gray-100">
           {fileName}
         </span>
         {fileSize ? (

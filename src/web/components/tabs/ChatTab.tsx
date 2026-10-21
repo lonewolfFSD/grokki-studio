@@ -2161,7 +2161,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 >
                   {isUser ? (
                     /* User Message: Clean Modern Rounded Bubble */
-                    <div className={`${isImageAttachment(msg.attachedFile) ? 'w-full max-w-[85%] sm:max-w-xl md:max-w-2xl' : 'max-w-[75%]'} bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-sm font-medium leading-relaxed border border-gray-300/80 dark:border-[#1e2029]`}>
+                    <div className="max-w-[75%] bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-sm font-medium leading-relaxed border border-gray-300/80 dark:border-[#1e2029]">
                       {msg.attachedFile && (
                         isImageAttachment(msg.attachedFile) ? (
                           <ChatImageAttachment
