@@ -30,9 +30,12 @@ import {
   Camera,
   Lock,
   Sparkles,
+  Code2,
+  Shapes,
   ExternalLink,
 } from 'lucide-react';
 import { ArtifactCanvasPane, Artifact } from '../ArtifactCanvasPane';
+import { highlightCode } from '../../utils/syntaxHighlight';
 import { AnimatePresence, motion } from 'motion/react';
 import { marked } from 'marked';
 import { JarvisConfig, AiProvider, Conversation, ChatMessage, AttachedFileInfo } from '../../types/jarvis';
@@ -216,12 +219,24 @@ export function extractArtifactFromMessage(content: string): Artifact | null {
   }
 
   let title = `${lang.toUpperCase()} Component`;
-  if (lang === 'html') title = 'Interactive Web Artifact';
-  else if (lang === 'svg') title = 'Vector Graphic';
-  else if (['tsx', 'jsx', 'react'].includes(lang)) title = 'React Component';
-  else if (lang === 'python' || lang === 'py') title = 'Python Script';
-  else if (lang === 'javascript' || lang === 'js') title = 'JavaScript Application';
-  else if (lang === 'markdown' || lang === 'md') title = 'Markdown Document';
+  if (lang === 'html') {
+    const titleMatch = code.match(/<title[^>]*>([^<]+)<\/title>/i);
+    title = titleMatch ? titleMatch[1].trim() : 'index.html';
+  } else if (lang === 'svg') {
+    title = 'vector-graphic.svg';
+  } else if (['tsx', 'jsx', 'react'].includes(lang)) {
+    const compMatch = code.match(/(?:function|const|class)\s+([A-Z][a-zA-Z0-9]+)/);
+    title = compMatch ? `${compMatch[1]}.tsx` : 'Component.tsx';
+  } else if (lang === 'python' || lang === 'py') {
+    title = 'script.py';
+  } else if (lang === 'javascript' || lang === 'js') {
+    title = 'app.js';
+  } else if (lang === 'markdown' || lang === 'md') {
+    const h1Match = code.match(/^#\s+(.+)$/m);
+    title = h1Match ? `${h1Match[1].trim()}.md` : 'document.md';
+  } else {
+    title = `snippet.${lang}`;
+  }
 
   return {
     id: `art-${code.length}-${lang}`,
@@ -383,6 +398,11 @@ function formatRichMarkdownHtml(rawContent: string): string {
     const langMatch = className.match(/language-([a-zA-Z0-9_+-]+)/);
     const lang = langMatch ? langMatch[1].toLowerCase() : 'code';
     const langLogoSvg = getLanguageLogoSvg(lang);
+
+    if (codeEl) {
+      const rawCode = codeEl.textContent || '';
+      codeEl.innerHTML = highlightCode(rawCode, lang);
+    }
 
     const wrapper = doc.createElement('div');
     wrapper.className = 'grokki-code-window';
@@ -2467,34 +2487,43 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           <StaticMessageContent content={msg.content} onOpenArtifact={setActiveArtifact} />
                         )}
 
-                        {/* Interactive Claude-Style Artifact Card Preview */}
+                        {/* Claude-Style Artifact Card */}
                         {msg.role === 'assistant' && (() => {
                           const artifact = extractArtifactFromMessage(msg.content);
                           if (!artifact) return null;
+                          const lineCount = artifact.content.split('\n').length;
                           return (
                             <div
                               onClick={() => setActiveArtifact(artifact)}
-                              className="mt-3 p-3 rounded-xl bg-sky-500/[0.08] hover:bg-sky-500/[0.14] border border-sky-500/25 flex items-center justify-between transition-all cursor-pointer group shadow-xs select-none"
+                              className="mt-3.5 p-3 rounded-xl bg-black/40 hover:bg-black/60 border border-white/[0.08] hover:border-white/[0.16] flex items-center justify-between transition-all cursor-pointer group shadow-sm select-none"
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-8 h-8 rounded-lg bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-                                  <Sparkles className="w-4 h-4" />
+                                <div className="w-9 h-9 rounded-lg bg-white/[0.05] text-gray-200 flex items-center justify-center shrink-0 border border-white/[0.08] group-hover:border-sky-500/40 transition-colors">
+                                  {artifact.language === 'html' ? (
+                                    <Globe className="w-4 h-4 text-sky-400" />
+                                  ) : artifact.language === 'svg' ? (
+                                    <Shapes className="w-4 h-4 text-amber-400" />
+                                  ) : ['tsx', 'jsx', 'react'].includes(artifact.language) ? (
+                                    <Code2 className="w-4 h-4 text-indigo-400" />
+                                  ) : (
+                                    <FileCode className="w-4 h-4 text-emerald-400" />
+                                  )}
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate flex items-center gap-2">
-                                    <span>{artifact.title}</span>
-                                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-semibold">
+                                  <div className="text-xs font-semibold text-gray-100 truncate flex items-center gap-2">
+                                    <span className="font-mono tracking-tight">{artifact.title}</span>
+                                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/10 text-gray-300 font-medium">
                                       {artifact.language}
                                     </span>
                                   </div>
-                                  <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
-                                    Open in Canvas for live interactive preview and side-by-side editing
+                                  <p className="text-[11px] text-gray-400 mt-0.5 font-mono">
+                                    {lineCount} lines • Click to open in Canvas
                                   </p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1.5 text-xs font-semibold text-sky-500 group-hover:text-sky-400 shrink-0 ml-2">
+                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] group-hover:bg-sky-500/10 group-hover:border-sky-500/30 text-xs font-medium text-gray-300 group-hover:text-sky-400 transition-all shrink-0 ml-3">
                                 <span>Canvas</span>
-                                <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                                <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                               </div>
                             </div>
                           );

@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
-  Code,
+  Code2,
   Eye,
   Copy,
   Check,
@@ -14,12 +14,18 @@ import {
   Smartphone,
   ZoomIn,
   ZoomOut,
-  Sparkles,
+  Globe,
   FileCode,
-  ExternalLink,
+  Shapes,
+  FileText,
+  Terminal,
+  Lock,
+  Sun,
+  Moon,
 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { marked } from 'marked';
+import { highlightCode } from '../utils/syntaxHighlight';
 
 export interface Artifact {
   id: string;
@@ -75,6 +81,7 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
   const canPreview = ['html', 'svg', 'markdown', 'react'].includes(artifactType);
   const [activeTab, setActiveTab] = useState<'preview' | 'code'>(canPreview ? 'preview' : 'code');
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>('light');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
@@ -119,58 +126,119 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${artifact.title.replace(/\s+/g, '_').toLowerCase()}.${ext}`;
+    a.download = `${(artifact.title || 'artifact').replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase()}.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  // Build HTML srcDoc with Tailwind CSS support
+  // Build clean, high-contrast HTML srcDoc with Tailwind CSS and typography reset
   const srcDoc = useMemo(() => {
     if (artifactType !== 'html' && artifactType !== 'react') return '';
 
     const content = artifact.content.trim();
+    const isDarkCanvas = previewTheme === 'dark';
+    const bg = isDarkCanvas ? '#0f1117' : '#ffffff';
+    const fg = isDarkCanvas ? '#f1f5f9' : '#0f172a';
+    const cardBg = isDarkCanvas ? '#1a1d28' : '#f8fafc';
+    const borderCol = isDarkCanvas ? '#2a2e3f' : '#e2e8f0';
+
+    const baseReset = `
+      <script src="https://cdn.tailwindcss.com"></script>
+      <style id="grokki-canvas-theme">
+        :root {
+          color-scheme: ${previewTheme};
+        }
+        body {
+          margin: 0;
+          padding: 24px;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          background-color: ${bg} !important;
+          color: ${fg} !important;
+          min-height: 100vh;
+          box-sizing: border-box;
+          line-height: 1.6;
+        }
+        h1, h2, h3, h4, h5, h6 {
+          color: ${fg} !important;
+          font-weight: 700;
+          letter-spacing: -0.025em;
+          margin-top: 0;
+          margin-bottom: 0.65rem;
+        }
+        h1 { font-size: 1.85rem; }
+        h2 { font-size: 1.45rem; }
+        h3 { font-size: 1.25rem; }
+        p {
+          color: ${isDarkCanvas ? '#cbd5e1' : '#334155'} !important;
+          margin-top: 0;
+          margin-bottom: 1rem;
+        }
+        a {
+          color: #38bdf8;
+          text-decoration: underline;
+        }
+        button {
+          font-family: inherit;
+        }
+        pre, code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+        .card, [class*="card"] {
+          background-color: ${cardBg};
+          border: 1px solid ${borderCol};
+        }
+      </style>
+    `;
+
     if (content.toLowerCase().startsWith('<!doctype') || content.toLowerCase().startsWith('<html')) {
-      // If already a full document, ensure tailwind CDN is present
-      if (!content.includes('tailwindcss')) {
-        return content.replace('<head>', '<head><script src="https://cdn.tailwindcss.com"></script>');
+      if (content.includes('<head>')) {
+        return content.replace('<head>', `<head>${baseReset}`);
       }
-      return content;
+      return `${baseReset}${content}`;
     }
 
-    // Wrap snippet in a beautiful container with Tailwind
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body {
-      margin: 0;
-      padding: 24px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background-color: ${isDark ? '#0f1117' : '#ffffff'};
-      color: ${isDark ? '#e2e8f0' : '#0f172a'};
-      min-height: 100vh;
-      box-sizing: border-box;
-    }
-  </style>
+  ${baseReset}
 </head>
 <body>
   ${content}
 </body>
 </html>`;
-  }, [artifact.content, artifactType, isDark]);
+  }, [artifact.content, artifactType, previewTheme]);
 
-  // Viewport width styling for HTML preview
+  // Viewport width styling for preview window
   const viewportWidth = {
     desktop: 'w-full',
     tablet: 'w-[768px] max-w-full',
     mobile: 'w-[375px] max-w-full',
   }[viewport];
 
-  // Code lines calculation
+  // Code lines & highlighted syntax
   const codeLines = useMemo(() => artifact.content.split('\n'), [artifact.content]);
+  const highlightedCode = useMemo(
+    () => highlightCode(artifact.content, artifact.language),
+    [artifact.content, artifact.language]
+  );
+
+  // Clean artifact icon
+  const renderArtifactIcon = () => {
+    switch (artifactType) {
+      case 'html':
+        return <Globe className="w-4 h-4 text-sky-400" />;
+      case 'react':
+        return <Code2 className="w-4 h-4 text-cyan-400" />;
+      case 'svg':
+        return <Shapes className="w-4 h-4 text-amber-400" />;
+      case 'markdown':
+        return <FileText className="w-4 h-4 text-emerald-400" />;
+      default:
+        return <Terminal className="w-4 h-4 text-purple-400" />;
+    }
+  };
 
   return (
     <motion.div
@@ -178,26 +246,26 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: '100%', opacity: 0 }}
       transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-      className={`fixed top-0 right-0 bottom-0 z-40 bg-white dark:bg-[#0f1117] border-l border-gray-200 dark:border-[#1e2230] shadow-2xl flex flex-col transition-all duration-200 ${
-        isFullscreen ? 'w-full left-0 z-[60]' : 'w-full md:w-[50vw] lg:w-[48vw] xl:w-[45vw]'
+      className={`fixed top-0 right-0 bottom-0 z-40 bg-[#0d0f17] border-l border-[#1c202c] shadow-2xl flex flex-col transition-all duration-200 select-none ${
+        isFullscreen ? 'w-full left-0 z-[60]' : 'w-full md:w-[50vw] lg:w-[48vw] xl:w-[46vw]'
       }`}
     >
       {/* Top Header Bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-[#1e2230] bg-gray-50/80 dark:bg-[#141721]/80 backdrop-blur-md select-none shrink-0">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0 border border-sky-500/20">
-            <Sparkles className="w-4 h-4" />
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1c202c] bg-[#12141f]/90 backdrop-blur-md shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.08] flex items-center justify-center shrink-0">
+            {renderArtifactIcon()}
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate tracking-tight">
-                {artifact.title || 'Artifact Canvas'}
+              <h2 className="text-sm font-semibold text-gray-100 truncate tracking-tight font-mono">
+                {artifact.title || 'Canvas'}
               </h2>
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-gray-200 dark:bg-white/10 text-gray-700 dark:text-gray-300 font-semibold tracking-wider">
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/[0.08] text-gray-300 font-semibold tracking-wider">
                 {artifact.language}
               </span>
             </div>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">
+            <p className="text-[11px] text-gray-400 font-mono mt-0.5">
               {codeLines.length} lines • {artifact.content.length.toLocaleString()} chars
             </p>
           </div>
@@ -206,14 +274,14 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
         {/* View Switcher Tabs (Preview vs Code) */}
         <div className="flex items-center gap-2">
           {canPreview && (
-            <div className="flex items-center p-0.5 rounded-lg bg-gray-200/70 dark:bg-white/5 border border-gray-300/60 dark:border-white/10">
+            <div className="flex items-center p-0.5 rounded-lg bg-black/40 border border-white/[0.08]">
               <button
                 type="button"
                 onClick={() => setActiveTab('preview')}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
                   activeTab === 'preview'
-                    ? 'bg-white dark:bg-white/15 text-gray-900 dark:text-white shadow-xs'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    ? 'bg-white/15 text-white shadow-xs font-semibold'
+                    : 'text-gray-400 hover:text-white'
                 }`}
               >
                 <Eye className="w-3.5 h-3.5" />
@@ -222,36 +290,25 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('code')}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
                   activeTab === 'code'
-                    ? 'bg-white dark:bg-white/15 text-gray-900 dark:text-white shadow-xs'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    ? 'bg-white/15 text-white shadow-xs font-semibold'
+                    : 'text-gray-400 hover:text-white'
                 }`}
               >
-                <Code className="w-3.5 h-3.5" />
+                <Code2 className="w-3.5 h-3.5" />
                 <span>Code</span>
               </button>
             </div>
           )}
 
           {/* Action Icons */}
-          <div className="flex items-center gap-1 ml-1 text-gray-500 dark:text-gray-400">
-            {activeTab === 'preview' && (artifactType === 'html' || artifactType === 'react') && (
-              <button
-                type="button"
-                onClick={() => setPreviewKey((k) => k + 1)}
-                title="Reload Preview"
-                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
-              >
-                <RotateCw className="w-4 h-4" />
-              </button>
-            )}
-
+          <div className="flex items-center gap-1 ml-1 text-gray-400">
             <button
               type="button"
               onClick={handleCopy}
               title="Copy Code"
-              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
             </button>
@@ -260,16 +317,16 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
               type="button"
               onClick={handleDownload}
               title="Download Artifact"
-              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
             >
               <Download className="w-4 h-4" />
             </button>
 
             <button
               type="button"
-              onClick={() => setIsFullscreen((prev) => !prev)}
-              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+              onClick={() => setIsFullscreen((f) => !f)}
+              title={isFullscreen ? 'Restore Window' : 'Fullscreen'}
+              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
             >
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
@@ -278,7 +335,7 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
               type="button"
               onClick={onClose}
               title="Close Canvas"
-              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-200 dark:hover:bg-white/10 hover:text-red-500 dark:hover:text-red-400 transition-colors cursor-pointer ml-1"
+              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 hover:text-red-400 transition-colors cursor-pointer ml-1"
             >
               <X className="w-4.5 h-4.5" />
             </button>
@@ -287,63 +344,96 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
       </div>
 
       {/* Main Content Viewport */}
-      <div className="flex-1 min-h-0 relative overflow-hidden bg-gray-100/50 dark:bg-[#0b0c10] flex flex-col">
+      <div className="flex-1 min-h-0 relative overflow-hidden bg-[#0a0b10] flex flex-col">
         {/* PREVIEW TAB */}
         {activeTab === 'preview' && (
           <div className="flex-1 flex flex-col h-full min-h-0 relative">
-            {/* HTML / React Live Preview */}
+            {/* HTML / React Live Sandbox Preview */}
             {(artifactType === 'html' || artifactType === 'react') && (
               <div className="flex-1 flex flex-col h-full min-h-0">
-                {/* Viewport bar */}
-                <div className="flex items-center justify-center gap-1 py-1.5 px-4 bg-gray-100 dark:bg-[#12141c] border-b border-gray-200 dark:border-[#1e2230] select-none shrink-0">
-                  <div className="flex items-center gap-1 p-0.5 rounded-lg bg-gray-200/80 dark:bg-white/5 border border-gray-300/40 dark:border-white/5">
+                {/* Browser Stage Chrome Bar */}
+                <div className="flex items-center justify-between px-4 py-2 bg-[#12141e] border-b border-[#1c202c] shrink-0 text-xs">
+                  {/* Window traffic lights */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+                  </div>
+
+                  {/* Simulated URL pill */}
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-black/40 border border-white/[0.08] text-[11px] font-mono text-gray-400 max-w-[280px] truncate">
+                    <Lock className="w-3 h-3 text-emerald-400 shrink-0" />
+                    <span className="truncate">localhost:3000/{artifact.title || 'index.html'}</span>
+                  </div>
+
+                  {/* Viewport and Canvas controls */}
+                  <div className="flex items-center gap-2">
+                    {/* Viewport switcher */}
+                    <div className="flex items-center p-0.5 rounded-md bg-black/40 border border-white/[0.08]">
+                      <button
+                        type="button"
+                        onClick={() => setViewport('desktop')}
+                        className={`p-1 rounded cursor-pointer transition-colors ${
+                          viewport === 'desktop' ? 'bg-white/15 text-sky-400' : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                        title="Desktop View (100%)"
+                      >
+                        <Monitor className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewport('tablet')}
+                        className={`p-1 rounded cursor-pointer transition-colors ${
+                          viewport === 'tablet' ? 'bg-white/15 text-sky-400' : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                        title="Tablet View (768px)"
+                      >
+                        <Tablet className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewport('mobile')}
+                        className={`p-1 rounded cursor-pointer transition-colors ${
+                          viewport === 'mobile' ? 'bg-white/15 text-sky-400' : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                        title="Mobile View (375px)"
+                      >
+                        <Smartphone className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Canvas theme toggle (Light / Dark paper) */}
                     <button
                       type="button"
-                      onClick={() => setViewport('desktop')}
-                      className={`p-1 rounded cursor-pointer transition-colors ${
-                        viewport === 'desktop'
-                          ? 'bg-white dark:bg-white/15 text-sky-500'
-                          : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                      }`}
-                      title="Desktop View (100%)"
+                      onClick={() => setPreviewTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+                      className="p-1.5 rounded-md bg-black/40 border border-white/[0.08] text-gray-400 hover:text-white cursor-pointer transition-colors"
+                      title={`Switch to ${previewTheme === 'light' ? 'Dark' : 'Light'} Canvas`}
                     >
-                      <Monitor className="w-3.5 h-3.5" />
+                      {previewTheme === 'light' ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5 text-amber-400" />}
                     </button>
+
+                    {/* Reload preview */}
                     <button
                       type="button"
-                      onClick={() => setViewport('tablet')}
-                      className={`p-1 rounded cursor-pointer transition-colors ${
-                        viewport === 'tablet'
-                          ? 'bg-white dark:bg-white/15 text-sky-500'
-                          : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                      }`}
-                      title="Tablet View (768px)"
+                      onClick={() => setPreviewKey((k) => k + 1)}
+                      title="Reload Preview"
+                      className="p-1.5 rounded-md bg-black/40 border border-white/[0.08] text-gray-400 hover:text-white cursor-pointer transition-colors"
                     >
-                      <Tablet className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewport('mobile')}
-                      className={`p-1 rounded cursor-pointer transition-colors ${
-                        viewport === 'mobile'
-                          ? 'bg-white dark:bg-white/15 text-sky-500'
-                          : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                      }`}
-                      title="Mobile View (375px)"
-                    >
-                      <Smartphone className="w-3.5 h-3.5" />
+                      <RotateCw className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
-                {/* Sandboxed iframe */}
-                <div className="flex-1 w-full h-full flex items-center justify-center p-4 overflow-auto">
+                {/* Sandboxed iframe workspace */}
+                <div className="flex-1 w-full h-full flex items-center justify-center p-4 overflow-auto bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:16px_16px]">
                   <iframe
                     key={previewKey}
                     title={artifact.title}
                     srcDoc={srcDoc}
                     sandbox="allow-scripts allow-modals allow-forms"
-                    className={`h-full bg-white dark:bg-[#0f1117] rounded-xl shadow-lg border border-gray-200 dark:border-[#1e2230] transition-all duration-200 ${viewportWidth}`}
+                    className={`h-full rounded-lg shadow-2xl border border-white/[0.08] transition-all duration-200 ${
+                      previewTheme === 'light' ? 'bg-white' : 'bg-[#0f1117]'
+                    } ${viewportWidth}`}
                   />
                 </div>
               </div>
@@ -353,22 +443,22 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
             {artifactType === 'svg' && (
               <div className="flex-1 flex flex-col h-full min-h-0 relative">
                 {/* SVG Zoom Controls */}
-                <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 p-1 rounded-xl bg-white/90 dark:bg-[#161822]/90 backdrop-blur-md border border-gray-200 dark:border-white/10 shadow-md">
+                <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 p-1 rounded-lg bg-[#141721]/90 backdrop-blur-md border border-white/10 shadow-md">
                   <button
                     type="button"
                     onClick={() => setSvgZoom((z) => Math.max(0.25, z - 0.25))}
-                    className="p-1 rounded text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white cursor-pointer"
+                    className="p-1 rounded text-gray-400 hover:text-white cursor-pointer"
                     title="Zoom Out"
                   >
                     <ZoomOut className="w-4 h-4" />
                   </button>
-                  <span className="text-[11px] font-mono font-semibold px-1 text-gray-700 dark:text-gray-300">
+                  <span className="text-[11px] font-mono font-semibold px-1 text-gray-300">
                     {Math.round(svgZoom * 100)}%
                   </span>
                   <button
                     type="button"
                     onClick={() => setSvgZoom((z) => Math.min(3, z + 0.25))}
-                    className="p-1 rounded text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white cursor-pointer"
+                    className="p-1 rounded text-gray-400 hover:text-white cursor-pointer"
                     title="Zoom In"
                   >
                     <ZoomIn className="w-4 h-4" />
@@ -376,16 +466,16 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
                   <button
                     type="button"
                     onClick={() => setSvgZoom(1)}
-                    className="text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 cursor-pointer"
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white/10 text-gray-300 hover:bg-white/15 cursor-pointer"
                   >
                     Reset
                   </button>
                 </div>
 
-                <div className="flex-1 flex items-center justify-center p-8 overflow-auto bg-[radial-gradient(#94a3b830_1px,transparent_1px)] dark:bg-[radial-gradient(#ffffff12_1px,transparent_1px)] [background-size:16px_16px]">
+                <div className="flex-1 flex items-center justify-center p-8 overflow-auto bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:16px_16px]">
                   <div
                     style={{ transform: `scale(${svgZoom})`, transformOrigin: 'center center' }}
-                    className="transition-transform duration-150 max-w-full max-h-full flex items-center justify-center shadow-xl rounded-2xl p-6 bg-white dark:bg-[#13151f] border border-gray-200 dark:border-white/10"
+                    className="transition-transform duration-150 max-w-full max-h-full flex items-center justify-center shadow-xl rounded-xl p-6 bg-[#13151f] border border-white/10"
                     dangerouslySetInnerHTML={{ __html: artifact.content }}
                   />
                 </div>
@@ -394,9 +484,9 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
 
             {/* Markdown Document Preview */}
             {artifactType === 'markdown' && (
-              <div className="flex-1 p-8 overflow-y-auto">
+              <div className="flex-1 p-8 overflow-y-auto bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:16px_16px]">
                 <div
-                  className="max-w-3xl mx-auto p-8 rounded-2xl bg-white dark:bg-[#13151f] border border-gray-200 dark:border-[#1e2230] shadow-md prose dark:prose-invert prose-sm"
+                  className="max-w-3xl mx-auto p-8 rounded-xl bg-[#13151f] border border-[#1e2230] shadow-md prose prose-invert prose-sm"
                   dangerouslySetInnerHTML={{ __html: marked.parse(artifact.content) as string }}
                 />
               </div>
@@ -408,25 +498,25 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
         {activeTab === 'code' && (
           <div className="flex-1 flex flex-col h-full min-h-0 font-mono text-xs">
             {/* Code toolbar */}
-            <div className="flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-[#12141c] border-b border-gray-200 dark:border-[#1e2230] select-none shrink-0 text-gray-500 dark:text-gray-400">
-              <span className="text-[11px] font-medium">Syntax: {artifact.language}</span>
+            <div className="flex items-center justify-between px-4 py-2 bg-[#12141c] border-b border-[#1c202c] select-none shrink-0 text-gray-400">
+              <span className="text-[11px] font-medium font-mono">Syntax: {artifact.language}</span>
               <button
                 type="button"
                 onClick={() => setWrapCode((w) => !w)}
                 className={`text-[11px] px-2 py-0.5 rounded cursor-pointer transition-colors ${
                   wrapCode
-                    ? 'bg-sky-500/15 text-sky-400 font-semibold'
-                    : 'hover:text-gray-900 dark:hover:text-white'
+                    ? 'bg-sky-500/20 text-sky-400 font-semibold'
+                    : 'hover:text-white'
                 }`}
               >
                 {wrapCode ? 'Wrap: On' : 'Wrap: Off'}
               </button>
             </div>
 
-            {/* Code Editor Body with Line Numbers */}
-            <div className="flex-1 overflow-auto bg-white dark:bg-[#0c0d12] p-4 flex">
+            {/* Code Editor Body with Line Numbers & Rich Syntax Highlighting */}
+            <div className="flex-1 overflow-auto bg-[#0a0b10] p-4 flex">
               {/* Line Numbers Column */}
-              <div className="select-none pr-4 text-right text-gray-400 dark:text-gray-600 font-mono text-xs border-r border-gray-200 dark:border-[#1c202c] shrink-0">
+              <div className="select-none pr-4 text-right text-gray-600 font-mono text-xs border-r border-[#1c202c] shrink-0">
                 {codeLines.map((_, i) => (
                   <div key={i} className="leading-5">
                     {i + 1}
@@ -434,13 +524,13 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
                 ))}
               </div>
 
-              {/* Code Text Content */}
+              {/* Code Text Content with Rich Prism Syntax Highlighting */}
               <pre
-                className={`flex-1 pl-4 m-0 font-mono text-xs text-gray-900 dark:text-gray-100 leading-5 outline-none ${
+                className={`flex-1 pl-4 m-0 font-mono text-xs text-gray-100 leading-5 outline-none grokki-code-pre ${
                   wrapCode ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'
                 }`}
               >
-                <code>{artifact.content}</code>
+                <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
               </pre>
             </div>
           </div>

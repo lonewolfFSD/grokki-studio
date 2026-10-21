@@ -33,14 +33,7 @@
   }
 }
 
-* {
-  cursor: none !important;
-}
-input,
-textarea,
-select {
-  cursor: text !important;
-}
+
 
 /* Custom Minimal Scrollbar */
 ::-webkit-scrollbar {
@@ -462,6 +455,53 @@ code .grokki-word-fade {
   border: none !important;
   padding: 0 !important;
   color: inherit;
+}
+
+/* Professional Developer Syntax Highlighting (VS Code Dark Plus / One Dark) */
+.token.comment, .token.prolog, .token.doctype, .token.cdata {
+  color: #6a9955 !important;
+  font-style: italic;
+}
+.token.punctuation {
+  color: #94a3b8 !important;
+}
+.token.namespace {
+  opacity: 0.7;
+}
+.token.tag {
+  color: #f43f5e !important;
+  font-weight: 500;
+}
+.token.property, .token.boolean, .token.number, .token.constant, .token.symbol {
+  color: #f59e0b !important;
+}
+.token.selector, .token.string, .token.char, .token.builtin {
+  color: #4ade80 !important;
+}
+.token.attr-name {
+  color: #38bdf8 !important;
+}
+.token.attr-value {
+  color: #a3e635 !important;
+}
+.token.operator, .token.entity, .token.url, .language-css .token.string, .style .token.string {
+  color: #38bdf8 !important;
+}
+.token.atrule, .token.keyword {
+  color: #c084fc !important;
+  font-weight: 600;
+}
+.token.function, .token.class-name {
+  color: #60a5fa !important;
+}
+.token.regex, .token.important, .token.variable {
+  color: #fb923c !important;
+}
+.token.important, .token.bold {
+  font-weight: bold;
+}
+.token.italic {
+  font-style: italic;
 }
 
 /* Tables */
