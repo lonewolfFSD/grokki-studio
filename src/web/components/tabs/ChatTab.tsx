@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { ArtifactCanvasPane, Artifact } from '../ArtifactCanvasPane';
 import { PerplexitySourcesBar } from '../PerplexitySourcesBar';
+import GradualBlur from '@/effects/GradualBlur';
 import { GroundingMetadata } from '../../types/jarvis';
 import { highlightCode } from '../../utils/syntaxHighlight';
 import { AnimatePresence, motion } from 'motion/react';
@@ -2481,8 +2482,9 @@ export const ChatTab = React.memo<ChatTabProps>(({
           </div>
         </div>
       ) : (
-        /* Active Conversation Thread (Clean, Modern Chat Bubbles) */
-        <div id="grokki-chat-scroll" className="flex-1 flex flex-col overflow-y-auto no-scrollbar px-1 py-3 space-y-5">
+        /* Active Conversation Thread with Gradual Blur Top & Bottom */
+        <div className="relative flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div id="grokki-chat-scroll" className="flex-1 flex flex-col overflow-y-auto no-scrollbar px-1 py-3 space-y-5">
           {/* Header Action Bar */}
           <div className="flex items-center justify-between pb-2.5 border-b border-gray-200 dark:border-[#1e2029]">
             <div className="flex items-center gap-2">
@@ -2740,6 +2742,43 @@ export const ChatTab = React.memo<ChatTabProps>(({
             )}
             <div ref={messagesEndRef} />
           </div>
+        </div>
+
+        {/* Gradual Blur: Top of Scrolling Chat */}
+          <GradualBlur
+            position="top"
+            height="4.5rem"
+            strength={2}
+            layers={8}
+            curve="linear"
+            exponential
+            tint={isDarkTheme ? 'rgba(18, 15, 23, 0.6)' : 'rgba(247, 247, 250, 0.6)'}
+            autoHide
+            target="parent"
+            container="#grokki-chat-scroll"
+            zIndex={10}
+            opacity={1}
+            saturation={1}
+            hoverIntensity={1}
+          />
+
+          {/* Gradual Blur: Bottom of Scrolling Chat */}
+          <GradualBlur
+            position="bottom"
+            height="6rem"
+            strength={2}
+            layers={8}
+            curve="linear"
+            exponential
+            tint={isDarkTheme ? 'rgba(18, 15, 23, 0.6)' : 'rgba(247, 247, 250, 0.6)'}
+            autoHide
+            target="parent"
+            container="#grokki-chat-scroll"
+            zIndex={10}
+            opacity={1}
+            saturation={1}
+            hoverIntensity={1}
+          />
         </div>
       )}
 
