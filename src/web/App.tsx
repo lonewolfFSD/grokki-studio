@@ -24,6 +24,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
   geminiModel: 'gemini-2.5-flash',
   groqApiKey: '',
   groqModel: 'openai/gpt-oss-120b',
+  groqVisionModel: 'qwen/qwen3.8-27b',
   ollamaEndpoint: 'http://127.0.0.1:11434',
   ollamaModel: 'llama3.2',
   openrouterApiKey: '',

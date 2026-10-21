@@ -106,6 +106,7 @@ function loadConfig() {
       if (!data.geminiModel) data.geminiModel = 'gemini-2.5-flash';
       if (!data.groqApiKey && envGroqKey) data.groqApiKey = envGroqKey;
       if (!data.groqModel) data.groqModel = 'llama-3.3-70b-versatile';
+      if (!data.groqVisionModel) data.groqVisionModel = 'qwen/qwen3.8-27b';
       if (!data.ollamaEndpoint) data.ollamaEndpoint = 'http://127.0.0.1:11434';
       if (!data.ollamaModel) data.ollamaModel = 'llama3.2';
       if (!data.openrouterApiKey && envOpenRouterKey) data.openrouterApiKey = envOpenRouterKey;
@@ -157,6 +158,7 @@ function loadConfig() {
     geminiModel: 'gemini-2.5-flash',
     groqApiKey: envGroqKey,
     groqModel: 'llama-3.3-70b-versatile',
+    groqVisionModel: 'qwen/qwen3.8-27b',
     ollamaEndpoint: 'http://127.0.0.1:11434',
     ollamaModel: 'llama3.2',
     openrouterApiKey: envOpenRouterKey,

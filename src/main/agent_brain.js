@@ -3358,39 +3358,46 @@ Instructions:
 3. Provide a clear, concise **Step-by-Step Solution / Walkthrough** (or clean optimal code if it's a coding problem).
 4. Keep formatting crisp with GitHub Markdown and LaTeX math where helpful.`;
 
-    // 1. Try Groq Vision (Llama-4 Scout Vision) if Groq key is available
+    // 1. Try Groq Vision if Groq key is available
     if (groqKey && (config.provider === 'groq' || !geminiKey)) {
-      try {
-        console.log('[AgentBrain] Running Snap & Solve with Groq Vision (llama-4-scout-17b-16e-instruct)...');
-        const visionData = await callOpenAICompatible({
-          endpoint: 'https://api.groq.com/openai/v1',
-          apiKey: groqKey,
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: solvePrompt },
-                {
-                  type: 'image_url',
-                  image_url: { url: `data:image/jpeg;base64,${base64Image}` },
-                },
-              ],
-            },
-          ],
-          temperature: 0.2,
-          timeout: 30000,
-        });
+      const groqVisionCandidates = Array.from(new Set([
+        (config.groqVisionModel || '').trim(),
+        'qwen/qwen3.8-27b',
+      ].filter(Boolean)));
 
-        const reply = visionData?.choices?.[0]?.message?.content;
-        if (reply && reply.trim().length > 10) {
-          return {
-            success: true,
-            message: `📸 **Screen Snap & Solve**\n\n${reply.trim()}`,
-          };
+      for (const visionModel of groqVisionCandidates) {
+        try {
+          console.log(`[AgentBrain] Running Snap & Solve with Groq Vision (${visionModel})...`);
+          const visionData = await callOpenAICompatible({
+            endpoint: 'https://api.groq.com/openai/v1',
+            apiKey: groqKey,
+            model: visionModel,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: solvePrompt },
+                  {
+                    type: 'image_url',
+                    image_url: { url: `data:image/jpeg;base64,${base64Image}` },
+                  },
+                ],
+              },
+            ],
+            temperature: 0.2,
+            timeout: 30000,
+          });
+
+          const reply = visionData?.choices?.[0]?.message?.content;
+          if (reply && reply.trim().length > 10) {
+            return {
+              success: true,
+              message: `📸 **Screen Snap & Solve**\n\n${reply.trim()}`,
+            };
+          }
+        } catch (groqErr) {
+          console.warn(`[AgentBrain] Groq Vision (${visionModel}) error, checking fallback:`, groqErr.message);
         }
-      } catch (groqErr) {
-        console.warn('[AgentBrain] Groq Vision error, checking Gemini fallback:', groqErr.message);
       }
     }
 
@@ -3453,33 +3460,40 @@ Guidelines:
 4. Write in clean Markdown, keeping the explanation concise (2 to 4 informative sentences). Never output isolated word fragments or cut-off labels.`;
 
     if (groqKey && (config.provider === 'groq' || !geminiKey)) {
-      try {
-        const visionData = await callOpenAICompatible({
-          endpoint: 'https://api.groq.com/openai/v1',
-          apiKey: groqKey,
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-          messages: [
-            {
-              role: 'system',
-              content: visionSystemPrompt,
-            },
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: `Please inspect my screen: "${cleanTask}"` },
-                { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
-              ],
-            },
-          ],
-          temperature: 0.3,
-          timeout: 25000,
-        });
-        const reply = visionData?.choices?.[0]?.message?.content;
-        if (reply && reply.trim().length > 30 && !reply.trim().startsWith('-oss-120b')) {
-          return { success: true, message: reply.trim() };
+      const groqVisionCandidates = Array.from(new Set([
+        (config.groqVisionModel || '').trim(),
+        'qwen/qwen3.8-27b',
+      ].filter(Boolean)));
+
+      for (const visionModel of groqVisionCandidates) {
+        try {
+          const visionData = await callOpenAICompatible({
+            endpoint: 'https://api.groq.com/openai/v1',
+            apiKey: groqKey,
+            model: visionModel,
+            messages: [
+              {
+                role: 'system',
+                content: visionSystemPrompt,
+              },
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: `Please inspect my screen: "${cleanTask}"` },
+                  { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
+                ],
+              },
+            ],
+            temperature: 0.3,
+            timeout: 25000,
+          });
+          const reply = visionData?.choices?.[0]?.message?.content;
+          if (reply && reply.trim().length > 30 && !reply.trim().startsWith('-oss-120b')) {
+            return { success: true, message: reply.trim() };
+          }
+        } catch (e) {
+          console.warn(`[AgentBrain] Groq vision (${visionModel}) failed, trying fallback:`, e.message);
         }
-      } catch (e) {
-        console.warn('[AgentBrain] Groq vision failed, trying Gemini fallback:', e.message);
       }
     }
 
@@ -3544,29 +3558,37 @@ Guidelines:
       const promptText = `User asked about this attached image ("${path.basename(imagePath)}"): "${cleanPrompt}".\nAnalyze the image and answer directly, accurately, and concisely using clean Markdown.`;
 
       if (groqKey && (config.provider === 'groq' || !geminiKey)) {
-        try {
-          const visionData = await callOpenAICompatible({
-            endpoint: 'https://api.groq.com/openai/v1',
-            apiKey: groqKey,
-            model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: promptText },
-                  { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } },
-                ],
-              },
-            ],
-            temperature: 0.2,
-            timeout: 25000,
-          });
-          const reply = visionData?.choices?.[0]?.message?.content;
-          if (reply && reply.trim()) {
-            return { success: true, message: reply.trim() };
+        const groqVisionCandidates = Array.from(new Set([
+          (config.groqVisionModel || '').trim(),
+          'qwen/qwen3.8-27b',
+        ].filter(Boolean)));
+
+        for (const visionModel of groqVisionCandidates) {
+          try {
+            console.log(`[AgentBrain] Analyzing attached image with Groq Vision (${visionModel})...`);
+            const visionData = await callOpenAICompatible({
+              endpoint: 'https://api.groq.com/openai/v1',
+              apiKey: groqKey,
+              model: visionModel,
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: promptText },
+                    { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } },
+                  ],
+                },
+              ],
+              temperature: 0.2,
+              timeout: 25000,
+            });
+            const reply = visionData?.choices?.[0]?.message?.content;
+            if (reply && reply.trim()) {
+              return { success: true, message: reply.trim() };
+            }
+          } catch (groqErr) {
+            console.warn(`[AgentBrain] Groq Vision error (${visionModel}) for attached image, trying next/fallback:`, groqErr.message);
           }
-        } catch (groqErr) {
-          console.warn('[AgentBrain] Groq Vision error for attached image, trying Gemini:', groqErr.message);
         }
       }
 

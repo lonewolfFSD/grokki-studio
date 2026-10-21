@@ -26,6 +26,7 @@ export interface JarvisConfig {
   geminiModel?: string;
   groqApiKey?: string;
   groqModel?: string;
+  groqVisionModel?: string;
   ollamaEndpoint?: string;
   ollamaModel?: string;
   openrouterApiKey?: string;
