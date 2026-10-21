@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Maximize2, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Image as ImageIcon, Loader2 } from 'lucide-react';
 import { AttachedFileInfo } from '../types/jarvis';
+
+const FontAwesomeExpandIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 448 512"
+    fill="currentColor"
+    className={className}
+  >
+    <path d="M32 32C14.3 32 0 46.3 0 64v96c0 17.7 14.3 32 32 32s32-14.3 32-32V96h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H32zM64 384c-17.7 0-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H96v-64c0-17.7-14.3-32-32-32zM384 64c0-17.7-14.3-32-32-32h-96c-17.7 0-32 14.3-32 32s14.3 32 32 32h64v64c0 17.7 14.3 32 32 32s32-14.3 32-32V64zM384 384c-17.7 0-32 14.3-32 32v64h-64c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32v-96c0-17.7-14.3-32-32-32z" />
+  </svg>
+);
 function formatFileSize(bytes?: number): string {
   if (!bytes || bytes === 0) return '';
   if (bytes < 1024) return bytes + ' B';
@@ -112,11 +123,11 @@ export const ChatImageAttachment: React.FC<ChatImageAttachmentProps> = ({
     );
   }
 
-  // Full in-chat message compact square thumbnail
+  // Full in-chat message mini square thumbnail
   return (
     <div
       onClick={handleClick}
-      className="mb-2 w-36 h-36 sm:w-40 sm:h-40 rounded-2xl overflow-hidden border border-gray-300/80 dark:border-white/10 bg-black/5 dark:bg-black/30 shadow-xs cursor-pointer relative group flex-shrink-0"
+      className="mb-2 w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-gray-300/80 dark:border-white/10 bg-black/5 dark:bg-black/30 shadow-xs cursor-pointer relative group flex-shrink-0"
       title="Click to view full image"
     >
       {imgSrc && !error ? (
@@ -125,22 +136,20 @@ export const ChatImageAttachment: React.FC<ChatImageAttachmentProps> = ({
             src={imgSrc}
             alt={fileName}
             loading="lazy"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 block"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 block"
           />
-          {/* Subtle fade-in Expand icon on hover */}
-          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-            <div className="w-8 h-8 rounded-full bg-black/60 text-white backdrop-blur-sm flex items-center justify-center shadow-md transform scale-90 group-hover:scale-100 transition-transform duration-200">
-              <Maximize2 className="w-4 h-4 text-white" />
-            </div>
+          {/* Pure Font Awesome Expand Icon on Hover - No background or pill */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+            <FontAwesomeExpandIcon className="w-5 h-5 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]" />
           </div>
         </>
       ) : loading ? (
         <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-400 text-xs">
-          <Loader2 className="w-5 h-5 animate-spin" />
+          <Loader2 className="w-4 h-4 animate-spin" />
         </div>
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-gray-400 text-xs">
-          <ImageIcon className="w-6 h-6" />
+          <ImageIcon className="w-5 h-5" />
         </div>
       )}
     </div>
