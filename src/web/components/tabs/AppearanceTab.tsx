@@ -189,11 +189,11 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
                 Smoothness Intensity
               </span>
               <span className="font-mono text-gray-500 dark:text-gray-400 font-semibold">
-                {config.smoothScrollIntensity ?? 5} / 10 {((config.smoothScrollIntensity ?? 5) <= 3) ? '• Snappy (Fast)' : ((config.smoothScrollIntensity ?? 5) >= 8) ? '• Ultra Smooth' : '• Balanced'}
+                {config.smoothScrollIntensity ?? 5} / 10 {((config.smoothScrollIntensity ?? 5) <= 3) ? '• Standard' : ((config.smoothScrollIntensity ?? 5) >= 8) ? '• Turbo Fast' : '• Swift (Balanced)'}
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-[11px] text-gray-400 font-medium">Snappy</span>
+              <span className="text-[11px] text-gray-400 font-medium">Standard</span>
               <input
                 type="range"
                 min="1"
@@ -203,7 +203,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
                 onChange={(e) => onChangeConfig({ smoothScrollIntensity: Number(e.target.value) })}
                 className="flex-1 h-1.5 bg-gray-200 dark:bg-[#252836] rounded-lg appearance-none cursor-pointer accent-gray-900 dark:accent-white"
               />
-              <span className="text-[11px] text-gray-400 font-medium">Gliding</span>
+              <span className="text-[11px] text-gray-400 font-medium">Turbo Fast</span>
             </div>
           </div>
         )}
