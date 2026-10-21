@@ -492,3 +492,11 @@ code .grokki-word-fade {
   border-top: 1px solid rgba(148, 163, 184, 0.22);
 }
 
+
+/* Smooth vs Normal Scrolling Mode */
+html.smooth-scroll, html.smooth-scroll * {
+  scroll-behavior: smooth;
+}
+html.normal-scroll, html.normal-scroll * {
+  scroll-behavior: auto !important;
+}

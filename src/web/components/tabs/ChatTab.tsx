@@ -937,7 +937,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
     scrollRafRef.current = requestAnimationFrame(() => {
       scrollRafRef.current = null;
       if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'end' });
+        const useSmooth = config?.smoothScroll !== false && smooth;
+        messagesEndRef.current.scrollIntoView({ behavior: useSmooth ? 'smooth' : 'auto', block: 'end' });
       }
     });
   }, []);

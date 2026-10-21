@@ -13,6 +13,7 @@ import { StudioSettingsTab } from './components/tabs/StudioSettingsTab';
 import { AboutTab } from './components/tabs/AboutTab';
 import { JarvisConfig, GoogleProfile, SystemInfo } from './types/jarvis';
 import { useConversations } from './hooks/useConversations';
+import { useSmoothScroll } from './hooks/useSmoothScroll';
 import { DEFAULT_HOTKEYS, getEffectiveHotkeys, matchesHotkey } from './utils/hotkeys';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import GlowCursor from './components/GlowCursor';
@@ -65,6 +66,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
   hardwareAcceleration: true,
   chatBackgroundGradient: true,
   glowCursorEnabled: true,
+  smoothScroll: true,
 };
 
 export const App: React.FC = () => {
@@ -79,6 +81,8 @@ export const App: React.FC = () => {
   const [googleProfile, setGoogleProfile] = useState<GoogleProfile | null>(null);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
+
+  useSmoothScroll(config.smoothScroll !== false);
 
   const {
     conversations,
