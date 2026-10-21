@@ -8,7 +8,15 @@ import {
   Redo2,
   Check,
   X,
-  Type,
+  Bold,
+  Italic,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Trash2,
+  Plus,
+  Minus,
+  Move,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -41,14 +49,21 @@ interface StrokeAction {
   points: Point[];
 }
 
-interface TextAction {
+export interface TextAction {
   id: string;
   type: 'text';
   text: string;
   x: number; // normalized 0..1
   y: number; // normalized 0..1
+  width: number; // normalized 0..1
+  height: number; // normalized 0..1
   color: string;
   fontSize: number;
+  fontFamily: 'sans' | 'serif' | 'mono';
+  bold: boolean;
+  italic: boolean;
+  align: 'left' | 'center' | 'right';
+  hasBackground: boolean;
 }
 
 type AnnotationAction = StrokeAction | TextAction;
@@ -106,22 +121,23 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   originRect,
   onClose,
 }) => {
-  // Annotation state
+  // Annotation tool state
   const [activeTool, setActiveTool] = useState<'sketch' | 'text'>('sketch');
   const [activeColor, setActiveColor] = useState<string>('#ff5252');
   const [actions, setActions] = useState<AnnotationAction[]>([]);
   const [redoStack, setRedoStack] = useState<AnnotationAction[]>([]);
+
+  // Drawing state
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentStroke, setCurrentStroke] = useState<Point[]>([]);
 
-  // Text input state
-  const [editingText, setEditingText] = useState<{
-    id: string;
-    text: string;
-    x: number;
-    y: number;
-    color: string;
-    isNew?: boolean;
+  // Text state
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [dragBox, setDragBox] = useState<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
   } | null>(null);
 
   // Status toasts
@@ -130,32 +146,68 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const textInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRefs = useRef<{ [key: string]: HTMLTextAreaElement | null }>({});
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2200);
   };
 
-  // Keyboard shortcuts (Escape to close, Ctrl+Z for undo, Ctrl+Y for redo)
+  const selectedText = actions.find(
+    (a): a is TextAction => a.type === 'text' && a.id === selectedTextId
+  );
+
+  // Update a field on the currently selected text item
+  const updateSelectedText = (updates: Partial<TextAction>) => {
+    if (!selectedTextId) return;
+    setActions((prev) =>
+      prev.map((item) => {
+        if (item.type === 'text' && item.id === selectedTextId) {
+          return { ...item, ...updates };
+        }
+        return item;
+      })
+    );
+  };
+
+  const deleteSelectedText = () => {
+    if (!selectedTextId) return;
+    setActions((prev) => prev.filter((item) => item.type !== 'text' || item.id !== selectedTextId));
+    setSelectedTextId(null);
+  };
+
+  // When active color is changed, also apply it to the selected text if any
+  const handleColorChange = (col: string) => {
+    setActiveColor(col);
+    if (selectedTextId) {
+      updateSelectedText({ color: col });
+    }
+  };
+
+  // Keyboard shortcuts (Escape to close or deselect, Ctrl+Z for undo, Ctrl+Y for redo)
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept typing in inputs or textareas for undo/redo
+      const isInputActive =
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA';
+
       if (e.key === 'Escape') {
-        if (editingText) {
-          setEditingText(null);
+        if (selectedTextId) {
+          setSelectedTextId(null);
         } else {
           onClose();
         }
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      } else if (!isInputActive && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         if (e.shiftKey) {
           handleRedo();
         } else {
           handleUndo();
         }
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+      } else if (!isInputActive && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         handleRedo();
       }
@@ -163,17 +215,9 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose, actions, redoStack, editingText]);
+  }, [isOpen, onClose, actions, redoStack, selectedTextId]);
 
-  // Focus text input when editing starts
-  useEffect(() => {
-    if (editingText && textInputRef.current) {
-      textInputRef.current.focus();
-      textInputRef.current.select();
-    }
-  }, [editingText]);
-
-  // Redraw canvas on actions or current stroke change
+  // Redraw canvas on stroke actions or current stroke change
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -184,7 +228,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
     const height = canvas.height;
     ctx.clearRect(0, 0, width, height);
 
-    // Draw all committed actions
+    // Draw all committed stroke actions
     for (const action of actions) {
       if (action.type === 'stroke') {
         if (action.points.length < 2) continue;
@@ -199,13 +243,6 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
           ctx.lineTo(action.points[i].x * width, action.points[i].y * height);
         }
         ctx.stroke();
-      } else if (action.type === 'text') {
-        ctx.font = `bold ${action.fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        ctx.fillStyle = action.color;
-        ctx.shadowColor = 'rgba(0,0,0,0.85)';
-        ctx.shadowBlur = 6;
-        ctx.fillText(action.text, action.x * width, action.y * height);
-        ctx.shadowBlur = 0;
       }
     }
 
@@ -275,85 +312,134 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
     if (activeTool === 'sketch') {
       setIsDrawing(true);
       setCurrentStroke([pt]);
+      setSelectedTextId(null);
     } else if (activeTool === 'text') {
-      // Commit pending text if any
-      commitCurrentText();
-      // Start a new text entry at clicked spot
-      setEditingText({
-        id: Date.now().toString(),
-        text: '',
-        x: pt.x,
-        y: pt.y,
-        color: activeColor,
-        isNew: true,
+      // Start drag-to-create text box
+      setSelectedTextId(null);
+      setDragBox({
+        startX: pt.x,
+        startY: pt.y,
+        currentX: pt.x,
+        currentY: pt.y,
       });
     }
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || activeTool !== 'sketch') return;
     const pt = getNormCoords(e);
     if (!pt) return;
 
-    setCurrentStroke((prev) => {
-      const next = [...prev, pt];
-      return next;
-    });
+    if (activeTool === 'sketch' && isDrawing) {
+      setCurrentStroke((prev) => [...prev, pt]);
+    } else if (activeTool === 'text' && dragBox) {
+      setDragBox((prev) => (prev ? { ...prev, currentX: pt.x, currentY: pt.y } : null));
+    }
   };
 
   const handlePointerUp = () => {
-    if (!isDrawing || activeTool !== 'sketch') return;
-    setIsDrawing(false);
+    if (activeTool === 'sketch' && isDrawing) {
+      setIsDrawing(false);
+      if (currentStroke.length >= 2) {
+        const newStroke: StrokeAction = {
+          type: 'stroke',
+          color: activeColor,
+          width: 4,
+          points: currentStroke,
+        };
+        setActions((prev) => [...prev, newStroke]);
+        setRedoStack([]);
+      }
+      setCurrentStroke([]);
+    } else if (activeTool === 'text' && dragBox) {
+      const x = Math.min(dragBox.startX, dragBox.currentX);
+      const y = Math.min(dragBox.startY, dragBox.currentY);
+      const rawW = Math.abs(dragBox.currentX - dragBox.startX);
+      const rawH = Math.abs(dragBox.currentY - dragBox.startY);
 
-    if (currentStroke.length >= 2) {
-      const newStroke: StrokeAction = {
-        type: 'stroke',
-        color: activeColor,
-        width: 4,
-        points: currentStroke,
-      };
-      setActions((prev) => [...prev, newStroke]);
-      setRedoStack([]); // clear redo stack on new action
-    }
-    setCurrentStroke([]);
-  };
+      // If user merely tapped/clicked without significant drag, give a nice default size
+      const width = rawW < 0.04 ? 0.35 : Math.max(0.18, rawW);
+      const height = rawH < 0.04 ? 0.12 : Math.max(0.08, rawH);
 
-  const commitCurrentText = () => {
-    if (editingText && editingText.text.trim()) {
+      const newId = Date.now().toString();
       const newTextAction: TextAction = {
-        id: editingText.id,
+        id: newId,
         type: 'text',
-        text: editingText.text.trim(),
-        x: editingText.x,
-        y: editingText.y,
-        color: editingText.color,
+        text: '',
+        x,
+        y,
+        width,
+        height,
+        color: activeColor,
         fontSize: 24,
+        fontFamily: 'sans',
+        bold: false,
+        italic: false,
+        align: 'left',
+        hasBackground: false,
       };
+
       setActions((prev) => [...prev, newTextAction]);
       setRedoStack([]);
+      setSelectedTextId(newId);
+      setDragBox(null);
+
+      setTimeout(() => {
+        if (textareaRefs.current[newId]) {
+          textareaRefs.current[newId]?.focus();
+        }
+      }, 50);
     }
-    setEditingText(null);
   };
 
   const handleUndo = () => {
-    commitCurrentText();
     if (actions.length === 0) return;
     const last = actions[actions.length - 1];
     setActions((prev) => prev.slice(0, -1));
     setRedoStack((prev) => [...prev, last]);
+    if (last.type === 'text' && last.id === selectedTextId) {
+      setSelectedTextId(null);
+    }
   };
 
   const handleRedo = () => {
-    commitCurrentText();
     if (redoStack.length === 0) return;
     const last = redoStack[redoStack.length - 1];
     setRedoStack((prev) => prev.slice(0, -1));
     setActions((prev) => [...prev, last]);
   };
 
+  // Repositioning an existing text box by dragging its handle
+  const handleDragTextItem = (e: React.PointerEvent, textItem: TextAction) => {
+    e.stopPropagation();
+    const startClientX = e.clientX;
+    const startClientY = e.clientY;
+    const initialItemX = textItem.x;
+    const initialItemY = textItem.y;
+
+    const img = imageRef.current;
+    if (!img) return;
+    const rect = img.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const onPointerMove = (ev: PointerEvent) => {
+      const deltaX = (ev.clientX - startClientX) / rect.width;
+      const deltaY = (ev.clientY - startClientY) / rect.height;
+      const newX = Math.max(0, Math.min(1 - textItem.width, initialItemX + deltaX));
+      const newY = Math.max(0, Math.min(1 - textItem.height, initialItemY + deltaY));
+      updateSelectedText({ x: newX, y: newY });
+    };
+
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  };
+
   // Generate exported composite image (original image + sketches + text)
   const generateExportBlob = async (): Promise<Blob | null> => {
-    commitCurrentText();
     const img = imageRef.current;
     if (!img) return null;
 
@@ -369,10 +455,10 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
     // Draw background original image
     ctx.drawImage(img, 0, 0, width, height);
 
-    // Scaling factor for stroke width and font size
+    // Scaling factor for strokes and fonts
     const scaleRatio = Math.max(1, width / 700);
 
-    // Draw actions
+    // 1. Draw strokes
     for (const action of actions) {
       if (action.type === 'stroke') {
         if (action.points.length < 2) continue;
@@ -387,13 +473,79 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
           ctx.lineTo(action.points[i].x * width, action.points[i].y * height);
         }
         ctx.stroke();
-      } else if (action.type === 'text') {
+      }
+    }
+
+    // 2. Draw text actions
+    for (const action of actions) {
+      if (action.type === 'text' && action.text.trim()) {
         const scaledFontSize = Math.round(action.fontSize * scaleRatio);
-        ctx.font = `bold ${scaledFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        const fontFamilies = {
+          sans: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          serif: 'Georgia, Cambria, "Times New Roman", serif',
+          mono: '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace',
+        };
+        const fontFam = fontFamilies[action.fontFamily || 'sans'];
+        const fontStyle = action.italic ? 'italic ' : '';
+        const fontWeight = action.bold ? 'bold ' : 'normal ';
+
+        ctx.font = `${fontStyle}${fontWeight}${scaledFontSize}px ${fontFam}`;
+        ctx.textBaseline = 'top';
+
+        const lines = action.text.split('\n');
+        const lineHeight = scaledFontSize * 1.35;
+        const boxX = action.x * width;
+        const boxY = action.y * height;
+        const boxW = action.width * width;
+
+        // Draw background badge if enabled
+        if (action.hasBackground) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+          const pad = 12 * scaleRatio;
+          const totalH = lines.length * lineHeight + pad * 2;
+          let maxLineW = 0;
+          for (const line of lines) {
+            const m = ctx.measureText(line);
+            if (m.width > maxLineW) maxLineW = m.width;
+          }
+          const badgeW = Math.max(boxW, maxLineW + pad * 2);
+          const rad = 10 * scaleRatio;
+          ctx.beginPath();
+          if ('roundRect' in ctx) {
+            (ctx as unknown as { roundRect: (...a: number[]) => void }).roundRect(
+              boxX - pad / 2,
+              boxY - pad / 2,
+              badgeW,
+              totalH,
+              rad
+            );
+          } else {
+            ctx.rect(boxX - pad / 2, boxY - pad / 2, badgeW, totalH);
+          }
+          ctx.fill();
+          ctx.restore();
+        }
+
         ctx.fillStyle = action.color;
-        ctx.shadowColor = 'rgba(0,0,0,0.85)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
         ctx.shadowBlur = 6 * scaleRatio;
-        ctx.fillText(action.text, action.x * width, action.y * height);
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          let drawX = boxX;
+          if (action.align === 'center') {
+            ctx.textAlign = 'center';
+            drawX = boxX + boxW / 2;
+          } else if (action.align === 'right') {
+            ctx.textAlign = 'right';
+            drawX = boxX + boxW;
+          } else {
+            ctx.textAlign = 'left';
+            drawX = boxX;
+          }
+          ctx.fillText(line, drawX, boxY + i * lineHeight);
+        }
         ctx.shadowBlur = 0;
       }
     }
@@ -405,6 +557,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
 
   // Actions: Download
   const handleDownload = async () => {
+    setSelectedTextId(null);
     const blob = await generateExportBlob();
     if (!blob) return;
     const url = URL.createObjectURL(blob);
@@ -418,6 +571,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
 
   // Actions: Copy
   const handleCopy = async () => {
+    setSelectedTextId(null);
     const blob = await generateExportBlob();
     if (!blob) return;
     try {
@@ -440,6 +594,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
 
   // Actions: Share
   const handleShare = async () => {
+    setSelectedTextId(null);
     const blob = await generateExportBlob();
     if (!blob) return;
     try {
@@ -481,9 +636,8 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className="fixed inset-0 z-[99999] bg-[#16171b] flex flex-col justify-between select-none overflow-hidden"
-          onClick={(e) => {
-            // Click outside image canvas commits text
-            commitCurrentText();
+          onClick={() => {
+            setSelectedTextId(null);
           }}
         >
           {/* Top Bar: Back arrow on left, Action buttons on right */}
@@ -586,7 +740,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
             )}
           </AnimatePresence>
 
-          {/* Center Image Viewport with Drawing Canvas */}
+          {/* Center Image Viewport with Drawing Canvas and Interactive Text Boxes */}
           <div
             ref={containerRef}
             className="flex-1 flex items-center justify-center w-full min-h-0 px-4 py-2 overflow-hidden relative"
@@ -616,7 +770,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 stiffness: 300,
                 mass: 0.8,
               }}
-              className="relative max-w-full max-h-full flex items-center justify-center select-none shadow-2xl rounded-2xl overflow-hidden border border-white/10 bg-black/40"
+              className="relative max-w-full max-h-full flex items-center justify-center select-none shadow-2xl rounded-2xl overflow-visible border border-white/10 bg-black/40"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Underlying Image */}
@@ -626,7 +780,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 alt={fileName}
                 crossOrigin="anonymous"
                 onLoad={syncCanvasSize}
-                className="max-w-[85vw] max-h-[68vh] object-contain block select-none pointer-events-none"
+                className="max-w-[85vw] max-h-[68vh] object-contain block select-none pointer-events-none rounded-2xl"
               />
 
               {/* Drawing / Interaction Canvas Overlay */}
@@ -636,40 +790,255 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerLeave={handlePointerUp}
-                className={`absolute inset-0 z-10 touch-none ${
-                  activeTool === 'sketch' ? 'cursor-crosshair' : 'cursor-text'
+                className={`absolute inset-0 z-10 touch-none rounded-2xl ${
+                  activeTool === 'sketch'
+                    ? 'cursor-crosshair'
+                    : 'cursor-crosshair'
                 }`}
               />
 
-              {/* Live Text Editing Box */}
-              {editingText && canvasRef.current && (
+              {/* Dragging Selection Box Indicator when creating a text box */}
+              {dragBox && (
                 <div
                   style={{
                     position: 'absolute',
-                    left: `${editingText.x * 100}%`,
-                    top: `${editingText.y * 100}%`,
-                    transform: 'translate(-4px, -18px)',
-                    zIndex: 20,
+                    left: `${Math.min(dragBox.startX, dragBox.currentX) * 100}%`,
+                    top: `${Math.min(dragBox.startY, dragBox.currentY) * 100}%`,
+                    width: `${Math.abs(dragBox.currentX - dragBox.startX) * 100}%`,
+                    height: `${Math.abs(dragBox.currentY - dragBox.startY) * 100}%`,
+                    zIndex: 25,
                   }}
-                  onClick={(e) => e.stopPropagation()}
+                  className="border-2 border-dashed border-[#00b0ff] bg-[#00b0ff]/15 rounded-xl pointer-events-none flex items-center justify-center"
                 >
-                  <input
-                    ref={textInputRef}
-                    type="text"
-                    value={editingText.text}
-                    placeholder="Type text..."
-                    onChange={(e) => setEditingText({ ...editingText, text: e.target.value })}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        commitCurrentText();
-                      }
-                    }}
-                    onBlur={commitCurrentText}
-                    style={{ color: editingText.color }}
-                    className="bg-black/60 backdrop-blur-xs px-2.5 py-1 rounded-lg text-lg font-bold border border-white/20 outline-none shadow-lg min-w-[120px]"
-                  />
+                  <span className="text-[11px] font-medium text-white/90 bg-black/60 px-2 py-0.5 rounded-md backdrop-blur-xs">
+                    Drag to size text
+                  </span>
                 </div>
               )}
+
+              {/* Render All Text Elements Over Image */}
+              {actions
+                .filter((a): a is TextAction => a.type === 'text')
+                .map((textItem) => {
+                  const isSelected = textItem.id === selectedTextId;
+                  const fontFamilies = {
+                    sans: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    serif: 'Georgia, Cambria, "Times New Roman", serif',
+                    mono: '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace',
+                  };
+
+                  return (
+                    <div
+                      key={textItem.id}
+                      style={{
+                        position: 'absolute',
+                        left: `${textItem.x * 100}%`,
+                        top: `${textItem.y * 100}%`,
+                        width: `${textItem.width * 100}%`,
+                        minHeight: `${textItem.height * 100}%`,
+                        zIndex: isSelected ? 30 : 20,
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveTool('text');
+                        setSelectedTextId(textItem.id);
+                      }}
+                      className={`group transition-all ${
+                        isSelected
+                          ? 'ring-2 ring-[#00b0ff] rounded-xl'
+                          : 'hover:ring-1 hover:ring-white/40 rounded-xl'
+                      }`}
+                    >
+                      {/* Floating Rich Formatting Toolbar above active text box */}
+                      {isSelected && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute -top-12 left-0 flex items-center gap-1 p-1 bg-[#1e2029]/95 backdrop-blur-md rounded-xl border border-white/20 shadow-2xl z-40 text-white whitespace-nowrap"
+                        >
+                          {/* Drag Handle to Reposition */}
+                          <div
+                            onPointerDown={(e) => handleDragTextItem(e, textItem)}
+                            className="px-1.5 py-1 text-gray-400 hover:text-white cursor-grab active:cursor-grabbing rounded"
+                            title="Drag to reposition text"
+                          >
+                            <Move className="w-3.5 h-3.5" />
+                          </div>
+
+                          <div className="w-px h-4 bg-white/15 mx-0.5" />
+
+                          {/* Bold Toggle */}
+                          <button
+                            type="button"
+                            onClick={() => updateSelectedText({ bold: !textItem.bold })}
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                              textItem.bold
+                                ? 'bg-white text-black font-black'
+                                : 'hover:bg-white/10 text-gray-200'
+                            }`}
+                            title="Bold"
+                          >
+                            <Bold className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Italic Toggle */}
+                          <button
+                            type="button"
+                            onClick={() => updateSelectedText({ italic: !textItem.italic })}
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                              textItem.italic
+                                ? 'bg-white text-black font-bold'
+                                : 'hover:bg-white/10 text-gray-200'
+                            }`}
+                            title="Italic"
+                          >
+                            <Italic className="w-3.5 h-3.5" />
+                          </button>
+
+                          <div className="w-px h-4 bg-white/15 mx-0.5" />
+
+                          {/* Font Size Decrement */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateSelectedText({ fontSize: Math.max(12, textItem.fontSize - 4) })
+                            }
+                            className="w-6 h-6 rounded-md hover:bg-white/10 flex items-center justify-center text-gray-300 cursor-pointer"
+                            title="Smaller text"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-[11px] font-mono font-semibold px-1 min-w-[20px] text-center text-white">
+                            {textItem.fontSize}
+                          </span>
+                          {/* Font Size Increment */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateSelectedText({ fontSize: Math.min(72, textItem.fontSize + 4) })
+                            }
+                            className="w-6 h-6 rounded-md hover:bg-white/10 flex items-center justify-center text-gray-300 cursor-pointer"
+                            title="Larger text"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+
+                          <div className="w-px h-4 bg-white/15 mx-0.5" />
+
+                          {/* Font Family Cycle */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const fams: ('sans' | 'serif' | 'mono')[] = ['sans', 'serif', 'mono'];
+                              const next = (fams.indexOf(textItem.fontFamily) + 1) % fams.length;
+                              updateSelectedText({ fontFamily: fams[next] });
+                            }}
+                            className="px-2 h-7 rounded-lg hover:bg-white/10 text-[11px] font-medium text-gray-200 flex items-center gap-1 capitalize cursor-pointer"
+                            title="Change font family"
+                          >
+                            <span>{textItem.fontFamily}</span>
+                          </button>
+
+                          <div className="w-px h-4 bg-white/15 mx-0.5" />
+
+                          {/* Alignment Cycle */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const aligns: ('left' | 'center' | 'right')[] = [
+                                'left',
+                                'center',
+                                'right',
+                              ];
+                              const next = (aligns.indexOf(textItem.align) + 1) % aligns.length;
+                              updateSelectedText({ align: aligns[next] });
+                            }}
+                            className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-gray-200 cursor-pointer"
+                            title="Text alignment"
+                          >
+                            {textItem.align === 'center' ? (
+                              <AlignCenter className="w-3.5 h-3.5" />
+                            ) : textItem.align === 'right' ? (
+                              <AlignRight className="w-3.5 h-3.5" />
+                            ) : (
+                              <AlignLeft className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+
+                          {/* Background Badge Toggle */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateSelectedText({ hasBackground: !textItem.hasBackground })
+                            }
+                            className={`px-2 h-7 rounded-lg flex items-center justify-center text-[11px] font-medium transition-colors cursor-pointer ${
+                              textItem.hasBackground
+                                ? 'bg-white text-black font-semibold'
+                                : 'hover:bg-white/10 text-gray-200'
+                            }`}
+                            title="Toggle background badge"
+                          >
+                            Badge
+                          </button>
+
+                          <div className="w-px h-4 bg-white/15 mx-0.5" />
+
+                          {/* Delete Text */}
+                          <button
+                            type="button"
+                            onClick={deleteSelectedText}
+                            className="w-7 h-7 rounded-lg hover:bg-red-500/20 text-red-400 hover:text-red-300 flex items-center justify-center cursor-pointer"
+                            title="Delete text"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Done / Checkmark */}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTextId(null)}
+                            className="w-7 h-7 rounded-lg hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 flex items-center justify-center cursor-pointer"
+                            title="Done editing"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Text Input / Display Area */}
+                      <textarea
+                        ref={(el) => {
+                          textareaRefs.current[textItem.id] = el;
+                        }}
+                        value={textItem.text}
+                        placeholder={isSelected ? 'Type text...' : ''}
+                        onChange={(e) => updateSelectedText({ text: e.target.value })}
+                        onFocus={() => {
+                          setActiveTool('text');
+                          setSelectedTextId(textItem.id);
+                        }}
+                        style={{
+                          color: textItem.color,
+                          fontSize: `${textItem.fontSize}px`,
+                          fontFamily: fontFamilies[textItem.fontFamily || 'sans'],
+                          fontWeight: textItem.bold ? 'bold' : 'normal',
+                          fontStyle: textItem.italic ? 'italic' : 'normal',
+                          textAlign: textItem.align || 'left',
+                          backgroundColor: textItem.hasBackground
+                            ? 'rgba(0, 0, 0, 0.7)'
+                            : isSelected
+                            ? 'rgba(0, 0, 0, 0.4)'
+                            : 'transparent',
+                          textShadow: '0 2px 8px rgba(0,0,0,0.9)',
+                        }}
+                        className={`w-full h-full min-h-[44px] p-2 resize-none outline-none rounded-xl leading-snug transition-all ${
+                          isSelected
+                            ? 'border border-[#00b0ff]/60 shadow-lg'
+                            : 'border border-transparent'
+                        }`}
+                      />
+                    </div>
+                  );
+                })}
             </motion.div>
           </div>
 
@@ -686,7 +1055,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                   <button
                     key={col}
                     type="button"
-                    onClick={() => setActiveColor(col)}
+                    onClick={() => handleColorChange(col)}
                     aria-label={`Color ${col}`}
                     style={{ backgroundColor: col }}
                     className={`w-6 h-6 rounded-full transition-all duration-150 cursor-pointer ${
@@ -708,7 +1077,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    commitCurrentText();
+                    setSelectedTextId(null);
                     setActiveTool('sketch');
                   }}
                   className={`w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer ${
@@ -728,7 +1097,6 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    commitCurrentText();
                     setActiveTool('text');
                   }}
                   className={`w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer ${
@@ -736,7 +1104,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                       ? 'bg-white text-black shadow-lg scale-105'
                       : 'bg-white/10 text-white/90 hover:bg-white/15'
                   }`}
-                  title="Add Text"
+                  title="Add / Drag Text Area"
                 >
                   <TextFrameIcon className="w-5 h-5" />
                 </button>
