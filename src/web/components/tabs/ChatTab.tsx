@@ -2752,7 +2752,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
             layers={8}
             curve="linear"
             exponential
-            tint={isDarkTheme ? 'rgba(18, 15, 23, 0.6)' : 'rgba(247, 247, 250, 0.6)'}
+            tint="transparent"
             autoHide
             target="parent"
             container="#grokki-chat-scroll"
@@ -2770,7 +2770,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
             layers={8}
             curve="linear"
             exponential
-            tint={isDarkTheme ? 'rgba(18, 15, 23, 0.6)' : 'rgba(247, 247, 250, 0.6)'}
+            tint="transparent"
             autoHide
             target="parent"
             container="#grokki-chat-scroll"
@@ -2784,7 +2784,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
       {/* Pinned Bottom Input Bar */}
       {messages.length > 0 && (
-        <div className="w-full pt-2.5 bg-gradient-to-t from-[#f7f7fa] dark:from-[#0c0d12] to-transparent">
+        <div className="w-full pt-2.5 bg-transparent">
           {/* Staged File Preview Card */}
           {attachedFile && (
             <div className="w-full max-w-xl mx-auto mb-2 p-2.5 bg-white/95 dark:bg-[#14161e]/95 backdrop-blur-md border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-xs flex items-center justify-between text-left transition-all">
