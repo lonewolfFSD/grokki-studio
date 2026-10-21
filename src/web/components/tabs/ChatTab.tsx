@@ -2373,16 +2373,16 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   >
                     <button
                       type="button"
-                      aria-label="Toggle Web Search Grounding"
+                      aria-label="Toggle Deep Search"
                       onClick={() => setWebSearchEnabled((prev) => !prev)}
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all cursor-pointer border select-none ${
                         webSearchEnabled
-                          ? 'bg-sky-500/15 text-sky-400 border-sky-500/35 shadow-xs font-semibold'
-                          : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:bg-gray-100 dark:hover:bg-white/5'
+                          ? 'bg-sky-500/15 text-sky-400 border-sky-500/40 shadow-xs font-semibold'
+                          : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
                       }`}
                     >
-                      <Globe className="w-3.5 h-3.5 shrink-0" />
-                      <span>Search</span>
+                      <Globe className={`w-3.5 h-3.5 shrink-0 ${webSearchEnabled ? 'text-sky-400' : 'text-gray-400'}`} />
+                      <span>Deep Search</span>
                     </button>
                   </WarmTooltip>
                 </div>
@@ -2863,6 +2863,36 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
                   {/* AI Brain Model Selector Dropdown below the input next to plus */}
                   {renderModelSelector('top', 'left')}
+
+                  {/* Deep Search Button in Bottom Floating Bar */}
+                  <WarmTooltip
+                    content={webSearchEnabled ? 'Deep Search: ON (Perplexity live grounding)' : 'Deep Search: OFF (Click to enable live web search)'}
+                    side="top"
+                    surfaceColor="#f5f5f5"
+                    inkColor="#18181b"
+                    size="md"
+                    radius={8}
+                    gap={8}
+                    arrow
+                    popDuration={160}
+                    popScale={0.94}
+                    popBlur={4}
+                    showFuse={false}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Toggle Deep Search"
+                      onClick={() => setWebSearchEnabled((prev) => !prev)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all cursor-pointer border select-none ${
+                        webSearchEnabled
+                          ? 'bg-sky-500/15 text-sky-400 border-sky-500/40 shadow-xs font-semibold'
+                          : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      <Globe className={`w-3.5 h-3.5 shrink-0 ${webSearchEnabled ? 'text-sky-400' : 'text-gray-400'}`} />
+                      <span>Deep Search</span>
+                    </button>
+                  </WarmTooltip>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">

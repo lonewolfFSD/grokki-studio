@@ -21,6 +21,20 @@ const googleWorkspace = require('./google_workspace');
 const { convertGeminiToolsToOpenAI, callOpenAICompatible, transcribeWithGroqWhisper } = require('./ai_providers');
 const studyEngine = require('./study_engine');
 const powerTools = require('./power_tools');
+function shouldAutoSearchWeb(prompt = '') {
+  if (!prompt || typeof prompt !== 'string') return false;
+  const p = prompt.toLowerCase();
+  // Explicit web search keywords
+  if (/\b(search\s+(the\s+)?web|google|deep\s+search|web\s+search|live\s+search|browse\s+web)\b/i.test(p)) return true;
+  // News and real-time current events
+  if (/\b(current\s+news|today'?s\s+news|latest\s+news|breaking\s+news|recent\s+news|today'?s\s+weather|weather\s+today)\b/i.test(p)) return true;
+  // Year-based queries for 2024-2029 (knowledge cutoff evasion)
+  if (/\b(202[4-9]|203\d)\b/.test(p)) return true;
+  // High-frequency factual questions: who won, who is the current, winner of, stock price of, nobel prize, etc.
+  if (/\b(who\s+won|who\s+is\s+the\s+current|winner\s+of|champions?\s+of|score\s+of|release\s+date\s+of|when\s+is\s+the\s+next|price\s+of|nobel\s+prize)\b/i.test(p)) return true;
+  return false;
+}
+
 const { searchWeb, buildGroundingPrompt } = require('./web_search');
 
 function resolveOpenAIEndpointAndKey(provider, config = {}) {
@@ -1395,7 +1409,7 @@ class AgentBrain {
     let groundingSources = [];
     const isWebSearchActive = Boolean(
       context && (context.webSearch || context.webSearchEnabled) ||
-      /\b(search\s+(the\s+)?web|current\s+news|today'?s\s+news|latest\s+news|live\s+search)\b/i.test(prompt || '')
+      shouldAutoSearchWeb(prompt)
     );
     if (isWebSearchActive) {
       try {
@@ -1632,7 +1646,7 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
     let groundingSources = [];
     const isWebSearchActive = Boolean(
       context && (context.webSearch || context.webSearchEnabled) ||
-      /\b(search\s+(the\s+)?web|current\s+news|today'?s\s+news|latest\s+news|live\s+search)\b/i.test(prompt || '')
+      shouldAutoSearchWeb(prompt)
     );
     if (isWebSearchActive) {
       try {
