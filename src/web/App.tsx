@@ -67,6 +67,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
   hardwareAcceleration: true,
   chatBackgroundGradient: true,
   glowCursorEnabled: true,
+  smoothCursorEnabled: true,
   smoothScroll: true,
   smoothScrollIntensity: 5,
 };

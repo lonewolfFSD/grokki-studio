@@ -71,6 +71,7 @@ export interface JarvisConfig {
   hardwareAcceleration?: boolean;
   chatBackgroundGradient?: boolean;
   glowCursorEnabled?: boolean;
+  smoothCursorEnabled?: boolean;
   smoothScroll?: boolean;
   smoothScrollIntensity?: number;
   notionApiKey?: string;

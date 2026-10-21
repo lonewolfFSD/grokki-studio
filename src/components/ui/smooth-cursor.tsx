@@ -211,6 +211,7 @@ export function SmoothCursor({
       })
     }
 
+    document.documentElement.classList.add("custom-cursor")
     document.body.style.cursor = "none"
     window.addEventListener("pointermove", throttledPointerMove, {
       passive: true,
@@ -218,6 +219,7 @@ export function SmoothCursor({
 
     return () => {
       window.removeEventListener("pointermove", throttledPointerMove)
+      document.documentElement.classList.remove("custom-cursor")
       document.body.style.cursor = "auto"
       if (rafId) cancelAnimationFrame(rafId)
       if (timeout !== null) {

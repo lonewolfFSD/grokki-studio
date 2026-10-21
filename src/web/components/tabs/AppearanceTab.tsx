@@ -126,6 +126,33 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
       </div>
 
       
+      {/* Smooth Physics Custom Cursor */}
+      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl px-5 py-4 flex items-center justify-between shadow-xs">
+        <div>
+          <strong className="block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+            Smooth Animated Cursor
+          </strong>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            Physics-based custom cursor with directional rotation and spring inertia. Turn off for default OS pointer.
+          </span>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={config.smoothCursorEnabled !== false}
+          onClick={() => onChangeConfig({ smoothCursorEnabled: config.smoothCursorEnabled === false })}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-none p-0.5 transition-colors duration-200 ${
+            config.smoothCursorEnabled !== false ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-[#2a2d3a]'
+          }`}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-black shadow-sm transition-transform duration-200 ${
+              config.smoothCursorEnabled !== false ? 'translate-x-5' : 'translate-x-0'
+            }`}
+          />
+        </button>
+      </div>
+
       {/* Fluid Glow Cursor Trail */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl px-5 py-4 flex items-center justify-between shadow-xs">
         <div>
