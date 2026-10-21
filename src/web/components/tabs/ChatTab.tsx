@@ -2866,7 +2866,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
                   {/* Deep Search Button in Bottom Floating Bar */}
                   <WarmTooltip
-                    content={webSearchEnabled ? 'Deep Search: ON (Perplexity live grounding)' : 'Deep Search: OFF (Click to enable live web search)'}
+                    content={webSearchEnabled ? 'Deep Search: ON (Live grounding)' : 'Deep Search: OFF (Click to enable live web search)'}
                     side="top"
                     surfaceColor="#f5f5f5"
                     inkColor="#18181b"
@@ -2883,7 +2883,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                       type="button"
                       aria-label="Toggle Deep Search"
                       onClick={() => setWebSearchEnabled((prev) => !prev)}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all cursor-pointer border select-none ${
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-[11px] font-mono transition-all cursor-pointer border select-none ${
                         webSearchEnabled
                           ? 'bg-sky-500/15 text-sky-400 border-sky-500/40 shadow-xs font-semibold'
                           : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'

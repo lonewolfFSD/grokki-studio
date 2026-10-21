@@ -23,15 +23,17 @@ const studyEngine = require('./study_engine');
 const powerTools = require('./power_tools');
 function shouldAutoSearchWeb(prompt = '') {
   if (!prompt || typeof prompt !== 'string') return false;
-  const p = prompt.toLowerCase();
+  const p = prompt.toLowerCase().trim();
   // Explicit web search keywords
   if (/\b(search\s+(the\s+)?web|google|deep\s+search|web\s+search|live\s+search|browse\s+web)\b/i.test(p)) return true;
-  // News and real-time current events
-  if (/\b(current\s+news|today'?s\s+news|latest\s+news|breaking\s+news|recent\s+news|today'?s\s+weather|weather\s+today)\b/i.test(p)) return true;
+  // Current events, protests, conflicts, happenings
+  if (/\b(what('?s|\s+is)\s+(the\s+)?(protest|protests|strike|war|conflict|situation|news|happening|going\s+on))\b/i.test(p)) return true;
+  if (/\b(going\s+on\s+in|happening\s+in|protests?\s+in)\b/i.test(p)) return true;
+  if (/\b(right\s+now|currently|current\s+news|today'?s\s+news|latest\s+news|breaking\s+news|recent\s+news)\b/i.test(p)) return true;
   // Year-based queries for 2024-2029 (knowledge cutoff evasion)
   if (/\b(202[4-9]|203\d)\b/.test(p)) return true;
-  // High-frequency factual questions: who won, who is the current, winner of, stock price of, nobel prize, etc.
-  if (/\b(who\s+won|who\s+is\s+the\s+current|winner\s+of|champions?\s+of|score\s+of|release\s+date\s+of|when\s+is\s+the\s+next|price\s+of|nobel\s+prize)\b/i.test(p)) return true;
+  // High-frequency factual questions: who won, who is the current, winner of, stock price of, etc.
+  if (/\b(who\s+won|who\s+is\s+the\s+current|winner\s+of|champions?\s+of|score\s+of|release\s+date\s+of|when\s+is\s+the\s+next|price\s+of|nobel\s+prize|election|president\s+of|ceo\s+of)\b/i.test(p)) return true;
   return false;
 }
 
@@ -325,7 +327,7 @@ class AgentBrain {
           },
           {
             name: 'read_screen_and_act',
-            description: 'Takes a screenshot of the user monitor and uses AI vision to see what is currently open on their screen (open windows, apps, YouTube videos, active website, or errors)',
+            description: 'ONLY use this tool when the user EXPLICITLY asks to look at their computer monitor or desktop screen (e.g. "look at my screen", "what is on my screen", "read my screen"). NEVER call this tool for world events, news, politics, or general knowledge questions!',
             parameters: {
               type: 'OBJECT',
               properties: {
@@ -1341,7 +1343,7 @@ class AgentBrain {
       endpoint = 'https://api.groq.com/openai/v1';
       apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
       model = config.groqModel || 'llama-3.3-70b-versatile';
-      modelCandidates = Array.from(new Set([model, 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant']));
+      modelCandidates = Array.from(new Set([model, 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b']));
     } else if (provider === 'ollama') {
       const base = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
       endpoint = `${base}/v1`;
@@ -1455,7 +1457,8 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
       }
     }
 
-    const tools = convertGeminiToolsToOpenAI(this.getToolsDeclaration());
+    // When Deep Search / Live Grounding is active, omit desktop tools so model synthesizes search results
+    const tools = isWebSearchActive ? undefined : convertGeminiToolsToOpenAI(this.getToolsDeclaration());
 
     try {
       if (signal.aborted) throw new Error('TASK_CANCELLED');
@@ -1661,7 +1664,8 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
     }
 
     const ai = new GoogleGenAI({ apiKey });
-    const tools = this.getToolsDeclaration();
+    // When Deep Search / Live Grounding is active, omit desktop tools so Gemini synthesizes search results
+    const tools = isWebSearchActive ? undefined : this.getToolsDeclaration();
     const systemInstruction = memory.buildSystemPrompt(config);
 
     memory.addTurn('user', fullPrompt);
