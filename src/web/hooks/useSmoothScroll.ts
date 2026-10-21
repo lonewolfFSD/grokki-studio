@@ -45,18 +45,18 @@ export function useSmoothScroll(enabled: boolean = true, intensity: number = 5) 
         return;
       }
 
-      // Intensity scale (1 = snappy/fast, 10 = ultra smooth/cinematic)
-      // Range: 0.55 (level 1) down to 0.16 (level 10). Default level 5 is 0.38 (snappy & fluid)
+      // Snappy responsiveness: Level 1 = 0.75 (almost instant), Level 5 = 0.50 (crisp glide), Level 10 = 0.25 (soft float)
       const currentIntensity = Math.max(1, Math.min(10, intensityRef.current || 5));
-      const lerpFactor = 0.60 - (currentIntensity / 10) * 0.44;
+      const lerpFactor = 0.80 - (currentIntensity / 10) * 0.55;
 
       currentTarget.scrollTop = current + diff * lerpFactor;
       animId = requestAnimationFrame(smoothStep);
     };
 
     const handleWheel = (e: WheelEvent) => {
-      // Don't interfere if user is using pinch-zoom or horizontal trackpad gestures
+      // Don't interfere if user is pinch-zooming, horizontal scrolling, or on a precision trackpad (fractional delta)
       if (e.ctrlKey || Math.abs(e.deltaY) < 1) return;
+      if (e.deltaMode === 0 && e.deltaY % 1 !== 0) return; // Native trackpad gesture
 
       const targetEl = getScrollParent(e.target as HTMLElement);
       if (!targetEl) return;
@@ -66,6 +66,20 @@ export function useSmoothScroll(enabled: boolean = true, intensity: number = 5) 
 
       if (!canScrollDown && !canScrollUp) return;
 
+      // Normalize delta into standard comfortable pixel scroll distance (100–120px per wheel click)
+      let delta = e.deltaY;
+      if (e.deltaMode === 1) {
+        // DOM_DELTA_LINE: Windows notched mouse wheel (e.g. deltaY = 3 lines).
+        // 3 lines * 36px = 108px per notch!
+        delta = e.deltaY * 36;
+      } else if (e.deltaMode === 2) {
+        // DOM_DELTA_PAGE
+        delta = e.deltaY * targetEl.clientHeight;
+      } else if (Math.abs(delta) < 40) {
+        // Small pixel increments (some mice report 10-20px), scale to standard comfortable notch
+        delta = Math.sign(delta) * Math.max(80, Math.abs(delta) * 3);
+      }
+
       e.preventDefault();
 
       if (currentTarget !== targetEl) {
@@ -74,7 +88,7 @@ export function useSmoothScroll(enabled: boolean = true, intensity: number = 5) 
       }
 
       const maxScroll = targetEl.scrollHeight - targetEl.clientHeight;
-      targetScrollTop = Math.max(0, Math.min(maxScroll, targetScrollTop + e.deltaY));
+      targetScrollTop = Math.max(0, Math.min(maxScroll, targetScrollTop + delta));
 
       if (animId === null) {
         animId = requestAnimationFrame(smoothStep);
