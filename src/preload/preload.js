@@ -44,6 +44,7 @@ try {
     },
 
     saveTempFile: (fileData) => ipcRenderer.invoke('jarvis:save-temp-file', fileData),
+    readImageDataUrl: (filePath) => ipcRenderer.invoke('jarvis:read-image-data-url', filePath),
 
     // Desktop Automation & Vision Tools
     openApp: (appName) => ipcRenderer.invoke('jarvis:open-app', appName),

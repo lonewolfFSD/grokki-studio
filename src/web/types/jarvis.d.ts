@@ -188,6 +188,7 @@ export interface AttachedFileInfo {
   size?: number;
   ext?: string;
   category?: 'document' | 'photo' | 'video' | 'camera' | 'audio';
+  previewUrl?: string;
 }
 
 export interface ChatMessage {

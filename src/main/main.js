@@ -736,6 +736,30 @@ ipcMain.handle('jarvis:write-file', async (event, { filename, content, openInEdi
   }
 });
 
+ipcMain.handle('jarvis:read-image-data-url', async (event, filePath) => {
+  try {
+    if (!filePath || typeof filePath !== 'string') return null;
+    const resolvedPath = path.resolve(filePath);
+    if (!fs.existsSync(resolvedPath)) return null;
+    const ext = path.extname(resolvedPath).toLowerCase();
+    const mimeMap = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.webp': 'image/webp',
+      '.gif': 'image/gif',
+      '.bmp': 'image/bmp',
+      '.svg': 'image/svg+xml',
+    };
+    const mime = mimeMap[ext] || 'image/jpeg';
+    const buffer = fs.readFileSync(resolvedPath);
+    return `data:${mime};base64,${buffer.toString('base64')}`;
+  } catch (err) {
+    console.warn('[main] Failed to read image data URL:', err.message);
+    return null;
+  }
+});
+
 ipcMain.handle('jarvis:open-url', async (event, url) => {
   if (!url || typeof url !== 'string') {
     return { success: false, error: 'Invalid URL parameter' };

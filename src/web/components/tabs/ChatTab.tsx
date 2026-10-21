@@ -39,6 +39,8 @@ import WarmTooltip, { WarmTooltipGroup } from '../WarmTooltip';
 import { getEffectiveHotkeys, matchesHotkey } from '../../utils/hotkeys';
 
 import grokkiIcon from '../../assets/grokki_icon.svg';
+import { ImageLightboxModal } from '../ImageLightboxModal';
+import { ChatImageAttachment, isImageAttachment } from '../ChatImageAttachment';
 
 const GRADIENT_ASCII_COLORS = ['#23378e', '#f6f8ff', '#a5d8ff', '#38bdf8'];
 
@@ -949,6 +951,27 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }
   }, [messages, loading, scrollToBottom]);
 
+  // Big-Scale Image Lightbox Zoom Modal State
+  const [lightboxState, setLightboxState] = useState<{
+    isOpen: boolean;
+    src: string;
+    name: string;
+    size?: number;
+    path?: string;
+  }>({
+    isOpen: false,
+    src: '',
+    name: '',
+  });
+
+  const openLightbox = (src: string, name: string, size?: number, path?: string) => {
+    setLightboxState({ isOpen: true, src, name, size, path });
+  };
+
+  const closeLightbox = () => {
+    setLightboxState((prev) => ({ ...prev, isOpen: false }));
+  };
+
   // WhatsApp-style Attachment Menu & Camera Capture State
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [activeAttachCategory, setActiveAttachCategory] = useState<'document' | 'photo' | 'video' | 'audio'>('document');
@@ -1088,6 +1111,50 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }, 20);
   };
 
+
+  const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf('image') !== -1) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          const fileName = `Pasted_Image_${Date.now()}.png`;
+          const previewUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve((reader.result as string) || '');
+            reader.onerror = () => resolve('');
+            reader.readAsDataURL(file);
+          });
+
+          let localPath = '';
+          if (window.jarvisAPI?.saveTempFile) {
+            try {
+              const buf = await file.arrayBuffer();
+              const saved = await window.jarvisAPI.saveTempFile({ name: fileName, buffer: buf });
+              if (saved?.success && saved.path) {
+                localPath = saved.path;
+              }
+            } catch (err) {}
+          }
+
+          setAttachedFile({
+            path: localPath || fileName,
+            name: fileName,
+            size: file.size,
+            ext: '.png',
+            category: 'photo',
+            previewUrl,
+          });
+          return;
+        }
+      }
+    }
+  };
+
   const handleNativeFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1119,12 +1186,25 @@ export const ChatTab = React.memo<ChatTabProps>(({
       ? 'photo'
       : activeAttachCategory;
 
+    let previewUrl: string | undefined = undefined;
+    if (isImg) {
+      try {
+        previewUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve((reader.result as string) || '');
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(file);
+        });
+      } catch (e) {}
+    }
+
     setAttachedFile({
       path: localPath || file.name,
       name: file.name,
       size: file.size,
       ext,
       category: detectedCategory,
+      previewUrl,
     });
     setTimeout(() => inputRef.current?.focus(), 50);
   };
@@ -1851,9 +1931,17 @@ export const ChatTab = React.memo<ChatTabProps>(({
           {attachedFile && (
             <div className="w-full max-w-xl mx-auto mb-3 p-2.5 bg-white/95 dark:bg-[#14161e]/95 backdrop-blur-md border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-xs flex items-center justify-between text-left transition-all">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-gray-900/[0.03] dark:bg-white/[0.035] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.05] dark:border-white/[0.05]">
-                  {getFileIcon(attachedFile.ext)}
-                </div>
+                {isImageAttachment(attachedFile) ? (
+                  <ChatImageAttachment
+                    file={attachedFile}
+                    compact
+                    onZoom={(src, name, size, path) => openLightbox(src, name, size, path)}
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-lg bg-gray-900/[0.03] dark:bg-white/[0.035] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.05] dark:border-white/[0.05]">
+                    {getFileIcon(attachedFile.ext)}
+                  </div>
+                )}
                 <div className="min-w-0">
                   <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
                     {attachedFile.name}
@@ -2075,19 +2163,26 @@ export const ChatTab = React.memo<ChatTabProps>(({
                     /* User Message: Clean Modern Rounded Bubble */
                     <div className="max-w-[75%] bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-sm font-medium leading-relaxed border border-gray-300/80 dark:border-[#1e2029]">
                       {msg.attachedFile && (
-                        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#12141c] border border-gray-200/90 dark:border-white/10 mb-2 text-xs font-mono shadow-2xs">
-                          <div className="w-6 h-6 rounded-md bg-gray-900/[0.03] dark:bg-white/[0.035] border border-gray-900/[0.05] dark:border-white/[0.05] flex items-center justify-center flex-shrink-0">
-                            {getFileIcon(typeof msg.attachedFile === 'string' ? msg.attachedFile : msg.attachedFile.ext)}
-                          </div>
-                          <span className="truncate max-w-[200px] font-semibold text-gray-900 dark:text-gray-100">
-                            {typeof msg.attachedFile === 'string' ? msg.attachedFile.split('\\').pop() : msg.attachedFile.name}
-                          </span>
-                          {typeof msg.attachedFile !== 'string' && msg.attachedFile.size ? (
-                            <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                              ({formatFileSize(msg.attachedFile.size)})
+                        isImageAttachment(msg.attachedFile) ? (
+                          <ChatImageAttachment
+                            file={msg.attachedFile}
+                            onZoom={(src, name, size, path) => openLightbox(src, name, size, path)}
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#12141c] border border-gray-200/90 dark:border-white/10 mb-2 text-xs font-mono shadow-2xs">
+                            <div className="w-6 h-6 rounded-md bg-gray-900/[0.03] dark:bg-white/[0.035] border border-gray-900/[0.05] dark:border-white/[0.05] flex items-center justify-center flex-shrink-0">
+                              {getFileIcon(typeof msg.attachedFile === 'string' ? msg.attachedFile : msg.attachedFile.ext)}
+                            </div>
+                            <span className="truncate max-w-[200px] font-semibold text-gray-900 dark:text-gray-100">
+                              {typeof msg.attachedFile === 'string' ? msg.attachedFile.split('\\').pop() : msg.attachedFile.name}
                             </span>
-                          ) : null}
-                        </div>
+                            {typeof msg.attachedFile !== 'string' && msg.attachedFile.size ? (
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                ({formatFileSize(msg.attachedFile.size)})
+                              </span>
+                            ) : null}
+                          </div>
+                        )
                       )}
                       <p className="whitespace-pre-wrap m-0 leading-relaxed text-[13px]">
                         {msg.content}
@@ -2258,9 +2353,17 @@ export const ChatTab = React.memo<ChatTabProps>(({
           {attachedFile && (
             <div className="w-full max-w-xl mx-auto mb-2 p-2.5 bg-white/95 dark:bg-[#14161e]/95 backdrop-blur-md border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-xs flex items-center justify-between text-left transition-all">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-gray-900/[0.03] dark:bg-white/[0.035] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.05] dark:border-white/[0.05]">
-                  {getFileIcon(attachedFile.ext)}
-                </div>
+                {isImageAttachment(attachedFile) ? (
+                  <ChatImageAttachment
+                    file={attachedFile}
+                    compact
+                    onZoom={(src, name, size, path) => openLightbox(src, name, size, path)}
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-lg bg-gray-900/[0.03] dark:bg-white/[0.035] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.05] dark:border-white/[0.05]">
+                    {getFileIcon(attachedFile.ext)}
+                  </div>
+                )}
                 <div className="min-w-0">
                   <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
                     {attachedFile.name}
@@ -2430,6 +2533,15 @@ export const ChatTab = React.memo<ChatTabProps>(({
       )}
       </div>
     </div>
+      {/* Big Scale Image Zoom Lightbox Modal */}
+      <ImageLightboxModal
+        isOpen={lightboxState.isOpen}
+        src={lightboxState.src}
+        fileName={lightboxState.name}
+        fileSize={lightboxState.size}
+        filePath={lightboxState.path}
+        onClose={closeLightbox}
+      />
     </WarmTooltipGroup>
   );
 });
