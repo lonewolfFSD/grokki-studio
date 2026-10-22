@@ -1552,7 +1552,7 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
         replyText = 'Ready.';
       }
 
-      memory.addTurn('model', replyText, toolCalls.map((tc) => ({ name: tc.function.name, args: tc.function.arguments })));
+      memory.addTurn('model', replyText);
       this.abortController = null;
 
       return {
@@ -1601,7 +1601,7 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
         const visionRes = await this.analyzeAttachedImage(directAttachPath, prompt, config.geminiApiKey || '');
         const replyText = visionRes.message || 'Analyzed attached image.';
         memory.addTurn('user', `${prompt || 'Analyze image'} [Attached image: ${path.basename(directAttachPath)}]`);
-        memory.addTurn('model', replyText, [{ name: 'read_attached_file', args: { file_path: directAttachPath } }]);
+        memory.addTurn('model', replyText);
         return {
           success: true,
           reply: replyText,
@@ -1617,7 +1617,7 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
       const res = await this.executeTool(fastIntent.tool, fastIntent.args, config.geminiApiKey || config.groqApiKey || '');
       const replyText = res.message || 'Done.';
       memory.addTurn('user', prompt);
-      memory.addTurn('model', replyText, [{ name: fastIntent.tool, args: fastIntent.args }]);
+      memory.addTurn('model', replyText);
       return {
         success: true,
         reply: replyText,
@@ -1727,9 +1727,18 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
             this.abortController = null;
             return { success: false, cancelled: true, reply: 'Cancelled.' };
           }
-          const { name, args } = call;
-          const result = await this.executeTool(name, args, apiKey);
-          executed.push({ name, args, result });
+          const name = call.name;
+          const rawArgs = call.args || {};
+          const cleanArgs = {};
+          if (rawArgs && typeof rawArgs === 'object') {
+            for (const [k, v] of Object.entries(rawArgs)) {
+              if (v !== null && v !== undefined) {
+                cleanArgs[k] = v;
+              }
+            }
+          }
+          const result = await this.executeTool(name, cleanArgs, apiKey);
+          executed.push({ name, args: cleanArgs, result });
 
           if (result && result.message) {
             replyText = result.message;
@@ -1849,7 +1858,7 @@ Rules:
           replyText = 'Ready.';
         }
 
-        memory.addTurn('model', replyText, functionCalls);
+        memory.addTurn('model', replyText);
         this.abortController = null;
 
         return {

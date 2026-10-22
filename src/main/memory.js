@@ -50,10 +50,19 @@ class MemoryManager {
   }
 
   addTurn(role, text, toolCalls = null) {
-    const entry = { role, parts: [] };
-    if (text) entry.parts.push({ text: text.trim() });
-    if (toolCalls && toolCalls.length > 0) {
-      toolCalls.forEach((tc) => entry.parts.push({ functionCall: tc }));
+    const cleanText = (text || '').trim();
+    const entry = {
+      role: role === 'assistant' ? 'model' : role,
+      parts: [],
+    };
+
+    if (cleanText) {
+      entry.parts.push({ text: cleanText });
+    } else if (toolCalls && toolCalls.length > 0) {
+      const toolNames = toolCalls.map((tc) => tc.name || tc.function?.name || 'action').join(', ');
+      entry.parts.push({ text: `[Completed: ${toolNames}]` });
+    } else {
+      entry.parts.push({ text: 'Done.' });
     }
 
     this.conversationHistory.push(entry);
@@ -64,7 +73,23 @@ class MemoryManager {
   }
 
   getHistory() {
-    return this.conversationHistory;
+    // Sanitize conversation history: ensure purely clean textual parts with valid roles
+    // Strips any legacy functionCall/args objects that could contain null or corrupt Protobuf Struct
+    return this.conversationHistory.map((turn) => {
+      const cleanParts = [];
+      for (const p of turn.parts || []) {
+        if (p && p.text && typeof p.text === 'string' && p.text.trim()) {
+          cleanParts.push({ text: p.text.trim() });
+        }
+      }
+      if (cleanParts.length === 0) {
+        cleanParts.push({ text: 'Ready.' });
+      }
+      return {
+        role: turn.role === 'assistant' ? 'model' : (turn.role || 'user'),
+        parts: cleanParts,
+      };
+    });
   }
 
   clearHistory() {
