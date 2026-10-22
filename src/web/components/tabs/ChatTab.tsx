@@ -2620,15 +2620,15 @@ export const ChatTab = React.memo<ChatTabProps>(({
           style={{ width: '100%', height: '100%', position: 'absolute' }}
         >
           <Noise
-            opacity={0.2}
+            opacity={0.05}
             size={1}
-            fps={16}
+            fps={18}
             blendMode="overlay"
             contrast={0.6}
             colored={false}
             dust={0}
             scratches={0}
-            scanlines={0.15}
+            scanlines={0.03}
             flicker={0}
           />
         </div>
