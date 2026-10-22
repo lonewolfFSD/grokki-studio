@@ -81,34 +81,47 @@ export async function fetchWhatsNewFromFirestore(
   const db = getFirebaseDb();
   if (!db) return null;
 
-  try {
-    const colRef = collection(db, collectionName);
-    let snap;
+  // Check both 'whats_new' and 'whats_new ' (with trailing space)
+  const candidateNames = [collectionName, `${collectionName} `];
+
+  for (const name of candidateNames) {
     try {
-      const q = query(colRef, orderBy('timestamp', 'desc'), limit(maxPosts));
-      snap = await getDocs(q);
-    } catch {
-      // Fallback query without orderBy if index/timestamp is not yet populated
-      const fallbackQuery = query(colRef, limit(maxPosts));
-      snap = await getDocs(fallbackQuery);
+      const colRef = collection(db, name);
+      let snap;
+      try {
+        const q = query(colRef, orderBy('timestamp', 'desc'), limit(maxPosts));
+        snap = await getDocs(q);
+      } catch {
+        // Fallback query without orderBy if index/timestamp is not yet populated
+        const fallbackQuery = query(colRef, limit(maxPosts));
+        snap = await getDocs(fallbackQuery);
+      }
+
+      if (snap && !snap.empty) {
+        const items: UpdateItem[] = snap.docs.map((doc) => {
+          const data = doc.data();
+          let dateStr = data.date || '';
+          if (!dateStr && data.timestamp) {
+            try {
+              const d = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+              dateStr = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            } catch {}
+          }
+          return {
+            id: doc.id,
+            title: data.title || 'Untitled Update',
+            date: dateStr,
+            summary: data.summary || '',
+            tag: data.tag || undefined,
+          };
+        });
+
+        return items;
+      }
+    } catch (err) {
+      // Try next candidate collection name
     }
-
-    if (!snap || snap.empty) return null;
-
-    const items: UpdateItem[] = snap.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        title: data.title || 'Untitled Update',
-        date: data.date || '',
-        summary: data.summary || '',
-        tag: data.tag || undefined,
-      };
-    });
-
-    return items;
-  } catch (error) {
-    console.warn('[Firebase] Could not fetch updates from Firestore:', error);
-    return null;
   }
+
+  return null;
 }
