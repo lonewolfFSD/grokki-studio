@@ -505,7 +505,8 @@ export const App: React.FC = () => {
             />
           </div>
 
-          <ErrorBoundary fallbackTabName={activeTab} onReset={() => setActiveTab('chat')}>
+          <div id="grokki-tab-content" className={activeTab === 'chat' ? 'hidden' : 'w-full flex flex-col'}>
+            <ErrorBoundary fallbackTabName={activeTab} onReset={() => setActiveTab('chat')}>
             {activeTab === 'overview' && (
               <OverviewTab
                 config={config}
@@ -572,6 +573,7 @@ export const App: React.FC = () => {
               />
             )}
           </ErrorBoundary>
+          </div>
         </main>
       </div>
 

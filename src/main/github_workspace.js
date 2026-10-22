@@ -371,24 +371,40 @@ class GitHubWorkspaceManager {
     return { success: true };
   }
 
-  async getRepos({ perPage = 50, page = 1, sort = 'updated' } = {}) {
+  async getRepos({ maxRepos = 300, sort = 'updated' } = {}) {
     if (!this.token) {
       return { success: false, error: 'Not connected to GitHub' };
     }
     try {
       const fetch = global.fetch || require('node-fetch');
-      const res = await fetch(`https://api.github.com/user/repos?sort=${sort}&per_page=${perPage}&page=${page}`, {
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-          Accept: 'application/vnd.github.v3+json',
-          'User-Agent': 'Grokki-Studio-Desktop',
-        },
-      });
-      if (!res.ok) {
-        throw new Error(`Failed to fetch repositories (${res.status})`);
+      let allRawRepos = [];
+      let page = 1;
+      const perPage = 100;
+      const maxPages = Math.max(1, Math.ceil((maxRepos || 300) / perPage));
+
+      while (page <= maxPages) {
+        const queryUrl = `https://api.github.com/user/repos?visibility=all&affiliation=owner,collaborator,organization_member&sort=${sort}&direction=desc&per_page=${perPage}&page=${page}`;
+        const res = await fetch(queryUrl, {
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            Accept: 'application/vnd.github.v3+json',
+            'User-Agent': 'Grokki-Studio-Desktop',
+          },
+        });
+        if (!res.ok) {
+          if (page === 1) {
+            throw new Error(`Failed to fetch repositories (${res.status})`);
+          }
+          break;
+        }
+        const data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) break;
+        allRawRepos.push(...data);
+        if (data.length < perPage) break;
+        page++;
       }
-      const data = await res.json();
-      const repos = (data || []).map((r) => ({
+
+      const repos = allRawRepos.map((r) => ({
         id: r.id,
         name: r.name,
         full_name: r.full_name,
@@ -404,9 +420,25 @@ class GitHubWorkspaceManager {
         updated_at: r.updated_at,
         pushed_at: r.pushed_at,
         open_issues_count: r.open_issues_count || 0,
+        owner: r.owner ? {
+          login: r.owner.login,
+          avatar_url: r.owner.avatar_url,
+          type: r.owner.type,
+        } : null,
       }));
-      this.cachedRepos = repos;
-      return { success: true, repos };
+
+      // Deduplicate by ID
+      const seen = new Set();
+      const uniqueRepos = [];
+      for (const repo of repos) {
+        if (!seen.has(repo.id)) {
+          seen.add(repo.id);
+          uniqueRepos.push(repo);
+        }
+      }
+
+      this.cachedRepos = uniqueRepos;
+      return { success: true, repos: uniqueRepos };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -598,7 +630,28 @@ class GitHubWorkspaceManager {
     }
     const repoName = path.basename(cloneUrl, '.git');
     const fullDest = path.join(destination, repoName);
-    const res = await this.execGit(`git clone "${cloneUrl}" "${fullDest}"`, destination);
+
+    // If authenticated with a GitHub token, use authenticated clone URL for private repos
+    let commandToRun = `git clone "${cloneUrl}" "${fullDest}"`;
+    if (this.token && cloneUrl.startsWith('https://')) {
+      const authCloneUrl = cloneUrl.replace(
+        'https://',
+        `https://x-access-token:${encodeURIComponent(this.token)}@`
+      );
+      commandToRun = `git clone "${authCloneUrl}" "${fullDest}"`;
+    }
+
+    const res = await this.execGit(commandToRun, destination);
+
+    // Clean up .git/config remote url so token is never stored in plaintext on disk
+    if (res.success && this.token) {
+      try {
+        await this.execGit(`git remote set-url origin "${cloneUrl}"`, fullDest);
+      } catch (e) {
+        // Non-critical cleanup failure
+      }
+    }
+
     return {
       success: res.success,
       targetPath: fullDest,

@@ -2486,12 +2486,12 @@ export const ChatTab = React.memo<ChatTabProps>(({
         <div className="relative flex-1 min-h-0 overflow-hidden flex flex-col">
           <div id="grokki-chat-scroll" className="flex-1 flex flex-col overflow-y-auto no-scrollbar px-1 pt-1 pb-3 space-y-5">
           {/* Header Action Bar */}
-          <div className="flex items-center justify-between pb-2.5 border-b border-gray-200 dark:border-[#1e2029]">
+          <div className="flex items-center justify-between pb-2.5 pt-2.5 border-b border-gray-200 dark:border-[#1e2029]">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate max-w-xs">
                 {activeConversation.title || 'Conversation'}
               </span>
-              <span className="text-[9.5px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029]">
+              <span className="text-[9.5px] font-mono px-2 py-1 rounded-md bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029]">
                 {messages.length} messages • saved locally
               </span>
             </div>

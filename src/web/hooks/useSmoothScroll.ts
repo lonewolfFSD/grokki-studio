@@ -11,7 +11,10 @@ export function useSmoothScroll(enabled: boolean = true, intensity: number = 5, 
       const wrapper = document.getElementById(scrollId);
       if (!wrapper) return;
 
-      const content = (wrapper.firstElementChild as HTMLElement) || wrapper;
+      const content =
+        activeTab === 'chat'
+          ? ((wrapper.firstElementChild as HTMLElement) || wrapper)
+          : (document.getElementById('grokki-tab-content') || wrapper);
 
       // Exact portfolio Lenis configuration & exponential easing:
       // duration ~1.0s to 1.3s based on intensity slider (default 5 = 1.1s)
@@ -35,15 +38,48 @@ export function useSmoothScroll(enabled: boolean = true, intensity: number = 5, 
 
       (window as any).__lenis = lenis;
 
+      let lastScrollHeight = wrapper.scrollHeight;
+      let lastClientHeight = wrapper.clientHeight;
+
       let rafId: number;
       function raf(time: number) {
+        const currentScrollHeight = wrapper.scrollHeight;
+        const currentClientHeight = wrapper.clientHeight;
+        if (currentScrollHeight !== lastScrollHeight || currentClientHeight !== lastClientHeight) {
+          lastScrollHeight = currentScrollHeight;
+          lastClientHeight = currentClientHeight;
+          lenis.resize();
+        }
         lenis.raf(time);
         rafId = requestAnimationFrame(raf);
       }
       rafId = requestAnimationFrame(raf);
 
+      const handleResize = () => {
+        lenis.resize();
+      };
+
+      const ro = new ResizeObserver(handleResize);
+      ro.observe(wrapper);
+      if (content && content !== wrapper) {
+        ro.observe(content);
+      }
+
+      const mo = new MutationObserver(handleResize);
+      mo.observe(wrapper, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style', 'class'],
+      });
+
+      window.addEventListener('resize', handleResize);
+
       (wrapper as any).__cleanupLenis = () => {
         cancelAnimationFrame(rafId);
+        ro.disconnect();
+        mo.disconnect();
+        window.removeEventListener('resize', handleResize);
         lenis.destroy();
         delete (window as any).__lenis;
       };

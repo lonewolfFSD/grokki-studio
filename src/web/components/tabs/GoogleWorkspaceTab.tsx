@@ -260,7 +260,36 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [repoSearch, setRepoSearch] = useState('');
+  const [repoFilter, setRepoFilter] = useState<'all' | 'public' | 'private'>('all');
   const [cloningRepoId, setCloningRepoId] = useState<number | null>(null);
+
+  const notifyAccordionToggled = () => {
+    requestAnimationFrame(() => {
+      if ((window as any).__lenis) {
+        (window as any).__lenis.resize();
+      }
+    });
+  };
+
+  const filteredRepos = useMemo(() => {
+    return repos.filter((r) => {
+      const matchesType =
+        repoFilter === 'all' ? true :
+        repoFilter === 'public' ? !r.private :
+        r.private;
+      if (!matchesType) return false;
+      if (!repoSearch.trim()) return true;
+      const q = repoSearch.toLowerCase();
+      return (
+        r.name.toLowerCase().includes(q) ||
+        (r.description && r.description.toLowerCase().includes(q)) ||
+        (r.language && r.language.toLowerCase().includes(q))
+      );
+    });
+  }, [repos, repoFilter, repoSearch]);
+
+  const publicReposCount = useMemo(() => repos.filter((r) => !r.private).length, [repos]);
+  const privateReposCount = useMemo(() => repos.filter((r) => r.private).length, [repos]);
 
   useEffect(() => {
     loadNotionStatus();
@@ -481,7 +510,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
     if (!window.jarvisAPI?.getGitHubRepos) return;
     setLoadingRepos(true);
     try {
-      const res = await window.jarvisAPI.getGitHubRepos({ perPage: 60, sort: 'updated' });
+      const res = await window.jarvisAPI.getGitHubRepos({ maxRepos: 300, sort: 'updated' });
       if (res && res.success && res.repos) {
         setRepos(res.repos);
       }
@@ -882,7 +911,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       {/* 1. Google Workspace Accordion Card */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-200">
         <div
-          onClick={() => setGoogleExpanded((prev) => !prev)}
+          onClick={() => { setGoogleExpanded((prev) => !prev); notifyAccordionToggled(); }}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
         >
           <div className="flex items-center gap-3.5 min-w-0">
@@ -929,7 +958,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
 
             <button
               type="button"
-              onClick={() => setGoogleExpanded((prev) => !prev)}
+              onClick={() => { setGoogleExpanded((prev) => !prev); notifyAccordionToggled(); }}
               aria-label={googleExpanded ? 'Collapse section' : 'Expand section'}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border-none bg-transparent"
             >
@@ -969,7 +998,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       {/* 2. WhatsApp Accordion Card */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
         <div
-          onClick={() => setWhatsappExpanded((prev) => !prev)}
+          onClick={() => { setWhatsappExpanded((prev) => !prev); notifyAccordionToggled(); }}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
         >
           <div className="flex items-center gap-3.5 min-w-0">
@@ -1004,7 +1033,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
 
             <button
               type="button"
-              onClick={() => setWhatsappExpanded((prev) => !prev)}
+              onClick={() => { setWhatsappExpanded((prev) => !prev); notifyAccordionToggled(); }}
               aria-label={whatsappExpanded ? 'Collapse section' : 'Expand section'}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border-none bg-transparent"
             >
@@ -1044,7 +1073,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       {/* 3. Music Streaming Accordion Card */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs transition-all duration-300">
         <div
-          onClick={() => setMusicExpanded((prev) => !prev)}
+          onClick={() => { setMusicExpanded((prev) => !prev); notifyAccordionToggled(); }}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
         >
           <div className="flex items-center gap-3.5 min-w-0">
@@ -1095,7 +1124,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
 
             <button
               type="button"
-              onClick={() => setMusicExpanded((prev) => !prev)}
+              onClick={() => { setMusicExpanded((prev) => !prev); notifyAccordionToggled(); }}
               aria-label={musicExpanded ? 'Collapse section' : 'Expand section'}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border-none bg-transparent"
             >
@@ -1135,7 +1164,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       {/* 4. Notion Workspace Accordion Card */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
         <div
-          onClick={() => setNotionExpanded((prev) => !prev)}
+          onClick={() => { setNotionExpanded((prev) => !prev); notifyAccordionToggled(); }}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
         >
           <div className="flex items-center gap-3.5 min-w-0">
@@ -1189,7 +1218,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
 
             <button
               type="button"
-              onClick={() => setNotionExpanded((prev) => !prev)}
+              onClick={() => { setNotionExpanded((prev) => !prev); notifyAccordionToggled(); }}
               aria-label={notionExpanded ? 'Collapse section' : 'Expand section'}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border-none bg-transparent"
             >
@@ -1287,7 +1316,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       {/* 3. Obsidian Vault Accordion Card */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
         <div
-          onClick={() => setObsidianExpanded((prev) => !prev)}
+          onClick={() => { setObsidianExpanded((prev) => !prev); notifyAccordionToggled(); }}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
         >
           <div className="flex items-center gap-3.5 min-w-0">
@@ -1357,7 +1386,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
 
             <button
               type="button"
-              onClick={() => setObsidianExpanded((prev) => !prev)}
+              onClick={() => { setObsidianExpanded((prev) => !prev); notifyAccordionToggled(); }}
               aria-label={obsidianExpanded ? 'Collapse section' : 'Expand section'}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border-none bg-transparent"
             >
@@ -1397,7 +1426,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       {/* 4. GitHub & Git CLI Workspace Accordion Card */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
         <div
-          onClick={() => setGithubExpanded((prev) => !prev)}
+          onClick={() => { setGithubExpanded((prev) => !prev); notifyAccordionToggled(); }}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
         >
           <div className="flex items-center gap-3.5 min-w-0">
@@ -1460,7 +1489,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
 
             <button
               type="button"
-              onClick={() => setGithubExpanded((prev) => !prev)}
+              onClick={() => { setGithubExpanded((prev) => !prev); notifyAccordionToggled(); }}
               aria-label={githubExpanded ? 'Collapse section' : 'Expand section'}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border-none bg-transparent"
             >
@@ -2200,34 +2229,62 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
                     </div>
                   ) : (
                     <>
-                      {/* Search & Counter Bar */}
-                      <div className="flex items-center gap-2">
+                      {/* Search & Filter Bar */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                         <div className="relative flex-1">
                           <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
                             type="text"
                             value={repoSearch}
                             onChange={(e) => setRepoSearch(e.target.value)}
-                            placeholder="Search repositories by name or language..."
+                            placeholder="Search repositories by name, language or description..."
                             className="w-full h-8 pl-8 pr-3 rounded-lg border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-900 dark:text-gray-100 text-xs placeholder:text-gray-400 focus:outline-none"
                           />
                         </div>
-                        <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">
-                          {repos.filter((r) =>
-                            r.name.toLowerCase().includes(repoSearch.toLowerCase()) ||
-                            (r.language && r.language.toLowerCase().includes(repoSearch.toLowerCase()))
-                          ).length} repositories
-                        </span>
+
+                        {/* Filter Pills: All | Public | Private */}
+                        <div className="inline-flex items-center gap-1 p-0.5 rounded-lg bg-gray-100 dark:bg-[#161822] border border-gray-200 dark:border-[#202330] self-start sm:self-auto flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setRepoFilter('all')}
+                            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                              repoFilter === 'all'
+                                ? 'bg-white dark:bg-[#202330] text-gray-900 dark:text-gray-100 shadow-2xs'
+                                : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
+                            }`}
+                          >
+                            All <span className="opacity-60 ml-0.5 font-mono">({repos.length})</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRepoFilter('public')}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                              repoFilter === 'public'
+                                ? 'bg-white dark:bg-[#202330] text-gray-900 dark:text-gray-100 shadow-2xs'
+                                : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
+                            }`}
+                          >
+                            <Globe className="w-3 h-3 text-blue-500" />
+                            Public <span className="opacity-60 ml-0.5 font-mono">({publicReposCount})</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRepoFilter('private')}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                              repoFilter === 'private'
+                                ? 'bg-white dark:bg-[#202330] text-gray-900 dark:text-gray-100 shadow-2xs'
+                                : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
+                            }`}
+                          >
+                            <Lock className="w-3 h-3 text-amber-500" />
+                            Private <span className="opacity-60 ml-0.5 font-mono">({privateReposCount})</span>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Repositories Grid */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-96 overflow-y-auto pr-1">
-                        {repos
-                          .filter((r) =>
-                            r.name.toLowerCase().includes(repoSearch.toLowerCase()) ||
-                            (r.language && r.language.toLowerCase().includes(repoSearch.toLowerCase()))
-                          )
-                          .map((repo) => (
+                        {filteredRepos.map((repo) => (
                             <div
                               key={repo.id}
                               className="p-3 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029] flex flex-col justify-between gap-2.5 hover:border-gray-300 dark:hover:border-[#2a2d3d] transition-all"
