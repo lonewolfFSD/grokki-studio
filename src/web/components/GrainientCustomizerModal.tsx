@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, RotateCcw, Check, Sliders, Palette, Plus, Trash2, Eye } from 'lucide-react';
+import { X, RotateCcw, Check, ChevronDown, Plus, Minus } from 'lucide-react';
 import Grainient from './tabs/Grainient';
 import { GrainientCustomSettings } from '../types/jarvis';
 
@@ -22,9 +22,9 @@ export const DEFAULT_GRAINIENT_SETTINGS: GrainientCustomSettings = {
   variation: 0,
 };
 
-export const GRAINIENT_PRESETS: { name: string; settings: GrainientCustomSettings }[] = [
+export const PRESET_OPTIONS: { name: string; settings: Partial<GrainientCustomSettings> }[] = [
   {
-    name: 'Ember Flame (Default)',
+    name: 'Ember',
     settings: {
       colors: ['#120f17', '#2a0f0a', '#9a3412', '#f97316', '#fed7aa'],
       type: 'linear',
@@ -40,11 +40,10 @@ export const GRAINIENT_PRESETS: { name: string; settings: GrainientCustomSetting
       grainAnimated: true,
       contrast: 1,
       saturation: 1,
-      variation: 0,
     },
   },
   {
-    name: 'Deep Royal Blue',
+    name: 'Deep Blue',
     settings: {
       colors: ['#070d1e', '#0e1c3e', '#1e3a8a', '#2563eb', '#93c5fd'],
       type: 'linear',
@@ -60,11 +59,10 @@ export const GRAINIENT_PRESETS: { name: string; settings: GrainientCustomSetting
       grainAnimated: true,
       contrast: 1.1,
       saturation: 1.1,
-      variation: 1,
     },
   },
   {
-    name: 'Sunset Horizon',
+    name: 'Sunset',
     settings: {
       colors: ['#1a0b16', '#3b0d24', '#831843', '#e11d48', '#fb7185'],
       type: 'linear',
@@ -80,11 +78,10 @@ export const GRAINIENT_PRESETS: { name: string; settings: GrainientCustomSetting
       grainAnimated: true,
       contrast: 1.05,
       saturation: 1.15,
-      variation: 2,
     },
   },
   {
-    name: 'Northern Aurora',
+    name: 'Aurora',
     settings: {
       colors: ['#041210', '#064e3b', '#0f766e', '#14b8a6', '#6ee7b7'],
       type: 'linear',
@@ -100,11 +97,10 @@ export const GRAINIENT_PRESETS: { name: string; settings: GrainientCustomSetting
       grainAnimated: true,
       contrast: 1.1,
       saturation: 1.05,
-      variation: 3,
     },
   },
   {
-    name: 'Cyber Violet',
+    name: 'Cyber',
     settings: {
       colors: ['#0c0617', '#2e1065', '#6b21a8', '#a855f7', '#ec4899'],
       type: 'linear',
@@ -120,10 +116,120 @@ export const GRAINIENT_PRESETS: { name: string; settings: GrainientCustomSetting
       grainAnimated: true,
       contrast: 1.15,
       saturation: 1.2,
-      variation: 4,
+    },
+  },
+  {
+    name: 'Slate Void',
+    settings: {
+      colors: ['#090a0f', '#12141c', '#1e212d', '#323749', '#64748b'],
+      type: 'linear',
+      angle: 45,
+      bands: 1,
+      speed: 0.7,
+      flow: 0.6,
+      scale: 1.2,
+      softness: 0.9,
+      silk: 0.3,
+      grainAmount: 0.07,
+      grainSize: 1.2,
+      grainAnimated: true,
+      contrast: 1.0,
+      saturation: 0.9,
     },
   },
 ];
+
+interface ScrubberControlProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  unit?: string;
+  format?: (v: number) => string;
+  onChange: (v: number) => void;
+}
+
+const ScrubberControl: React.FC<ScrubberControlProps> = ({
+  label,
+  value,
+  min,
+  max,
+  step,
+  unit = '',
+  format,
+  onChange,
+}) => {
+  const percent = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+  const displayVal = format ? format(value) : `${value}${unit}`;
+
+  return (
+    <div className="group relative flex items-center justify-between px-3 h-10 rounded-xl bg-[#161720] border border-[#232532] hover:border-[#2f3242] transition-colors select-none overflow-hidden">
+      <span className="text-[11.5px] font-medium text-gray-400 shrink-0 z-10 pointer-events-none select-none">
+        {label}
+      </span>
+
+      {/* Track with faint tick marks */}
+      <div className="relative flex-1 mx-2.5 h-5 flex items-center">
+        {/* Faint tick marks */}
+        <div className="absolute inset-x-1 flex justify-between pointer-events-none opacity-15">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="w-[1px] h-2 bg-white rounded-full" />
+          ))}
+        </div>
+
+        {/* Scrubber thumb bar */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-1.5 h-4 bg-white/70 group-hover:bg-white rounded-full shadow-xs pointer-events-none transition-transform active:scale-110"
+          style={{ left: `${percent}%` }}
+        />
+
+        {/* Invisible Range Input */}
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-full h-full opacity-0 cursor-ew-resize relative z-20 m-0 p-0"
+        />
+      </div>
+
+      <span className="font-mono text-xs font-bold text-white text-right shrink-0 z-10 pointer-events-none min-w-[32px]">
+        {displayVal}
+      </span>
+    </div>
+  );
+};
+
+interface ToggleControlProps {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}
+
+const ToggleControl: React.FC<ToggleControlProps> = ({ label, checked, onChange }) => {
+  return (
+    <div
+      onClick={() => onChange(!checked)}
+      className="flex items-center justify-between px-3 h-10 rounded-xl bg-[#161720] border border-[#232532] hover:border-[#2f3242] transition-colors cursor-pointer select-none"
+    >
+      <span className="text-[11.5px] font-medium text-gray-400 select-none">{label}</span>
+      <div
+        className={`relative inline-flex h-4.5 w-8 shrink-0 items-center rounded-full transition-colors duration-200 p-0.5 ${
+          checked ? 'bg-[#d1d5db]' : 'bg-[#252837]'
+        }`}
+      >
+        <span
+          className={`inline-block h-3.5 w-3.5 transform rounded-full transition-transform duration-200 ${
+            checked ? 'translate-x-3.5 bg-[#161720]' : 'translate-x-0 bg-[#6b7280]'
+          }`}
+        />
+      </div>
+    </div>
+  );
+};
 
 interface GrainientCustomizerModalProps {
   isOpen: boolean;
@@ -144,6 +250,8 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
     ...DEFAULT_GRAINIENT_SETTINGS,
     ...(currentSettings || {}),
   }));
+
+  const [activePreset, setActivePreset] = useState<string>('Ember');
 
   useEffect(() => {
     if (isOpen) {
@@ -173,15 +281,24 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
     updateField('colors', list);
   };
 
-  const handleRemoveColor = (index: number) => {
+  const handleRemoveColor = () => {
     const list = [...(draft.colors || DEFAULT_GRAINIENT_SETTINGS.colors!)];
     if (list.length <= 2) return;
-    list.splice(index, 1);
+    list.pop();
     updateField('colors', list);
+  };
+
+  const handleApplyPreset = (presetName: string) => {
+    setActivePreset(presetName);
+    const found = PRESET_OPTIONS.find((p) => p.name === presetName);
+    if (found) {
+      setDraft((prev) => ({ ...prev, ...found.settings }));
+    }
   };
 
   const handleReset = () => {
     setDraft({ ...DEFAULT_GRAINIENT_SETTINGS });
+    setActivePreset('Ember');
   };
 
   const handleSave = () => {
@@ -193,132 +310,91 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-black/60 backdrop-blur-md">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-md">
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+          initial={{ opacity: 0, scale: 0.96, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-4xl max-h-[92vh] flex flex-col bg-white dark:bg-[#111319] border border-gray-200 dark:border-[#1e2029] rounded-2xl shadow-2xl overflow-hidden text-gray-900 dark:text-gray-100"
+          exit={{ opacity: 0, scale: 0.96, y: 8 }}
+          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full max-w-6xl h-[88vh] max-h-[820px] flex flex-col bg-[#0e0f14] border border-[#1f212c] rounded-2xl shadow-2xl overflow-hidden text-gray-100"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#1e2029] shrink-0 bg-gray-50/60 dark:bg-[#141620]/60">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#1a1d28] border border-gray-200 dark:border-[#252836] flex items-center justify-center text-gray-700 dark:text-gray-300">
-                <Sliders className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold tracking-tight">Customize Grainient Effect</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Fine-tune colors, flow physics, smoothness, and analog grain texture.
-                </p>
-              </div>
+          <div className="flex items-center justify-between px-6 py-3 border-b border-[#1f212c] shrink-0 bg-[#12131a]">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-white tracking-tight">Customize</h3>
             </div>
 
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 transition-all cursor-pointer border-none bg-transparent"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer border-none bg-transparent"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Body: Split View (Preview on Top/Left, Controls on Right/Bottom) */}
-          <div className="flex-1 overflow-y-auto p-6 flex flex-col lg:flex-row gap-6">
-            {/* Live Preview Panel */}
-            <div className="lg:w-2/5 flex flex-col gap-3 shrink-0">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
-                  <Eye className="w-3.5 h-3.5" /> Live Preview
-                </span>
-                <span className="text-[11px] font-mono text-gray-400 capitalize">
-                  {draft.type} • {draft.angle}°
-                </span>
-              </div>
-
-              <div className="relative w-full aspect-video lg:h-64 rounded-xl overflow-hidden border border-gray-200 dark:border-[#1e2029] shadow-inner bg-black">
-                <Grainient
-                  colors={draft.colors}
-                  type={draft.type}
-                  angle={draft.angle}
-                  bands={draft.bands}
-                  speed={draft.speed}
-                  flow={draft.flow}
-                  scale={draft.scale}
-                  softness={draft.softness}
-                  silk={draft.silk}
-                  grainAmount={draft.grainAmount}
-                  grainSize={draft.grainSize}
-                  grainAnimated={draft.grainAnimated}
-                  contrast={draft.contrast}
-                  saturation={draft.saturation}
-                  variation={draft.variation}
-                  interactive={true}
-                  intro={false}
-                  lightMode={!isDark}
-                  className="w-full h-full"
-                />
-                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/40 backdrop-blur-md text-[10px] font-mono text-white/80 border border-white/10 select-none pointer-events-none">
-                  Interactive Canvas
-                </div>
-              </div>
-
-              {/* Quick Presets */}
-              <div className="mt-1">
-                <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 block mb-1.5">
-                  Curated Presets
-                </span>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {GRAINIENT_PRESETS.map((preset) => (
-                    <button
-                      key={preset.name}
-                      type="button"
-                      onClick={() => setDraft({ ...preset.settings })}
-                      className="px-2.5 py-1.5 rounded-lg text-left text-xs bg-gray-50 dark:bg-[#141620] hover:bg-gray-100 dark:hover:bg-[#1c202d] border border-gray-200 dark:border-[#1e2029] transition-all cursor-pointer flex items-center justify-between"
-                    >
-                      <span className="truncate">{preset.name}</span>
-                      <div className="flex items-center -space-x-1 shrink-0 ml-1.5">
-                        {preset.settings.colors?.slice(0, 3).map((c, i) => (
-                          <div
-                            key={i}
-                            className="w-2.5 h-2.5 rounded-full border border-black/20"
-                            style={{ backgroundColor: c }}
-                          />
-                        ))}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+          {/* Body: Left Side Big Preview, Right Side Settings in Image 2 Design */}
+          <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden p-5 gap-5">
+            {/* Left Side: Big Live Preview Window */}
+            <div className="flex-1 min-h-[280px] lg:min-h-0 h-full flex flex-col rounded-2xl overflow-hidden border border-[#232534] bg-black shadow-2xl relative">
+              <Grainient
+                colors={draft.colors}
+                type={draft.type}
+                angle={draft.angle}
+                bands={draft.bands}
+                speed={draft.speed}
+                flow={draft.flow}
+                scale={draft.scale}
+                softness={draft.softness}
+                silk={draft.silk}
+                grainAmount={draft.grainAmount}
+                grainSize={draft.grainSize}
+                grainAnimated={draft.grainAnimated}
+                contrast={draft.contrast}
+                saturation={draft.saturation}
+                variation={draft.variation}
+                interactive={true}
+                intro={false}
+                lightMode={!isDark}
+                className="w-full h-full"
+              />
             </div>
 
-            {/* Controls Settings Panel */}
-            <div className="flex-1 flex flex-col gap-5 overflow-y-auto pr-1">
-              {/* Palette Section */}
-              <div className="flex flex-col gap-2 p-3.5 rounded-xl bg-gray-50/70 dark:bg-[#141620] border border-gray-200/80 dark:border-[#1e2029]">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-                    <Palette className="w-3.5 h-3.5" /> Color Palette ({currentColors.length}/8)
-                  </span>
-                  {currentColors.length < 8 && (
-                    <button
-                      type="button"
-                      onClick={handleAddColor}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white bg-white dark:bg-[#1b1e2b] border border-gray-200 dark:border-[#252836] cursor-pointer"
-                    >
-                      <Plus className="w-3 h-3" /> Add Color
-                    </button>
-                  )}
-                </div>
+            {/* Right Side: Exact Settings in the Design of Second Image */}
+            <div className="w-full lg:w-[500px] flex flex-col justify-between overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-2">
+                {/* Colors Card (Full Width) */}
+                <div className="flex flex-col justify-between px-3.5 py-2.5 rounded-xl bg-[#161720] border border-[#232532] col-span-2 gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11.5px] font-medium text-gray-400">Colors</span>
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={handleRemoveColor}
+                        disabled={currentColors.length <= 2}
+                        className="w-4 h-4 flex items-center justify-center rounded text-gray-400 hover:text-white disabled:opacity-30 transition-colors cursor-pointer border-none bg-transparent"
+                        title="Remove last color"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddColor}
+                        disabled={currentColors.length >= 8}
+                        className="w-4 h-4 flex items-center justify-center rounded text-gray-400 hover:text-white disabled:opacity-30 transition-colors cursor-pointer border-none bg-transparent"
+                        title="Add color"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
 
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  {currentColors.map((col, idx) => (
-                    <div
-                      key={idx}
-                      className="group relative flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-lg bg-white dark:bg-[#191c28] border border-gray-200 dark:border-[#252836] shadow-xs"
-                    >
-                      <label className="relative w-5 h-5 rounded-md overflow-hidden cursor-pointer shrink-0 border border-black/10">
+                  <div className="flex items-center gap-2.5 overflow-x-auto py-0.5">
+                    {currentColors.map((col, idx) => (
+                      <label
+                        key={idx}
+                        className="relative w-8 h-8 rounded-lg cursor-pointer shrink-0 transition-transform hover:scale-105 active:scale-95 shadow-sm border border-white/10 overflow-hidden"
+                      >
                         <input
                           type="color"
                           value={col}
@@ -327,300 +403,208 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
                         />
                         <div className="w-full h-full" style={{ backgroundColor: col }} />
                       </label>
-                      <span className="font-mono text-[11px] uppercase text-gray-700 dark:text-gray-300">
-                        {col}
-                      </span>
-                      {currentColors.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveColor(idx)}
-                          className="ml-0.5 text-gray-400 hover:text-red-500 cursor-pointer border-none bg-transparent p-0"
-                          title="Remove color"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Geometry & Wave Style */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Type Selection */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    Gradient Geometry
-                  </label>
-                  <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg bg-gray-100 dark:bg-[#141620] border border-gray-200 dark:border-[#1e2029]">
-                    <button
-                      type="button"
-                      onClick={() => updateField('type', 'linear')}
-                      className={`py-1 text-xs font-medium rounded-md transition-all cursor-pointer border-none ${
-                        draft.type === 'linear'
-                          ? 'bg-white dark:bg-[#252836] text-gray-900 dark:text-white shadow-xs font-semibold'
-                          : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 bg-transparent'
-                      }`}
+                {/* Preset Dropdown Card */}
+                <div className="flex items-center justify-between px-3.5 h-10 rounded-xl bg-[#161720] border border-[#232532] relative select-none">
+                  <span className="text-[11.5px] font-medium text-gray-400 select-none">Preset</span>
+                  <div className="relative flex items-center gap-1.5">
+                    <select
+                      value={activePreset}
+                      onChange={(e) => handleApplyPreset(e.target.value)}
+                      className="appearance-none bg-transparent cursor-pointer font-medium text-xs text-white pr-5 focus:outline-none border-none text-right"
                     >
-                      Linear Waves
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateField('type', 'radial')}
-                      className={`py-1 text-xs font-medium rounded-md transition-all cursor-pointer border-none ${
-                        draft.type === 'radial'
-                          ? 'bg-white dark:bg-[#252836] text-gray-900 dark:text-white shadow-xs font-semibold'
-                          : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 bg-transparent'
-                      }`}
+                      {PRESET_OPTIONS.map((p) => (
+                        <option key={p.name} value={p.name} className="bg-[#161720] text-white">
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 pointer-events-none absolute right-0" />
+                  </div>
+                </div>
+
+                {/* Type Dropdown Card */}
+                <div className="flex items-center justify-between px-3.5 h-10 rounded-xl bg-[#161720] border border-[#232532] relative select-none">
+                  <span className="text-[11.5px] font-medium text-gray-400 select-none">Type</span>
+                  <div className="relative flex items-center gap-1.5">
+                    <select
+                      value={draft.type || 'linear'}
+                      onChange={(e) => updateField('type', e.target.value as 'linear' | 'radial')}
+                      className="appearance-none bg-transparent cursor-pointer font-medium text-xs text-white capitalize pr-5 focus:outline-none border-none text-right"
                     >
-                      Radial Ripple
-                    </button>
+                      <option value="linear" className="bg-[#161720] text-white">Linear</option>
+                      <option value="radial" className="bg-[#161720] text-white">Radial</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 pointer-events-none absolute right-0" />
                   </div>
                 </div>
 
                 {/* Angle Slider */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-semibold text-gray-700 dark:text-gray-300">
-                      Wave Angle
-                    </label>
-                    <span className="font-mono text-gray-500 dark:text-gray-400 font-semibold">
-                      {draft.angle}°
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="360"
-                    step="5"
-                    value={draft.angle ?? 55}
-                    onChange={(e) => updateField('angle', Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-[#252836] rounded-lg appearance-none cursor-pointer accent-gray-900 dark:accent-white"
-                  />
-                </div>
-              </div>
+                <ScrubberControl
+                  label="Angle"
+                  value={draft.angle ?? 55}
+                  min={0}
+                  max={360}
+                  step={5}
+                  unit="°"
+                  onChange={(v) => updateField('angle', v)}
+                />
 
-              {/* Sliders Grid: Flow, Speed, Smoothness, Silk */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Smoothness / Softness */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-semibold text-gray-700 dark:text-gray-300">
-                      Smoothness (Softness)
-                    </label>
-                    <span className="font-mono text-gray-500 dark:text-gray-400 font-semibold">
-                      {Math.round((draft.softness ?? 0.7) * 100)}%
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={draft.softness ?? 0.7}
-                    onChange={(e) => updateField('softness', Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-[#252836] rounded-lg appearance-none cursor-pointer accent-gray-900 dark:accent-white"
-                  />
-                </div>
+                {/* Bands Slider */}
+                <ScrubberControl
+                  label="Bands"
+                  value={draft.bands ?? 1}
+                  min={1}
+                  max={8}
+                  step={1}
+                  onChange={(v) => updateField('bands', v)}
+                />
 
-                {/* Flow Distortion */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-semibold text-gray-700 dark:text-gray-300">
-                      Flow Distortion
-                    </label>
-                    <span className="font-mono text-gray-500 dark:text-gray-400 font-semibold">
-                      {(draft.flow ?? 0.8).toFixed(2)}x
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="2.5"
-                    step="0.05"
-                    value={draft.flow ?? 0.8}
-                    onChange={(e) => updateField('flow', Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-[#252836] rounded-lg appearance-none cursor-pointer accent-gray-900 dark:accent-white"
-                  />
-                </div>
+                {/* Softness Slider */}
+                <ScrubberControl
+                  label="Softness"
+                  value={draft.softness ?? 0.7}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  format={(v) => v.toFixed(2)}
+                  onChange={(v) => updateField('softness', v)}
+                />
 
-                {/* Animation Speed */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-semibold text-gray-700 dark:text-gray-300">
-                      Animation Speed
-                    </label>
-                    <span className="font-mono text-gray-500 dark:text-gray-400 font-semibold">
-                      {(draft.speed ?? 1).toFixed(2)}x
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="2.5"
-                    step="0.05"
-                    value={draft.speed ?? 1}
-                    onChange={(e) => updateField('speed', Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-[#252836] rounded-lg appearance-none cursor-pointer accent-gray-900 dark:accent-white"
-                  />
-                </div>
+                {/* Flow Slider */}
+                <ScrubberControl
+                  label="Flow"
+                  value={draft.flow ?? 0.8}
+                  min={0}
+                  max={2.5}
+                  step={0.05}
+                  format={(v) => v.toFixed(2)}
+                  onChange={(v) => updateField('flow', v)}
+                />
 
-                {/* Silk Sheen */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-semibold text-gray-700 dark:text-gray-300">
-                      Specular Silk Sheen
-                    </label>
-                    <span className="font-mono text-gray-500 dark:text-gray-400 font-semibold">
-                      {Math.round((draft.silk ?? 0.35) * 100)}%
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={draft.silk ?? 0.35}
-                    onChange={(e) => updateField('silk', Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-[#252836] rounded-lg appearance-none cursor-pointer accent-gray-900 dark:accent-white"
-                  />
-                </div>
-              </div>
+                {/* Scale Slider */}
+                <ScrubberControl
+                  label="Scale"
+                  value={draft.scale ?? 1}
+                  min={0.25}
+                  max={2.5}
+                  step={0.05}
+                  format={(v) => v.toFixed(2)}
+                  onChange={(v) => updateField('scale', v)}
+                />
 
-              {/* Grain & Texture */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-gray-100 dark:border-[#1e2029]/80">
-                {/* Grain Amount */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-semibold text-gray-700 dark:text-gray-300">
-                      Grain Amount
-                    </label>
-                    <span className="font-mono text-gray-500 dark:text-gray-400 font-semibold">
-                      {Math.round((draft.grainAmount ?? 0.08) * 100)}%
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="0.4"
-                    step="0.01"
-                    value={draft.grainAmount ?? 0.08}
-                    onChange={(e) => updateField('grainAmount', Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-[#252836] rounded-lg appearance-none cursor-pointer accent-gray-900 dark:accent-white"
-                  />
-                </div>
+                {/* Speed Slider */}
+                <ScrubberControl
+                  label="Speed"
+                  value={draft.speed ?? 1}
+                  min={0}
+                  max={2.5}
+                  step={0.05}
+                  format={(v) => v.toFixed(2)}
+                  onChange={(v) => updateField('speed', v)}
+                />
 
-                {/* Grain Size */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-semibold text-gray-700 dark:text-gray-300">
-                      Grain Size
-                    </label>
-                    <span className="font-mono text-gray-500 dark:text-gray-400 font-semibold">
-                      {(draft.grainSize ?? 1.2).toFixed(1)}px
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="3.5"
-                    step="0.1"
-                    value={draft.grainSize ?? 1.2}
-                    onChange={(e) => updateField('grainSize', Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-[#252836] rounded-lg appearance-none cursor-pointer accent-gray-900 dark:accent-white"
-                  />
-                </div>
+                {/* Silk Slider */}
+                <ScrubberControl
+                  label="Silk"
+                  value={draft.silk ?? 0.35}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  format={(v) => v.toFixed(2)}
+                  onChange={(v) => updateField('silk', v)}
+                />
+
+                {/* Grain Amount Slider */}
+                <ScrubberControl
+                  label="Grain Amount"
+                  value={draft.grainAmount ?? 0.08}
+                  min={0}
+                  max={0.35}
+                  step={0.01}
+                  format={(v) => v.toFixed(2)}
+                  onChange={(v) => updateField('grainAmount', v)}
+                />
+
+                {/* Grain Size Slider */}
+                <ScrubberControl
+                  label="Grain Size"
+                  value={draft.grainSize ?? 1.2}
+                  min={0.5}
+                  max={3.5}
+                  step={0.1}
+                  unit="px"
+                  format={(v) => `${v.toFixed(1)}px`}
+                  onChange={(v) => updateField('grainSize', v)}
+                />
+
+                {/* Contrast Slider */}
+                <ScrubberControl
+                  label="Contrast"
+                  value={draft.contrast ?? 1}
+                  min={0.4}
+                  max={1.8}
+                  step={0.05}
+                  format={(v) => v.toFixed(2)}
+                  onChange={(v) => updateField('contrast', v)}
+                />
+
+                {/* Saturation Slider */}
+                <ScrubberControl
+                  label="Saturation"
+                  value={draft.saturation ?? 1}
+                  min={0}
+                  max={2}
+                  step={0.05}
+                  format={(v) => v.toFixed(2)}
+                  onChange={(v) => updateField('saturation', v)}
+                />
+
+                {/* Variation Slider */}
+                <ScrubberControl
+                  label="Variation"
+                  value={draft.variation ?? 0}
+                  min={0}
+                  max={8}
+                  step={1}
+                  onChange={(v) => updateField('variation', v)}
+                />
 
                 {/* Animated Grain Toggle */}
-                <div className="flex items-center justify-between pt-3">
-                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 cursor-pointer" onClick={() => updateField('grainAnimated', !draft.grainAnimated)}>
-                    Animate Grain
-                  </label>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={draft.grainAnimated !== false}
-                    onClick={() => updateField('grainAnimated', draft.grainAnimated === false)}
-                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full border-none p-0.5 transition-colors duration-200 ${
-                      draft.grainAnimated !== false ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-[#2a2d3a]'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-black shadow-xs transition-transform duration-200 ${
-                        draft.grainAnimated !== false ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-
-              {/* Color Grading: Contrast & Saturation */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-gray-100 dark:border-[#1e2029]/80">
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-semibold text-gray-700 dark:text-gray-300">
-                      Contrast
-                    </label>
-                    <span className="font-mono text-gray-500 dark:text-gray-400 font-semibold">
-                      {(draft.contrast ?? 1).toFixed(2)}x
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.4"
-                    max="1.8"
-                    step="0.05"
-                    value={draft.contrast ?? 1}
-                    onChange={(e) => updateField('contrast', Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-[#252836] rounded-lg appearance-none cursor-pointer accent-gray-900 dark:accent-white"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-semibold text-gray-700 dark:text-gray-300">
-                      Saturation
-                    </label>
-                    <span className="font-mono text-gray-500 dark:text-gray-400 font-semibold">
-                      {(draft.saturation ?? 1).toFixed(2)}x
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="2"
-                    step="0.05"
-                    value={draft.saturation ?? 1}
-                    onChange={(e) => updateField('saturation', Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-[#252836] rounded-lg appearance-none cursor-pointer accent-gray-900 dark:accent-white"
-                  />
-                </div>
+                <ToggleControl
+                  label="Animated Grain"
+                  checked={draft.grainAnimated !== false}
+                  onChange={(v) => updateField('grainAnimated', v)}
+                />
               </div>
             </div>
           </div>
 
-          {/* Footer Bar: Reset, Cancel, Save */}
-          <div className="flex items-center justify-between px-6 py-3.5 border-t border-gray-100 dark:border-[#1e2029] bg-gray-50/70 dark:bg-[#141620]/70 shrink-0">
+          {/* Footer Bar */}
+          <div className="flex items-center justify-between px-6 py-3 border-t border-[#1f212c] bg-[#12131a] shrink-0">
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/50 dark:hover:bg-white/5 transition-all cursor-pointer border-none bg-transparent"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer border-none bg-transparent"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Reset to Default
             </button>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-white/5 transition-all cursor-pointer border-none bg-transparent"
+                className="px-4 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer border-none bg-transparent"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-xs font-bold text-white bg-gray-900 dark:bg-white dark:text-black hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer border-none shadow-sm"
+                className="inline-flex items-center gap-1.5 px-5 py-1.5 rounded-lg text-xs font-bold text-black bg-white hover:bg-gray-100 active:scale-[0.98] transition-all cursor-pointer border-none shadow-sm"
               >
                 <Check className="w-3.5 h-3.5 stroke-[2.5]" /> Save & Apply
               </button>
