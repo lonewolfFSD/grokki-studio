@@ -47,6 +47,91 @@ const BATTLE_BRAIN_OPTIONS = [
   { id: 'openai:gpt-4o', label: 'OpenAI GPT-4o' },
   { id: 'deepseek:deepseek-chat', label: 'DeepSeek Chat' },
 ];
+
+const MODEL_CONTEXT_LIMITS: Record<string, number> = {
+  // Gemini
+  'gemini-3.5-flash': 1_000_000,
+  'gemini-3.8-flash': 1_000_000,
+  'gemini-3.1-flash-lite': 1_000_000,
+  'gemini-3.1-pro-preview': 2_000_000,
+  'gemini-flash-latest': 1_000_000,
+  'gemini-pro-latest': 2_000_000,
+  'gemini-2.5-flash': 1_000_000,
+  // Groq
+  'qwen/qwen3.8-27b': 32_768,
+  'llama-3.3-70b-versatile': 128_000,
+  'llama-3.1-8b-instant': 128_000,
+  'deepseek-r1-distill-llama-70b': 128_000,
+  'mixtral-8x7b-32768': 32_768,
+  'gemma2-9b-it': 8_192,
+  'openai/gpt-oss-120b': 131_072,
+  'openai/gpt-oss-20b': 131_072,
+  // OpenAI
+  'gpt-4o': 128_000,
+  'gpt-4o-mini': 128_000,
+  'o1': 200_000,
+  'o3-mini': 200_000,
+  'gpt-4.5-preview': 128_000,
+  'gpt-4-turbo': 128_000,
+  // DeepSeek
+  'deepseek-chat': 64_000,
+  'deepseek-reasoner': 64_000,
+  // Grok
+  'grok-2-1212': 131_072,
+  'grok-2-vision-1212': 32_768,
+  'grok-beta': 131_072,
+  // Qwen
+  'qwen-max': 32_768,
+  'qwen-plus': 128_000,
+  'qwen-turbo': 128_000,
+  // Ollama
+  'llama3.2': 8_192,
+  'llama3.3': 128_000,
+  'llama3.1': 128_000,
+  'deepseek-r1': 64_000,
+  'qwen2.5-coder': 32_768,
+  'mistral': 32_768,
+  'phi4': 16_384,
+  'gemma2': 8_192,
+  // Claude
+  'claude-3.7-sonnet': 200_000,
+  'claude-3.5-sonnet': 200_000,
+};
+
+const getModelContextWindow = (model: string): number => {
+  if (!model) return 32_768;
+  const lower = model.toLowerCase();
+  for (const [k, v] of Object.entries(MODEL_CONTEXT_LIMITS)) {
+    if (lower === k.toLowerCase() || lower.endsWith('/' + k.toLowerCase()) || lower.includes(k.toLowerCase())) {
+      return v;
+    }
+  }
+  if (lower.includes('gemini')) return 1_000_000;
+  if (lower.includes('claude')) return 200_000;
+  if (lower.includes('120b') || lower.includes('70b') || lower.includes('gpt-4') || lower.includes('128k') || lower.includes('o1') || lower.includes('o3')) return 128_000;
+  if (lower.includes('deepseek')) return 64_000;
+  if (lower.includes('32k') || lower.includes('32768') || lower.includes('qwen')) return 32_768;
+  if (lower.includes('8b') || lower.includes('3b') || lower.includes('8k') || lower.includes('llama3.2')) return 8_192;
+  return 32_768;
+};
+
+const formatTokenNumber = (num: number): string => {
+  if (num >= 1_000_000) {
+    const m = num / 1_000_000;
+    return `${m % 1 === 0 ? m.toFixed(0) : m.toFixed(1)}M`;
+  }
+  if (num % 1024 === 0 && num >= 1024) {
+    return `${num / 1024}k`;
+  }
+  if (num >= 10_000) {
+    return `${Math.round(num / 1_000)}k`;
+  }
+  if (num >= 1_000) {
+    const k = num / 1_000;
+    return `${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}k`;
+  }
+  return num.toString();
+};
 import { ArtifactCanvasPane, Artifact } from '../ArtifactCanvasPane';
 import { PerplexitySourcesBar } from '../PerplexitySourcesBar';
 import { WorkspaceMentionMenu } from '../WorkspaceMentionMenu';
@@ -1045,6 +1130,104 @@ export const ChatTab = React.memo<ChatTabProps>(({
           </div>
         </div>
       </div>
+    );
+  };
+
+  // Token Usage Tracking
+  const usedTokens = useMemo(() => {
+    const estimate = (text?: string) => {
+      if (!text) return 0;
+      return Math.ceil(text.length / 3.8);
+    };
+
+    let count = 0;
+    for (const m of messages) {
+      count += estimate(m.content);
+      if (m.dualBattle) {
+        count += estimate(m.dualBattle.brainA.reply);
+        count += estimate(m.dualBattle.brainB.reply);
+        if (m.dualBattle.consensus?.content) {
+          count += estimate(m.dualBattle.consensus.content);
+        }
+      }
+    }
+
+    if (inputValue) {
+      count += estimate(inputValue);
+    }
+
+    for (const mention of stagedMentions) {
+      if (mention.size) {
+        count += Math.ceil(mention.size / 4);
+      } else {
+        count += 50;
+      }
+    }
+
+    return count;
+  }, [messages, inputValue, stagedMentions]);
+
+  const activeContextLimit = useMemo(() => {
+    if (dualBattleEnabled) {
+      const limitA = getModelContextWindow(brainASelection);
+      const limitB = getModelContextWindow(brainBSelection);
+      return Math.min(limitA, limitB);
+    }
+    return getModelContextWindow(currentModelValue);
+  }, [dualBattleEnabled, brainASelection, brainBSelection, currentModelValue]);
+
+  const renderTokenUsageCircle = () => {
+    const total = activeContextLimit;
+    const ratio = Math.min(1, Math.max(0, usedTokens / total));
+    const percentage = ratio * 100;
+    const circumference = 34.56; // 2 * Math.PI * 5.5
+    const strokeDashoffset = circumference * (1 - ratio);
+
+    return (
+      <WarmTooltip
+        content={`Context window: ${usedTokens.toLocaleString()} / ${total.toLocaleString()} tokens (${percentage.toFixed(1)}% of ${currentModelValue} used)`}
+        side="top"
+        surfaceColor="#f5f5f5"
+        inkColor="#18181b"
+        size="sm"
+        radius={8}
+        arrow
+        popDuration={140}
+        showFuse={false}
+      >
+        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors select-none cursor-default">
+          <svg className="w-3.5 h-3.5 -rotate-90 shrink-0" viewBox="0 0 16 16">
+            <circle
+              cx="8"
+              cy="8"
+              r="5.5"
+              fill="none"
+              strokeWidth="1.75"
+              className="stroke-gray-300 dark:stroke-white/10"
+            />
+            <circle
+              cx="8"
+              cy="8"
+              r="5.5"
+              fill="none"
+              strokeWidth="1.75"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              className={`transition-all duration-300 ${
+                percentage >= 90
+                  ? 'stroke-rose-500'
+                  : percentage >= 75
+                  ? 'stroke-amber-400'
+                  : 'stroke-sky-400 dark:stroke-sky-400'
+              }`}
+            />
+          </svg>
+          <span className="font-mono tracking-tight text-[11px]">
+            {formatTokenNumber(usedTokens)}/{formatTokenNumber(total)}
+          </span>
+        </div>
+      </WarmTooltip>
     );
   };
 
@@ -2928,6 +3111,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 </div>
               </div>
             </div>
+
+            {/* Token Usage Circle Bar Below Hero Input Bubble (Right-aligned) */}
+            <div className="flex justify-end items-center px-1 mt-1.5">
+              {renderTokenUsageCircle()}
+            </div>
           </div>
 
           {/* Suggestions Grid */}
@@ -3466,7 +3654,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
               </div>
             )}
 
-            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl mb-8 p-3 transition-all flex flex-col gap-2.5 shadow-sm hover:shadow-md">
+            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl mb-1.5 p-3 transition-all flex flex-col gap-2.5 shadow-sm hover:shadow-md">
               {/* Battle Stage Selector when Dual-Battle Mode is active */}
               {dualBattleEnabled && renderBattleStageBar('top')}
 
@@ -3663,6 +3851,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   </WarmTooltip>
                 </div>
               </div>
+            </div>
+
+            {/* Token Usage Circle Bar Below Floating Input Bubble (Right-aligned) */}
+            <div className="flex justify-end items-center px-1 mb-6">
+              {renderTokenUsageCircle()}
             </div>
           </div>
         </div>
