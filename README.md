@@ -166,7 +166,7 @@ Grokki Agent Runtime
         <br/><sub><b>Dynamic Island with Real GPU Desktop Blur (<code>Alt+Q</code>)</b></sub>
       </td>
       <td width="50%" align="center">
-        <img src="assets/screenshots/studio_dashboard.png" alt="Central Studio Workspace" width="100%"/>
+        <img src="assets/screenshots/Workspace.png" alt="Central Studio Workspace" width="100%"/>
         <br/><sub><b>Central Studio Workspace & Chat Canvas</b></sub>
       </td>
     </tr>
