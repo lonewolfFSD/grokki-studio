@@ -942,6 +942,111 @@ export const ChatTab = React.memo<ChatTabProps>(({
     );
   };
 
+  const battleBrainOptions: GlideSelectOption[] = useMemo(() => {
+    return BATTLE_BRAIN_OPTIONS.map((opt) => {
+      let Logo = GeminiLogo;
+      let tag = 'Gemini';
+      if (opt.id.startsWith('groq:')) {
+        Logo = GroqLogo;
+        tag = 'Groq';
+      } else if (opt.id.startsWith('ollama:')) {
+        Logo = OllamaLogo;
+        tag = 'Ollama';
+      } else if (opt.id.startsWith('openai:')) {
+        Logo = OpenAILogo;
+        tag = 'OpenAI';
+      } else if (opt.id.startsWith('deepseek:')) {
+        Logo = DeepSeekLogo;
+        tag = 'DeepSeek';
+      }
+
+      return {
+        value: opt.id,
+        label: (
+          <span className="flex items-center gap-1.5 truncate max-w-[170px] text-[11px]">
+            <Logo className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{opt.label}</span>
+          </span>
+        ),
+        tag,
+      };
+    });
+  }, []);
+
+  const renderBattleStageBar = (placement: 'top' | 'bottom' = 'top') => {
+    const isDark =
+      config.dashboardTheme === 'dark' ||
+      (typeof document !== 'undefined' &&
+        (document.documentElement.classList.contains('dark') ||
+          document.body.classList.contains('dark')));
+
+    return (
+      <div className="flex items-center justify-between flex-wrap gap-2 px-3 py-1.5 rounded-xl bg-gray-50/80 dark:bg-[#161821]/80 border border-gray-200/60 dark:border-white/[0.08] backdrop-blur-md mb-1.5 transition-all">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Swords className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+          <span className="text-[11px] font-medium tracking-tight text-gray-700 dark:text-gray-300">
+            Dual Battle
+          </span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Brain A */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-sky-500 dark:text-sky-400">
+              A:
+            </span>
+            <GlideSelect
+              options={battleBrainOptions}
+              value={brainASelection}
+              onChange={(val) => setBrainASelection(val)}
+              placeholder="Brain A"
+              size="sm"
+              radius={8}
+              menuWidth={240}
+              surfaceColor={isDark ? '#1a1c24' : '#f3f4f6'}
+              highlightColor={isDark ? '#272a38' : '#e5e7eb'}
+              textColor={isDark ? '#f3f4f6' : '#111827'}
+              accentColor={isDark ? '#38bdf8' : '#0284c7'}
+              placement={placement}
+              align="left"
+              popDuration={180}
+              glideDuration={200}
+              ariaLabel="Select Brain A"
+            />
+          </div>
+
+          <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 font-medium px-0.5 select-none shrink-0">
+            vs
+          </span>
+
+          {/* Brain B */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-purple-500 dark:text-purple-400">
+              B:
+            </span>
+            <GlideSelect
+              options={battleBrainOptions}
+              value={brainBSelection}
+              onChange={(val) => setBrainBSelection(val)}
+              placeholder="Brain B"
+              size="sm"
+              radius={8}
+              menuWidth={240}
+              surfaceColor={isDark ? '#1a1c24' : '#f3f4f6'}
+              highlightColor={isDark ? '#272a38' : '#e5e7eb'}
+              textColor={isDark ? '#f3f4f6' : '#111827'}
+              accentColor={isDark ? '#c084fc' : '#9333ea'}
+              placement={placement}
+              align="left"
+              popDuration={180}
+              glideDuration={200}
+              ariaLabel="Select Brain B"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const isSlashMode = inputValue.startsWith('/') && !inputValue.includes(' ') && !slashDismissed;
   const slashQuery = isSlashMode ? inputValue.slice(1).toLowerCase().trim() : '';
   const filteredSlashCommands = isSlashMode
@@ -2604,47 +2709,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
             <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5">
               {/* Battle Stage Selector when Dual-Battle Mode is active */}
-              {dualBattleEnabled && (
-                <div className="flex items-center flex-wrap gap-2 px-3 py-1.5 rounded-xl bg-purple-950/20 dark:bg-purple-950/30 border border-purple-500/25 text-xs font-mono text-purple-300">
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Swords className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                    <span className="font-semibold text-purple-200 text-[11px] uppercase tracking-wider">Battle Stage</span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* Brain A */}
-                    <div className="flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded border border-sky-500/30 text-gray-200">
-                      <span className="text-[10px] uppercase font-bold text-sky-400">Brain A:</span>
-                      <select
-                        value={brainASelection}
-                        onChange={(e) => setBrainASelection(e.target.value)}
-                        className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
-                      >
-                        {BATTLE_BRAIN_OPTIONS.map((opt) => (
-                          <option key={`hero-a-${opt.id}`} value={opt.id} className="bg-[#121217] text-white">
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <span className="text-purple-400 font-bold text-[11px]">VS</span>
-                    {/* Brain B */}
-                    <div className="flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded border border-purple-500/30 text-gray-200">
-                      <span className="text-[10px] uppercase font-bold text-purple-400">Brain B:</span>
-                      <select
-                        value={brainBSelection}
-                        onChange={(e) => setBrainBSelection(e.target.value)}
-                        className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
-                      >
-                        {BATTLE_BRAIN_OPTIONS.map((opt) => (
-                          <option key={`hero-b-${opt.id}`} value={opt.id} className="bg-[#121217] text-white">
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {dualBattleEnabled && renderBattleStageBar('top')}
 
               {/* Input Field on Top */}
               <input
@@ -2734,9 +2799,6 @@ export const ChatTab = React.memo<ChatTabProps>(({
                       }`}
                     >
                       <Globe className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${webSearchEnabled ? 'text-sky-400' : 'text-gray-400'}`} />
-                      {webSearchEnabled && (
-                        <span className="w-1 h-1 rounded-full bg-sky-400 ml-1 shrink-0 animate-pulse" />
-                      )}
                       <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
                         Deep Search
                       </span>
@@ -2769,9 +2831,6 @@ export const ChatTab = React.memo<ChatTabProps>(({
                       }`}
                     >
                       <Swords className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${dualBattleEnabled ? 'text-purple-400' : 'text-gray-400'}`} />
-                      {dualBattleEnabled && (
-                        <span className="w-1 h-1 rounded-full bg-purple-400 ml-1 shrink-0 animate-pulse" />
-                      )}
                       <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
                         Dual Battle
                       </span>
@@ -3385,47 +3444,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
             <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl mb-8 p-3 transition-all flex flex-col gap-2.5 shadow-sm hover:shadow-md">
               {/* Battle Stage Selector when Dual-Battle Mode is active */}
-              {dualBattleEnabled && (
-                <div className="flex items-center flex-wrap gap-2 px-3 py-1.5 rounded-xl bg-purple-950/20 dark:bg-purple-950/30 border border-purple-500/25 text-xs font-mono text-purple-300">
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Swords className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                    <span className="font-semibold text-purple-200 text-[11px] uppercase tracking-wider">Battle Stage</span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* Brain A */}
-                    <div className="flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded border border-sky-500/30 text-gray-200">
-                      <span className="text-[10px] uppercase font-bold text-sky-400">Brain A:</span>
-                      <select
-                        value={brainASelection}
-                        onChange={(e) => setBrainASelection(e.target.value)}
-                        className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
-                      >
-                        {BATTLE_BRAIN_OPTIONS.map((opt) => (
-                          <option key={`bottom-a-${opt.id}`} value={opt.id} className="bg-[#121217] text-white">
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <span className="text-purple-400 font-bold text-[11px]">VS</span>
-                    {/* Brain B */}
-                    <div className="flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded border border-purple-500/30 text-gray-200">
-                      <span className="text-[10px] uppercase font-bold text-purple-400">Brain B:</span>
-                      <select
-                        value={brainBSelection}
-                        onChange={(e) => setBrainBSelection(e.target.value)}
-                        className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
-                      >
-                        {BATTLE_BRAIN_OPTIONS.map((opt) => (
-                          <option key={`bottom-b-${opt.id}`} value={opt.id} className="bg-[#121217] text-white">
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {dualBattleEnabled && renderBattleStageBar('top')}
 
               {/* Input Field on Top */}
               <input
@@ -3514,9 +3533,6 @@ export const ChatTab = React.memo<ChatTabProps>(({
                       }`}
                     >
                       <Globe className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${webSearchEnabled ? 'text-sky-400' : 'text-gray-400'}`} />
-                      {webSearchEnabled && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-sky-400 ml-1 shrink-0 animate-pulse" />
-                      )}
                       <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
                         Deep Search
                       </span>
@@ -3549,9 +3565,6 @@ export const ChatTab = React.memo<ChatTabProps>(({
                       }`}
                     >
                       <Swords className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${dualBattleEnabled ? 'text-purple-400' : 'text-gray-400'}`} />
-                      {dualBattleEnabled && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 ml-1 shrink-0 animate-pulse" />
-                      )}
                       <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
                         Dual Battle
                       </span>
