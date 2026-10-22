@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, RotateCcw, Check, ChevronDown, Plus, Minus } from 'lucide-react';
+import { X, RotateCcw, Check, Plus, Minus } from 'lucide-react';
 import Grainient from './tabs/Grainient';
+import GlideSelect, { GlideSelectOption } from './tabs/GlideSelect';
 import { GrainientCustomSettings } from '../types/jarvis';
 
 export const DEFAULT_GRAINIENT_SETTINGS: GrainientCustomSettings = {
@@ -137,6 +138,16 @@ export const PRESET_OPTIONS: { name: string; settings: Partial<GrainientCustomSe
       saturation: 0.9,
     },
   },
+];
+
+const PRESET_SELECT_OPTIONS: GlideSelectOption[] = PRESET_OPTIONS.map((p) => ({
+  value: p.name,
+  label: p.name,
+}));
+
+const TYPE_SELECT_OPTIONS: GlideSelectOption[] = [
+  { value: 'linear', label: 'Linear' },
+  { value: 'radial', label: 'Radial' },
 ];
 
 interface ScrubberControlProps {
@@ -408,38 +419,47 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
                 </div>
 
                 {/* Preset Dropdown Card */}
-                <div className="flex items-center justify-between px-3.5 h-10 rounded-xl bg-[#161720] border border-[#232532] relative select-none">
-                  <span className="text-[11.5px] font-medium text-gray-400 select-none">Preset</span>
-                  <div className="relative flex items-center gap-1.5">
-                    <select
-                      value={activePreset}
-                      onChange={(e) => handleApplyPreset(e.target.value)}
-                      className="appearance-none bg-transparent cursor-pointer font-medium text-xs text-white pr-5 focus:outline-none border-none text-right"
-                    >
-                      {PRESET_OPTIONS.map((p) => (
-                        <option key={p.name} value={p.name} className="bg-[#161720] text-white">
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 pointer-events-none absolute right-0" />
-                  </div>
+                <div className="relative z-30 flex items-center justify-between px-3 h-10 rounded-xl bg-[#161720] border border-[#232532] hover:border-[#2f3242] transition-colors select-none">
+                  <span className="text-[11.5px] font-medium text-gray-400 select-none shrink-0 pointer-events-none">
+                    Preset
+                  </span>
+                  <GlideSelect
+                    options={PRESET_SELECT_OPTIONS}
+                    value={activePreset}
+                    onChange={(val) => handleApplyPreset(val)}
+                    size="sm"
+                    radius={10}
+                    menuWidth={160}
+                    placement="bottom"
+                    align="right"
+                    surfaceColor="#161720"
+                    highlightColor="#232532"
+                    textColor="#ffffff"
+                    accentColor="#ffffff"
+                    className="[&>button]:bg-transparent [&>button]:hover:bg-white/5 [&>button]:border-none [&>button]:px-1.5 [&>button]:h-7 text-xs font-medium"
+                  />
                 </div>
 
                 {/* Type Dropdown Card */}
-                <div className="flex items-center justify-between px-3.5 h-10 rounded-xl bg-[#161720] border border-[#232532] relative select-none">
-                  <span className="text-[11.5px] font-medium text-gray-400 select-none">Type</span>
-                  <div className="relative flex items-center gap-1.5">
-                    <select
-                      value={draft.type || 'linear'}
-                      onChange={(e) => updateField('type', e.target.value as 'linear' | 'radial')}
-                      className="appearance-none bg-transparent cursor-pointer font-medium text-xs text-white capitalize pr-5 focus:outline-none border-none text-right"
-                    >
-                      <option value="linear" className="bg-[#161720] text-white">Linear</option>
-                      <option value="radial" className="bg-[#161720] text-white">Radial</option>
-                    </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 pointer-events-none absolute right-0" />
-                  </div>
+                <div className="relative z-30 flex items-center justify-between px-3 h-10 rounded-xl bg-[#161720] border border-[#232532] hover:border-[#2f3242] transition-colors select-none">
+                  <span className="text-[11.5px] font-medium text-gray-400 select-none shrink-0 pointer-events-none">
+                    Type
+                  </span>
+                  <GlideSelect
+                    options={TYPE_SELECT_OPTIONS}
+                    value={draft.type || 'linear'}
+                    onChange={(val) => updateField('type', val as 'linear' | 'radial')}
+                    size="sm"
+                    radius={10}
+                    menuWidth={140}
+                    placement="bottom"
+                    align="right"
+                    surfaceColor="#161720"
+                    highlightColor="#232532"
+                    textColor="#ffffff"
+                    accentColor="#ffffff"
+                    className="[&>button]:bg-transparent [&>button]:hover:bg-white/5 [&>button]:border-none [&>button]:px-1.5 [&>button]:h-7 text-xs font-medium"
+                  />
                 </div>
 
                 {/* Angle Slider */}
