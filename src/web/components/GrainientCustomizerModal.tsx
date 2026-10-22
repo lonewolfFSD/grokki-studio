@@ -204,6 +204,13 @@ const ScrubberControl: React.FC<ScrubberControlProps> = ({
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
           onPointerUp={(e) => (e.target as HTMLElement).blur()}
+          onWheel={(e) => {
+            e.stopPropagation();
+            const scroller = (e.currentTarget as HTMLElement).closest('.customizer-scroll-pane');
+            if (scroller) {
+              scroller.scrollTop += e.deltaY;
+            }
+          }}
           className="w-full h-full opacity-0 cursor-ew-resize relative z-20 m-0 p-0"
         />
       </div>
@@ -271,6 +278,11 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
         ...DEFAULT_GRAINIENT_SETTINGS,
         ...(currentSettings || {}),
       });
+      const origOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = origOverflow;
+      };
     }
   }, [isOpen, currentSettings]);
 
@@ -322,13 +334,16 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-md">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-md overscroll-none"
+        onWheel={(e) => e.stopPropagation()}
+      >
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 8 }}
           transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-6xl h-[90vh] max-h-[820px] flex flex-col bg-[#0e0f14] border border-[#1f212c] rounded-2xl shadow-2xl overflow-hidden text-gray-100"
+          className="w-full max-w-5xl h-[65vh] max-h-[820px] flex flex-col bg-[#0e0f14] border border-[#1f212c] rounded-2xl shadow-2xl overflow-hidden text-gray-100"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-3 border-b border-[#1f212c] shrink-0 bg-[#12131a]">
@@ -373,7 +388,10 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
             </div>
 
             {/* Right Side: Exact Settings in the Design of Second Image */}
-            <div className="w-[430px] shrink-0 h-full min-h-0 flex flex-col overflow-y-auto overflow-x-hidden pr-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/25">
+            <div
+              className="customizer-scroll-pane w-[430px] shrink-0 h-full min-h-0 flex flex-col overflow-y-auto overflow-x-hidden pr-1.5 overscroll-contain select-none [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/25"
+              onWheel={(e) => e.stopPropagation()}
+            >
               <div className="grid grid-cols-2 gap-2 pb-6">
                 {/* Colors Card (Full Width) */}
                 <div className="flex flex-col justify-between px-3.5 py-2.5 rounded-xl bg-[#161720] border border-[#232532] col-span-2 gap-2">
