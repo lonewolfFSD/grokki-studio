@@ -162,7 +162,7 @@ Grokki Agent Runtime
   <table>
     <tr>
       <td width="50%" align="center">
-        <img src="assets/screenshots/dynamic_island_blur.png" alt="Dynamic Island with Real GPU Desktop Blur" width="100%"/>
+        <img src="assets/screenshots/Dynamic Island.png" alt="Dynamic Island with Real GPU Desktop Blur" width="100%"/>
         <br/><sub><b>Dynamic Island with Real GPU Desktop Blur (<code>Alt+Q</code>)</b></sub>
       </td>
       <td width="50%" align="center">
