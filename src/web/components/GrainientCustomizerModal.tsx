@@ -345,10 +345,10 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
             </button>
           </div>
 
-          {/* Body: Left Side Big Preview, Right Side Settings in Image 2 Design */}
-          <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden p-5 gap-5">
+          {/* Body: ALWAYS Side-by-Side: Left Side Big Preview, Right Side Settings in Image 2 Design */}
+          <div className="flex-1 flex flex-row min-h-0 overflow-hidden p-4 md:p-5 gap-4 md:gap-5">
             {/* Left Side: Big Live Preview Window */}
-            <div className="flex-1 min-h-[220px] h-full flex flex-col rounded-2xl overflow-hidden border border-[#232534] bg-black shadow-2xl relative">
+            <div className="flex-1 min-w-0 h-full flex flex-col rounded-2xl overflow-hidden border border-[#232534] bg-black shadow-2xl relative">
               <Grainient
                 colors={draft.colors}
                 type={draft.type}
@@ -373,7 +373,7 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
             </div>
 
             {/* Right Side: Exact Settings in the Design of Second Image */}
-            <div className="w-full lg:w-[490px] h-full min-h-0 flex-shrink-0 flex flex-col overflow-y-auto overflow-x-hidden pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/25">
+            <div className="w-[430px] shrink-0 h-full min-h-0 flex flex-col overflow-y-auto overflow-x-hidden pr-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/25">
               <div className="grid grid-cols-2 gap-2 pb-6">
                 {/* Colors Card (Full Width) */}
                 <div className="flex flex-col justify-between px-3.5 py-2.5 rounded-xl bg-[#161720] border border-[#232532] col-span-2 gap-2">
