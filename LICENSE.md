@@ -1,7 +1,5 @@
 # Grokki Studio Source-Available Non-Commercial License
 
-**Version 1.0 — October 2026**
-
 Copyright © 2026 Grokki Studio. All rights reserved.
 
 "Software" means the source code, binaries, application packages, and documentation distributed under this License, excluding third-party materials governed by separate licenses.
