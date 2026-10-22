@@ -20,6 +20,24 @@ export type AiProvider =
   | 'deepseek'
   | 'qwen';
 
+export interface GrainientCustomSettings {
+  colors?: string[];
+  type?: 'linear' | 'radial';
+  angle?: number;
+  bands?: number;
+  speed?: number;
+  flow?: number;
+  scale?: number;
+  softness?: number;
+  silk?: number;
+  grainAmount?: number;
+  grainSize?: number;
+  grainAnimated?: boolean;
+  contrast?: number;
+  saturation?: number;
+  variation?: number;
+}
+
 export interface JarvisConfig {
   provider: AiProvider;
   geminiApiKey?: string;
@@ -71,6 +89,7 @@ export interface JarvisConfig {
   hardwareAcceleration?: boolean;
   chatBackgroundGradient?: boolean;
   chatBackgroundEffect?: string;
+  grainientSettings?: GrainientCustomSettings;
   chatBackgroundNoise?: boolean;
   glowCursorEnabled?: boolean;
   smoothCursorEnabled?: boolean;

@@ -19,6 +19,7 @@ import {
   Trash2,
   AlertCircle,
   ChevronDown,
+  Pencil,
 } from 'lucide-react';
 import { JarvisConfig, StudioHotkeys } from '../../types/jarvis';
 import {
@@ -30,14 +31,11 @@ import {
 } from '../../utils/hotkeys';
 import WarmTooltip, { WarmTooltipGroup } from '../WarmTooltip';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
+import { GrainientCustomizerModal } from '../GrainientCustomizerModal';
 
 const GRADIENT_EFFECT_OPTIONS: GlideSelectOption[] = [
   { value: 'grokki-blue', label: 'Grokki Blue', tag: 'ASCII' },
   { value: 'grainient', label: 'Grainient', tag: 'Fluid' },
-  { value: 'grainient-blue', label: 'Grainient Blue', tag: 'Deep' },
-  { value: 'grainient-sunset', label: 'Grainient Sunset', tag: 'Amber' },
-  { value: 'grainient-aurora', label: 'Grainient Aurora', tag: 'Glow' },
-  { value: 'grainient-neon', label: 'Grainient Cyber', tag: 'Neon' },
 ];
 
 interface StudioSettingsTabProps {
@@ -53,6 +51,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
 }) => {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [clearedConfirm, setClearedConfirm] = useState(false);
+  const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
   const [recordingActionId, setRecordingActionId] = useState<keyof StudioHotkeys | 'globalSummon' | null>(null);
   const [hotkeyConflictError, setHotkeyConflictError] = useState<{
     actionId: keyof StudioHotkeys | 'globalSummon';
@@ -793,7 +792,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
                   Select between Grokki Blue ASCII wave and Grainient fluid shader.
                 </span>
               </div>
-              <div className="relative shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <GlideSelect
                   options={GRADIENT_EFFECT_OPTIONS}
                   value={config.chatBackgroundEffect || 'grokki-blue'}
@@ -801,7 +800,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
                   showTags
                   size="md"
                   radius={10}
-                  menuWidth={220}
+                  menuWidth={180}
                   align="right"
                   placement="bottom"
                   surfaceColor={config.dashboardTheme === 'dark' ? '#1a1c24' : '#ffffff'}
@@ -810,6 +809,18 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
                   accentColor={config.dashboardTheme === 'dark' ? '#ffffff' : '#000000'}
                   className="[&>button]:border [&>button]:border-gray-200 [&>button]:dark:border-[#2a2d3a] [&>button]:shadow-xs font-mono text-xs"
                 />
+
+                {/* Customize Pencil Button - Only appears when Grainient is selected */}
+                {(config.chatBackgroundEffect || 'grokki-blue') === 'grainient' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomizerOpen(true)}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center bg-white hover:bg-gray-100 dark:bg-[#1a1d28] dark:hover:bg-[#252836] border border-gray-200 dark:border-[#2a2d3a] text-gray-700 dark:text-gray-300 hover:text-black dark:hover:text-white transition-all cursor-pointer shadow-xs shrink-0"
+                    title="Customize Grainient Effect"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1016,6 +1027,15 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
         </div>
       </div>
     </div>
+
+    {/* Grainient Customizer Modal */}
+    <GrainientCustomizerModal
+      isOpen={isCustomizerOpen}
+      onClose={() => setIsCustomizerOpen(false)}
+      currentSettings={config.grainientSettings}
+      onSave={(settings) => onChangeConfig({ grainientSettings: settings })}
+      isDark={config.dashboardTheme === 'dark'}
+    />
     </WarmTooltipGroup>
   );
 });

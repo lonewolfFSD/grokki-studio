@@ -1,14 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Pencil } from 'lucide-react';
 import { JarvisConfig } from '../../types/jarvis';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
+import { GrainientCustomizerModal } from '../GrainientCustomizerModal';
 
 const GRADIENT_EFFECT_OPTIONS: GlideSelectOption[] = [
   { value: 'grokki-blue', label: 'Grokki Blue', tag: 'ASCII' },
   { value: 'grainient', label: 'Grainient', tag: 'Fluid' },
-  { value: 'grainient-blue', label: 'Grainient Blue', tag: 'Deep' },
-  { value: 'grainient-sunset', label: 'Grainient Sunset', tag: 'Amber' },
-  { value: 'grainient-aurora', label: 'Grainient Aurora', tag: 'Glow' },
-  { value: 'grainient-neon', label: 'Grainient Cyber', tag: 'Neon' },
 ];
 
 interface AppearanceTabProps {
@@ -17,6 +15,7 @@ interface AppearanceTabProps {
 }
 
 export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeConfig }) => {
+  const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-16">
       <div>
@@ -147,7 +146,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
                 Choose the ambient background visual: Grokki Blue ASCII wave or Grainient fluid mesh.
               </span>
             </div>
-            <div className="relative shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <GlideSelect
                 options={GRADIENT_EFFECT_OPTIONS}
                 value={config.chatBackgroundEffect || 'grokki-blue'}
@@ -155,7 +154,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
                 showTags
                 size="md"
                 radius={10}
-                menuWidth={220}
+                menuWidth={180}
                 align="right"
                 placement="bottom"
                 surfaceColor={config.dashboardTheme === 'dark' ? '#1a1c24' : '#f5f5f7'}
@@ -164,6 +163,18 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
                 accentColor={config.dashboardTheme === 'dark' ? '#ffffff' : '#000000'}
                 className="[&>button]:border [&>button]:border-gray-200 [&>button]:dark:border-[#1e2029] [&>button]:shadow-xs font-mono text-xs"
               />
+
+              {/* Customize Pencil Button - Only appears when Grainient is selected */}
+              {(config.chatBackgroundEffect || 'grokki-blue') === 'grainient' && (
+                <button
+                  type="button"
+                  onClick={() => setIsCustomizerOpen(true)}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-[#1a1d28] dark:hover:bg-[#252836] border border-gray-200 dark:border-[#252836] text-gray-700 dark:text-gray-300 hover:text-black dark:hover:text-white transition-all cursor-pointer shadow-xs shrink-0"
+                  title="Customize Grainient Effect"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -324,6 +335,15 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
           className="w-28 text-center font-mono font-semibold h-9 px-3 rounded-lg text-xs bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-gray-900 dark:focus:border-white focus:outline-none transition-all"
         />
       </div>
+
+      {/* Grainient Customizer Modal */}
+      <GrainientCustomizerModal
+        isOpen={isCustomizerOpen}
+        onClose={() => setIsCustomizerOpen(false)}
+        currentSettings={config.grainientSettings}
+        onSave={(settings) => onChangeConfig({ grainientSettings: settings })}
+        isDark={config.dashboardTheme === 'dark'}
+      />
     </div>
   );
 });

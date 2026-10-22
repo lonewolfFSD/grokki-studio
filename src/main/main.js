@@ -148,6 +148,7 @@ function loadConfig() {
       if (data.hardwareAcceleration === undefined) data.hardwareAcceleration = true;
       if (data.chatBackgroundGradient === undefined) data.chatBackgroundGradient = true;
       if (!data.chatBackgroundEffect) data.chatBackgroundEffect = 'grokki-blue';
+      if (data.grainientSettings === undefined) data.grainientSettings = null;
       if (data.chatBackgroundNoise === undefined) data.chatBackgroundNoise = true;
       if (data.glowCursorEnabled === undefined) data.glowCursorEnabled = true;
       if (data.smoothCursorEnabled === undefined) data.smoothCursorEnabled = true;
