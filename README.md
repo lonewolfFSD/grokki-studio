@@ -1,151 +1,153 @@
 <div align="center">
-
-<img src="assets/grokki_wordmark.png" alt="Grokki Wordmark" width="480"/>
-
-[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/lonewolfFSD/grokki-studio)
-[![Electron](https://img.shields.io/badge/Electron-44.7.2-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://electronjs.org/)
-[![React](https://img.shields.io/badge/React-19.3.1-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-7.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![License](https://img.shields.io/badge/License-Non--Commercial-red?style=for-the-badge)](LICENSE)
-
-**An autonomous AI desktop companion living in an Apple-style Dynamic Island at the top of your screen.**  
-*Equipped with real-time desktop vision, physical OS mouse/keyboard control, 65+ native Windows tools, and hybrid local/cloud intelligence.*
-
-[Key Features](#-key-features) • [Screenshots](#-preview--screenshots) • [AI Brain Engines](#-ai-brain--multi-engine-support) • [Tool Arsenal](#-complete-tool-arsenal-65-built-in-capabilities) • [Design System](#-design-system--visual-effects) • [Quick Start](#-quick-start) • [Installer Build](#-building-the-installer-exe)
-
+  <br />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/grokki_wordmark.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/grokki_wordmark_light.png">
+    <img src="assets/grokki_wordmark.png" alt="Grokki Studio" width="440">
+  </picture>
+  <br />
+  <br />
+  <h3>Autonomous AI desktop companion living in an Apple-style Dynamic Island.</h3>
+  <p>Real-time desktop vision, physical OS mouse and keyboard automation, 65+ native Windows tools, and hybrid local/cloud intelligence.<br />Summoned instantly anywhere with Alt+Q.</p>
+  <p>
+    <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-27272a?style=flat&logo=windows&logoColor=white&labelColor=18181b">
+    <img alt="Electron" src="https://img.shields.io/badge/Electron-44.7-27272a?style=flat&logo=electron&logoColor=white&labelColor=18181b">
+    <img alt="React" src="https://img.shields.io/badge/React-19-27272a?style=flat&logo=react&logoColor=61DAFB&labelColor=18181b">
+    <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-7.0-27272a?style=flat&logo=typescript&logoColor=white&labelColor=18181b">
+    <img alt="License" src="https://img.shields.io/badge/License-Non--Commercial-27272a?style=flat&labelColor=18181b">
+  </p>
+  <p>
+    <a href="#features"><strong>Features</strong></a> ·
+    <a href="#ai-brain-engines"><strong>AI Brains</strong></a> ·
+    <a href="#desktop-tool-arsenal"><strong>Tool Arsenal</strong></a> ·
+    <a href="#design-system--visual-effects"><strong>Design System</strong></a> ·
+    <a href="#installation"><strong>Installation</strong></a> ·
+    <a href="#packaging"><strong>Packaging</strong></a>
+  </p>
+  <br />
 </div>
+
+<p align="center">
+  <img src="assets/grokki_splash.jpg" alt="Grokki Studio & Dynamic Island Workspace" width="100%">
+</p>
+
+## Overview
+
+Grokki is an autonomous Windows desktop agent designed to live directly at the top of your screen inside a glass Dynamic Island. Rather than existing as an isolated browser chatbot, Grokki has direct physical agency over your operating system: he sees your displays with low-token vision, executes multi-step plans across native applications, and physically drives your mouse and keyboard.
+
+| Capability | Scope | What it does |
+| :--- | ---: | :--- |
+| **System & Desktop Agency** | 18 tools | Mouse tracking, keyboard injection, audio, window management, screen capture |
+| **Workspace Integrations** | 22 tools | Google Workspace, Notion databases, local Obsidian vaults, GitHub CLI |
+| **Productivity & Code** | 15 tools | Artifact sandbox canvas, VS Code bug diagnosis, file parsing, document authoring |
+| **Media & Audio** | 10 tools | Spotify, YouTube Music, Apple Music controls, playlist search, lecture synthesis |
+| **Visual Effects Engine** | 9 effects | Handcrafted shaders, physics dropdowns, procedural film grain, kinetic loaders |
 
 ---
 
-## 📸 Preview & Screenshots
+## Features
 
-<div align="center">
-  <table>
-    <tr>
-      <td width="50%" align="center">
-        <img src="assets/screenshots/dynamic_island_blur.png" onerror="this.src='assets/grokki_splash.jpg'" alt="Grokki Island with Real Desktop Blur" width="100%"/>
-        <br/><b>⚡ Grokki Island with Real GPU Desktop Blur (`Alt+Q`)</b>
-      </td>
-      <td width="50%" align="center">
-        <img src="assets/screenshots/studio_dashboard.png" onerror="this.src='assets/grokki_splash.jpg'" alt="Grokki Studio Dashboard" width="100%"/>
-        <br/><b>🎛️ Grokki Studio Central Dashboard</b>
-      </td>
-    </tr>
-    <tr>
-      <td width="50%" align="center">
-        <img src="assets/screenshots/ai_brain_toggle.png" onerror="this.src='assets/grokki_splash.jpg'" alt="AI Brain Paid vs Free Providers" width="100%"/>
-        <br/><b>🧠 Dual AI Brain (Paid Flagships & Free Engines)</b>
-      </td>
-      <td width="50%" align="center">
-        <img src="assets/screenshots/workspace_hub.png" onerror="this.src='assets/grokki_splash.jpg'" alt="Workspace Ecosystem Hub" width="100%"/>
-        <br/><b>💼 Google, Notion, Obsidian & GitHub Integrations</b>
-      </td>
-    </tr>
-  </table>
-  <sub><i>Tip: Drop your screenshots into <code>assets/screenshots/</code> to replace the fallback previews above.</i></sub>
-</div>
+### Genuine desktop blur
+Windows cannot natively blur third-party desktop windows behind transparent frameless Electron surfaces. Grokki implements a dedicated GPU-accelerated capture pipeline:
+* On summon (`Alt + Q`), the system snaps your desktop background in the background.
+* Applies a hardware-accelerated Apple-spec Gaussian blur layer (`blur(38px) brightness(0.55) saturate(190%)`).
+* Your wallpaper, active code editor, terminal, and browser blur dynamically behind the island in real time.
+* Dismiss by clicking anywhere outside the interface.
 
----
+### Physical mouse and keyboard automation
+* Moves the actual Windows OS mouse cursor with smooth easing trajectories.
+* Executes left-clicks, double-clicks, right-clicks, and keystrokes directly into active applications (Notepad, Word, File Explorer, Terminal).
+* Includes safe boundaries and emergency abort shortcut (`Esc`).
 
-## ⚡ Key Features
+### Ultra-low token screen vision
+* Captures active displays and downscales frames for multimodal models.
+* Cost per screen scan: ~250 tokens via Gemini Flash Vision.
+* Diagnoses compile errors in VS Code, inspects software installation wizards, and reads documents on screen without manual uploads.
 
-Unlike browser-based chatbots or static wrappers, Grokki is a **living Windows OS agent**. He perceives your monitor, makes autonomous decisions, and physically drives your computer.
+### Interactive artifacts and code canvas
+* Sandboxed preview drawer (`w-[48%]` split pane) for live rendering of HTML, CSS, SVG, JavaScript, and Markdown.
+* Integrated syntax-highlighted code editor with line numbers, 1-click clipboard copy, and direct save to workspace files.
+* Adaptive layout that toggles between split view and full workspace mode.
 
-### 1. 🪟 Genuine Desktop Blur (True Apple Glass)
-Windows cannot natively blur third-party desktop windows behind transparent frameless Electron shells. Grokki solves this:
-* On summon (`Alt + Q`), a GPU-accelerated capture pipeline snaps your desktop background.
-* It applies a real-time Apple-spec Gaussian blur layer (`blur(38px) brightness(0.55) saturate(190%)`).
-* Your wallpaper, active IDE, browser, and documents blur dynamically in real-time.
-* Click anywhere outside the island to dismiss.
+### Multi-brain dual battle and consensus
+* Dispatches any prompt concurrently to two separate AI brains (e.g. Gemini Flash vs. Groq Qwen/Llama or local Ollama).
+* Comparative side-by-side card grid showing model name, individual latency in milliseconds, copy buttons, and winner selection.
+* Interactive consensus engine cross-examines both model outputs, filters hallucinations, and synthesizes a unified verdict.
 
-### 2. 🦾 Real OS Mouse & Keyboard Manipulation
-* Grokki doesn't just animate a cursor—he moves the **actual Windows OS mouse cursor** with smooth easing trajectories.
-* Executes real left-clicks, double-clicks, right-clicks, and native keystrokes into active applications (Notepad, Word, File Explorer, Terminal).
+### Deep workspace project context (`@file` & `@folder`)
+* Cursor-style inline context suggestion triggered by typing `@` anywhere in the chat input.
+* Indexes local project files with fuzzy matching, file size indicators, and file type icons.
+* Mentioning `@folder` recursively parses directories (filtering `node_modules`, `.git`, and build caches) to bundle source code directly into model context.
 
-### 3. 👁️ Ultra-Low Token Multimodal Vision
-* Captures active displays and downscales frames for vision models.
-* **Cost per screen scan: ~250 tokens** via Gemini Flash Vision.
-* Identifies login screens, reads error squiggles in VS Code, inspects YouTube tutorials, and diagnoses active windows.
+### Live web grounding and citations
+* One-click deep search toggle formulated for real-time web retrieval.
+* Queries live search engines and injects relevant source snippets before model generation.
+* Displays an expandable Perplexity-style source accordion with domain badges, favicon previews, and hoverable inline citation tooltips (`[1]`, `[2]`).
 
-### 4. 🎨 Interactive Artifacts & Code Canvas
-* **Live Sandbox Previews**: Generates HTML, CSS, SVG, JavaScript, and Markdown with an embedded isolated sandbox preview drawer (`w-[48%]` split pane).
-* **Syntax-Highlighted Code Editor**: Full-featured code viewer with line numbers, 1-click clipboard copy, and direct **Save to Workspace File** capabilities.
-* **Adaptive Split-View**: Smoothly toggle between the interactive canvas split pane and full-screen view for focused coding and inspection.
+### Autonomous goal execution and dynamic pivoting
+* Zero hardcoded branching: Grokki formulates multi-step action plans dynamically.
+* Example: Ask Grokki to *"Play The Weeknd on Spotify"*. Grokki checks if Spotify Desktop is running. If absent, he pivots to Spotify Web. If logged out, he halts, inspects your screen, and asks:
+  > *"Spotify is not logged in on your browser. Would you like to log in now, or should I switch to YouTube Music instead?"*
 
-### 5. ⚔️ Multi-Brain Dual-Battle & Consensus Engine
-* **Concurrent Multi-Model Execution**: Dispatches your prompt to two distinct AI brains concurrently (e.g. Gemini Flash vs. Groq Qwen/Llama or Ollama Local) via `Promise.all()`.
-* **Side-by-Side Comparison Grid**: Comparative cards featuring model name badges, real-time latency indicators (in milliseconds), and individual copy and winner selection.
-* **AI Consensus Synthesizer**: Cross-examines both model outputs, resolves discrepancies or hallucinations, and synthesizes a definitive consensus verdict.
-* **GlideSelect Battle Stage**: Smooth sliding-pill dropdown selection powered by spring physics for seamless model switching.
-
-### 6. 📁 Deep Workspace Project Context (`@file` & `@folder`)
-* **Fuzzy Workspace Search**: Type `@` anywhere in the chat input to search files and folders across your active project.
-* **Recursive Folder Ingestion**: Mention `@folder` to automatically index directories, filter ignored patterns (`node_modules`, `.git`, `dist`), and bundle relevant source files directly into prompt context.
-* **Staged Context Badges**: Interactive badge pills displaying file names, sizes, and 1-click removal before sending.
-
-### 7. 🌐 Live Web Grounding & Perplexity-Style Citations
-* **Real-Time Web Search**: Formulates live search queries and ingests multi-source search snippets into model context before generation.
-* **Interactive Citations Bar**: Displays an expandable Perplexity-style source accordion with domain badges, favicon previews, and full source URLs.
-* **Inline Citation Badges (`[1]`, `[2]`)**: Interactive pill links with preview tooltips showing publication titles and destinations.
-
-### 8. 🎯 Autonomous Goal Execution & Dynamic Pivoting
-* **Zero hardcoded branching**: Grokki formulates multi-step action plans dynamically.
-* *Example:* Ask Grokki to *"Play The Weeknd on Spotify"*. Grokki checks if Spotify Desktop is installed. If absent, he pivots to Spotify Web. If logged out, he inspects your screen, halts, and suggests:
-  > *"Spotify isn't logged in on your browser. Would you like to log in now, or should I switch to YouTube Music instead?"*
-
-### 9. 📋 Highlight-to-Action ("Act on Whatever I Selected")
+### Highlight to action
 * Highlight any text or code in your browser, PDF, or editor, and press **`Alt + Q`**.
 * Ask Grokki to *"Rewrite this"*, *"Fix bugs in this selection"*, or *"Summarize this"*.
-* Grokki grabs the highlighted selection, transforms it with your active AI engine, and copies the clean result directly to your clipboard (or auto-replaces it in place).
+* Grokki ingests the selection, transforms it with your active AI engine, and copies the clean result directly to your clipboard.
 
-### 10. 🖤 The Living Dynamic Island Companion
-* **Interactive Physics**: Click and poke Grokki's obsidian sphere face to see him squash, wink, jump, and giggle.
-* **Synthesized Audio**: Procedural Apple-style UI chimes and audio feedback generated via Web Audio API.
-
----
-
-## 🧠 AI Brain & Multi-Engine Support
-
-Grokki features an interface toggle between **Paid Enterprise Flagships** and **Free Tier / Open-Source Engines**:
-
-| Tier | Supported Engines & Providers | Highlights |
-| :--- | :--- | :--- |
-| **👑 Paid Models** | • **Grok (xAI)** (`grok-2-1212`, `grok-2-vision`)<br/>• **ChatGPT (OpenAI)** (`gpt-4o`, `gpt-4o-mini`, `o1`, `o3-mini`)<br/>• **Google Gemini Pro** (`gemini-2.5-pro`, `gemini-1.5-pro`)<br/>• **DeepSeek Official** (`deepseek-chat`, `deepseek-reasoner`)<br/>• **Qwen (Alibaba DashScope)** (`qwen-max`, `qwen-plus`) | Direct official API gateways, maximum token limits, deep STEM & reasoning models. |
-| **⚡ Free / Open-Source** | • **Google Gemini Free Tier** (`gemini-2.5-flash`, `gemini-2.0-flash`)<br/>• **Groq Cloud** (`llama-3.3-70b-versatile`, 500+ T/s)<br/>• **Ollama Local** (`llama3.2`, `deepseek-r1`, 100% offline air-gap)<br/>• **OpenRouter** (`openrouter/auto`, community free models)<br/>• **OmniRouter** (Unified open routing gateway) | 100% free operation, private local offline models, zero cost inference. |
+### Dynamic island desktop companion
+* Interactive physics: click and interact with Grokki's obsidian sphere face to trigger dynamic squash, jump, and state reactions.
+* Procedural audio feedback generated via Web Audio API.
 
 ---
 
-## 🛠️ Complete Tool Arsenal (65+ Built-in Capabilities)
+## AI Brain engines
+
+Grokki features a built-in provider switcher supporting both paid frontier flagships and free open-source engines:
+
+| Tier | Provider | Recommended models | Highlights |
+| :--- | :--- | :--- | :--- |
+| **Paid flagships** | **OpenAI** | `gpt-4o`, `gpt-4o-mini`, `o3-mini` | Direct API gateway, maximum reasoning accuracy |
+| | **xAI Grok** | `grok-2-1212`, `grok-2-vision` | High-speed frontier intelligence, vision capabilities |
+| | **Google Gemini** | `gemini-2.5-pro`, `gemini-1.5-pro` | Million-token context window, deep document understanding |
+| | **DeepSeek** | `deepseek-chat`, `deepseek-reasoner` | Specialized STEM and code reasoning architecture |
+| | **Alibaba Qwen** | `qwen-max`, `qwen-plus` | Multilingual and mathematical problem solving |
+| **Free / Open-Source** | **Groq Cloud** | `qwen/qwen3.8-27b`, `openai/gpt-oss-120b` | 500+ tokens/second inference speed on free API tier |
+| | **Google Gemini Free** | `gemini-flash-latest`, `gemini-3.1-flash-lite` | Free tier quota for vision and daily desktop tasks |
+| | **Ollama Local** | `llama3.2`, `deepseek-r1` | 100% offline, air-gapped local inference |
+| | **OpenRouter** | `openrouter/auto`, community free tier | Aggregated model catalog with automatic failover |
+
+---
+
+## Desktop tool arsenal
 
 ```
-Grokki Desktop Agent
-├── 🖥️ System & OS Controls
-│   ├── Real mouse clicks, double-clicks, right-clicks, and smooth cursor gliding
+Grokki Agent Runtime
+├── System & OS Controls
+│   ├── Mouse tracking, double-clicks, right-clicks, and cursor easing
 │   ├── Window management (focus, minimize, maximize, snap, close)
-│   ├── Native audio volume & screen brightness controls
-│   ├── System power (sleep, restart, shutdown, cancel shutdown)
-│   └── 1-Click Downloads & Desktop auto-organizer
+│   ├── Native audio volume, mute, and display brightness control
+│   ├── Power management (lock, sleep, restart, shutdown, cancel)
+│   └── 1-Click Downloads and Desktop auto-organization
 │
-├── 📝 Productivity & Developer Tools
+├── Developer & Productivity Tools
+│   ├── Artifact Canvas: Live HTML/CSS/SVG sandbox preview and editor
 │   ├── Highlight-to-Action: Rewrites, fixes, or summarizes selected text anywhere
-│   ├── VS Code Bug Doctor: Live problem/syntax diagnosis with direct copy-paste fixes
-│   ├── MS Word & Notepad autonomous document authoring
-│   ├── Git CLI & GitHub GUI (status, commit, push, pull, branch, clone)
-│   └── Multi-format document parser (PDF, DOCX, TXT, Markdown, CSV, JSON)
+│   ├── VS Code Bug Doctor: Live problem and syntax diagnosis with direct fixes
+│   ├── Git CLI & GitHub GUI: status, commit, push, pull, branch, clone
+│   └── Multi-format document parser: PDF, DOCX, TXT, Markdown, CSV, JSON
 │
-├── 🌐 Workspace Ecosystem
-│   ├── Google Workspace: Gmail, Calendar, Drive, Docs, Sheets, Tasks, Classroom
-│   ├── Notion Workspace: Pages, database creation, search, notes
-│   ├── Obsidian Vault: Local note creation, bi-directional linking, vault search
-│   └── WhatsApp Web Automation: Automated messaging and file dispatch
+├── Workspace Ecosystem
+│   ├── Google Workspace: Gmail, Calendar, Drive, Docs, Sheets, Tasks
+│   ├── Notion Workspace: Pages, database creation, query, notes
+│   ├── Obsidian Vault: Local note creation, bi-directional linking, search
+│   └── WhatsApp Web Automation: Automated messaging and document sharing
 │
-├── 🎵 Media & Streaming
+├── Media & Streaming
 │   ├── Spotify, YouTube Music, Apple Music, and Amazon Music playback
 │   ├── Media hardware keys (Next, Prev, Play/Pause, Stop)
 │   └── YouTube video search, playlist manager, and lecture summarizer
 │
-└── 🎓 Academic Study Engine
+└── Academic & Research Engine
     ├── 1-Page Exam Cheat Sheet synthesizer
     ├── Probable Exam Questions & Model Answer generator
     ├── Feynman Technique (ELI5) concept explainer
@@ -154,7 +156,7 @@ Grokki Desktop Agent
 
 ---
 
-## 🎨 Design System & Visual Effects
+## Design system & visual effects
 
 Grokki Studio is built with a handcrafted visual effects and UI interaction engine located in `src/effects/`:
 
@@ -172,88 +174,74 @@ Grokki Studio is built with a handcrafted visual effects and UI interaction engi
 
 ---
 
-## 🚀 Quick Start
+## Installation
 
 ### Prerequisites
 - **Operating System:** Windows 10 or Windows 11 (64-bit)
 - **Node.js:** v18.0.0 or higher
 - **Package Manager:** npm or yarn
 
-### Installation
+### Setup
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/lonewolfFSD/grokki-studio.git
-   cd grokki-studio
-   ```
+```bash
+# Clone the repository
+git clone https://github.com/lonewolfFSD/grokki-studio.git
+cd grokki-studio
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+# Install dependencies
+npm install
 
-3. **Launch in Development Mode:**
-   ```bash
-   npm run dev
-   ```
+# Start in development mode with live HMR
+npm run dev
+```
 
-4. **Summon Grokki:**
-   - Press **`Alt + Q`** from any application.
-   - Or say **`"Hey Grokki"`** to trigger the background wake word detector.
+### Summoning Grokki
+- Press **`Alt + Q`** from any application to open the Dynamic Island.
+- Say **`"Hey Grokki"`** to trigger the background wake word detector.
 
 ---
 
-## 📦 Building the Installer (.exe)
+## Packaging
 
 Grokki packages into a standalone Windows installer wizard via `electron-builder`:
 
 ```bash
-# Compile and package for production (NSIS installer)
+# Compile and build production installer (NSIS executable)
 npm run dist
 ```
 
 The output setup installer will be generated in `release/`:
+```text
+release/Grokki Studio-Setup-2.5.0.exe
 ```
-release/Grokki Studio-Setup-1.0.0.exe
-```
 
 ---
 
-## 🔒 Security & Privacy Architecture
+## Security & privacy
 
-- **Private Keys**: All API keys and workspace tokens are stored in the user's local `%APPDATA%\data\` directory. Keys are never shipped in pre-built executables or sent to third-party tracking servers.
-- **Zero Remote Telemetry**: Runs strictly peer-to-peer between your PC and your chosen LLM endpoints.
-- **Air-Gap Capability**: Switch to **Ollama Local** in the AI Brain for a completely offline assistant with no internet access required.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Whether you are adding a new OS tool, refining UI components, or improving model compatibility:
-
-1. **Fork the Repository**
-2. **Create a Feature Branch:**
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-3. **Commit Your Changes:**
-   ```bash
-   git commit -m "feat: add amazing new desktop tool"
-   ```
-4. **Push to the Branch:**
-   ```bash
-   git push origin feature/amazing-feature
-   ```
-5. **Open a Pull Request**
-
-Please ensure all TypeScript interfaces compile cleanly (`npm run build`) before opening a PR.
+- **Local credentials**: All API keys, tokens, and workspace preferences are stored locally in `%APPDATA%\data\jarvis-config.json`. Keys are never bundled into executables or sent to telemetry servers.
+- **Zero remote telemetry**: Execution runs strictly between your local machine and your configured AI endpoints.
+- **Air-gap mode**: Select **Ollama Local** in the AI Brain tab to run completely offline without internet connectivity.
 
 ---
 
-## 📄 License
+## Contributing
 
-Distributed under the **Grokki Studio Non-Commercial License**. Free for personal and educational use; commercial redistribution, monetization, or selling is strictly prohibited. See [`LICENSE`](LICENSE), [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md), and [`TERMS_OF_SERVICE.md`](TERMS_OF_SERVICE.md) for more information.
+Contributions are welcome. Please read the following steps before submitting code:
+
+1. Fork the repository.
+2. Create your feature branch (`git checkout -b feature/amazing-feature`).
+3. Verify that the TypeScript codebase builds cleanly (`npm run build`).
+4. Commit your changes (`git commit -m "feat: add amazing feature"`).
+5. Push to the branch (`git push origin feature/amazing-feature`).
+6. Open a Pull Request.
+
+---
+
+## License
+
+Distributed under the **Grokki Studio Non-Commercial License**. Free for personal and educational use; commercial redistribution, monetization, or selling is prohibited. See [`LICENSE`](LICENSE), [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md), and [`TERMS_OF_SERVICE.md`](TERMS_OF_SERVICE.md) for details.
 
 <div align="center">
-  <sub>Built with ❤️ for autonomous desktop computing.</sub>
+  <sub>Built for autonomous desktop computing on Windows.</sub>
 </div>
