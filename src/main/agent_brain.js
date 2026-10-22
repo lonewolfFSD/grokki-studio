@@ -159,10 +159,11 @@ class AgentBrain {
   constructor() {
     this.abortController = null;
     this.models = [
-      'gemini-3.5-flash',
-      'gemini-3.8-flash',
-      'gemini-3.1-flash-lite',
       'gemini-flash-latest',
+      'gemini-flash-lite-latest',
+      'gemini-3.5-flash',
+      'gemini-3.7-flash',
+      'gemini-3.1-flash-lite',
     ];
   }
 
@@ -3248,39 +3249,88 @@ Keep it direct, accurate, and high-yield.`;
   }
 
   // Multi-provider Academic LLM helper (Groq, Gemini, Ollama, OpenRouter, OpenAI, Grok, DeepSeek, Qwen, OmniRouter)
-  async generateAcademicLLM(systemPrompt, userPrompt, maxTokens = 1400) {
+  async generateAcademicLLM(systemPrompt, userPrompt, maxTokens = 1500) {
     const config = this.activeConfig || {};
-    const provider = powerTools.airgapForced ? 'ollama' : (config.provider || 'groq');
+    const primaryProvider = powerTools.airgapForced ? 'ollama' : (config.provider || 'gemini');
 
-    if (!powerTools.airgapForced && provider === 'gemini' && config.geminiApiKey) {
+    // 1. Try Gemini provider if active or configured
+    const tryGemini = async () => {
+      if (!config.geminiApiKey) return null;
       const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
-      const res = await ai.models.generateContent({
-        model: this.models[0],
-        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-        config: {
-          systemInstruction: systemPrompt,
-          maxOutputTokens: maxTokens,
-          temperature: 0.25,
-        },
-      });
-      return (res.text || '').trim();
+      const geminiCandidates = [
+        config.geminiModel,
+        'gemini-flash-latest',
+        'gemini-flash-lite-latest',
+        'gemini-3.5-flash',
+        'gemini-3.7-flash',
+      ].filter(Boolean);
+
+      for (const m of geminiCandidates) {
+        try {
+          const res = await ai.models.generateContent({
+            model: m,
+            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+            config: {
+              systemInstruction: systemPrompt,
+              maxOutputTokens: maxTokens,
+              temperature: 0.25,
+            },
+          });
+          if (res?.text && res.text.trim()) {
+            return res.text.trim();
+          }
+        } catch (err) {
+          console.warn(`[AgentBrain] Gemini model ${m} failed in generateAcademicLLM:`, err.message);
+        }
+      }
+      return null;
+    };
+
+    // 2. Try OpenAI-compatible provider (Groq, OpenRouter, Ollama, OpenAI, etc.)
+    const tryOpenAI = async (prov = primaryProvider) => {
+      const { endpoint, apiKey, model } = resolveOpenAIEndpointAndKey(prov, config);
+      if (!apiKey && prov !== 'ollama') return null;
+
+      const candidateModels = [model];
+      if (prov === 'groq') {
+        candidateModels.push('qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b');
+      }
+
+      for (const m of [...new Set(candidateModels.filter(Boolean))]) {
+        try {
+          const data = await callOpenAICompatible({
+            endpoint,
+            apiKey,
+            model: m,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            temperature: 0.25,
+            timeout: 35000,
+          });
+
+          const reply = (data?.choices?.[0]?.message?.content || '').trim();
+          if (reply) return reply;
+        } catch (err) {
+          console.warn(`[AgentBrain] Model ${m} failed in generateAcademicLLM:`, err.message);
+        }
+      }
+      return null;
+    };
+
+    // Execute primary provider first, with seamless fallback to secondary if primary fails
+    if (primaryProvider === 'gemini') {
+      const res = await tryGemini();
+      if (res) return res;
+      if (config.groqApiKey) return await tryOpenAI('groq');
+    } else {
+      const res = await tryOpenAI(primaryProvider);
+      if (res) return res;
+      if (config.geminiApiKey) return await tryGemini();
     }
 
-    const { endpoint, apiKey, model } = resolveOpenAIEndpointAndKey(provider, config);
-
-    const data = await callOpenAICompatible({
-      endpoint,
-      apiKey,
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.25,
-      timeout: 35000,
-    });
-
-    return (data?.choices?.[0]?.message?.content || '').trim();
+    return '';
   }
 
   // Feature 2: YouTube Video & Lecture Summarizer + Clickable Timestamp Finder
@@ -3324,19 +3374,20 @@ ${focus ? `#### 💡 Direct Answer to "${focus}"\n- Clear explanation addressing
 
     try {
       const summary = await this.generateAcademicLLM(systemPrompt, userPrompt, 1500);
-      if (summary) {
-        return { success: true, message: summary };
+      if (summary && summary.trim().length > 30) {
+        return { success: true, message: summary.trim() };
       }
     } catch (err) {
-      console.warn('[AgentBrain] YouTube LLM summary fallback:', err.message);
+      console.warn('[AgentBrain] YouTube LLM summary error:', err.message);
     }
 
-    // Fallback if LLM call fails
+    // Fallback if LLM call fails: synthesize structured overview from title and reporting context
     let fallback = `### 📺 [${ytData.title}](${ytData.url})\n*Channel: ${ytData.channel}${ytData.durationStr ? ` | Duration: ${ytData.durationStr}` : ''}*\n\n`;
     if (ytData.buckets && ytData.buckets.length > 0) {
       fallback += `#### ⏱️ Video Timeline & Chapters\n` + ytData.buckets.slice(0, 8).map((b) => `- [${b.timeStr}](${ytData.url}&t=${b.seconds}s) — ${b.text}`).join('\n') + '\n\n';
     }
-    fallback += `#### 📝 Overview\n${ytData.description?.substring(0, 600) || ytData.transcriptText?.substring(0, 600) || 'Video analyzed successfully.'}`;
+    const cleanContext = (ytData.webContext || ytData.cleanDescription || '').trim();
+    fallback += `#### 🎯 Summary\n${cleanContext ? cleanContext.substring(0, 800) : `Video analysis for "${ytData.title}" completed.`}`;
     return {
       success: true,
       message: fallback,

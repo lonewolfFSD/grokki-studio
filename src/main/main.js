@@ -104,9 +104,9 @@ function loadConfig() {
       const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       if (!data.provider) data.provider = 'gemini';
       if (!data.geminiApiKey && envKey) data.geminiApiKey = envKey;
-      if (!data.geminiModel) data.geminiModel = 'gemini-2.5-flash';
+      if (!data.geminiModel || data.geminiModel === 'gemini-2.0-flash' || data.geminiModel === 'gemini-2.5-flash') data.geminiModel = 'gemini-flash-latest';
       if (!data.groqApiKey && envGroqKey) data.groqApiKey = envGroqKey;
-      if (!data.groqModel) data.groqModel = 'llama-3.3-70b-versatile';
+      if (!data.groqModel || data.groqModel.includes('llama')) data.groqModel = 'qwen/qwen3.8-27b';
       if (!data.groqVisionModel) data.groqVisionModel = 'qwen/qwen3.8-27b';
       if (!data.ollamaEndpoint) data.ollamaEndpoint = 'http://127.0.0.1:11434';
       if (!data.ollamaModel) data.ollamaModel = 'llama3.2';

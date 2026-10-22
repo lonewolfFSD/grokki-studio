@@ -572,14 +572,41 @@ async function fetchYouTubeTranscript(videoUrlOrQuery) {
     }
   }
 
+  // Strip promotional links, tip forms, and sponsor boilerplate from description
+  const cleanDescription = (shortDescription || '')
+    .split('\n')
+    .filter((line) => {
+      const l = line.trim().toLowerCase();
+      if (!l) return false;
+      if (l.startsWith('http://') || l.startsWith('https://')) return false;
+      if (l.includes('clickup.com') || l.includes('safetyvid.org') || l.includes('patreon.com')) return false;
+      if (l.startsWith('tips:') || l.startsWith('privacy') || l.startsWith('merch:') || l.startsWith('contact us:')) return false;
+      if (l.startsWith('donate') || l.includes('cashapp') || l.includes('venmo') || l.includes('paypal')) return false;
+      return true;
+    })
+    .join('\n')
+    .trim();
+
   // Web search context fallback when captions are unavailable
   let webContext = '';
-  if (segments.length === 0) {
+  if (segments.length === 0 && videoTitle) {
     try {
-      const searchQuery = `"${videoTitle || videoId}" ${channel || ''}`.trim();
-      const searchResults = await searchWeb(searchQuery, 4);
-      if (searchResults && searchResults.length > 0) {
-        webContext = searchResults
+      const q1 = `${videoTitle} ${channel || ''}`.trim();
+      const q2 = `${videoTitle} incident arrest police details`.trim();
+      const [res1, res2] = await Promise.all([
+        searchWeb(q1, 3),
+        searchWeb(q2, 3),
+      ]);
+      const combined = [...(res1 || []), ...(res2 || [])];
+      const seen = new Set();
+      const unique = [];
+      for (const r of combined) {
+        if (!r.snippet || seen.has(r.title)) continue;
+        seen.add(r.title);
+        unique.push(r);
+      }
+      if (unique.length > 0) {
+        webContext = unique
           .map((r) => `[Source: ${r.title}]\n${r.snippet}`)
           .join('\n\n');
       }
@@ -604,8 +631,8 @@ async function fetchYouTubeTranscript(videoUrlOrQuery) {
       buckets.length > 0
         ? `Video Chapters:\n` + buckets.map((b) => `[${b.timeStr} | t=${b.seconds}s] ${b.text}`).join('\n')
         : '',
-      shortDescription ? `Description:\n${shortDescription.substring(0, 4000)}` : '',
-      webContext ? `Web Context & Reporting:\n${webContext.substring(0, 4000)}` : '',
+      cleanDescription ? `Description Details:\n${cleanDescription.substring(0, 3000)}` : '',
+      webContext ? `Incident & Reporting Context:\n${webContext.substring(0, 5000)}` : '',
     ].filter(Boolean);
 
     transcriptText = parts.join('\n\n');
@@ -624,7 +651,9 @@ async function fetchYouTubeTranscript(videoUrlOrQuery) {
     hasCaptions: segments.length > 0,
     transcriptText,
     timestampedTranscript: transcriptText,
-    description: shortDescription,
+    description: cleanDescription || shortDescription,
+    cleanDescription,
+    webContext,
     buckets: buckets.map((b) => ({
       timeStr: b.timeStr,
       seconds: b.seconds,
