@@ -203,6 +203,7 @@ const ScrubberControl: React.FC<ScrubberControlProps> = ({
           step={step}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
+          onPointerUp={(e) => (e.target as HTMLElement).blur()}
           className="w-full h-full opacity-0 cursor-ew-resize relative z-20 m-0 p-0"
         />
       </div>
@@ -327,12 +328,12 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 8 }}
           transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-6xl h-[88vh] max-h-[820px] flex flex-col bg-[#0e0f14] border border-[#1f212c] rounded-2xl shadow-2xl overflow-hidden text-gray-100"
+          className="w-full max-w-6xl h-[90vh] max-h-[820px] flex flex-col bg-[#0e0f14] border border-[#1f212c] rounded-2xl shadow-2xl overflow-hidden text-gray-100"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-3 border-b border-[#1f212c] shrink-0 bg-[#12131a]">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-white tracking-tight">Customize</h3>
+              <h3 className="text-lg font-bold text-white tracking-tight">Customize</h3>
             </div>
 
             <button
@@ -347,7 +348,7 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
           {/* Body: Left Side Big Preview, Right Side Settings in Image 2 Design */}
           <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden p-5 gap-5">
             {/* Left Side: Big Live Preview Window */}
-            <div className="flex-1 min-h-[280px] lg:min-h-0 h-full flex flex-col rounded-2xl overflow-hidden border border-[#232534] bg-black shadow-2xl relative">
+            <div className="flex-1 min-h-[220px] h-full flex flex-col rounded-2xl overflow-hidden border border-[#232534] bg-black shadow-2xl relative">
               <Grainient
                 colors={draft.colors}
                 type={draft.type}
@@ -372,8 +373,8 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
             </div>
 
             {/* Right Side: Exact Settings in the Design of Second Image */}
-            <div className="w-full lg:w-[500px] flex flex-col justify-between overflow-y-auto pr-1">
-              <div className="grid grid-cols-2 gap-2">
+            <div className="w-full lg:w-[490px] h-full min-h-0 flex-shrink-0 flex flex-col overflow-y-auto overflow-x-hidden pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/25">
+              <div className="grid grid-cols-2 gap-2 pb-6">
                 {/* Colors Card (Full Width) */}
                 <div className="flex flex-col justify-between px-3.5 py-2.5 rounded-xl bg-[#161720] border border-[#232532] col-span-2 gap-2">
                   <div className="flex items-center justify-between">
@@ -608,7 +609,7 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer border-none bg-transparent"
+              className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer border-none bg-transparent"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Reset to Default
             </button>
@@ -624,7 +625,7 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
               <button
                 type="button"
                 onClick={handleSave}
-                className="inline-flex items-center gap-1.5 px-5 py-1.5 rounded-lg text-xs font-bold text-black bg-white hover:bg-gray-100 active:scale-[0.98] transition-all cursor-pointer border-none shadow-sm"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-bold text-black bg-white hover:bg-gray-100 active:scale-[0.98] transition-all cursor-pointer border-none shadow-sm"
               >
                 <Check className="w-3.5 h-3.5 stroke-[2.5]" /> Save & Apply
               </button>
