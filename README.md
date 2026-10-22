@@ -259,7 +259,7 @@ Contributions are welcome. Please read the following steps before submitting cod
 
 ## License
 
-Distributed under the **Grokki Studio Non-Commercial License**. Free for personal and educational use; commercial redistribution, monetization, or selling is prohibited. See [`LICENSE`](LICENSE), [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md), and [`TERMS_OF_SERVICE.md`](TERMS_OF_SERVICE.md) for details.
+Distributed under the **Grokki Studio Non-Commercial License**. Free for personal and educational use; commercial redistribution, monetization, or selling is prohibited. See [`LICENSE`](LICENSE), [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md), and [`TERMS_OF_USE.md`](TERMS_OF_USE.md) for details.
 
 <div align="center">
   <sub>Built for autonomous desktop computing on Windows.</sub>
