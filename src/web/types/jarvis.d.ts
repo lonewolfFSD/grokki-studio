@@ -216,6 +216,27 @@ export interface GroundingMetadata {
   sources: GroundingSource[];
 }
 
+export interface DualBattleResult {
+  brainA: {
+    provider: string;
+    model: string;
+    reply: string;
+    latencyMs?: number;
+    grounding?: GroundingMetadata;
+  };
+  brainB: {
+    provider: string;
+    model: string;
+    reply: string;
+    latencyMs?: number;
+    grounding?: GroundingMetadata;
+  };
+  consensus?: {
+    content: string;
+    winner?: string;
+  };
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -226,6 +247,7 @@ export interface ChatMessage {
   isAnimated?: boolean;
   grounding?: GroundingMetadata;
   mentions?: WorkspaceMention[];
+  dualBattle?: DualBattleResult;
 }
 
 export interface Conversation {
@@ -281,6 +303,8 @@ export interface JarvisAPI {
   getSystemInfo: () => Promise<SystemInfo>;
   speakText: (text: string, voice: string) => Promise<{ success: boolean; base64Audio?: string; error?: string }>;
   executeAI?: (prompt: string, context?: any) => Promise<{ success: boolean; reply?: string; message?: string; actionsExecuted?: any[]; grounding?: GroundingMetadata; error?: string }>;
+  executeDualAI?: (prompt: string, brainA: any, brainB: any, context?: any) => Promise<{ success: boolean; isDual: boolean; brainA: any; brainB: any }>;
+  synthesizeConsensus?: (prompt: string, replyA: string, replyB: string, brainAName: string, brainBName: string) => Promise<{ success: boolean; consensus: string }>;
   searchWeb?: (query: string, maxResults?: number) => Promise<GroundingSource[]>;
   executeAIAudio?: (data: { base64Audio: string; mimeType: string }) => Promise<{ success?: boolean; transcript?: string; reply?: string }>;
   selectFile?: (options?: any) => Promise<{ canceled: boolean; path?: string; name?: string; filePaths?: string[]; size?: number; ext?: string }>;

@@ -42,12 +42,12 @@ const { searchWeb, buildGroundingPrompt } = require('./web_search');
 function resolveOpenAIEndpointAndKey(provider, config = {}) {
   let endpoint = 'https://api.groq.com/openai/v1';
   let apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
-  let model = config.groqModel || 'llama-3.3-70b-versatile';
+  let model = config.groqModel || 'qwen/qwen3.8-27b';
 
   if (provider === 'groq') {
     endpoint = 'https://api.groq.com/openai/v1';
     apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
-    model = config.groqModel || 'llama-3.3-70b-versatile';
+    model = config.groqModel || 'qwen/qwen3.8-27b';
   } else if (provider === 'ollama') {
     const base = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
     endpoint = `${base}/v1`;
@@ -4576,6 +4576,190 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
     } catch (err) {
       return { success: false, message: `Slide changer error: ${err.message}` };
     }
+  }
+
+  // Phase 4: Single Pure Model Runner for Multi-Brain Concurrency
+  async runSingleModel(prompt, brainConfig = {}, context = {}) {
+    const cfg = this.activeConfig || {};
+    const fullConfig = { ...cfg, ...brainConfig };
+    const provider = fullConfig.provider || 'gemini';
+    const isWebSearchActive = Boolean(
+      context.webSearch ||
+      context.webSearchEnabled ||
+      shouldAutoSearchWeb(prompt)
+    );
+
+    let fullPrompt = prompt;
+    let groundingSources = [];
+
+    if (context && (context.projectMentions || context.workspaceContext)) {
+      try {
+        const workspaceContext = require('./workspace_context');
+        const mentions = context.projectMentions || context.workspaceContext;
+        const packagedContext = workspaceContext.packageContext(mentions);
+        if (packagedContext) {
+          fullPrompt = `${packagedContext}\n\n${fullPrompt}`;
+        }
+      } catch (err) {
+        console.warn('[AgentBrain] Failed to package project mentions in runSingleModel:', err.message);
+      }
+    }
+
+    if (isWebSearchActive) {
+      try {
+        groundingSources = await searchWeb(prompt, 5);
+        if (groundingSources.length > 0) {
+          fullPrompt = `${fullPrompt}${buildGroundingPrompt(groundingSources, prompt)}`;
+        }
+      } catch (err) {
+        console.warn('[AgentBrain] Web grounding error in runSingleModel:', err.message);
+      }
+    }
+
+    if (provider === 'gemini') {
+      const apiKey = (fullConfig.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
+      if (!apiKey) throw new Error('Missing Gemini API Key');
+      const ai = new GoogleGenAI({ apiKey });
+      const model = fullConfig.model || fullConfig.geminiModel || 'gemini-flash-latest';
+      const systemInstruction = memory.buildSystemPrompt(fullConfig);
+
+      const res = await withTimeout(ai.models.generateContent({
+        model,
+        contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+        config: {
+          systemInstruction,
+          maxOutputTokens: 1200,
+          temperature: 0.2,
+        },
+      }), 18000);
+
+      const reply = (res?.text || '').trim();
+      return {
+        success: true,
+        reply: reply || 'Ready.',
+        grounding: groundingSources.length > 0 ? { query: prompt, sources: groundingSources } : undefined,
+      };
+    } else {
+      const { endpoint, apiKey, model } = resolveOpenAIEndpointAndKey(provider, fullConfig);
+      const chosenModel = fullConfig.model || model;
+      const systemContent = memory.buildSystemPrompt(fullConfig);
+
+      const data = await callOpenAICompatible({
+        endpoint,
+        apiKey,
+        model: chosenModel,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: fullPrompt },
+        ],
+        temperature: 0.2,
+        timeout: 18000,
+      });
+
+      const reply = (data?.choices?.[0]?.message?.content || '').trim();
+      return {
+        success: true,
+        reply: reply || 'Ready.',
+        grounding: groundingSources.length > 0 ? { query: prompt, sources: groundingSources } : undefined,
+      };
+    }
+  }
+
+  // Phase 4: Multi-Brain Dual-Battle Mode (Runs Brain A and Brain B concurrently)
+  async runDual(prompt, brainAConfig = {}, brainBConfig = {}, context = {}) {
+    const cfg = this.activeConfig || {};
+    const fullBrainA = { ...cfg, ...brainAConfig };
+    const fullBrainB = { ...cfg, ...brainBConfig };
+
+    const startA = Date.now();
+    const startB = Date.now();
+
+    const [resA, resB] = await Promise.all([
+      (async () => {
+        try {
+          const t0 = Date.now();
+          const r = await this.runSingleModel(prompt, fullBrainA, context);
+          return {
+            success: true,
+            provider: fullBrainA.provider,
+            model: fullBrainA.model || fullBrainA.geminiModel || fullBrainA.groqModel || fullBrainA.provider,
+            reply: r.reply,
+            latencyMs: Date.now() - t0,
+            grounding: r.grounding,
+          };
+        } catch (err) {
+          return {
+            success: false,
+            provider: fullBrainA.provider,
+            model: fullBrainA.model || fullBrainA.provider,
+            reply: `⚠️ Error from Brain A: ${err.message}`,
+            latencyMs: Date.now() - startA,
+          };
+        }
+      })(),
+      (async () => {
+        try {
+          const t0 = Date.now();
+          const r = await this.runSingleModel(prompt, fullBrainB, context);
+          return {
+            success: true,
+            provider: fullBrainB.provider,
+            model: fullBrainB.model || fullBrainB.geminiModel || fullBrainB.groqModel || fullBrainB.provider,
+            reply: r.reply,
+            latencyMs: Date.now() - t0,
+            grounding: r.grounding,
+          };
+        } catch (err) {
+          return {
+            success: false,
+            provider: fullBrainB.provider,
+            model: fullBrainB.model || fullBrainB.provider,
+            reply: `⚠️ Error from Brain B: ${err.message}`,
+            latencyMs: Date.now() - startB,
+          };
+        }
+      })(),
+    ]);
+
+    return {
+      success: true,
+      isDual: true,
+      brainA: resA,
+      brainB: resB,
+    };
+  }
+
+  // Phase 4: Merge & Synthesize Consensus Mode
+  async synthesizeConsensus(prompt, replyA, replyB, brainAName = 'Brain A', brainBName = 'Brain B') {
+    const systemPrompt = `You are Grokki, an elite comparative AI judge and synthesis engine.
+Two AI brains independently answered this user prompt:
+Prompt: "${prompt}"
+
+Brain A (${brainAName}):
+"""
+${replyA}
+"""
+
+Brain B (${brainBName}):
+"""
+${replyB}
+"""
+
+Your Mission:
+1. Deliver a superior, comprehensive, unified consensus answer that combines the best insights, fixes omissions, and filters any potential hallucinations from either model.
+2. Provide a crisp side-by-side comparison noting the distinctive strengths and differences of each brain.
+3. Keep the tone sharp, objective, and authoritative. Use clean Markdown with headers and bullet points.`;
+
+    const consensusText = await this.generateAcademicLLM(
+      'You are Grokki, an impartial AI consensus judge and synthesizer.',
+      systemPrompt,
+      1800
+    );
+
+    return {
+      success: true,
+      consensus: consensusText || 'Consensus generation completed.',
+    };
   }
 }
 

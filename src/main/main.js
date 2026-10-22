@@ -954,6 +954,15 @@ ipcMain.handle('jarvis:execute-ai', async (event, prompt, context = {}) => {
   return await agentBrain.run(prompt, config, context);
 });
 
+ipcMain.handle('jarvis:execute-dual-ai', async (event, prompt, brainA = {}, brainB = {}, context = {}) => {
+  const config = loadConfig();
+  return await agentBrain.runDual(prompt, { ...config, ...brainA }, { ...config, ...brainB }, context);
+});
+
+ipcMain.handle('jarvis:synthesize-consensus', async (event, prompt, replyA, replyB, brainAName, brainBName) => {
+  return await agentBrain.synthesizeConsensus(prompt, replyA, replyB, brainAName, brainBName);
+});
+
 ipcMain.handle('jarvis:search-web', async (event, query, maxResults = 5) => {
   return await searchWeb(query, maxResults);
 });

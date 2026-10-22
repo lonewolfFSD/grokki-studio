@@ -33,7 +33,20 @@ import {
   Code2,
   Shapes,
   ExternalLink,
+  Swords,
 } from 'lucide-react';
+
+const BATTLE_BRAIN_OPTIONS = [
+  { id: 'gemini:gemini-flash-latest', label: 'Gemini Flash' },
+  { id: 'gemini:gemini-flash-lite-latest', label: 'Gemini Flash-Lite' },
+  { id: 'gemini:gemini-3.5-flash', label: 'Gemini 3.5' },
+  { id: 'groq:qwen/qwen3.8-27b', label: 'Groq Qwen 27B' },
+  { id: 'groq:openai/gpt-oss-120b', label: 'Groq GPT-OSS 120B' },
+  { id: 'groq:openai/gpt-oss-20b', label: 'Groq GPT-OSS 20B' },
+  { id: 'ollama:llama3.2', label: 'Ollama Local' },
+  { id: 'openai:gpt-4o', label: 'OpenAI GPT-4o' },
+  { id: 'deepseek:deepseek-chat', label: 'DeepSeek Chat' },
+];
 import { ArtifactCanvasPane, Artifact } from '../ArtifactCanvasPane';
 import { PerplexitySourcesBar } from '../PerplexitySourcesBar';
 import { WorkspaceMentionMenu } from '../WorkspaceMentionMenu';
@@ -792,6 +805,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const [activeArtifact, setActiveArtifact] = useState<Artifact | null>(null);
   const [attachedFile, setAttachedFile] = useState<AttachedFileInfo | null>(null);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [dualBattleEnabled, setDualBattleEnabled] = useState(false);
+  const [brainASelection, setBrainASelection] = useState<string>('gemini:gemini-flash-latest');
+  const [brainBSelection, setBrainBSelection] = useState<string>('groq:qwen/qwen3.8-27b');
+  const [synthesizingId, setSynthesizingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
 
@@ -1678,6 +1695,49 @@ export const ChatTab = React.memo<ChatTabProps>(({
         return;
       }
 
+      // Phase 4: Multi-Brain Dual-Battle Execution
+      if (dualBattleEnabled && window.jarvisAPI?.executeDualAI) {
+        const [providerA, ...modelAParts] = brainASelection.split(':');
+        const [providerB, ...modelBParts] = brainBSelection.split(':');
+        const modelA = modelAParts.join(':');
+        const modelB = modelBParts.join(':');
+
+        const context: any = {};
+        if (currentAttachment) {
+          context.filePath = currentAttachment.path;
+          context.attachedFile = currentAttachment;
+        }
+        if (currentMentions.length > 0) {
+          context.projectMentions = currentMentions;
+        }
+        if (webSearchEnabled) {
+          context.webSearch = true;
+          context.webSearchEnabled = true;
+        }
+
+        const dualRes = await window.jarvisAPI.executeDualAI(
+          text,
+          { provider: providerA, model: modelA },
+          { provider: providerB, model: modelB },
+          context
+        );
+
+        const dualMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `⚔️ **Dual-Battle**: ${modelA || providerA} vs ${modelB || providerB}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          dualBattle: {
+            brainA: dualRes.brainA,
+            brainB: dualRes.brainB,
+          },
+        };
+
+        onUpdateMessages((prev) => [...prev, dualMsg]);
+        setLoading(false);
+        return;
+      }
+
       if (window.jarvisAPI?.executeAI) {
         const context: any = {};
         if (currentAttachment) {
@@ -1898,6 +1958,71 @@ export const ChatTab = React.memo<ChatTabProps>(({
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleSynthesizeConsensus = async (msgId: string) => {
+    const msgIndex = messages.findIndex((m) => m.id === msgId);
+    if (msgIndex === -1) return;
+    const targetMsg = messages[msgIndex];
+    if (!targetMsg || !targetMsg.dualBattle || !window.jarvisAPI?.synthesizeConsensus) return;
+
+    const prevMsg = messages.slice(0, msgIndex).reverse().find((m) => m.role === 'user');
+    const userPrompt = prevMsg?.content || 'User Prompt';
+
+    setSynthesizingId(msgId);
+    try {
+      const res = await window.jarvisAPI.synthesizeConsensus(
+        userPrompt,
+        targetMsg.dualBattle.brainA.reply,
+        targetMsg.dualBattle.brainB.reply,
+        targetMsg.dualBattle.brainA.model,
+        targetMsg.dualBattle.brainB.model
+      );
+
+      if (res && res.consensus) {
+        onUpdateMessages((prev) =>
+          prev.map((m) => {
+            if (m.id === msgId && m.dualBattle) {
+              return {
+                ...m,
+                dualBattle: {
+                  ...m.dualBattle,
+                  consensus: {
+                    content: res.consensus,
+                  },
+                },
+              };
+            }
+            return m;
+          })
+        );
+      }
+    } catch (err) {
+      console.error('[DualBattle] Consensus error:', err);
+    } finally {
+      setSynthesizingId(null);
+    }
+  };
+
+  const handlePickWinner = (msgId: string, winnerKey: 'brainA' | 'brainB') => {
+    onUpdateMessages((prev) =>
+      prev.map((m) => {
+        if (m.id === msgId && m.dualBattle) {
+          const winnerData = winnerKey === 'brainA' ? m.dualBattle.brainA : m.dualBattle.brainB;
+          return {
+            ...m,
+            dualBattle: {
+              ...m.dualBattle,
+              consensus: {
+                content: `### 🏆 Selected Winner: ${winnerData.model}\n\n${winnerData.reply}`,
+                winner: winnerData.model,
+              },
+            },
+          };
+        }
+        return m;
+      })
+    );
   };
 
   const handleSpeak = async (id: string, text: string) => {
@@ -2478,6 +2603,49 @@ export const ChatTab = React.memo<ChatTabProps>(({
             )}
 
             <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5">
+              {/* Battle Stage Selector when Dual-Battle Mode is active */}
+              {dualBattleEnabled && (
+                <div className="flex items-center flex-wrap gap-2 px-3 py-1.5 rounded-xl bg-purple-950/20 dark:bg-purple-950/30 border border-purple-500/25 text-xs font-mono text-purple-300">
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Swords className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span className="font-semibold text-purple-200 text-[11px] uppercase tracking-wider">Battle Stage</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Brain A */}
+                    <div className="flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded border border-sky-500/30 text-gray-200">
+                      <span className="text-[10px] uppercase font-bold text-sky-400">Brain A:</span>
+                      <select
+                        value={brainASelection}
+                        onChange={(e) => setBrainASelection(e.target.value)}
+                        className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+                      >
+                        {BATTLE_BRAIN_OPTIONS.map((opt) => (
+                          <option key={`hero-a-${opt.id}`} value={opt.id} className="bg-[#121217] text-white">
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <span className="text-purple-400 font-bold text-[11px]">VS</span>
+                    {/* Brain B */}
+                    <div className="flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded border border-purple-500/30 text-gray-200">
+                      <span className="text-[10px] uppercase font-bold text-purple-400">Brain B:</span>
+                      <select
+                        value={brainBSelection}
+                        onChange={(e) => setBrainBSelection(e.target.value)}
+                        className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+                      >
+                        {BATTLE_BRAIN_OPTIONS.map((opt) => (
+                          <option key={`hero-b-${opt.id}`} value={opt.id} className="bg-[#121217] text-white">
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Input Field on Top */}
               <input
                 ref={inputRef}
@@ -2490,8 +2658,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
                     ? "Listening... speaking your prompt"
                     : attachedFile
                     ? isVideoAttachment(attachedFile)
-                      ? `Send ${attachedFile.name} on WhatsApp or upload to Drive...`
-                      : `Ask Grokki about ${attachedFile.name}...`
+                    ? `Send ${attachedFile.name} on WhatsApp or upload to Drive...`
+                    : `Ask Grokki about ${attachedFile.name}...`
+                    : dualBattleEnabled
+                    ? "Ask Grokki to compare both AI Brains side-by-side..."
                     : "Type / for slash commands, or ask Grokki anything..."
                 }
                 className="w-full bg-transparent border-none outline-none text-xs md:text-[13px] text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans px-1 pt-0.5 pb-0.5"
@@ -2538,9 +2708,9 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   {/* AI Brain Model Selector Dropdown below the input next to plus */}
                   {renderModelSelector('top', 'left')}
 
-                  {/* Perplexity-Style Web Grounding Search Toggle */}
+                  {/* Perplexity-Style Web Grounding Search Toggle (Icon-only, hover reveals name) */}
                   <WarmTooltip
-                    content={webSearchEnabled ? 'Live Web Search: ON' : 'Live Web Search: OFF (Click to enable)'}
+                    content={webSearchEnabled ? 'Deep Search: ON (Live grounding)' : 'Deep Search: OFF'}
                     side="top"
                     surfaceColor="#f5f5f5"
                     inkColor="#18181b"
@@ -2557,14 +2727,54 @@ export const ChatTab = React.memo<ChatTabProps>(({
                       type="button"
                       aria-label="Toggle Deep Search"
                       onClick={() => setWebSearchEnabled((prev) => !prev)}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all cursor-pointer border select-none ${
+                      className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
                         webSearchEnabled
                           ? 'bg-sky-500/15 text-sky-400 border-sky-500/40 shadow-xs font-semibold'
                           : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
                       }`}
                     >
-                      <Globe className={`w-3.5 h-3.5 shrink-0 ${webSearchEnabled ? 'text-sky-400' : 'text-gray-400'}`} />
-                      <span>Deep Search</span>
+                      <Globe className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${webSearchEnabled ? 'text-sky-400' : 'text-gray-400'}`} />
+                      {webSearchEnabled && (
+                        <span className="w-1 h-1 rounded-full bg-sky-400 ml-1 shrink-0 animate-pulse" />
+                      )}
+                      <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
+                        Deep Search
+                      </span>
+                    </button>
+                  </WarmTooltip>
+
+                  {/* Multi-Brain Dual-Battle Mode Toggle (Icon-only, hover reveals name) */}
+                  <WarmTooltip
+                    content={dualBattleEnabled ? 'Dual-Battle: ON (Concurrent comparison)' : 'Dual-Battle: OFF'}
+                    side="top"
+                    surfaceColor="#f5f5f5"
+                    inkColor="#18181b"
+                    size="md"
+                    radius={8}
+                    gap={8}
+                    arrow
+                    popDuration={160}
+                    popScale={0.94}
+                    popBlur={4}
+                    showFuse={false}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Toggle Dual-Battle Mode"
+                      onClick={() => setDualBattleEnabled((prev) => !prev)}
+                      className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
+                        dualBattleEnabled
+                          ? 'bg-purple-500/15 text-purple-400 border-purple-500/40 shadow-xs font-semibold'
+                          : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      <Swords className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${dualBattleEnabled ? 'text-purple-400' : 'text-gray-400'}`} />
+                      {dualBattleEnabled && (
+                        <span className="w-1 h-1 rounded-full bg-purple-400 ml-1 shrink-0 animate-pulse" />
+                      )}
+                      <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
+                        Dual Battle
+                      </span>
                     </button>
                   </WarmTooltip>
                 </div>
@@ -2753,12 +2963,140 @@ export const ChatTab = React.memo<ChatTabProps>(({
                         )}
 
                         {/* Perplexity-Style Sources Bar */}
-                        {msg.role === 'assistant' && msg.grounding && (
+                        {msg.role === 'assistant' && msg.grounding && !msg.dualBattle && (
                           <PerplexitySourcesBar grounding={msg.grounding} />
                         )}
 
-                        {/* Rendered Markdown Body: Animated if streaming, else Fast Cached Static */}
-                        {config.streamingAnimation !== false && msg.isAnimated ? (
+                        {/* Phase 4: Multi-Brain Dual-Battle Comparative Render */}
+                        {msg.role === 'assistant' && msg.dualBattle && (
+                          <div className="w-full my-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {/* Brain A Card */}
+                              <div className="p-3.5 rounded-xl bg-black/40 border border-white/[0.08] hover:border-sky-500/30 transition-all flex flex-col justify-between shadow-xs">
+                                <div>
+                                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/[0.06]">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="w-2 h-2 rounded-full bg-sky-400 shrink-0 shadow-xs" />
+                                      <span className="text-xs font-bold text-gray-200 font-mono truncate">
+                                        Brain A: {msg.dualBattle.brainA.model}
+                                      </span>
+                                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-sky-500/15 text-sky-400 font-semibold border border-sky-500/20">
+                                        {msg.dualBattle.brainA.provider}
+                                      </span>
+                                    </div>
+                                    {msg.dualBattle.brainA.latencyMs !== undefined && (
+                                      <span className="text-[10px] font-mono text-gray-400 px-1.5 py-0.5 rounded bg-white/[0.05] shrink-0">
+                                        {msg.dualBattle.brainA.latencyMs}ms
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="prose prose-invert text-xs leading-relaxed select-text overflow-x-auto">
+                                    <StaticMessageContent content={msg.dualBattle.brainA.reply} />
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-white/[0.06]">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopy(`${msg.id}-a`, msg.dualBattle!.brainA.reply)}
+                                    className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-mono text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer border border-transparent hover:border-white/10"
+                                  >
+                                    {copiedId === `${msg.id}-a` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                    <span>{copiedId === `${msg.id}-a` ? 'Copied' : 'Copy'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePickWinner(msg.id, 'brainA')}
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-mono text-sky-400 hover:bg-sky-500/10 border border-sky-500/20 hover:border-sky-500/40 transition-all cursor-pointer font-medium"
+                                  >
+                                    🏆 Pick Brain A
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Brain B Card */}
+                              <div className="p-3.5 rounded-xl bg-black/40 border border-white/[0.08] hover:border-purple-500/30 transition-all flex flex-col justify-between shadow-xs">
+                                <div>
+                                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/[0.06]">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0 shadow-xs" />
+                                      <span className="text-xs font-bold text-gray-200 font-mono truncate">
+                                        Brain B: {msg.dualBattle.brainB.model}
+                                      </span>
+                                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-purple-500/15 text-purple-400 font-semibold border border-purple-500/20">
+                                        {msg.dualBattle.brainB.provider}
+                                      </span>
+                                    </div>
+                                    {msg.dualBattle.brainB.latencyMs !== undefined && (
+                                      <span className="text-[10px] font-mono text-gray-400 px-1.5 py-0.5 rounded bg-white/[0.05] shrink-0">
+                                        {msg.dualBattle.brainB.latencyMs}ms
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="prose prose-invert text-xs leading-relaxed select-text overflow-x-auto">
+                                    <StaticMessageContent content={msg.dualBattle.brainB.reply} />
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-white/[0.06]">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopy(`${msg.id}-b`, msg.dualBattle!.brainB.reply)}
+                                    className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-mono text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer border border-transparent hover:border-white/10"
+                                  >
+                                    {copiedId === `${msg.id}-b` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                    <span>{copiedId === `${msg.id}-b` ? 'Copied' : 'Copy'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePickWinner(msg.id, 'brainB')}
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-mono text-purple-400 hover:bg-purple-500/10 border border-purple-500/20 hover:border-purple-500/40 transition-all cursor-pointer font-medium"
+                                  >
+                                    🏆 Pick Brain B
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Consensus Synthesizer Section */}
+                            {msg.dualBattle.consensus ? (
+                              <div className="mt-3 p-4 rounded-xl bg-gradient-to-b from-purple-950/20 to-black/40 border border-purple-500/30 shadow-sm animate-in fade-in duration-300">
+                                <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-purple-500/20">
+                                  <div className="flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-purple-400" />
+                                    <span className="text-xs font-bold text-purple-200 tracking-wide uppercase font-mono">
+                                      Synthesized Consensus & Comparative Verdict
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopy(`${msg.id}-cons`, msg.dualBattle!.consensus!.content)}
+                                    className="flex items-center gap-1 text-[11px] font-mono text-purple-300 hover:text-white cursor-pointer"
+                                  >
+                                    {copiedId === `${msg.id}-cons` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                    <span>{copiedId === `${msg.id}-cons` ? 'Copied' : 'Copy Consensus'}</span>
+                                  </button>
+                                </div>
+                                <div className="prose prose-invert text-xs leading-relaxed select-text">
+                                  <StaticMessageContent content={msg.dualBattle.consensus.content} />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 mt-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSynthesizeConsensus(msg.id)}
+                                  disabled={synthesizingId === msg.id}
+                                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-purple-600/25 via-indigo-600/25 to-sky-600/25 hover:from-purple-600/40 hover:to-sky-600/40 border border-purple-500/40 text-purple-200 hover:text-white transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                                >
+                                  <Sparkles className={`w-3.5 h-3.5 text-purple-400 ${synthesizingId === msg.id ? 'animate-spin' : ''}`} />
+                                  <span>{synthesizingId === msg.id ? 'Synthesizing Consensus with AI...' : '✨ Merge & Synthesize Consensus'}</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Rendered Markdown Body: Animated if streaming, else Fast Cached Static (for single-brain messages) */}
+                        {!msg.dualBattle && (config.streamingAnimation !== false && msg.isAnimated ? (
                           <AnimatedMessageContent
                             content={msg.content}
                             grounding={msg.grounding}
@@ -2774,10 +3112,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
                             grounding={msg.grounding}
                             onOpenArtifact={setActiveArtifact}
                           />
-                        )}
+                        ))}
 
                         {/* Claude-Style Artifact Card */}
-                        {msg.role === 'assistant' && (() => {
+                        {msg.role === 'assistant' && !msg.dualBattle && (() => {
                           const artifact = extractArtifactFromMessage(msg.content);
                           if (!artifact) return null;
                           const lineCount = artifact.content.split('\n').length;
@@ -3046,6 +3384,49 @@ export const ChatTab = React.memo<ChatTabProps>(({
             )}
 
             <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl mb-8 p-3 transition-all flex flex-col gap-2.5 shadow-sm hover:shadow-md">
+              {/* Battle Stage Selector when Dual-Battle Mode is active */}
+              {dualBattleEnabled && (
+                <div className="flex items-center flex-wrap gap-2 px-3 py-1.5 rounded-xl bg-purple-950/20 dark:bg-purple-950/30 border border-purple-500/25 text-xs font-mono text-purple-300">
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Swords className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span className="font-semibold text-purple-200 text-[11px] uppercase tracking-wider">Battle Stage</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Brain A */}
+                    <div className="flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded border border-sky-500/30 text-gray-200">
+                      <span className="text-[10px] uppercase font-bold text-sky-400">Brain A:</span>
+                      <select
+                        value={brainASelection}
+                        onChange={(e) => setBrainASelection(e.target.value)}
+                        className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+                      >
+                        {BATTLE_BRAIN_OPTIONS.map((opt) => (
+                          <option key={`bottom-a-${opt.id}`} value={opt.id} className="bg-[#121217] text-white">
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <span className="text-purple-400 font-bold text-[11px]">VS</span>
+                    {/* Brain B */}
+                    <div className="flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded border border-purple-500/30 text-gray-200">
+                      <span className="text-[10px] uppercase font-bold text-purple-400">Brain B:</span>
+                      <select
+                        value={brainBSelection}
+                        onChange={(e) => setBrainBSelection(e.target.value)}
+                        className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+                      >
+                        {BATTLE_BRAIN_OPTIONS.map((opt) => (
+                          <option key={`bottom-b-${opt.id}`} value={opt.id} className="bg-[#121217] text-white">
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Input Field on Top */}
               <input
                 ref={inputRef}
@@ -3058,8 +3439,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
                     ? "Listening... speaking your prompt"
                     : attachedFile
                     ? isVideoAttachment(attachedFile)
-                      ? `Send ${attachedFile.name} on WhatsApp or upload to Drive...`
-                      : `Ask Grokki about ${attachedFile.name}...`
+                    ? `Send ${attachedFile.name} on WhatsApp or upload to Drive...`
+                    : `Ask Grokki about ${attachedFile.name}...`
+                    : dualBattleEnabled
+                    ? "Ask Grokki to compare both AI Brains side-by-side..."
                     : "Type / for direct slash commands, or ask anything..."
                 }
                 className="w-full bg-transparent border-none outline-none text-xs md:text-[13px] text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans px-1 pt-0.5 pb-0.5"
@@ -3105,9 +3488,9 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   {/* AI Brain Model Selector Dropdown below the input next to plus */}
                   {renderModelSelector('top', 'left')}
 
-                  {/* Deep Search Button in Bottom Floating Bar */}
+                  {/* Deep Search Button in Bottom Floating Bar (Icon-only, hover reveals name) */}
                   <WarmTooltip
-                    content={webSearchEnabled ? 'Deep Search: ON (Live grounding)' : 'Deep Search: OFF (Click to enable live web search)'}
+                    content={webSearchEnabled ? 'Deep Search: ON (Live grounding)' : 'Deep Search: OFF'}
                     side="top"
                     surfaceColor="#f5f5f5"
                     inkColor="#18181b"
@@ -3124,14 +3507,54 @@ export const ChatTab = React.memo<ChatTabProps>(({
                       type="button"
                       aria-label="Toggle Deep Search"
                       onClick={() => setWebSearchEnabled((prev) => !prev)}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-[11px] font-mono transition-all cursor-pointer border select-none ${
+                      className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
                         webSearchEnabled
                           ? 'bg-sky-500/15 text-sky-400 border-sky-500/40 shadow-xs font-semibold'
                           : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
                       }`}
                     >
-                      <Globe className={`w-3.5 h-3.5 shrink-0 ${webSearchEnabled ? 'text-sky-400' : 'text-gray-400'}`} />
-                      <span>Deep Search</span>
+                      <Globe className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${webSearchEnabled ? 'text-sky-400' : 'text-gray-400'}`} />
+                      {webSearchEnabled && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-400 ml-1 shrink-0 animate-pulse" />
+                      )}
+                      <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
+                        Deep Search
+                      </span>
+                    </button>
+                  </WarmTooltip>
+
+                  {/* Multi-Brain Dual-Battle Mode Toggle (Icon-only, hover reveals name) */}
+                  <WarmTooltip
+                    content={dualBattleEnabled ? 'Dual-Battle: ON (Concurrent comparison)' : 'Dual-Battle: OFF'}
+                    side="top"
+                    surfaceColor="#f5f5f5"
+                    inkColor="#18181b"
+                    size="md"
+                    radius={8}
+                    gap={8}
+                    arrow
+                    popDuration={160}
+                    popScale={0.94}
+                    popBlur={4}
+                    showFuse={false}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Toggle Dual-Battle Mode"
+                      onClick={() => setDualBattleEnabled((prev) => !prev)}
+                      className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
+                        dualBattleEnabled
+                          ? 'bg-purple-500/15 text-purple-400 border-purple-500/40 shadow-xs font-semibold'
+                          : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      <Swords className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${dualBattleEnabled ? 'text-purple-400' : 'text-gray-400'}`} />
+                      {dualBattleEnabled && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 ml-1 shrink-0 animate-pulse" />
+                      )}
+                      <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
+                        Dual Battle
+                      </span>
                     </button>
                   </WarmTooltip>
                 </div>

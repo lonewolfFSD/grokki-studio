@@ -61,6 +61,8 @@ try {
     mouseRightClick: (options) => ipcRenderer.invoke('jarvis:mouse-right-click', options),
     mouseMove: (options) => ipcRenderer.invoke('jarvis:mouse-move', options),
     executeAI: (prompt, context) => ipcRenderer.invoke('jarvis:execute-ai', prompt, context),
+    executeDualAI: (prompt, brainA, brainB, context) => ipcRenderer.invoke('jarvis:execute-dual-ai', prompt, brainA, brainB, context),
+    synthesizeConsensus: (prompt, replyA, replyB, brainAName, brainBName) => ipcRenderer.invoke('jarvis:synthesize-consensus', prompt, replyA, replyB, brainAName, brainBName),
     executeAIAudio: (data) => ipcRenderer.invoke('jarvis:execute-ai-audio', data),
     speakText: (text, voice) => ipcRenderer.invoke('jarvis:speak', { text, voice }),
     selectFile: () => ipcRenderer.invoke('jarvis:select-file'),
