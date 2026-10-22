@@ -72,6 +72,7 @@ import {
 } from './AiBrainTab';
 import { Sliders } from 'lucide-react';
 import GradientASCII from './GradientASCII';
+import Noise from './Noise';
 import LatticeLoader from './LatticeLoader';
 import WarmTooltip, { WarmTooltipGroup } from '../WarmTooltip';
 import { getEffectiveHotkeys, matchesHotkey } from '../../utils/hotkeys';
@@ -2608,6 +2609,27 @@ export const ChatTab = React.memo<ChatTabProps>(({
             clickEffect="wave"
             intro
             lightMode={!isDarkTheme}
+          />
+        </div>
+      )}
+
+      {/* Background Noise & Scanlines Overlay Above Gradient */}
+      {config.chatBackgroundNoise !== false && (
+        <div
+          className="absolute inset-0 pointer-events-none overflow-hidden z-0"
+          style={{ width: '100%', height: '100%', position: 'absolute' }}
+        >
+          <Noise
+            opacity={0.2}
+            size={1}
+            fps={16}
+            blendMode="overlay"
+            contrast={0.6}
+            colored={false}
+            dust={0}
+            scratches={0}
+            scanlines={0.15}
+            flicker={0}
           />
         </div>
       )}
