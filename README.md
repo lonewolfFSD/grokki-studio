@@ -31,6 +31,8 @@
   <img src="assets/screenshots/Grokki Studio.png" alt="Grokki Studio & Dynamic Island Workspace" width="100%">
 </p>
 
+<span></span>
+
 ## Overview
 
 Grokki is an autonomous Windows desktop agent designed to live directly at the top of your screen inside a glass Dynamic Island. Rather than existing as an isolated browser chatbot, Grokki has direct physical agency over your operating system: he sees your displays with low-token vision, executes multi-step plans across native applications, and physically drives your mouse and keyboard.
