@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, RotateCcw, Check, Plus, Minus } from 'lucide-react';
 import Grainient from './tabs/Grainient';
@@ -273,17 +274,47 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
   const [activePreset, setActivePreset] = useState<string>('Ember');
 
   useEffect(() => {
-    if (isOpen) {
-      setDraft({
-        ...DEFAULT_GRAINIENT_SETTINGS,
-        ...(currentSettings || {}),
-      });
-      const origOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = origOverflow;
-      };
-    }
+    if (!isOpen) return;
+
+    setDraft({
+      ...DEFAULT_GRAINIENT_SETTINGS,
+      ...(currentSettings || {}),
+    });
+
+    const mainScroll = document.getElementById('grokki-main-scroll');
+    const prevMainOverflow = mainScroll ? mainScroll.style.overflow : '';
+    const prevBodyOverflow = document.body.style.overflow;
+
+    if (mainScroll) mainScroll.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
+    const handleWindowWheel = (e: WheelEvent) => {
+      const target = e.target as HTMLElement | null;
+      const scrollPane = target?.closest('.customizer-scroll-pane') as HTMLElement | null;
+
+      if (scrollPane) {
+        e.stopPropagation();
+
+        const { scrollTop, scrollHeight, clientHeight } = scrollPane;
+        const atTop = scrollTop <= 0 && e.deltaY < 0;
+        const atBottom = scrollTop + clientHeight >= scrollHeight - 1 && e.deltaY > 0;
+
+        if (atTop || atBottom) {
+          e.preventDefault();
+        }
+      } else {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    window.addEventListener('wheel', handleWindowWheel, { passive: false });
+
+    return () => {
+      window.removeEventListener('wheel', handleWindowWheel);
+      if (mainScroll) mainScroll.style.overflow = prevMainOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+    };
   }, [isOpen, currentSettings]);
 
   if (!isOpen) return null;
@@ -332,7 +363,7 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
 
   const currentColors = draft.colors || DEFAULT_GRAINIENT_SETTINGS.colors!;
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-md overscroll-none"
@@ -653,6 +684,8 @@ export const GrainientCustomizerModal: React.FC<GrainientCustomizerModalProps> =
       </div>
     </AnimatePresence>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };
 
 export default GrainientCustomizerModal;
