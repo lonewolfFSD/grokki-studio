@@ -4631,7 +4631,7 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
           maxOutputTokens: 1200,
           temperature: 0.2,
         },
-      }), 18000);
+      }), 30000);
 
       const reply = (res?.text || '').trim();
       return {
@@ -4653,7 +4653,7 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
           { role: 'user', content: fullPrompt },
         ],
         temperature: 0.2,
-        timeout: 18000,
+        timeout: 30000,
       });
 
       const reply = (data?.choices?.[0]?.message?.content || '').trim();
@@ -4692,7 +4692,7 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
             success: false,
             provider: fullBrainA.provider,
             model: fullBrainA.model || fullBrainA.provider,
-            reply: `⚠️ Error from Brain A: ${err.message}`,
+            reply: `Error from Brain A: ${err.message}`,
             latencyMs: Date.now() - startA,
           };
         }
@@ -4714,7 +4714,7 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
             success: false,
             provider: fullBrainB.provider,
             model: fullBrainB.model || fullBrainB.provider,
-            reply: `⚠️ Error from Brain B: ${err.message}`,
+            reply: `Error from Brain B: ${err.message}`,
             latencyMs: Date.now() - startB,
           };
         }

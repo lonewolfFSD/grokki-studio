@@ -29,7 +29,7 @@ import {
   Trash2,
   Camera,
   Lock,
-  Sparkles,
+  GitMerge,
   Code2,
   Shapes,
   ExternalLink,
@@ -1830,7 +1830,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         const dualMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: `⚔️ **Dual-Battle**: ${modelA || providerA} vs ${modelB || providerB}`,
+          content: `**Dual-Battle**: ${modelA || providerA} vs ${modelB || providerB}`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           dualBattle: {
             brainA: dualRes.brainA,
@@ -3065,9 +3065,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
                                   <button
                                     type="button"
                                     onClick={() => handlePickWinner(msg.id, 'brainA')}
-                                    className="flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-mono text-sky-400 hover:bg-sky-500/10 border border-sky-500/20 hover:border-sky-500/40 transition-all cursor-pointer font-medium"
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono text-sky-400 hover:bg-sky-500/10 border border-sky-500/20 hover:border-sky-500/40 transition-all cursor-pointer font-medium"
                                   >
-                                    🏆 Pick Brain A
+                                    <Check className="w-3 h-3" />
+                                    <span>Pick Brain A</span>
                                   </button>
                                 </div>
                               </div>
@@ -3107,9 +3108,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
                                   <button
                                     type="button"
                                     onClick={() => handlePickWinner(msg.id, 'brainB')}
-                                    className="flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-mono text-purple-400 hover:bg-purple-500/10 border border-purple-500/20 hover:border-purple-500/40 transition-all cursor-pointer font-medium"
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono text-purple-400 hover:bg-purple-500/10 border border-purple-500/20 hover:border-purple-500/40 transition-all cursor-pointer font-medium"
                                   >
-                                    🏆 Pick Brain B
+                                    <Check className="w-3 h-3" />
+                                    <span>Pick Brain B</span>
                                   </button>
                                 </div>
                               </div>
@@ -3120,8 +3122,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
                               <div className="mt-3 p-4 rounded-xl bg-gradient-to-b from-purple-950/20 to-black/40 border border-purple-500/30 shadow-sm animate-in fade-in duration-300">
                                 <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-purple-500/20">
                                   <div className="flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4 text-purple-400" />
-                                    <span className="text-xs font-bold text-purple-200 tracking-wide uppercase font-mono">
+                                    <GitMerge className="w-3.5 h-3.5 text-purple-400" />
+                                    <span className="text-xs font-semibold text-purple-200 tracking-wide font-mono">
                                       Synthesized Consensus & Comparative Verdict
                                     </span>
                                   </div>
@@ -3146,8 +3148,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
                                   disabled={synthesizingId === msg.id}
                                   className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-purple-600/25 via-indigo-600/25 to-sky-600/25 hover:from-purple-600/40 hover:to-sky-600/40 border border-purple-500/40 text-purple-200 hover:text-white transition-all shadow-sm cursor-pointer disabled:opacity-50"
                                 >
-                                  <Sparkles className={`w-3.5 h-3.5 text-purple-400 ${synthesizingId === msg.id ? 'animate-spin' : ''}`} />
-                                  <span>{synthesizingId === msg.id ? 'Synthesizing Consensus with AI...' : '✨ Merge & Synthesize Consensus'}</span>
+                                  <GitMerge className={`w-3.5 h-3.5 text-purple-400 ${synthesizingId === msg.id ? 'animate-spin' : ''}`} />
+                                  <span>{synthesizingId === msg.id ? 'Synthesizing consensus...' : 'Merge & Synthesize Consensus'}</span>
                                 </button>
                               </div>
                             )}
