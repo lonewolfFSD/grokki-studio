@@ -31,12 +31,12 @@ export interface FirebaseClientConfig {
  * Or directly edit this configuration object.
  */
 export const DEFAULT_FIREBASE_CONFIG: FirebaseClientConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyARqtB4M7dMHWXxiHxIZE4Nvvvpu_HOQBM',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'grokki-studio.firebaseapp.com',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'grokki-studio',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'grokki-studio.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '760716937527',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:760716937527:web:f6139f91296696a242f2b2',
 };
 
 let appInstance: FirebaseApp | null = null;
