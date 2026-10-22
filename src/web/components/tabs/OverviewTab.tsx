@@ -34,40 +34,7 @@ export interface UpdateItem {
   tag?: string;
 }
 
-export const DEFAULT_UPDATES: UpdateItem[] = [
-  {
-    id: 'update-2026-10-22-flagship',
-    title: "Today's Feature Drop: Grainient Shader, Customizer Studio & Live Token Gauge",
-    date: 'October 22, 2026',
-    tag: "What's New",
-    summary:
-      'Major visual and performance update: Added the dynamic Grainient WebGL fluid background with a dedicated side-by-side customization studio, smooth GlideSelect dropdowns, live circular token usage tracking outside the chat bubble, and official terms of use & privacy policy documentation.',
-  },
-  {
-    id: 'update-2026-10-22-grainient-customizer',
-    title: 'Interactive Grainient Customizer Modal with Live WebGL Preview',
-    date: 'October 22, 2026',
-    tag: 'Visual Studio',
-    summary:
-      'Customize your ambient background with an interactive real-time preview on the left and full controls on the right. Features fine-tuned scrubber cards with tick marks, curated color presets (Ember, Deep Blue, Sunset, Aurora, Cyber, Slate Void), custom color swatch management, and isolated portal scrolling.',
-  },
-  {
-    id: 'update-2026-10-22-token-gauge',
-    title: 'Circular Token Usage Gauge & Context Telemetry',
-    date: 'October 22, 2026',
-    tag: 'Chat Experience',
-    summary:
-      'Stay on top of your LLM context consumption with a real-time circular token usage meter positioned cleanly outside the input bubble to the right with {used}/{total} format.',
-  },
-  {
-    id: 'update-2026-10-22-docs',
-    title: 'Terms of Use & Privacy Policy Documentation',
-    date: 'October 22, 2026',
-    tag: 'Documentation',
-    summary:
-      'Added comprehensive terms of use and local-first privacy policy documents covering desktop agency, BYOK architecture, and zero-telemetry local credential security.',
-  },
-];
+export const DEFAULT_UPDATES: UpdateItem[] = [];
 
 export interface QuickAccessItem {
   id: string;
