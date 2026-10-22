@@ -172,7 +172,7 @@ Grokki Agent Runtime
     </tr>
     <tr>
       <td width="50%" align="center">
-        <img src="assets/screenshots/dual_battle.png" alt="Multi-Brain Dual Battle & Consensus" width="100%"/>
+        <img src="assets/screenshots/Dual Brain.png" alt="Multi-Brain Dual Battle & Consensus" width="100%"/>
         <br/><sub><b>Multi-Brain Dual-Battle Mode with Latency Tracking & Consensus</b></sub>
       </td>
       <td width="50%" align="center">
