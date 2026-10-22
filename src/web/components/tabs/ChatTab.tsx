@@ -36,8 +36,10 @@ import {
 } from 'lucide-react';
 import { ArtifactCanvasPane, Artifact } from '../ArtifactCanvasPane';
 import { PerplexitySourcesBar } from '../PerplexitySourcesBar';
+import { WorkspaceMentionMenu } from '../WorkspaceMentionMenu';
+import { WorkspaceMentionPill } from '../WorkspaceMentionPill';
 import GradualBlur from '@/effects/GradualBlur';
-import { GroundingMetadata } from '../../types/jarvis';
+import { GroundingMetadata, WorkspaceMention } from '../../types/jarvis';
 import { highlightCode } from '../../utils/syntaxHighlight';
 import { AnimatePresence, motion } from 'motion/react';
 import { marked } from 'marked';
@@ -797,6 +799,15 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashDismissed, setSlashDismissed] = useState(false);
 
+  // Workspace Mentions state (@file and @folder)
+  const [workspaceRoot, setWorkspaceRoot] = useState<string>('');
+  const [workspaceFolderName, setWorkspaceFolderName] = useState<string>('');
+  const [scannedFiles, setScannedFiles] = useState<WorkspaceMention[]>([]);
+  const [totalWorkspaceMatches, setTotalWorkspaceMatches] = useState<number>(0);
+  const [stagedMentions, setStagedMentions] = useState<WorkspaceMention[]>([]);
+  const [mentionIndex, setMentionIndex] = useState<number>(0);
+  const [mentionDismissed, setMentionDismissed] = useState<boolean>(false);
+
   // AI Brain Detection & Model Selection
   const activeBrain = (config.provider || 'gemini') as AiProvider;
 
@@ -921,6 +932,53 @@ export const ChatTab = React.memo<ChatTabProps>(({
         (c) => c.name.toLowerCase().includes(slashQuery) || c.desc.toLowerCase().includes(slashQuery)
       )
     : [];
+
+  // Workspace @mention detection
+  const lastAtIdx = inputValue.lastIndexOf('@');
+  const isMentionMode =
+    lastAtIdx !== -1 &&
+    (lastAtIdx === 0 || /\s/.test(inputValue[lastAtIdx - 1])) &&
+    !mentionDismissed;
+
+  const mentionQuery = isMentionMode
+    ? inputValue.slice(lastAtIdx + 1).split(/\s/)[0]
+    : '';
+
+  useEffect(() => {
+    if (window.jarvisAPI?.getWorkspaceRoot) {
+      window.jarvisAPI.getWorkspaceRoot().then((res) => {
+        if (res && res.workspaceRoot) {
+          setWorkspaceRoot(res.workspaceRoot);
+          setWorkspaceFolderName(res.folderName || 'Workspace');
+        }
+      }).catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isMentionMode) return;
+    let isCancelled = false;
+    if (window.jarvisAPI?.scanWorkspaceFiles) {
+      window.jarvisAPI.scanWorkspaceFiles({ query: mentionQuery, maxResults: 30 }).then((res) => {
+        if (!isCancelled && res && res.success) {
+          setScannedFiles(res.items || []);
+          setTotalWorkspaceMatches(res.totalMatches || 0);
+          if (res.workspaceRoot) setWorkspaceRoot(res.workspaceRoot);
+          if (res.folderName) setWorkspaceFolderName(res.folderName);
+        }
+      }).catch(() => {});
+    }
+    return () => {
+      isCancelled = true;
+    };
+  }, [isMentionMode, mentionQuery]);
+
+  useEffect(() => {
+    if (lastAtIdx === -1) {
+      setMentionDismissed(false);
+      setMentionIndex(0);
+    }
+  }, [lastAtIdx]);
 
   useEffect(() => {
     if (!inputValue.startsWith('/')) {
@@ -1518,6 +1576,58 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }
   };
 
+  const handleSelectMention = (item: WorkspaceMention | 'select_folder' | 'workspace_map') => {
+    if (item === 'select_folder') {
+      handleSelectWorkspaceFolder();
+      return;
+    }
+    if (item === 'workspace_map') {
+      const prefix = inputValue.slice(0, lastAtIdx);
+      const suffix = inputValue.slice(lastAtIdx + 1 + mentionQuery.length);
+      setInputValue(`${prefix}@workspace ${suffix}`.trimStart());
+      setStagedMentions((prev) =>
+        prev.some((m) => m.path === '@workspace')
+          ? prev
+          : [...prev, { name: 'workspace', path: '@workspace', type: 'workspace' }]
+      );
+      setMentionDismissed(true);
+      setTimeout(() => inputRef.current?.focus(), 40);
+      return;
+    }
+
+    const prefix = inputValue.slice(0, lastAtIdx);
+    const suffix = inputValue.slice(lastAtIdx + 1 + mentionQuery.length);
+    setInputValue(`${prefix}@${item.name} ${suffix}`.trimStart());
+    setStagedMentions((prev) =>
+      prev.some((m) => m.path === item.path) ? prev : [...prev, item]
+    );
+    setMentionDismissed(true);
+    setTimeout(() => inputRef.current?.focus(), 40);
+  };
+
+  const handleSelectWorkspaceFolder = async () => {
+    if (!window.jarvisAPI?.selectWorkspaceFolder) return;
+    try {
+      const res = await window.jarvisAPI.selectWorkspaceFolder();
+      if (res && res.success && res.workspaceRoot) {
+        setWorkspaceRoot(res.workspaceRoot);
+        setWorkspaceFolderName(res.folderName || 'Workspace');
+        const prefix = inputValue.slice(0, lastAtIdx);
+        setInputValue(prefix.trimEnd());
+        setMentionDismissed(true);
+        if (window.jarvisAPI.scanWorkspaceFiles) {
+          const scan = await window.jarvisAPI.scanWorkspaceFiles({ query: '', maxResults: 30 });
+          if (scan.success) {
+            setScannedFiles(scan.items || []);
+            setTotalWorkspaceMatches(scan.totalMatches || 0);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to switch workspace folder:', e);
+    }
+  };
+
   const handleSendMessage = async (textToSend?: string) => {
     if (isRecording) {
       stopVoiceRecording();
@@ -1534,18 +1644,22 @@ export const ChatTab = React.memo<ChatTabProps>(({
         : `Analyze and summarize this file: ${currentAttachment.name}`;
     }
 
+    const currentMentions = [...stagedMentions];
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: text,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       attachedFile: currentAttachment || undefined,
+      mentions: currentMentions.length > 0 ? currentMentions : undefined,
     };
 
     onUpdateMessages((prev) => [...prev, userMsg]);
     setInputValue('');
     setAttachedFile(null);
+    setStagedMentions([]);
     setSlashDismissed(false);
+    setMentionDismissed(false);
     setLoading(true);
 
     try {
@@ -1569,6 +1683,9 @@ export const ChatTab = React.memo<ChatTabProps>(({
         if (currentAttachment) {
           context.filePath = currentAttachment.path;
           context.attachedFile = currentAttachment;
+        }
+        if (currentMentions.length > 0) {
+          context.projectMentions = currentMentions;
         }
         if (webSearchEnabled) {
           context.webSearch = true;
@@ -1713,6 +1830,32 @@ export const ChatTab = React.memo<ChatTabProps>(({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isMentionMode && scannedFiles.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex((prev) => (prev + 1) % scannedFiles.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex((prev) => (prev - 1 + scannedFiles.length) % scannedFiles.length);
+        return;
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault();
+        const selected = scannedFiles[mentionIndex] || scannedFiles[0];
+        if (selected) {
+          handleSelectMention(selected);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setMentionDismissed(true);
+        return;
+      }
+    }
+
     if (isSlashMode && filteredSlashCommands.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -1824,6 +1967,23 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const handleMessageFinished = (id: string) => {
     onUpdateMessages((prev) =>
       prev.map((m) => (m.id === id ? { ...m, isAnimated: false } : m))
+    );
+  };
+
+  const renderMentionMenu = (placement: 'top' | 'bottom' = 'bottom') => {
+    if (!isMentionMode) return null;
+    return (
+      <WorkspaceMentionMenu
+        items={scannedFiles}
+        selectedIndex={mentionIndex}
+        workspaceRoot={workspaceRoot}
+        folderName={workspaceFolderName}
+        totalMatches={totalWorkspaceMatches}
+        placement={placement}
+        onSelect={handleSelectMention}
+        onSelectFolder={handleSelectWorkspaceFolder}
+        onHoverIndex={setMentionIndex}
+      />
     );
   };
 
@@ -2291,10 +2451,31 @@ export const ChatTab = React.memo<ChatTabProps>(({
             </div>
           )}
 
-          {/* Centered Floating Input Pill with Slash Command Palette */}
+          {/* Centered Floating Input Pill with Slash Command Palette & Mention Palette */}
           <div className="w-full max-w-xl mx-auto relative">
             {renderSlashMenu()}
+            {renderMentionMenu('bottom')}
             {renderSynthesizerVisualizer()}
+
+            {stagedMentions.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-2 px-1">
+                <span className="text-[10px] text-gray-400 font-medium">Context:</span>
+                {stagedMentions.map((m, idx) => (
+                  <WorkspaceMentionPill
+                    key={`${m.path}-${idx}`}
+                    mention={m}
+                    onRemove={() => setStagedMentions((prev) => prev.filter((_, i) => i !== idx))}
+                  />
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setStagedMentions([])}
+                  className="text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline cursor-pointer border-none bg-transparent ml-1"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
 
             <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5">
               {/* Input Field on Top */}
@@ -2838,10 +3019,31 @@ export const ChatTab = React.memo<ChatTabProps>(({
             </div>
           )}
 
-          {/* Floating Slash Command Menu & Synthesizer Visualizer for Bottom Bar */}
+          {/* Floating Slash Command Menu, Mention Menu & Synthesizer Visualizer for Bottom Bar */}
           <div className="w-full max-w-xl mx-auto relative">
             {renderSlashMenu('top')}
+            {renderMentionMenu('top')}
             {renderSynthesizerVisualizer()}
+
+            {stagedMentions.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-2 px-1">
+                <span className="text-[10px] text-gray-400 font-medium">Context:</span>
+                {stagedMentions.map((m, idx) => (
+                  <WorkspaceMentionPill
+                    key={`${m.path}-${idx}`}
+                    mention={m}
+                    onRemove={() => setStagedMentions((prev) => prev.filter((_, i) => i !== idx))}
+                  />
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setStagedMentions([])}
+                  className="text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline cursor-pointer border-none bg-transparent ml-1"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
 
             <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl mb-8 p-3 transition-all flex flex-col gap-2.5 shadow-sm hover:shadow-md">
               {/* Input Field on Top */}

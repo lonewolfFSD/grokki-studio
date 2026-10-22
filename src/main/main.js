@@ -1201,6 +1201,29 @@ ipcMain.handle('jarvis:git-select-dir', async () => {
   return await githubWorkspace.selectDirectory();
 });
 
+// Project / Local Workspace Context (@file & @folder autocomplete)
+const workspaceContext = require('./workspace_context');
+
+ipcMain.handle('jarvis:get-workspace-root', async () => {
+  return workspaceContext.getWorkspaceRoot();
+});
+
+ipcMain.handle('jarvis:set-workspace-root', async (event, folderPath) => {
+  return workspaceContext.saveRoot(folderPath);
+});
+
+ipcMain.handle('jarvis:select-workspace-folder', async () => {
+  return await workspaceContext.selectWorkspaceFolder();
+});
+
+ipcMain.handle('jarvis:scan-workspace-files', async (event, options = {}) => {
+  return workspaceContext.scanWorkspaceFiles(options);
+});
+
+ipcMain.handle('jarvis:read-workspace-item', async (event, itemPath) => {
+  return workspaceContext.readWorkspaceItem(itemPath);
+});
+
 // Dashboard Studio Controls & Live Tests
 ipcMain.on('dashboard:close', () => {
   const config = loadConfig();

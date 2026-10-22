@@ -114,6 +114,13 @@ try {
     gitSelectDir: () => ipcRenderer.invoke('jarvis:git-select-dir'),
     restoreDefaultGitHubOAuth: () => ipcRenderer.invoke('jarvis:restore-default-github-oauth'),
 
+    // Project / Local Folder Context (@file & @folder)
+    getWorkspaceRoot: () => ipcRenderer.invoke('jarvis:get-workspace-root'),
+    setWorkspaceRoot: (folderPath) => ipcRenderer.invoke('jarvis:set-workspace-root', folderPath),
+    selectWorkspaceFolder: () => ipcRenderer.invoke('jarvis:select-workspace-folder'),
+    scanWorkspaceFiles: (options) => ipcRenderer.invoke('jarvis:scan-workspace-files', options),
+    readWorkspaceItem: (path) => ipcRenderer.invoke('jarvis:read-workspace-item', path),
+
     closeDashboard: () => ipcRenderer.send('dashboard:close'),
     minimizeDashboard: () => ipcRenderer.send('dashboard:minimize'),
     maximizeDashboard: () => ipcRenderer.send('dashboard:maximize'),

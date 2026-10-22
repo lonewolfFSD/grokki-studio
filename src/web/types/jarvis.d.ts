@@ -193,6 +193,15 @@ export interface AttachedFileInfo {
   previewUrl?: string;
 }
 
+export interface WorkspaceMention {
+  name: string;
+  path: string;
+  fullPath?: string;
+  type: 'file' | 'folder' | 'workspace';
+  ext?: string;
+  size?: number;
+}
+
 export interface GroundingSource {
   id: number;
   title: string;
@@ -216,6 +225,7 @@ export interface ChatMessage {
   attachedFile?: AttachedFileInfo | string;
   isAnimated?: boolean;
   grounding?: GroundingMetadata;
+  mentions?: WorkspaceMention[];
 }
 
 export interface Conversation {
@@ -256,6 +266,11 @@ export interface JarvisAPI {
   gitCommit?: (cwd?: string, options?: { message: string; stageAll?: boolean }) => Promise<{ success: boolean; output?: string; error?: string }>;
   gitClone?: (cloneUrl: string, targetPath?: string) => Promise<{ success: boolean; targetPath?: string; output?: string; error?: string; canceled?: boolean }>;
   gitSelectDir?: () => Promise<{ success?: boolean; canceled?: boolean; path?: string; status?: GitStatusResponse }>;
+  getWorkspaceRoot?: () => Promise<{ workspaceRoot: string; folderName: string }>;
+  setWorkspaceRoot?: (folderPath: string) => Promise<{ success: boolean; workspaceRoot?: string; error?: string }>;
+  selectWorkspaceFolder?: () => Promise<{ success?: boolean; canceled?: boolean; workspaceRoot?: string; folderName?: string }>;
+  scanWorkspaceFiles?: (options?: { query?: string; maxResults?: number }) => Promise<{ success: boolean; workspaceRoot: string; folderName: string; items: WorkspaceMention[]; totalMatches: number; error?: string }>;
+  readWorkspaceItem?: (itemPath: string) => Promise<{ success: boolean; type?: 'file' | 'folder'; name?: string; path?: string; fullPath?: string; ext?: string; size?: number; lines?: number; content?: string; tree?: string; error?: string }>;
   closeDashboard: () => void;
   minimizeDashboard: () => void;
   maximizeDashboard?: () => void;

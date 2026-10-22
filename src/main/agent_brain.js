@@ -1406,6 +1406,20 @@ class AgentBrain {
       fullPrompt = `${fullPrompt}\n[User attached file: "${fileName}" located at "${attachPath}"]${fileSnippet}`.trim();
     }
 
+    // Project Mentions Context Packaging (@file and @folder)
+    if (context && (context.projectMentions || context.workspaceContext)) {
+      try {
+        const workspaceContext = require('./workspace_context');
+        const mentions = context.projectMentions || context.workspaceContext;
+        const packagedContext = workspaceContext.packageContext(mentions);
+        if (packagedContext) {
+          fullPrompt = `${packagedContext}\n${fullPrompt}`.trim();
+        }
+      } catch (err) {
+        console.warn('[AgentBrain] Failed to package project mentions:', err.message);
+      }
+    }
+
     fullPrompt = expandSlashDirective(fullPrompt);
 
     let groundingSources = [];
@@ -1660,6 +1674,20 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
         }
       } catch (err) {
         console.warn('[AgentBrain] Web grounding error:', err.message);
+      }
+    }
+
+    // Project Mentions Context Packaging (@file and @folder)
+    if (context && (context.projectMentions || context.workspaceContext)) {
+      try {
+        const workspaceContext = require('./workspace_context');
+        const mentions = context.projectMentions || context.workspaceContext;
+        const packagedContext = workspaceContext.packageContext(mentions);
+        if (packagedContext) {
+          fullPrompt = `${packagedContext}\n${fullPrompt}`.trim();
+        }
+      } catch (err) {
+        console.warn('[AgentBrain] Failed to package project mentions in Gemini:', err.message);
       }
     }
 
