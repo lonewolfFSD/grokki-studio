@@ -24,6 +24,7 @@ import notionLogo from '../../assets/logos/notion.png';
 import obsidianLogo from '../../assets/logos/obsidian.png';
 import githubLogo from '../../assets/logos/github.png';
 import { MUSIC_SERVICES } from './GoogleWorkspaceTab';
+import { fetchWhatsNewFromFirestore } from '../../services/firebase';
 
 export interface UpdateItem {
   id: string;
@@ -234,6 +235,7 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
   const [githubConnected, setGithubConnected] = useState(false);
   const [githubProfile, setGithubProfile] = useState<GitHubProfile | null>(null);
   const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
+  const [firestoreUpdates, setFirestoreUpdates] = useState<UpdateItem[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -285,10 +287,22 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
       }
     };
 
+    const loadFirestore = async () => {
+      try {
+        const remote = await fetchWhatsNewFromFirestore();
+        if (!cancelled && remote && remote.length > 0) {
+          setFirestoreUpdates(remote);
+        }
+      } catch {
+        // Fallback to local updates gracefully
+      }
+    };
+
     loadNotion();
     loadObsidian();
     loadGitHub();
     loadGit();
+    loadFirestore();
 
     let unsubNotion: (() => void) | undefined;
     if (window.jarvisAPI?.onNotionConnected) {
@@ -397,7 +411,12 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
   const prompts = TRY_SAYING.filter((p) => !p.needs || satisfied[p.needs]);
 
   const uncommitted = (gitStatus?.modifiedCount || 0) + (gitStatus?.untrackedCount || 0);
-  const effectiveUpdates = updates.length > 0 ? updates : DEFAULT_UPDATES;
+  const effectiveUpdates =
+    firestoreUpdates && firestoreUpdates.length > 0
+      ? firestoreUpdates
+      : updates.length > 0
+      ? updates
+      : DEFAULT_UPDATES;
 
   return (
     <div className="flex flex-col gap-8 max-w-5xl mx-auto w-full pb-16">
