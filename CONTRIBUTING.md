@@ -1,106 +1,79 @@
-# Contributing to Grokki Studio
+# Grokki Studio Source-Available Non-Commercial License
 
-Thank you for considering contributing to Grokki Studio! We appreciate your interest in making this project better.
+**Version 1.0 — October 2026**
 
-To ensure a smooth collaboration and maintain high quality across desktop runtime, native OS automation, and the user interface, please read the following guidelines before getting started.
+Copyright © 2026 Grokki Studio. All rights reserved.
 
----
+"Software" means the source code, binaries, application packages, and documentation distributed under this License, excluding third-party materials governed by separate licenses.
 
-## Issue Tracker
+## 1. Grant of Permission
 
-We use the GitHub issue tracker to keep track of bugs, feature proposals, and project-related discussions. 
+Permission is hereby granted, free of charge, to any person obtaining a copy of this Software, to use, copy, modify, and distribute it solely for personal, educational, research, and other non-commercial purposes, subject to the terms of this License.
 
-Before starting work on a new feature, OS tool, or bug fix:
-1. Check the issue tracker to see if there is an existing issue or active discussion related to your idea.
-2. If an issue does not exist, open a new one describing the bug or proposal in detail.
-3. For major architecture changes or new OS-level capabilities, please discuss your plan in an issue first before submitting a large pull request.
+## 2. Non-Commercial Use Only
 
----
+The Software may not be sold, rented, leased, sublicensed, monetized, or used for commercial purposes without prior written permission from the copyright holder.
 
-## Branch Naming
+Prohibited uses include:
 
-When creating branches for your contributions, please use the following conventional prefixes:
+- Selling the Software, modified versions, installers, or bundled copies.
+- Offering the Software as a paid product, subscription, or commercial service.
+- Incorporating the Software into a commercial product or service.
+- Redistributing the Software for payment or other commercial consideration.
+- Using the Software to provide a paid hosted service or commercial offering.
 
-* `feat/<feature-name>` for new capabilities, tools, or UI modules (e.g. `feat/audio-visualizer`, `feat/notion-sync`)
-* `fix/<bug-name>` for bug fixes and patches (e.g. `fix/blur-pipeline-leak`, `fix/gemini-timeout`)
-* `refactor/<scope>` for code cleanup, performance optimizations, or restructuring
-* `docs/<topic>` for documentation improvements and setup guides
+## 3. Modification and Redistribution
 
-This convention makes it straightforward to track, review, and associate contributions with their respective features and issues.
+You may modify and redistribute the Software for permitted non-commercial purposes, provided that you:
 
----
+1. Include this complete License with every copy or substantial portion of the Software.
+2. Retain all original copyright, attribution, and disclaimer notices.
+3. Clearly identify substantial modifications.
+4. Do not claim authorship of the original Software.
+5. Do not misrepresent your version as the official Grokki Studio release.
 
-## Pull Requests
+You may claim authorship of your own original modifications, but not of the original Software.
 
-We welcome pull requests from everyone as long as they respect the quality and stability standards of the project. To submit a pull request, please follow these steps:
+## 4. Branding and Attribution
 
-1. Fork the repository and create a new branch following the branch naming conventions above.
-2. Make your changes in your branch with clean, focused commits.
-3. Verify that your changes compile cleanly by running `npm run build` with zero TypeScript or bundling errors.
-4. Test the application locally in both development mode (`npm run dev`) and standard startup (`npm start`).
-5. Check the Developer Tools console for uncaught exceptions, unhandled Promise rejections, or memory leaks.
-6. Verify your changes across both light and dark themes to ensure readability and contrast standards are preserved.
-7. Submit a pull request to the main repository's `main` branch.
-8. Provide a clear and descriptive title along with a detailed description of your changes, including screenshots or short screen captures where visual components or tools were added or modified.
+This License does not grant permission to use the Grokki Studio name, logos, or other branding to imply official affiliation, sponsorship, or endorsement.
 
-Any pull requests that fail to meet these requirements or break existing OS automation safety guards may be requested for revision or closed.
+You may refer to Grokki Studio when accurately identifying the original Software or a modified version, provided your use is not misleading.
 
----
+All rights in the original branding remain with their respective owners.
 
-## Architecture & Code Standards
+## 5. Commercial Licensing
 
-Grokki Studio operates as a hybrid architecture combining an Electron desktop shell, native Windows OS automation scripts, and a modern React interface. Please follow these domain standards:
+Commercial use, redistribution, integration, or exploitation requires explicit prior written authorization from the copyright holder.
 
-### Electron Main Process (`src/main/`)
-* **IPC Isolation**: All communication between the frontend and Node.js runtime must go through secure `ipcMain.handle` and `ipcRenderer.invoke` channels. Never expose raw Node.js or `child_process` primitives directly to the renderer.
-* **Process Safety**: Native system calls (PowerShell, keyboard/mouse automation, screen capture) must have timeouts and error boundaries to prevent hanging the main process.
-* **Configuration Persistence**: Any user preference changes must be validated against `JarvisConfig` and safely persisted in `%APPDATA%\data\jarvis-config.json`.
+The copyright holder may grant or deny such requests at their discretion and may establish separate licensing terms.
 
-### Preload Bridge (`src/preload/`)
-* Keep the context bridge strictly typed in `src/preload/preload.js` and mirrored in `src/web/types/jarvis.d.ts`.
-* Avoid exposing mutable objects or references across the context bridge boundary.
+## 6. Third-Party Components
 
-### React & UI Workspace (`src/web/`)
-* **Styling**: Use Tailwind CSS v4 utility classes. Keep styles consistent with the existing minimalist, dark-glass desktop theme.
-* **Typography**: Maintain clean developer-first typography without emoji clutter in production interface titles or system headers.
-* **Performance**: UI animations must remain smooth at 60 FPS. Avoid unnecessary re-renders in streaming chat containers, canvas split views, or background shader passes.
+Third-party libraries, models, assets, and services included with or used by the Software may be governed by separate licenses. This License does not override those terms. Users are responsible for complying with applicable third-party licenses.
 
-### OS Automation & Scripts (`src/main/os_input.ps1`, `src/main/agent_brain.js`)
-* OS commands must remain compatible with Windows 10 and Windows 11 default environments (PowerShell 5.1 and PowerShell 7+).
-* Ensure proper UTF-8 string encoding when passing text between Node.js and PowerShell to avoid character corruption.
+## 7. Disclaimer of Warranty
 
----
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT, TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW.
 
-## Development Setup
+## 8. Limitation of Liability
 
-```bash
-# Clone your fork
-git clone https://github.com/<your-username>/grokki-studio.git
-cd grokki-studio
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
 
-# Install dependencies
-npm install
+Nothing in this License excludes or limits liability that cannot lawfully be excluded or limited under applicable law.
 
-# Run Vite dev server with Hot Module Replacement
-npm run dev
+## 9. Termination
 
-# Run production build validation
-npm run build
-```
+Your permissions under this License terminate automatically if you materially violate its terms. Upon termination, you must cease activities no longer authorized by this License, subject to applicable law.
+
+## 10. Reservation of Rights
+
+All rights not expressly granted by this License are reserved by the copyright holder. This License does not transfer ownership of the original Software or its copyright.
+
+## 11. Applicable Law
+
+This License is subject to applicable law. Any governing-law and jurisdiction provisions should be established with appropriate legal advice.
 
 ---
 
-## Community Guidelines
-
-* **Respect & Collaboration**: Please remain constructive, polite, and respectful in all issues, pull requests, and discussions.
-* **Licensing**: All contributions fall under the project's Non-Commercial License. Ensure that any code or assets you contribute do not violate third-party licenses or proprietary terms.
-
----
-
-## Conclusion
-
-We appreciate your interest in contributing to Grokki Studio! By following these guidelines, you help us keep the runtime stable, responsive, and secure for everyone.
-
-If you have questions or need assistance, feel free to open a discussion or ask in the issue tracker.
-
-Happy contributing!
+**End of License**
