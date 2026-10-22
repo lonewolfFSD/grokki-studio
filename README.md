@@ -176,7 +176,7 @@ Grokki Agent Runtime
         <br/><sub><b>Multi-Brain Dual-Battle Mode with Latency Tracking & Consensus</b></sub>
       </td>
       <td width="50%" align="center">
-        <img src="assets/screenshots/ai_brain_toggle.png" alt="AI Brain Provider Switcher" width="100%"/>
+        <img src="assets/screenshots/Brain Switcher.png" alt="AI Brain Provider Switcher" width="100%"/>
         <br/><sub><b>AI Brain Multi-Provider Switcher (Paid Flagships & Free Engines)</b></sub>
       </td>
     </tr>
