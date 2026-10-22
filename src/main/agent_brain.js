@@ -696,12 +696,12 @@ class AgentBrain {
           },
           {
             name: 'summarize_youtube_lecture',
-            description: 'Extracts the full timestamped transcript from any YouTube lecture/video URL or topic, summarizes key concepts & formulas, and provides clickable [MM:SS] timestamp jump links.',
+            description: 'Extracts transcript, chapters, and rich context from any YouTube video (lectures, tutorials, documentary/bodycam clips, news, podcasts, essays) and generates a comprehensive summary answering what the video is about with clickable [MM:SS] timestamp links.',
             parameters: {
               type: 'OBJECT',
               properties: {
-                url_or_topic: { type: 'STRING', description: 'YouTube video URL or lecture search topic (e.g. "https://youtube.com/watch?v=..." or "MIT 6.006 Dijkstra lecture")' },
-                focus: { type: 'STRING', description: 'Optional specific question or concept to find inside the lecture' },
+                url_or_topic: { type: 'STRING', description: 'YouTube video URL or search topic (e.g. "https://youtu.be/..." or "MIT 6.006 Dijkstra lecture")' },
+                focus: { type: 'STRING', description: 'Optional specific question or focus about the video (e.g. "what is the video about?", "core concept", etc.)' },
               },
               required: ['url_or_topic'],
             },
@@ -3274,39 +3274,43 @@ Keep it direct, accurate, and high-yield.`;
     return (data?.choices?.[0]?.message?.content || '').trim();
   }
 
-  // Feature 2: YouTube Lecture Summarizer + Clickable Timestamp Finder
+  // Feature 2: YouTube Video & Lecture Summarizer + Clickable Timestamp Finder
   async handleSummarizeYouTube(args = {}) {
     const urlOrTopic = (args.url_or_topic || args.query || '').trim();
     const focus = (args.focus || '').trim();
     if (!urlOrTopic) {
-      return { success: false, message: 'Please provide a YouTube video URL or lecture topic to summarize.' };
+      return { success: false, message: 'Please provide a YouTube video URL or topic to summarize.' };
     }
 
     const ytData = await studyEngine.fetchYouTubeTranscript(urlOrTopic);
     if (!ytData.success) {
-      return { success: false, message: ytData.message };
+      return { success: false, message: ytData.message || 'Unable to retrieve YouTube video details. Please verify the URL.' };
     }
 
-    const systemPrompt = 'You are Grokki, an elite university teaching assistant. Summarize lectures with high-yield clarity and always include clickable Markdown timestamp links.';
-    const userPrompt = `Analyze this YouTube lecture and create a structured, high-yield study summary with clickable timestamp jump links.
-Lecture Title: "${ytData.title}" by ${ytData.channel}
-Base Video URL: ${ytData.url}
-${focus ? `Special Student Focus/Question: "${focus}"\n` : ''}
-Timestamped Transcript / Metadata:
+    const systemPrompt = 'You are Grokki, an intelligent assistant. Provide clear, accurate, high-yield summaries of YouTube videos (lectures, tutorials, documentary/bodycam clips, news, essays, tech talks). Answer the user\'s question or focus directly. If timestamps or chapters are available, include clickable Markdown timestamp jump links.';
+    const userPrompt = `Analyze this YouTube video and generate a comprehensive summary answering what the video is about.
+Title: "${ytData.title}"
+Creator/Channel: ${ytData.channel}
+Duration: ${ytData.durationStr || 'N/A'}
+Video URL: ${ytData.url}
+${focus ? `User's Question / Focus: "${focus}"\n` : ''}
+
+Video Content & Context:
 """
 ${ytData.transcriptText}
 """
 
 REQUIRED OUTPUT FORMAT (Clean GitHub Markdown):
 ### 📺 [${ytData.title}](${ytData.url})
-*Channel: ${ytData.channel}*
+*Channel: ${ytData.channel}${ytData.durationStr ? ` | Duration: ${ytData.durationStr}` : ''}*
 
-#### 🎯 Core Lecture Takeaways
-- 3-5 crisp bullet points summarizing the core concepts, formulas, or algorithms taught.
+#### 🎯 What This Video Is About
+- 3-5 crisp bullet points explaining what happens in the video, core themes, key events, or lessons taught.
 
-#### ⏱️ Key Clickable Timestamps
-- Format EVERY timestamp as a clickable link using the exact seconds: \`[MM:SS](${ytData.url}&t=XXs) — Concept / Topic explained\` (convert MM:SS to total seconds XXs in the URL, e.g. 04:15 -> &t=255s).
-${focus ? `\n#### 💡 Answer to "${focus}"\n- Direct explanation with exact timestamp reference.` : ''}
+${(ytData.buckets && ytData.buckets.length > 0) ? `#### ⏱️ Key Timestamps & Chapters
+- List key sections using clickable Markdown links: \`[MM:SS](${ytData.url}&t=XXs) — Description\` (XXs is total seconds).` : ''}
+
+${focus ? `#### 💡 Direct Answer to "${focus}"\n- Clear explanation addressing the user's specific question.` : ''}
 `;
 
     try {
@@ -3319,12 +3323,14 @@ ${focus ? `\n#### 💡 Answer to "${focus}"\n- Direct explanation with exact tim
     }
 
     // Fallback if LLM call fails
-    const topBuckets = (ytData.buckets || []).slice(0, 8)
-      .map((b) => `- [${b.timeStr}](${ytData.url}&t=${b.seconds}s) — ${b.text.substring(0, 120)}...`)
-      .join('\n');
+    let fallback = `### 📺 [${ytData.title}](${ytData.url})\n*Channel: ${ytData.channel}${ytData.durationStr ? ` | Duration: ${ytData.durationStr}` : ''}*\n\n`;
+    if (ytData.buckets && ytData.buckets.length > 0) {
+      fallback += `#### ⏱️ Video Timeline & Chapters\n` + ytData.buckets.slice(0, 8).map((b) => `- [${b.timeStr}](${ytData.url}&t=${b.seconds}s) — ${b.text}`).join('\n') + '\n\n';
+    }
+    fallback += `#### 📝 Overview\n${ytData.description?.substring(0, 600) || ytData.transcriptText?.substring(0, 600) || 'Video analyzed successfully.'}`;
     return {
       success: true,
-      message: `### 📺 [${ytData.title}](${ytData.url})\n\n#### ⏱️ Lecture Timeline\n${topBuckets || ytData.transcriptText.substring(0, 800)}`,
+      message: fallback,
     };
   }
 

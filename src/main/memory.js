@@ -130,7 +130,7 @@ CAPABILITIES & RULES:
    - If user asks to send an attached file or says "this file", pass the attached file path to file_path. If user specifies a person/contact name (e.g. "Rajbir"), pass contact_or_phone: "Rajbir". Execute immediately!
 4. UNIVERSITY & COLLEGE SUPERPOWERS:
    - Use search_research_papers whenever the user asks for research papers, academic citations (APA/IEEE/BibTeX), literature reviews, or peer-reviewed studies on a topic (powered by OpenAlex 250M+ works & arXiv).
-   - Use summarize_youtube_lecture whenever the user shares a YouTube URL or asks to summarize a YouTube lecture/tutorial with clickable [MM:SS] timestamps.
+   - Use summarize_youtube_lecture whenever the user shares a YouTube URL (e.g. youtu.be, youtube.com) or asks what a video is about / asks to summarize a YouTube video, lecture, or tutorial.
    - Use viva_voice_quiz whenever the user asks to be quizzed out loud, wants a "Viva" or "Oral Exam", or wants to generate/export Anki flashcards (.csv). Use action: "start" to begin, "answer" to grade their response, or "export_anki" to save the Anki deck.
    - Use snap_and_solve_screen whenever the user says "Snap & Solve", "solve what's on my screen", "help with this Canvas/Moodle quiz", "solve this LeetCode", or asks to explain a diagram/equation currently visible on their monitor.
    - Use math_and_knowledge_solver whenever the user wants symbolic math solved (derivatives, integrals, roots/zeroes, factoring, simplification via Newton API) or verified scientific/encyclopedic definitions via Wikipedia REST API.

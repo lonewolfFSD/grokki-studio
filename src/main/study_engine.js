@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
+const { searchWeb } = require('./web_search');
 
 let PDFParse = null;
 try {
@@ -371,6 +372,17 @@ function formatTimestamp(seconds) {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
+function parseSeconds(timeStr) {
+  if (!timeStr) return 0;
+  const parts = timeStr.split(':').map((p) => parseInt(p, 10) || 0);
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  } else if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  }
+  return parseInt(timeStr, 10) || 0;
+}
+
 async function fetchYouTubeTranscript(videoUrlOrQuery) {
   let videoId = '';
   const input = String(videoUrlOrQuery || '').trim();
@@ -382,47 +394,107 @@ async function fetchYouTubeTranscript(videoUrlOrQuery) {
   } else if (/^[a-zA-Z0-9_-]{11}$/.test(input)) {
     videoId = input;
   } else {
-    // Search YouTube to resolve the top lecture video ID
-    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(input + ' lecture tutorial')}`;
-    const searchRes = await fetch(searchUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    });
-    const html = await searchRes.text();
-    const idMatch = html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
-    if (idMatch) videoId = idMatch[1];
+    // Search YouTube to resolve the top video ID
+    try {
+      const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(input)}`;
+      const searchRes = await fetch(searchUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      });
+      const html = await searchRes.text();
+      const idMatch = html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
+      if (idMatch) videoId = idMatch[1];
+    } catch (e) {
+      console.warn('[StudyEngine] YouTube search error:', e.message);
+    }
   }
 
   if (!videoId) {
-    throw new Error('Could not resolve a valid YouTube video.');
+    return {
+      success: false,
+      message: 'Could not resolve a valid YouTube video. Please provide a valid YouTube link or search topic.',
+    };
   }
 
   const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
-  const res = await fetch(watchUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-  });
-  const html = await res.text();
+  let videoTitle = '';
+  let channel = '';
+  let shortDescription = '';
+  let lengthSeconds = 0;
+  let keywords = [];
+  let captionTracks = [];
 
-  // Extract Video Title & Channel
-  const titleMatch = html.match(/<title>(.*?) - YouTube<\/title>/i);
-  const videoTitle = titleMatch ? titleMatch[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"') : 'YouTube Lecture';
+  // Try YouTube internal Player API
+  try {
+    const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      },
+      body: JSON.stringify({
+        context: { client: { hl: 'en', gl: 'US', clientName: 'WEB', clientVersion: '2.20240410.01.00' } },
+        videoId,
+      }),
+    });
+    if (playerRes.ok) {
+      const pJson = await playerRes.json();
+      if (pJson?.videoDetails) {
+        videoTitle = pJson.videoDetails.title || '';
+        channel = pJson.videoDetails.author || '';
+        shortDescription = pJson.videoDetails.shortDescription || '';
+        lengthSeconds = parseInt(pJson.videoDetails.lengthSeconds, 10) || 0;
+        keywords = pJson.videoDetails.keywords || [];
+      }
+      if (pJson?.captions?.playerCaptionsTracklistRenderer?.captionTracks) {
+        captionTracks = pJson.captions.playerCaptionsTracklistRenderer.captionTracks;
+      }
+    }
+  } catch (err) {
+    console.warn('[StudyEngine] Player API fetch failed, falling back to HTML:', err.message);
+  }
 
-  // Extract Description & Chapters fallback
-  const descMatch = html.match(/"shortDescription":"((?:[^"\\]|\\.)*)"/);
-  const shortDescription = descMatch ? JSON.parse(`"${descMatch[1]}"`) : '';
-
-  // Extract Caption Tracks from ytInitialPlayerResponse
-  let segments = [];
-  const captionsMatch = html.match(/"captionTracks":(\[.*?\])/);
-  if (captionsMatch) {
+  // Fallback to HTML scrape if title or channel missing
+  if (!videoTitle) {
     try {
-      const tracks = JSON.parse(captionsMatch[1]);
-      // Prefer English track or first available
-      const track = tracks.find((t) => t.languageCode && t.languageCode.startsWith('en')) || tracks[0];
+      const res = await fetch(watchUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
+      const html = await res.text();
+      const titleMatch = html.match(/<title>(.*?) - YouTube<\/title>/i);
+      if (titleMatch) {
+        videoTitle = titleMatch[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+      }
+      if (!channel) {
+        const authorMatch = html.match(/"author":"([^"]+)"/) || html.match(/"ownerChannelName":"([^"]+)"/);
+        if (authorMatch) channel = authorMatch[1];
+      }
+      if (!shortDescription) {
+        const descMatch = html.match(/"shortDescription":"((?:[^"\\]|\\.)*)"/);
+        if (descMatch) shortDescription = JSON.parse(`"${descMatch[1]}"`);
+      }
+      if (captionTracks.length === 0) {
+        const captionsMatch = html.match(/"captionTracks":(\[.*?\])/);
+        if (captionsMatch) {
+          captionTracks = JSON.parse(captionsMatch[1]);
+        }
+      }
+    } catch (err) {
+      console.warn('[StudyEngine] HTML watch fetch warning:', err.message);
+    }
+  }
+
+  // Extract Caption Tracks
+  let segments = [];
+  if (captionTracks.length > 0) {
+    try {
+      const track = captionTracks.find((t) => t.languageCode && t.languageCode.startsWith('en')) || captionTracks[0];
       if (track && track.baseUrl) {
-        const capRes = await fetch(track.baseUrl + '&fmt=json3');
+        const capRes = await fetch(track.baseUrl + '&fmt=json3', {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+        });
         if (capRes.ok) {
           const capJson = await capRes.json();
           if (capJson && Array.isArray(capJson.events)) {
@@ -441,7 +513,9 @@ async function fetchYouTubeTranscript(videoUrlOrQuery) {
         }
         // XML fallback if json3 didn't populate
         if (segments.length === 0) {
-          const xmlRes = await fetch(track.baseUrl);
+          const xmlRes = await fetch(track.baseUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+          });
           const xmlText = await xmlRes.text();
           const textNodes = [...xmlText.matchAll(/<text start="([\d.]+)"[^>]*>([\s\S]*?)<\/text>/g)];
           for (const node of textNodes) {
@@ -464,40 +538,98 @@ async function fetchYouTubeTranscript(videoUrlOrQuery) {
     }
   }
 
-  // Group transcript into 2-minute timestamped blocks for the LLM
-  let timestampedTranscript = '';
+  // Extract buckets / chapters
+  const buckets = [];
   if (segments.length > 0) {
     const bucketSizeSec = 120;
     let currentBucket = -1;
-    const buckets = [];
     for (const seg of segments) {
       const b = Math.floor(seg.startSec / bucketSizeSec);
       if (b !== currentBucket) {
         currentBucket = b;
         buckets.push({
-          startSec: seg.startSec,
-          stamp: formatTimestamp(seg.startSec),
+          seconds: seg.startSec,
+          timeStr: formatTimestamp(seg.startSec),
           texts: [seg.text],
         });
       } else {
         buckets[buckets.length - 1].texts.push(seg.text);
       }
     }
-    timestampedTranscript = buckets
+  } else if (shortDescription) {
+    // Parse chapters from description: e.g. "01:23 Topic Name"
+    const chapterRegex = /(?:^|\n)\s*(\d{1,2}:\d{2}(?::\d{2})?)\s+([^\n\r]+)/g;
+    let chMatch;
+    while ((chMatch = chapterRegex.exec(shortDescription)) !== null) {
+      const timeStr = chMatch[1];
+      const desc = chMatch[2].trim();
+      const sec = parseSeconds(timeStr);
+      buckets.push({
+        seconds: sec,
+        timeStr,
+        text: desc,
+      });
+    }
+  }
+
+  // Web search context fallback when captions are unavailable
+  let webContext = '';
+  if (segments.length === 0) {
+    try {
+      const searchQuery = `"${videoTitle || videoId}" ${channel || ''}`.trim();
+      const searchResults = await searchWeb(searchQuery, 4);
+      if (searchResults && searchResults.length > 0) {
+        webContext = searchResults
+          .map((r) => `[Source: ${r.title}]\n${r.snippet}`)
+          .join('\n\n');
+      }
+    } catch (e) {
+      console.warn('[StudyEngine] Web context search warning:', e.message);
+    }
+  }
+
+  let transcriptText = '';
+  if (segments.length > 0) {
+    transcriptText = buckets
       .slice(0, 40)
-      .map((b) => `[${b.stamp} | t=${b.startSec}s] ${b.texts.join(' ')}`)
+      .map((b) => `[${b.timeStr} | t=${b.seconds}s] ${b.texts ? b.texts.join(' ') : b.text}`)
       .join('\n\n')
       .substring(0, 14000);
   } else {
-    timestampedTranscript = `Video Title: ${videoTitle}\nDescription & Chapters:\n${shortDescription.substring(0, 6000)}`;
+    const parts = [
+      `Video Title: ${videoTitle || 'Untitled Video'}`,
+      `Channel / Creator: ${channel || 'Unknown'}`,
+      lengthSeconds > 0 ? `Duration: ${formatTimestamp(lengthSeconds)}` : '',
+      keywords.length > 0 ? `Tags / Topics: ${keywords.slice(0, 15).join(', ')}` : '',
+      buckets.length > 0
+        ? `Video Chapters:\n` + buckets.map((b) => `[${b.timeStr} | t=${b.seconds}s] ${b.text}`).join('\n')
+        : '',
+      shortDescription ? `Description:\n${shortDescription.substring(0, 4000)}` : '',
+      webContext ? `Web Context & Reporting:\n${webContext.substring(0, 4000)}` : '',
+    ].filter(Boolean);
+
+    transcriptText = parts.join('\n\n');
   }
 
   return {
+    success: true,
     videoId,
-    videoTitle,
+    title: videoTitle || 'YouTube Video',
+    videoTitle: videoTitle || 'YouTube Video',
+    channel: channel || 'YouTube Creator',
+    url: watchUrl,
     watchUrl,
+    durationStr: lengthSeconds > 0 ? formatTimestamp(lengthSeconds) : '',
+    durationSeconds: lengthSeconds,
     hasCaptions: segments.length > 0,
-    timestampedTranscript,
+    transcriptText,
+    timestampedTranscript: transcriptText,
+    description: shortDescription,
+    buckets: buckets.map((b) => ({
+      timeStr: b.timeStr,
+      seconds: b.seconds,
+      text: b.text || (b.texts ? b.texts.join(' ') : ''),
+    })),
   };
 }
 
