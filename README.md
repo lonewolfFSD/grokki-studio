@@ -3,7 +3,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/grokki_wordmark.png">
     <source media="(prefers-color-scheme: light)" srcset="assets/grokki_wordmark_light.png">
-    <img src="assets/grokki_wordmark.png" alt="Grokki Studio" width="440">
+    <img src="assets/screenshots/Grokki Studio.png" alt="Grokki Studio" width="440">
   </picture>
   <br />
   <br />
