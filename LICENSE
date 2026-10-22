@@ -1,98 +1,79 @@
-## Grokki Studio Source-Available Non-Commercial License
+# Grokki Studio Source-Available Non-Commercial License
 
-Version 1.0 — October 2026
+**Version 1.0 — October 2026**
 
 Copyright © 2026 Grokki Studio. All rights reserved.
 
-“Grokki Studio” refers to the project and its designated copyright holder. “Software” means the source code, compiled binaries, application packages, and accompanying documentation distributed under this License, excluding third-party materials governed by separate licenses.
+"Software" means the source code, binaries, application packages, and documentation distributed under this License, excluding third-party materials governed by separate licenses.
 
-By accessing, using, copying, modifying, or distributing the Software, you agree to the terms below.
+## 1. Grant of Permission
 
-1. Grant of Permission
+Permission is hereby granted, free of charge, to any person obtaining a copy of this Software, to use, copy, modify, and distribute it solely for personal, educational, research, and other non-commercial purposes, subject to the terms of this License.
 
-Subject to compliance with this License, the copyright holder grants you a limited, non-exclusive, worldwide, royalty-free, non-transferable license to use, reproduce, modify, and distribute the Software solely for personal, educational, research, and other non-commercial purposes.
+## 2. Non-Commercial Use Only
 
-This permission applies only to the extent that you have the rights necessary to exercise it.
+The Software may not be sold, rented, leased, sublicensed, monetized, or used for commercial purposes without prior written permission from the copyright holder.
 
-2. Non-Commercial Use Only
-
-You may not use, sell, license, sublicense, rent, lease, distribute, or otherwise exploit the Software, in whole or in part, for a Commercial Purpose without prior written permission from the copyright holder.
-
-For this License, “Commercial Purpose” means use primarily intended for or directed toward obtaining monetary compensation, generating revenue, or securing a commercial advantage for a business or other commercial undertaking.
-
-Examples of prohibited activities without written permission include:
+Prohibited uses include:
 
 - Selling the Software, modified versions, installers, or bundled copies.
 - Offering the Software as a paid product, subscription, or commercial service.
 - Incorporating the Software into a commercial product or service.
-- Redistributing the Software in exchange for payment or other commercial consideration.
+- Redistributing the Software for payment or other commercial consideration.
 - Using the Software to provide a paid hosted service or commercial offering.
 
-Personal learning, non-commercial experimentation, and educational projects are permitted, subject to the remaining terms.
+## 3. Modification and Redistribution
 
-If you are uncertain whether a proposed use qualifies as non-commercial, obtain written clarification from the copyright holder before proceeding.
+You may modify and redistribute the Software for permitted non-commercial purposes, provided that you:
 
-3. Modification and Non-Commercial Redistribution
+1. Include this complete License with every copy or substantial portion of the Software.
+2. Retain all original copyright, attribution, and disclaimer notices.
+3. Clearly identify substantial modifications.
+4. Do not claim authorship of the original Software.
+5. Do not misrepresent your version as the official Grokki Studio release.
 
-You may modify the Software and distribute original or modified copies for permitted non-commercial purposes, provided that you:
+You may claim authorship of your own original modifications, but not of the original Software.
 
-1. Include a complete copy of this License with every distributed copy.
-2. Retain existing copyright notices, attribution notices, and disclaimers.
-3. Clearly identify substantial modifications you have made.
-4. Do not represent your modified version as the official Grokki Studio release unless expressly authorized.
-5. Do not remove or alter notices in a way that misleads recipients about the origin or authorship of the original Software.
-6. Ensure that your distribution and use comply with this License and any applicable third-party licenses.
+## 4. Branding and Attribution
 
-You may identify yourself as the author of your own original modifications, but you must not claim authorship of the original Software.
+This License does not grant permission to use the Grokki Studio name, logos, or other branding to imply official affiliation, sponsorship, or endorsement.
 
-4. Name, Branding, and Endorsement
+You may refer to Grokki Studio when accurately identifying the original Software or a modified version, provided your use is not misleading.
 
-This License does not grant permission to use the Grokki Studio name, logos, trademarks, or other branding to imply official affiliation, sponsorship, endorsement, or origin.
+All rights in the original branding remain with their respective owners.
 
-You may truthfully refer to Grokki Studio when discussing the Software or identifying an unmodified or modified copy, provided that your use does not mislead others into believing that your distribution is the official release.
+## 5. Commercial Licensing
 
-Any rights in names, logos, and trademarks remain with their respective owners. Trademark rights are separate from copyright permissions granted under this License.
+Commercial use, redistribution, integration, or exploitation requires explicit prior written authorization from the copyright holder.
 
-5. No Automatic Commercial License
+The copyright holder may grant or deny such requests at their discretion and may establish separate licensing terms.
 
-No commercial rights are granted by implication, estoppel, or otherwise under this License.
+## 6. Third-Party Components
 
-Requests for commercial use, distribution, integration, licensing, or other commercial arrangements must be submitted to the copyright holder and require explicit written authorization.
+Third-party libraries, models, assets, and services included with or used by the Software may be governed by separate licenses. This License does not override those terms. Users are responsible for complying with applicable third-party licenses.
 
-The copyright holder may grant or deny such requests at their discretion and may establish separate terms.
+## 7. Disclaimer of Warranty
 
-6. Third-Party Components
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT, TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW.
 
-The Software may include or depend on third-party libraries, models, services, assets, or other components that are subject to separate license terms.
+## 8. Limitation of Liability
 
-This License does not replace, override, or expand the rights granted by those separate licenses. You are responsible for identifying and complying with applicable third-party terms.
-
-7. No Warranty
-
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT, TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW.
-
-8. Limitation of Liability
-
-TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
 
 Nothing in this License excludes or limits liability that cannot lawfully be excluded or limited under applicable law.
 
-9. Termination
+## 9. Termination
 
-Your permissions under this License automatically terminate if you materially violate its terms. Upon termination, you must cease the activities no longer authorized by this License, subject to any rights or remedies available under applicable law.
+Your permissions under this License terminate automatically if you materially violate its terms. Upon termination, you must cease activities no longer authorized by this License, subject to applicable law.
 
-Permissions may be reinstated only through written authorization from the copyright holder or as otherwise required by applicable law.
+## 10. Reservation of Rights
 
-10. Reservation of Rights
+All rights not expressly granted by this License are reserved by the copyright holder. This License does not transfer ownership of the original Software or its copyright.
 
-All rights not expressly granted by this License are reserved by the copyright holder.
+## 11. Applicable Law
 
-Nothing in this License transfers ownership of the original Software or its copyright to a recipient.
-
-11. Governing Law
-
-The interpretation and enforcement of this License are subject to applicable law. Any governing-law and jurisdiction provisions should be specified in a manner appropriate to the copyright holder and the circumstances of distribution.
+This License is subject to applicable law. Any governing-law and jurisdiction provisions should be established with appropriate legal advice.
 
 ---
 
-End of License
+**End of License**
