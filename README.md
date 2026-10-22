@@ -12,9 +12,59 @@
 **An autonomous AI desktop companion living in an Apple-style Dynamic Island at the top of your screen.**  
 *Equipped with real-time desktop vision, physical OS mouse/keyboard control, 65+ native Windows tools, and hybrid local/cloud intelligence.*
 
-[Key Features](#-key-features) • [Screenshots](#-preview--screenshots) • [AI Brain Engines](#-ai-brain--multi-engine-support) • [Tool Arsenal](#-complete-tool-arsenal-65-built-in-capabilities) • [Quick Start](#-quick-start) • [Installer Build](#-building-the-installer-exe) • [Contributing](#-contributing)
+[Key Features](#-key-features) • [Flagship Upgrades](#-flagship-studio-upgrades) • [UI & Visual Effects Suite](#-visual-effects--design-system-components) • [Screenshots](#-preview--screenshots) • [AI Brain Engines](#-ai-brain--multi-engine-support) • [Tool Arsenal](#-complete-tool-arsenal-65-built-in-capabilities) • [Quick Start](#-quick-start) • [Installer Build](#-building-the-installer-exe)
 
 </div>
+
+---
+
+## 🚀 Flagship Studio Upgrades
+
+Grokki Studio includes 4 game-changing workspace features elevating desktop AI companion capabilities beyond standard web chatbots:
+
+### 1. 🎨 Interactive "Artifacts / Canvas" Split Pane
+*Inspired by Claude Artifacts and OpenAI Canvas*
+* **Live Sandbox Previews**: Generates HTML, CSS, SVG, JavaScript, and Markdown with an embedded isolated sandbox preview drawer (`w-[48%]` split pane).
+* **Syntax-Highlighted Code Editor**: Full-featured code viewer with line numbers, 1-click clipboard copy, and direct **Save to Workspace File** capabilities.
+* **Responsive Layouts**: Toggle split-view or expand to full workspace width for distraction-free coding or reading.
+
+### 2. ⚔️ Multi-Brain Dual-Battle & Consensus Engine
+*Comparative intelligence across multiple frontier models*
+* **Concurrent Multi-Model Execution**: Dispatches your prompt to two distinct AI brains concurrently (e.g. Gemini Flash vs. Groq Qwen/Llama or Ollama Local) via `Promise.all()`.
+* **Side-by-Side Comparison Grid**: Comparative cards featuring model name badges, real-time latency indicators (in milliseconds), and individual copy and winner selection.
+* **AI Consensus Synthesizer**: Click **Merge & Synthesize Consensus** to cross-examine both arguments, resolve discrepancies or hallucinations, and produce a unified verdict.
+* **Hover-Expand Toolbar**: Sleek, icon-only toolbar buttons that smoothly reveal text on hover with zero layout jitter.
+
+### 3. 📁 Deep Workspace Project Context (`@file` & `@folder`)
+*Cursor-style inline code context auto-suggest*
+* **Fuzzy Workspace Search**: Type `@` anywhere in the chat input to search files and folders across your active project.
+* **Recursive Folder Ingestion**: Mention `@folder` to automatically index directories, filter ignored patterns (`node_modules`, `.git`, `dist`), and bundle relevant source files directly into prompt context.
+* **Staged Mention Pills**: Interactive badge pills displaying file names, sizes, and 1-click removal.
+
+### 4. 🌐 Perplexity-Style Live Web Grounding & Citations
+*Real-time factual accuracy without knowledge cutoffs*
+* **Deep Search Toggle**: One-click icon toggle in the chat input toolbar.
+* **Real-Time Web Search**: Formulates search queries and ingests multi-source search snippets into model context before generation.
+* **Interactive Citations Bar**: Displays an expandable Perplexity-style source accordion with domain badges, favicon previews, and full source URLs.
+* **Inline Citation Badges (`[1]`, `[2]`)**: Interactive pill links with preview tooltips showing publication titles and destinations.
+
+---
+
+## 🎨 Visual Effects & Design System Components
+
+Grokki Studio features a handcrafted, performance-optimized visual effects suite located in `src/effects/`:
+
+| Component | Path | Description & Highlights |
+| :--- | :--- | :--- |
+| **`Noise`** | [`src/effects/Noise.tsx`](src/effects/Noise.tsx) | Procedural film grain, customizable contrast, CRT scanlines, and FPS-capped canvas rendering with dedicated settings toggle. |
+| **`GlideSelect`** | [`src/effects/GlideSelect.tsx`](src/effects/GlideSelect.tsx) | Physics-driven gliding pill dropdown selector with keyboard typeahead navigation, tags, and provider logos. |
+| **`GradualBlur`** | [`src/effects/GradualBlur.tsx`](src/effects/GradualBlur.tsx) | Multi-layer exponential blur gradient overlay providing smooth progressive scrolling blur masks. |
+| **`GradientASCII`** | [`src/effects/GradientASCII.tsx`](src/effects/GradientASCII.tsx) | Ambient WebGL horizon shader with interactive ASCII glyph rendering and mouse click ripple wave dynamics. |
+| **`WarmTooltip`** | [`src/effects/WarmTooltip.tsx`](src/effects/WarmTooltip.tsx) | Natural physics popover tooltips with keyboard shortcut displays, directional arrow placement, and smooth fuse decay. |
+| **`LatticeLoader`** | [`src/effects/LatticeLoader.tsx`](src/effects/LatticeLoader.tsx) | Kinetic lattice structure animation for thinking pauses and background agent work indication. |
+| **`BranchedMenu`** | [`src/effects/BranchedMenu.tsx`](src/effects/BranchedMenu.tsx) | Contextual branching menu tree with animated line connectors and submenu transitions. |
+| **`GlassSurface`** | [`src/effects/GlassSurface.js`](src/effects/GlassSurface.js) | Hardware-accelerated frosted glass backdrop with dynamic refraction and specular highlights. |
+| **`GlowCursor`** | [`src/effects/GlowCursor.tsx`](src/effects/GlowCursor.tsx) | Spring-interpolated custom desktop cursor with directional acceleration and glow trail. |
 
 ---
 
