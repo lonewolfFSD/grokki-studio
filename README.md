@@ -28,7 +28,7 @@
 </div>
 
 <p align="center">
-  <img src="assets/screenshots/Grokki Studio.png" alt="Grokki Studio & Dynamic Island Workspace" width="100%">
+  <img src="assets/screenshots/Grokki Studio BLURRED.png" alt="Grokki Studio & Dynamic Island Workspace" width="100%">
 </p>
 
 <span></span>
