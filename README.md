@@ -18,9 +18,9 @@
   </p>
   <p>
     <a href="#features"><strong>Features</strong></a> ·
+    <a href="#screenshots"><strong>Screenshots</strong></a> ·
     <a href="#ai-brain-engines"><strong>AI Brains</strong></a> ·
     <a href="#desktop-tool-arsenal"><strong>Tool Arsenal</strong></a> ·
-    <a href="#design-system--visual-effects"><strong>Design System</strong></a> ·
     <a href="#installation"><strong>Installation</strong></a> ·
     <a href="#packaging"><strong>Packaging</strong></a>
   </p>
@@ -41,7 +41,7 @@ Grokki is an autonomous Windows desktop agent designed to live directly at the t
 | **Workspace Integrations** | 22 tools | Google Workspace, Notion databases, local Obsidian vaults, GitHub CLI |
 | **Productivity & Code** | 15 tools | Artifact sandbox canvas, VS Code bug diagnosis, file parsing, document authoring |
 | **Media & Audio** | 10 tools | Spotify, YouTube Music, Apple Music controls, playlist search, lecture synthesis |
-| **Visual Effects Engine** | 9 effects | Handcrafted shaders, physics dropdowns, procedural film grain, kinetic loaders |
+| **Multi-Brain & Grounding** | 9 engines | Dual-battle comparative runs, consensus synthesis, live web grounding |
 
 ---
 
@@ -156,21 +156,38 @@ Grokki Agent Runtime
 
 ---
 
-## Design system & visual effects
+## Screenshots
 
-Grokki Studio is built with a handcrafted visual effects and UI interaction engine located in `src/effects/`:
-
-| Component | Path | Description |
-| :--- | :--- | :--- |
-| **`Noise`** | [`src/effects/Noise.tsx`](src/effects/Noise.tsx) | Procedural film grain, customizable contrast, CRT scanlines, and FPS-capped canvas rendering with dedicated settings toggle. |
-| **`GlideSelect`** | [`src/effects/GlideSelect.tsx`](src/effects/GlideSelect.tsx) | Physics-driven sliding pill dropdown selector with keyboard typeahead navigation, tags, and provider logos. |
-| **`GradualBlur`** | [`src/effects/GradualBlur.tsx`](src/effects/GradualBlur.tsx) | Multi-layer exponential blur gradient overlay providing smooth progressive scrolling blur masks. |
-| **`GradientASCII`** | [`src/effects/GradientASCII.tsx`](src/effects/GradientASCII.tsx) | Ambient WebGL horizon shader with interactive ASCII glyph rendering and mouse click ripple wave dynamics. |
-| **`WarmTooltip`** | [`src/effects/WarmTooltip.tsx`](src/effects/WarmTooltip.tsx) | Natural physics popover tooltips with keyboard shortcut displays, directional arrow placement, and smooth fuse decay. |
-| **`LatticeLoader`** | [`src/effects/LatticeLoader.tsx`](src/effects/LatticeLoader.tsx) | Kinetic lattice structure animation for thinking pauses and background agent work indication. |
-| **`BranchedMenu`** | [`src/effects/BranchedMenu.tsx`](src/effects/BranchedMenu.tsx) | Contextual branching menu tree with animated line connectors and submenu transitions. |
-| **`GlassSurface`** | [`src/effects/GlassSurface.js`](src/effects/GlassSurface.js) | Hardware-accelerated frosted glass backdrop with dynamic refraction and specular highlights. |
-| **`GlowCursor`** | [`src/effects/GlowCursor.tsx`](src/effects/GlowCursor.tsx) | Spring-interpolated custom desktop cursor with directional acceleration and glow trail. |
+<div align="center">
+  <table>
+    <tr>
+      <td width="50%" align="center">
+        <img src="assets/screenshots/dynamic_island_blur.png" alt="Dynamic Island with Real GPU Desktop Blur" width="100%"/>
+        <br/><sub><b>Dynamic Island with Real GPU Desktop Blur (<code>Alt+Q</code>)</b></sub>
+      </td>
+      <td width="50%" align="center">
+        <img src="assets/screenshots/studio_dashboard.png" alt="Central Studio Workspace" width="100%"/>
+        <br/><sub><b>Central Studio Workspace & Chat Canvas</b></sub>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%" align="center">
+        <img src="assets/screenshots/dual_battle.png" alt="Multi-Brain Dual Battle & Consensus" width="100%"/>
+        <br/><sub><b>Multi-Brain Dual-Battle Mode with Latency Tracking & Consensus</b></sub>
+      </td>
+      <td width="50%" align="center">
+        <img src="assets/screenshots/ai_brain_toggle.png" alt="AI Brain Provider Switcher" width="100%"/>
+        <br/><sub><b>AI Brain Multi-Provider Switcher (Paid Flagships & Free Engines)</b></sub>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="2" align="center">
+        <img src="assets/screenshots/workspace_hub.png" alt="Workspace Ecosystem Hub" width="100%"/>
+        <br/><sub><b>Workspace Ecosystem Hub (Google, Notion, Obsidian, GitHub)</b></sub>
+      </td>
+    </tr>
+  </table>
+</div>
 
 ---
 
