@@ -18,6 +18,7 @@ import {
   Eye,
   Trash2,
   AlertCircle,
+  ChevronDown,
 } from 'lucide-react';
 import { JarvisConfig, StudioHotkeys } from '../../types/jarvis';
 import {
@@ -770,6 +771,37 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
               />
             </button>
           </div>
+
+          {/* Gradient Style Effect Dropdown - Only appears if gradient background toggle is on */}
+          {config.chatBackgroundGradient !== false && (
+            <div className="flex items-center justify-between pl-3 pr-2 py-2 rounded-lg bg-gray-50/80 dark:bg-[#12141c] border border-gray-200/70 dark:border-[#1e2029] gap-4">
+              <div>
+                <strong className="block text-xs font-semibold text-gray-900 dark:text-gray-100">
+                  Gradient Style Effect
+                </strong>
+                <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                  Select between Grokki Blue ASCII wave and Grainient fluid shader.
+                </span>
+              </div>
+              <div className="relative shrink-0">
+                <select
+                  value={config.chatBackgroundEffect || 'grokki-blue'}
+                  onChange={(e) => onChangeConfig({ chatBackgroundEffect: e.target.value })}
+                  className="appearance-none cursor-pointer pl-3 pr-8 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-[#1a1d26] border border-gray-200 dark:border-[#2a2d3a] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 transition-all shadow-xs"
+                >
+                  <option value="grokki-blue">Grokki Blue (ASCII)</option>
+                  <option value="grainient">Grainient (Fluid Mesh)</option>
+                  <option value="grainient-blue">Grainient (Deep Blue)</option>
+                  <option value="grainient-sunset">Grainient (Sunset Flame)</option>
+                  <option value="grainient-aurora">Grainient (Aurora Glow)</option>
+                  <option value="grainient-neon">Grainient (Cyber Violet)</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Chat Background Noise & Scanlines */}
           <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-[#1e2029]/60">

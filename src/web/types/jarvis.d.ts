@@ -70,6 +70,7 @@ export interface JarvisConfig {
   autoCheckUpdates?: boolean;
   hardwareAcceleration?: boolean;
   chatBackgroundGradient?: boolean;
+  chatBackgroundEffect?: string;
   chatBackgroundNoise?: boolean;
   glowCursorEnabled?: boolean;
   smoothCursorEnabled?: boolean;

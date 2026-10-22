@@ -147,6 +147,7 @@ function loadConfig() {
       if (data.autoCheckUpdates === undefined) data.autoCheckUpdates = true;
       if (data.hardwareAcceleration === undefined) data.hardwareAcceleration = true;
       if (data.chatBackgroundGradient === undefined) data.chatBackgroundGradient = true;
+      if (!data.chatBackgroundEffect) data.chatBackgroundEffect = 'grokki-blue';
       if (data.chatBackgroundNoise === undefined) data.chatBackgroundNoise = true;
       if (data.glowCursorEnabled === undefined) data.glowCursorEnabled = true;
       if (data.smoothCursorEnabled === undefined) data.smoothCursorEnabled = true;
@@ -205,6 +206,7 @@ function loadConfig() {
     autoCheckUpdates: true,
     hardwareAcceleration: true,
     chatBackgroundGradient: true,
+    chatBackgroundEffect: 'grokki-blue',
     chatBackgroundNoise: true,
   };
   return cachedConfig;

@@ -157,6 +157,7 @@ import {
 } from './AiBrainTab';
 import { Sliders } from 'lucide-react';
 import GradientASCII from './GradientASCII';
+import Grainient from './Grainient';
 import Noise from './Noise';
 import LatticeLoader from './LatticeLoader';
 import WarmTooltip, { WarmTooltipGroup } from '../WarmTooltip';
@@ -167,6 +168,14 @@ import { ImageLightboxModal } from '../ImageLightboxModal';
 import { ChatImageAttachment, isImageAttachment } from '../ChatImageAttachment';
 
 const GRADIENT_ASCII_COLORS = ['#23378e', '#f6f8ff', '#a5d8ff', '#38bdf8'];
+
+const GRAINIENT_PALETTES: Record<string, string[]> = {
+  grainient: ['#120f17', '#2a0f0a', '#9a3412', '#f97316', '#fed7aa'],
+  'grainient-blue': ['#090d16', '#0f172a', '#1e3a8a', '#2563eb', '#60a5fa'],
+  'grainient-sunset': ['#140707', '#2e0f0f', '#7f1d1d', '#ea580c', '#fbbf24'],
+  'grainient-aurora': ['#041210', '#064e3b', '#0f766e', '#14b8a6', '#6ee7b7'],
+  'grainient-neon': ['#0c0617', '#2e1065', '#6b21a8', '#a855f7', '#ec4899'],
+};
 
 interface ChatTabProps {
   config: JarvisConfig;
@@ -2764,35 +2773,57 @@ export const ChatTab = React.memo<ChatTabProps>(({
       />
       {renderCameraModal()}
 
-      {/* Background GradientASCII Effect */}
+      {/* Background Gradient Effect (Grokki Blue ASCII or Grainient Fluid Mesh) */}
       {config.chatBackgroundGradient !== false && (
         <div
+          key={`chat-bg-${config.chatBackgroundEffect || 'grokki-blue'}`}
           className="absolute inset-0 pointer-events-none overflow-hidden z-0"
           style={{ width: '100%', height: '100%', position: 'absolute' }}
         >
-          <GradientASCII
-            colors={GRADIENT_ASCII_COLORS}
-            shape="horizon"
-            characters=" =GROKKIBYITZAJX@#"
-            cellSize={18}
-            density={0.56}
-            glyphOpacity={0.3}
-            glow={0.2}
-            depthOfField={0.8}
-            flicker={0.2}
-            softness={0.5}
-            scale={1}
-            flow={0.5}
-            speed={1}
-            gradientOpacity={0.9}
-            grain={0.08}
-            variation={0}
-            mouseInteraction
-            scrambleRadius={0.1}
-            clickEffect="wave"
-            intro
-            lightMode={!isDarkTheme}
-          />
+          {config.chatBackgroundEffect && config.chatBackgroundEffect.startsWith('grainient') ? (
+            <Grainient
+              colors={GRAINIENT_PALETTES[config.chatBackgroundEffect] || GRAINIENT_PALETTES.grainient}
+              type="radial"
+              speed={0.35}
+              flow={0.25}
+              scale={1.05}
+              softness={0.7}
+              silk={0.5}
+              grainAmount={0.06}
+              grainSize={1.2}
+              grainAnimated
+              contrast={1.1}
+              saturation={1.0}
+              interactive={false}
+              intro={false}
+              lightMode={!isDarkTheme}
+              className="w-full h-full"
+            />
+          ) : (
+            <GradientASCII
+              colors={GRADIENT_ASCII_COLORS}
+              shape="horizon"
+              characters=" =GROKKIBYITZAJX@#"
+              cellSize={18}
+              density={0.56}
+              glyphOpacity={0.3}
+              glow={0.2}
+              depthOfField={0.8}
+              flicker={0.2}
+              softness={0.5}
+              scale={1}
+              flow={0.5}
+              speed={1}
+              gradientOpacity={0.9}
+              grain={0.08}
+              variation={0}
+              mouseInteraction
+              scrambleRadius={0.1}
+              clickEffect="wave"
+              intro
+              lightMode={!isDarkTheme}
+            />
+          )}
         </div>
       )}
 
