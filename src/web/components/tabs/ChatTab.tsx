@@ -2783,9 +2783,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
           {config.chatBackgroundEffect && config.chatBackgroundEffect.startsWith('grainient') ? (
             <Grainient
               colors={GRAINIENT_PALETTES[config.chatBackgroundEffect] || GRAINIENT_PALETTES.grainient}
-              type="radial"
-              speed={0.35}
-              flow={0.25}
+              type="linear"
+              angle={55}
+              speed={0.4}
+              flow={0.3}
               scale={1.05}
               softness={0.7}
               silk={0.5}

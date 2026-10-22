@@ -279,6 +279,7 @@ const compile = (gl: WebGL2RenderingContext, type: number, source: string) => {
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return shader;
+  console.error('Grainient shader compile error:', gl.getShaderInfoLog(shader));
   gl.deleteShader(shader);
   return null;
 };
@@ -294,6 +295,7 @@ const link = (gl: WebGL2RenderingContext, fragmentSource: string): Program | nul
   gl.deleteShader(vertex);
   gl.deleteShader(fragment);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    console.error('Grainient program link error:', gl.getProgramInfoLog(program));
     gl.deleteProgram(program);
     return null;
   }
@@ -335,7 +337,6 @@ const Grainient = ({
   ...rest
 }: GrainientProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const wakeRef = useRef<(() => void) | null>(null);
   const palette = (Array.isArray(colors) && colors.length ? colors : DEFAULT_COLORS).slice(0, MAX_COLORS);
   const settings: Settings = {
@@ -366,18 +367,31 @@ const Grainient = ({
 
   useEffect(() => {
     const container = containerRef.current;
-    const canvas = canvasRef.current;
-    const gl = canvas?.getContext('webgl2', {
-      alpha: false,
+    if (!container) return undefined;
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'absolute inset-0 block h-full w-full';
+    canvas.setAttribute('aria-hidden', 'true');
+    container.appendChild(canvas);
+
+    const gl = canvas.getContext('webgl2', {
+      alpha: true,
+      premultipliedAlpha: true,
       antialias: false,
       depth: false,
       stencil: false
     });
-    if (!container || !canvas || !gl) return undefined;
+    if (!gl) {
+      canvas.remove();
+      return undefined;
+    }
 
     const field = link(gl, FIELD);
     const composite = link(gl, COMPOSITE);
-    if (!field || !composite) return undefined;
+    if (!field || !composite) {
+      canvas.remove();
+      return undefined;
+    }
     const fu = field.uniforms;
     const cu = composite.uniforms;
     const vao = gl.createVertexArray();
@@ -389,6 +403,7 @@ const Grainient = ({
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     const buffer = gl.createFramebuffer();
     const fieldSize = { width: 0, height: 0 };
+    let disposed = false;
 
     const probe = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
     const colorCache = new Map<string, number[]>();
@@ -446,13 +461,14 @@ const Grainient = ({
     };
 
     const draw = () => {
+      if (disposed) return;
       const s = settingsRef.current;
-      const aspect = view.width / view.height;
+      const aspect = view.width / Math.max(1, view.height);
       syncPalette();
       gl.bindVertexArray(vao);
       gl.disable(gl.BLEND);
       gl.bindFramebuffer(gl.FRAMEBUFFER, buffer);
-      gl.viewport(0, 0, fieldSize.width, fieldSize.height);
+      gl.viewport(0, 0, Math.max(1, fieldSize.width), Math.max(1, fieldSize.height));
       gl.useProgram(field.program);
       gl.uniform1f(fu.uAspect, aspect);
       gl.uniform1f(fu.uTime, time);
@@ -489,9 +505,10 @@ const Grainient = ({
     };
 
     const resize = () => {
+      if (disposed) return;
       const s = settingsRef.current;
-      view.width = Math.max(1, container.clientWidth);
-      view.height = Math.max(1, container.clientHeight);
+      view.width = Math.max(1, container.clientWidth || window.innerWidth);
+      view.height = Math.max(1, container.clientHeight || window.innerHeight);
       view.ratio = Math.min(s.dpr || window.devicePixelRatio || 1, 2);
       canvas.width = Math.max(1, Math.round(view.width * view.ratio));
       canvas.height = Math.max(1, Math.round(view.height * view.ratio));
@@ -569,7 +586,7 @@ const Grainient = ({
 
     const frame = (now: number) => {
       raf = 0;
-      if (!visible || document.hidden) return;
+      if (disposed || !visible || document.hidden) return;
       const s = settingsRef.current;
       const dt = last ? clamp((now - last) / 1000, 0.001, 0.05) : 1 / 60;
       last = now;
@@ -580,16 +597,16 @@ const Grainient = ({
         grainClock = 0;
         frameSeed = (frameSeed + 1) % 97;
       }
-      updateTouches(dt, view.width / view.height);
+      updateTouches(dt, view.width / Math.max(1, view.height));
       draw();
       const busy =
         (!reduce && (s.speed > 0 || s.grainAnimated)) || introClock < 1 || trail.length > 0 || spins.length > 0;
-      if (busy) raf = requestAnimationFrame(frame);
+      if (busy && !disposed) raf = requestAnimationFrame(frame);
       else last = 0;
     };
 
     function wake() {
-      if (!raf && visible && !document.hidden) raf = requestAnimationFrame(frame);
+      if (!disposed && !raf && visible && !document.hidden) raf = requestAnimationFrame(frame);
     }
 
     const locate = (event: PointerEvent) => {
@@ -616,7 +633,7 @@ const Grainient = ({
       const s = settingsRef.current;
       if (!pointer.inside || !s.clickSwirl || reduce) return;
       spins.unshift({
-        x: (pointer.x - 0.5) * (view.width / view.height),
+        x: (pointer.x - 0.5) * (view.width / Math.max(1, view.height)),
         y: pointer.y - 0.5,
         age: 0,
         direction: pointer.vx < 0 ? 1 : -1
@@ -650,8 +667,11 @@ const Grainient = ({
     document.addEventListener('visibilitychange', onVisibility);
     resize();
     wakeRef.current = wake;
+    const initialTimer = setTimeout(resize, 60);
 
     return () => {
+      disposed = true;
+      clearTimeout(initialTimer);
       cancelAnimationFrame(raf);
       wakeRef.current = null;
       resizeObserver.disconnect();
@@ -665,7 +685,7 @@ const Grainient = ({
       gl.deleteVertexArray(vao);
       gl.deleteProgram(field.program);
       gl.deleteProgram(composite.program);
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      canvas.remove();
     };
   }, []);
 
@@ -679,9 +699,7 @@ const Grainient = ({
       className={['relative h-full w-full overflow-hidden', className].filter(Boolean).join(' ')}
       style={style}
       {...rest}
-    >
-      <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" aria-hidden="true" />
-    </div>
+    />
   );
 };
 

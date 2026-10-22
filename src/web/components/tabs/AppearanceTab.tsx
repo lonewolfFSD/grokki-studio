@@ -1,6 +1,15 @@
 import React from 'react';
-import { ChevronDown } from 'lucide-react';
 import { JarvisConfig } from '../../types/jarvis';
+import GlideSelect, { GlideSelectOption } from './GlideSelect';
+
+const GRADIENT_EFFECT_OPTIONS: GlideSelectOption[] = [
+  { value: 'grokki-blue', label: 'Grokki Blue', tag: 'ASCII' },
+  { value: 'grainient', label: 'Grainient', tag: 'Fluid' },
+  { value: 'grainient-blue', label: 'Grainient Blue', tag: 'Deep' },
+  { value: 'grainient-sunset', label: 'Grainient Sunset', tag: 'Amber' },
+  { value: 'grainient-aurora', label: 'Grainient Aurora', tag: 'Glow' },
+  { value: 'grainient-neon', label: 'Grainient Cyber', tag: 'Neon' },
+];
 
 interface AppearanceTabProps {
   config: JarvisConfig;
@@ -139,21 +148,22 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
               </span>
             </div>
             <div className="relative shrink-0">
-              <select
+              <GlideSelect
+                options={GRADIENT_EFFECT_OPTIONS}
                 value={config.chatBackgroundEffect || 'grokki-blue'}
-                onChange={(e) => onChangeConfig({ chatBackgroundEffect: e.target.value })}
-                className="appearance-none cursor-pointer pl-3 pr-8 py-1.5 rounded-lg text-xs font-medium bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-gray-900 dark:focus:border-white focus:outline-none transition-all shadow-xs"
-              >
-                <option value="grokki-blue">Grokki Blue (ASCII)</option>
-                <option value="grainient">Grainient (Fluid Mesh)</option>
-                <option value="grainient-blue">Grainient (Deep Blue)</option>
-                <option value="grainient-sunset">Grainient (Sunset Flame)</option>
-                <option value="grainient-aurora">Grainient (Aurora Glow)</option>
-                <option value="grainient-neon">Grainient (Cyber Violet)</option>
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                <ChevronDown className="w-3.5 h-3.5" />
-              </div>
+                onChange={(val) => onChangeConfig({ chatBackgroundEffect: val })}
+                showTags
+                size="md"
+                radius={10}
+                menuWidth={220}
+                align="right"
+                placement="bottom"
+                surfaceColor={config.dashboardTheme === 'dark' ? '#1a1c24' : '#f5f5f7'}
+                highlightColor={config.dashboardTheme === 'dark' ? '#272a38' : '#e5e7eb'}
+                textColor={config.dashboardTheme === 'dark' ? '#f3f4f6' : '#111827'}
+                accentColor={config.dashboardTheme === 'dark' ? '#ffffff' : '#000000'}
+                className="[&>button]:border [&>button]:border-gray-200 [&>button]:dark:border-[#1e2029] [&>button]:shadow-xs font-mono text-xs"
+              />
             </div>
           </div>
         )}
