@@ -1071,7 +1071,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     return (
       <div className="flex items-center justify-between flex-wrap gap-2 px-3 py-1.5 rounded-xl bg-gray-50/80 dark:bg-[#161821]/80 border border-gray-200/60 dark:border-white/[0.08] backdrop-blur-md mb-1.5 transition-all">
         <div className="flex items-center gap-1.5 shrink-0">
-          <Swords className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+          <Swords className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
           <span className="text-[11px] font-medium tracking-tight text-gray-700 dark:text-gray-300">
             Dual Battle
           </span>
@@ -2749,7 +2749,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
     </AnimatePresence>
   );
 
-  const isDarkTheme = config.dashboardTheme === 'dark';
+  const isDarkTheme =
+    config.dashboardTheme === 'dark' ||
+    (typeof document !== 'undefined' &&
+      (document.documentElement.classList.contains('dark') ||
+        document.body.classList.contains('dark')));
 
   return (
     <WarmTooltipGroup delay={400} warmWindow={300} travel={320} lean={false}>
@@ -3067,11 +3071,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
                       onClick={() => setDualBattleEnabled((prev) => !prev)}
                       className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
                         dualBattleEnabled
-                          ? 'bg-purple-500/15 text-purple-400 border-purple-500/40 shadow-xs font-semibold'
+                          ? 'bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/40 shadow-xs font-semibold'
                           : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
                       }`}
                     >
-                      <Swords className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${dualBattleEnabled ? 'text-purple-400' : 'text-gray-400'}`} />
+                      <Swords className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${dualBattleEnabled ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`} />
                       <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
                         Dual Battle
                       </span>
@@ -3277,41 +3281,41 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           <div className="w-full my-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               {/* Brain A Card */}
-                              <div className="p-3.5 rounded-xl bg-black/40 border border-white/[0.08] hover:border-sky-500/30 transition-all flex flex-col justify-between shadow-xs">
+                              <div className="p-3.5 rounded-xl bg-white dark:bg-[#13141a] border border-gray-200/90 dark:border-[#1e2029] hover:border-sky-500/40 dark:hover:border-sky-500/40 transition-all flex flex-col justify-between shadow-xs">
                                 <div>
-                                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/[0.06]">
+                                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-gray-100 dark:border-[#1e2029]">
                                     <div className="flex items-center gap-2 min-w-0">
-                                      <span className="w-2 h-2 rounded-full bg-sky-400 shrink-0 shadow-xs" />
-                                      <span className="text-xs font-bold text-gray-200 font-mono truncate">
+                                      <span className="w-2 h-2 rounded-full bg-sky-500 dark:bg-sky-400 shrink-0 shadow-xs" />
+                                      <span className="text-xs font-bold text-gray-800 dark:text-gray-200 font-mono truncate">
                                         Brain A: {msg.dualBattle.brainA.model}
                                       </span>
-                                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-sky-500/15 text-sky-400 font-semibold border border-sky-500/20">
+                                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 font-semibold border border-sky-200 dark:border-sky-500/30">
                                         {msg.dualBattle.brainA.provider}
                                       </span>
                                     </div>
                                     {msg.dualBattle.brainA.latencyMs !== undefined && (
-                                      <span className="text-[10px] font-mono text-gray-400 px-1.5 py-0.5 rounded bg-white/[0.05] shrink-0">
+                                      <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#1a1c24] border border-gray-200/60 dark:border-[#1e2029] shrink-0">
                                         {msg.dualBattle.brainA.latencyMs}ms
                                       </span>
                                     )}
                                   </div>
-                                  <div className="prose prose-invert text-xs leading-relaxed select-text overflow-x-auto">
+                                  <div className="text-xs leading-relaxed select-text overflow-x-auto text-gray-800 dark:text-gray-200">
                                     <StaticMessageContent content={msg.dualBattle.brainA.reply} />
                                   </div>
                                 </div>
-                                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-white/[0.06]">
+                                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-gray-100 dark:border-[#1e2029]">
                                   <button
                                     type="button"
                                     onClick={() => handleCopy(`${msg.id}-a`, msg.dualBattle!.brainA.reply)}
-                                    className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-mono text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer border border-transparent hover:border-white/10"
+                                    className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-mono text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-[#1e2029]"
                                   >
-                                    {copiedId === `${msg.id}-a` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                    {copiedId === `${msg.id}-a` ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3" />}
                                     <span>{copiedId === `${msg.id}-a` ? 'Copied' : 'Copy'}</span>
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handlePickWinner(msg.id, 'brainA')}
-                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono text-sky-400 hover:bg-sky-500/10 border border-sky-500/20 hover:border-sky-500/40 transition-all cursor-pointer font-medium"
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 dark:hover:bg-sky-500/20 border border-sky-200 dark:border-sky-500/30 hover:border-sky-300 dark:hover:border-sky-500/50 transition-all cursor-pointer font-medium"
                                   >
                                     <Check className="w-3 h-3" />
                                     <span>Pick Brain A</span>
@@ -3320,41 +3324,41 @@ export const ChatTab = React.memo<ChatTabProps>(({
                               </div>
 
                               {/* Brain B Card */}
-                              <div className="p-3.5 rounded-xl bg-black/40 border border-white/[0.08] hover:border-purple-500/30 transition-all flex flex-col justify-between shadow-xs">
+                              <div className="p-3.5 rounded-xl bg-white dark:bg-[#13141a] border border-gray-200/90 dark:border-[#1e2029] hover:border-purple-500/40 dark:hover:border-purple-500/40 transition-all flex flex-col justify-between shadow-xs">
                                 <div>
-                                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/[0.06]">
+                                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-gray-100 dark:border-[#1e2029]">
                                     <div className="flex items-center gap-2 min-w-0">
-                                      <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0 shadow-xs" />
-                                      <span className="text-xs font-bold text-gray-200 font-mono truncate">
+                                      <span className="w-2 h-2 rounded-full bg-purple-500 dark:bg-purple-400 shrink-0 shadow-xs" />
+                                      <span className="text-xs font-bold text-gray-800 dark:text-gray-200 font-mono truncate">
                                         Brain B: {msg.dualBattle.brainB.model}
                                       </span>
-                                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-purple-500/15 text-purple-400 font-semibold border border-purple-500/20">
+                                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 font-semibold border border-purple-200 dark:border-purple-500/30">
                                         {msg.dualBattle.brainB.provider}
                                       </span>
                                     </div>
                                     {msg.dualBattle.brainB.latencyMs !== undefined && (
-                                      <span className="text-[10px] font-mono text-gray-400 px-1.5 py-0.5 rounded bg-white/[0.05] shrink-0">
+                                      <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#1a1c24] border border-gray-200/60 dark:border-[#1e2029] shrink-0">
                                         {msg.dualBattle.brainB.latencyMs}ms
                                       </span>
                                     )}
                                   </div>
-                                  <div className="prose prose-invert text-xs leading-relaxed select-text overflow-x-auto">
+                                  <div className="text-xs leading-relaxed select-text overflow-x-auto text-gray-800 dark:text-gray-200">
                                     <StaticMessageContent content={msg.dualBattle.brainB.reply} />
                                   </div>
                                 </div>
-                                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-white/[0.06]">
+                                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-gray-100 dark:border-[#1e2029]">
                                   <button
                                     type="button"
                                     onClick={() => handleCopy(`${msg.id}-b`, msg.dualBattle!.brainB.reply)}
-                                    className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-mono text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer border border-transparent hover:border-white/10"
+                                    className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-mono text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-[#1e2029]"
                                   >
-                                    {copiedId === `${msg.id}-b` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                    {copiedId === `${msg.id}-b` ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3" />}
                                     <span>{copiedId === `${msg.id}-b` ? 'Copied' : 'Copy'}</span>
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handlePickWinner(msg.id, 'brainB')}
-                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono text-purple-400 hover:bg-purple-500/10 border border-purple-500/20 hover:border-purple-500/40 transition-all cursor-pointer font-medium"
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 hover:bg-purple-100 dark:hover:bg-purple-500/20 border border-purple-200 dark:border-purple-500/30 hover:border-purple-300 dark:hover:border-purple-500/50 transition-all cursor-pointer font-medium"
                                   >
                                     <Check className="w-3 h-3" />
                                     <span>Pick Brain B</span>
@@ -3365,24 +3369,24 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
                             {/* Consensus Synthesizer Section */}
                             {msg.dualBattle.consensus ? (
-                              <div className="mt-3 p-4 rounded-xl bg-gradient-to-b from-purple-950/20 to-black/40 border border-purple-500/30 shadow-sm animate-in fade-in duration-300">
-                                <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-purple-500/20">
+                              <div className="mt-3 p-4 rounded-xl bg-purple-50 border border-purple-200/80 dark:bg-[#15121e] dark:border-purple-500/35 shadow-xs dark:shadow-sm animate-in fade-in duration-300">
+                                <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-purple-200/70 dark:border-purple-500/20">
                                   <div className="flex items-center gap-2">
-                                    <GitMerge className="w-3.5 h-3.5 text-purple-400" />
-                                    <span className="text-xs font-semibold text-purple-200 tracking-wide font-mono">
+                                    <GitMerge className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                    <span className="text-xs font-semibold text-purple-900 dark:text-purple-200 tracking-wide font-mono">
                                       Synthesized Consensus & Comparative Verdict
                                     </span>
                                   </div>
                                   <button
                                     type="button"
                                     onClick={() => handleCopy(`${msg.id}-cons`, msg.dualBattle!.consensus!.content)}
-                                    className="flex items-center gap-1 text-[11px] font-mono text-purple-300 hover:text-white cursor-pointer"
+                                    className="flex items-center gap-1 text-[11px] font-mono text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white px-2 py-0.5 rounded hover:bg-purple-100/70 dark:hover:bg-purple-500/20 transition-colors cursor-pointer"
                                   >
-                                    {copiedId === `${msg.id}-cons` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                    {copiedId === `${msg.id}-cons` ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3" />}
                                     <span>{copiedId === `${msg.id}-cons` ? 'Copied' : 'Copy Consensus'}</span>
                                   </button>
                                 </div>
-                                <div className="prose prose-invert text-xs leading-relaxed select-text">
+                                <div className="text-xs leading-relaxed select-text text-gray-800 dark:text-gray-200">
                                   <StaticMessageContent content={msg.dualBattle.consensus.content} />
                                 </div>
                               </div>
@@ -3392,9 +3396,9 @@ export const ChatTab = React.memo<ChatTabProps>(({
                                   type="button"
                                   onClick={() => handleSynthesizeConsensus(msg.id)}
                                   disabled={synthesizingId === msg.id}
-                                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-purple-600/25 via-indigo-600/25 to-sky-600/25 hover:from-purple-600/40 hover:to-sky-600/40 border border-purple-500/40 text-purple-200 hover:text-white transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-purple-100 via-indigo-50 to-sky-100 dark:from-purple-900/40 dark:via-indigo-900/40 dark:to-sky-900/40 hover:from-purple-200 hover:to-sky-200 dark:hover:from-purple-900/60 dark:hover:to-sky-900/60 border border-purple-200 dark:border-purple-500/40 text-purple-900 dark:text-purple-200 hover:text-purple-950 dark:hover:text-white transition-all shadow-xs dark:shadow-sm cursor-pointer disabled:opacity-50"
                                 >
-                                  <GitMerge className={`w-3.5 h-3.5 text-purple-400 ${synthesizingId === msg.id ? 'animate-spin' : ''}`} />
+                                  <GitMerge className={`w-3.5 h-3.5 text-purple-600 dark:text-purple-400 ${synthesizingId === msg.id ? 'animate-spin' : ''}`} />
                                   <span>{synthesizingId === msg.id ? 'Synthesizing consensus...' : 'Merge & Synthesize Consensus'}</span>
                                 </button>
                               </div>
@@ -3429,33 +3433,33 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           return (
                             <div
                               onClick={() => setActiveArtifact(artifact)}
-                              className="mt-3.5 p-3 rounded-xl bg-black/40 hover:bg-black/60 border border-white/[0.08] hover:border-white/[0.16] flex items-center justify-between transition-all cursor-pointer group shadow-sm select-none"
+                              className="mt-3.5 p-3 rounded-xl bg-white dark:bg-[#13141a] hover:bg-gray-50 dark:hover:bg-[#161822] border border-gray-200/90 dark:border-[#1e2029] hover:border-sky-500/50 dark:hover:border-sky-500/40 flex items-center justify-between transition-all cursor-pointer group shadow-xs dark:shadow-sm select-none"
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-9 h-9 rounded-lg bg-white/[0.05] text-gray-200 flex items-center justify-center shrink-0 border border-white/[0.08] group-hover:border-sky-500/40 transition-colors">
+                                <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-200 flex items-center justify-center shrink-0 border border-gray-200/80 dark:border-[#1e2029] group-hover:border-sky-500/40 transition-colors">
                                   {artifact.language === 'html' ? (
-                                    <Globe className="w-6 h-6 text-white" />
+                                    <Globe className="w-5 h-5 text-sky-600 dark:text-sky-400" />
                                   ) : artifact.language === 'svg' ? (
-                                    <Shapes className="w-6 h-6 text-amber-400" />
+                                    <Shapes className="w-5 h-5 text-amber-500 dark:text-amber-400" />
                                   ) : ['tsx', 'jsx', 'react'].includes(artifact.language) ? (
-                                    <Code2 className="w-6 h-6 text-indigo-400" />
+                                    <Code2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                                   ) : (
-                                    <FileCode className="w-4 h-4 text-emerald-400" />
+                                    <FileCode className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="text-xs font-semibold text-gray-100 truncate flex items-center gap-2">
+                                  <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate flex items-center gap-2">
                                     <span className="font-mono tracking-tight">{artifact.title}</span>
-                                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/10 text-gray-300 font-medium">
+                                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 font-medium border border-gray-200/60 dark:border-[#1e2029]">
                                       {artifact.language}
                                     </span>
                                   </div>
-                                  <p className="text-[11px] text-gray-400 mt-0.5 font-mono">
+                                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 font-mono">
                                     {lineCount} lines • Click to open in Canvas
                                   </p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] group-hover:bg-sky-500/10 group-hover:border-sky-500/30 text-xs font-medium text-gray-300 group-hover:text-sky-400 transition-all shrink-0 ml-3">
+                              <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200/80 dark:border-[#1e2029] group-hover:bg-sky-50 dark:group-hover:bg-sky-500/10 group-hover:border-sky-300 dark:group-hover:border-sky-500/30 text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-sky-700 dark:group-hover:text-sky-400 transition-all shrink-0 ml-3">
                                 <span>Canvas</span>
                               </div>
                             </div>
@@ -3808,11 +3812,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
                       onClick={() => setDualBattleEnabled((prev) => !prev)}
                       className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
                         dualBattleEnabled
-                          ? 'bg-purple-500/15 text-purple-400 border-purple-500/40 shadow-xs font-semibold'
+                          ? 'bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/40 shadow-xs font-semibold'
                           : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
                       }`}
                     >
-                      <Swords className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${dualBattleEnabled ? 'text-purple-400' : 'text-gray-400'}`} />
+                      <Swords className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${dualBattleEnabled ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`} />
                       <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
                         Dual Battle
                       </span>

@@ -26,8 +26,8 @@ export const PerplexitySourcesBar: React.FC<PerplexitySourcesBarProps> = ({ grou
       {/* Header bar */}
       <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-gray-100/70 dark:bg-[#12141c]/80 border border-gray-200/80 dark:border-white/[0.07] backdrop-blur-xs">
         <div className="flex items-center gap-2 min-w-0 overflow-x-auto no-scrollbar py-0.5">
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/20 text-xs font-medium shrink-0">
-            <Globe className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20 text-xs font-medium shrink-0">
+            <Globe className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
             <span>Searched {sources.length} sources</span>
           </div>
 
@@ -38,7 +38,7 @@ export const PerplexitySourcesBar: React.FC<PerplexitySourcesBarProps> = ({ grou
                 key={source.id}
                 type="button"
                 onClick={(e) => handleOpenSource(e, source.url)}
-                className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/60 dark:bg-white/[0.05] hover:bg-sky-500/10 dark:hover:bg-sky-500/15 border border-gray-200 dark:border-white/[0.08] hover:border-sky-500/30 text-[11px] text-gray-700 dark:text-gray-300 hover:text-sky-400 transition-all cursor-pointer truncate max-w-[150px]"
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white dark:bg-white/[0.05] hover:bg-sky-50 dark:hover:bg-sky-500/15 border border-gray-200 dark:border-white/[0.08] hover:border-sky-300 dark:hover:border-sky-500/30 text-[11px] text-gray-700 dark:text-gray-300 hover:text-sky-700 dark:hover:text-sky-400 transition-all cursor-pointer truncate max-w-[150px]"
                 title={`${source.title} (${source.hostname})`}
               >
                 {source.favicon ? (
@@ -82,7 +82,7 @@ export const PerplexitySourcesBar: React.FC<PerplexitySourcesBarProps> = ({ grou
               <div>
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="w-4 h-4 rounded-full bg-sky-500/15 text-sky-400 flex items-center justify-center text-[10px] font-mono font-bold shrink-0">
+                    <span className="w-4 h-4 rounded-full bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 flex items-center justify-center text-[10px] font-mono font-bold shrink-0">
                       {source.id}
                     </span>
                     <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 truncate">
