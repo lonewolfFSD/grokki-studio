@@ -156,11 +156,6 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
   const [googleExpanded, setGoogleExpanded] = useState(true);
   const [googleStatusMessage, setGoogleStatusMessage] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
-  const [showGoogleOAuthModal, setShowGoogleOAuthModal] = useState(false);
-  const [googleClientId, setGoogleClientId] = useState('');
-  const [googleClientSecret, setGoogleClientSecret] = useState('');
-  const [savingGoogleCreds, setSavingGoogleCreds] = useState(false);
-  const [copiedGoogleCallback, setCopiedGoogleCallback] = useState(false);
 
   // WhatsApp State (Auto-connected)
   const [whatsappExpanded, setWhatsappExpanded] = useState(false);
@@ -384,12 +379,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       if (res && res.success) {
         setGoogleStatusMessage(null);
         setGoogleError(null);
-        setShowGoogleOAuthModal(false);
         onRefreshStatus();
-      } else if (res && res.needsCredentials) {
-        setGoogleStatusMessage(null);
-        setGoogleError(res?.message || 'Google OAuth credentials not configured.');
-        setShowGoogleOAuthModal(true);
       } else {
         setGoogleStatusMessage(null);
         setGoogleError(res?.message || res?.error || 'Google authorization could not be completed.');
@@ -400,37 +390,6 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
     } finally {
       setConnectingGoogle(false);
       onRefreshStatus();
-    }
-  };
-
-  const handleSaveGoogleCredentials = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!googleClientId.trim() || !googleClientSecret.trim()) return;
-    setSavingGoogleCreds(true);
-    setGoogleError(null);
-    try {
-      if (window.jarvisAPI?.saveGoogleCredentials) {
-        const res = await window.jarvisAPI.saveGoogleCredentials(googleClientId.trim(), googleClientSecret.trim());
-        if (res && res.success) {
-          setShowGoogleOAuthModal(false);
-          await handleConnectGoogle();
-        } else {
-          setGoogleError(res?.error || 'Failed to save Google credentials.');
-        }
-      }
-    } catch (err: any) {
-      setGoogleError(err?.message || 'Error saving Google credentials.');
-    } finally {
-      setSavingGoogleCreds(false);
-    }
-  };
-
-  const handleOpenGoogleConsole = () => {
-    const url = 'https://console.cloud.google.com/apis/credentials';
-    if (window.jarvisAPI?.openUrl) {
-      window.jarvisAPI.openUrl(url);
-    } else {
-      window.open(url, '_blank');
     }
   };
 
@@ -980,21 +939,6 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0 ml-4" onClick={(e) => e.stopPropagation()}>
-            {!connected && (
-              <button
-                type="button"
-                onClick={() => {
-                  setGoogleExpanded(true);
-                  setShowGoogleOAuthModal((prev) => !prev);
-                  notifyAccordionToggled();
-                }}
-                title="Configure Google OAuth Credentials"
-                className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-[#1f222e] transition-all cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-transparent"
-              >
-                <Key className="w-3.5 h-3.5" />
-              </button>
-            )}
-
             <button
               type="button"
               disabled={connectingGoogle}
@@ -1056,123 +1000,13 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     <span>{googleError}</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowGoogleOAuthModal(true)}
-                      className="underline text-[11px] font-semibold cursor-pointer border-none bg-transparent text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
-                    >
-                      Configure Credentials
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setGoogleError(null)}
-                      className="text-[11px] opacity-70 hover:opacity-100 cursor-pointer border-none bg-transparent text-red-600 dark:text-red-400"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Google OAuth Setup Form */}
-              {showGoogleOAuthModal && !connected && (
-                <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#161822] border border-blue-500/30 flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Key className="w-4 h-4 text-blue-500" />
-                      <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                        Google Cloud OAuth 2.0 Credentials Setup
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowGoogleOAuthModal(false)}
-                      className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer"
-                    >
-                      Close
-                    </button>
-                  </div>
-
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0 leading-relaxed">
-                    Set up your Google OAuth Client ID & Secret to sync Gmail, Calendar, Docs & Drive. Add this Authorized redirect URI in your Google Cloud Console OAuth 2.0 Client:
-                  </p>
-
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-[#101117] border border-gray-200 dark:border-[#252836]">
-                    <code className="text-xs font-mono text-gray-800 dark:text-gray-200 selection:bg-blue-500/20">
-                      http://127.0.0.1:8585/oauth2callback
-                    </code>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText('http://127.0.0.1:8585/oauth2callback');
-                        setCopiedGoogleCallback(true);
-                        setTimeout(() => setCopiedGoogleCallback(false), 2000);
-                      }}
-                      className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline bg-transparent border-none cursor-pointer ml-2 flex-shrink-0"
-                    >
-                      {copiedGoogleCallback ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedGoogleCallback ? 'Copied!' : 'Copy'}</span>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleOpenGoogleConsole}
-                      className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline bg-transparent border-none cursor-pointer"
-                    >
-                      <span>Open Google Cloud Credentials Console</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  <form onSubmit={handleSaveGoogleCredentials} className="flex flex-col gap-2.5 mt-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                          Client ID
-                        </label>
-                        <input
-                          type="text"
-                          value={googleClientId}
-                          onChange={(e) => setGoogleClientId(e.target.value)}
-                          placeholder="e.g. 123456...apps.googleusercontent.com"
-                          className="w-full h-8 px-2.5 rounded-lg border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-900 dark:text-gray-100 text-xs font-mono placeholder:text-gray-400 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                          Client Secret
-                        </label>
-                        <input
-                          type="password"
-                          value={googleClientSecret}
-                          onChange={(e) => setGoogleClientSecret(e.target.value)}
-                          placeholder="e.g. GOCSPX-..."
-                          className="w-full h-8 px-2.5 rounded-lg border border-gray-300 dark:border-[#252836] bg-white dark:bg-[#101117] text-gray-900 dark:text-gray-100 text-xs font-mono placeholder:text-gray-400 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-end gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setShowGoogleOAuthModal(false)}
-                        className="h-8 px-3 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#252836] bg-transparent text-gray-500 hover:bg-gray-100 dark:hover:bg-[#1a1c24]"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={savingGoogleCreds || !googleClientId.trim() || !googleClientSecret.trim()}
-                        className="h-8 px-3.5 rounded-lg text-xs font-semibold cursor-pointer border bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 border-transparent transition-all disabled:opacity-40 flex items-center gap-1.5"
-                      >
-                        {savingGoogleCreds ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                        <span>Save & Connect</span>
-                      </button>
-                    </div>
-                  </form>
+                  <button
+                    type="button"
+                    onClick={() => setGoogleError(null)}
+                    className="text-[11px] opacity-70 hover:opacity-100 cursor-pointer border-none bg-transparent text-red-600 dark:text-red-400"
+                  >
+                    Dismiss
+                  </button>
                 </div>
               )}
 
