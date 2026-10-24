@@ -261,6 +261,38 @@ function saveConfig(newConfig) {
   }
 }
 
+// Helpers for robust app icon resolution across development, unpacked ASAR, and packaged builds
+function getAppIconPath(preferredName = 'grokki_studio_icon.ico') {
+  const candidates = [
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', preferredName),
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'build', 'icon.ico'),
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'icon.ico'),
+    path.join(process.resourcesPath || '', 'build', 'icon.ico'),
+    path.join(process.resourcesPath || '', 'assets', preferredName),
+    path.join(process.resourcesPath || '', 'assets', 'icon.ico'),
+    path.join(__dirname, '../../build/icon.ico'),
+    path.join(__dirname, '../../assets', preferredName),
+    path.join(__dirname, '../../assets/icon.ico'),
+    path.join(process.cwd(), 'build/icon.ico'),
+    path.join(process.cwd(), 'assets', preferredName),
+    path.join(process.cwd(), 'assets/icon.ico'),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return path.join(__dirname, '../../assets', preferredName);
+}
+
+function getAppIconImage(iconPath) {
+  try {
+    if (fs.existsSync(iconPath)) {
+      const img = nativeImage.createFromPath(iconPath);
+      if (!img.isEmpty()) return img;
+    }
+  } catch (e) {}
+  return null;
+}
+
 function createWindow(showOnReady = false) {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth } = primaryDisplay.workAreaSize;
@@ -270,12 +302,11 @@ function createWindow(showOnReady = false) {
   const x = Math.round((screenWidth - winWidth) / 2);
   const y = 0;
 
-  const icoPath = path.join(__dirname, '../../assets/grokki_icon.ico');
-  const pngPath = path.join(__dirname, '../../assets/grokki_icon.png');
-  const appIconPath = (process.platform === 'win32' && fs.existsSync(icoPath)) ? icoPath : pngPath;
+  const appIconPath = getAppIconPath('grokki_studio_icon.ico');
+  const appNativeImg = getAppIconImage(appIconPath);
 
   mainWindow = new BrowserWindow({
-    icon: fs.existsSync(appIconPath) ? appIconPath : undefined,
+    icon: fs.existsSync(appIconPath) ? appIconPath : (appNativeImg || undefined),
     width: winWidth,
     height: winHeight,
     x: x,
@@ -300,6 +331,16 @@ function createWindow(showOnReady = false) {
       backgroundThrottling: false,
     },
   });
+
+  if (fs.existsSync(appIconPath)) {
+    try {
+      mainWindow.setIcon(appIconPath);
+    } catch (e) {}
+  } else if (appNativeImg) {
+    try {
+      mainWindow.setIcon(appNativeImg);
+    } catch (e) {}
+  }
 
   mainWindow.webContents.on('preload-error', (event, preloadPath, error) => {
     console.error('*** PRELOAD ERROR ***', preloadPath, error);
@@ -407,30 +448,6 @@ function toggleWindow() {
   handleGlobalHotkey();
 }
 
-function getStudioAppIcon() {
-  const candidatePaths = [
-    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'grokki_studio_icon.ico'),
-    path.join(process.resourcesPath || '', 'assets', 'grokki_studio_icon.ico'),
-    path.join(__dirname, '../../assets/grokki_studio_icon.ico'),
-    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'icon.ico'),
-    path.join(__dirname, '../../assets/icon.ico'),
-    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'grokki_studio_tray.png'),
-    path.join(__dirname, '../../assets/grokki_studio_tray.png'),
-  ];
-
-  for (const p of candidatePaths) {
-    try {
-      if (fs.existsSync(p)) {
-        const img = nativeImage.createFromPath(p);
-        if (!img.isEmpty()) {
-          return { path: p, image: img };
-        }
-      }
-    } catch (e) {}
-  }
-  return null;
-}
-
 function createSplashWindow(onFinish) {
   if (splashWindow && !splashWindow.isDestroyed()) {
     splashWindow.focus();
@@ -440,7 +457,8 @@ function createSplashWindow(onFinish) {
   // Pre-warm dashboard window off-screen while splash screen plays so it shows instantly
   openDashboardWindow(false);
 
-  const studioIcon = getStudioAppIcon();
+  const studioIco = getAppIconPath('grokki_studio_icon.ico');
+  const studioImg = getAppIconImage(studioIco);
 
   splashWindow = new BrowserWindow({
     width: 540,
@@ -452,7 +470,7 @@ function createSplashWindow(onFinish) {
     center: true,
     show: false,
     skipTaskbar: true,
-    icon: studioIcon ? studioIcon.image : undefined,
+    icon: fs.existsSync(studioIco) ? studioIco : (studioImg || undefined),
     backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
@@ -460,6 +478,16 @@ function createSplashWindow(onFinish) {
       contextIsolation: true,
     },
   });
+
+  if (fs.existsSync(studioIco)) {
+    try {
+      splashWindow.setIcon(studioIco);
+    } catch (e) {}
+  } else if (studioImg) {
+    try {
+      splashWindow.setIcon(studioImg);
+    } catch (e) {}
+  }
 
   splashWindow.loadFile(path.join(__dirname, '../renderer/splash.html'));
 
@@ -510,7 +538,8 @@ function openDashboardWindow(showImmediately = true) {
     return;
   }
 
-  const studioIcon = getStudioAppIcon();
+  const studioIco = getAppIconPath('grokki_studio_icon.ico');
+  const studioImg = getAppIconImage(studioIco);
 
   const config = loadConfig();
   const isLight = config.dashboardTheme !== 'dark';
@@ -525,7 +554,7 @@ function openDashboardWindow(showImmediately = true) {
     transparent: false,
     alwaysOnTop: !!config.alwaysOnTop,
     backgroundColor: isLight ? '#f7f7fa' : '#0c0d12',
-    icon: studioIcon ? studioIcon.image : undefined,
+    icon: fs.existsSync(studioIco) ? studioIco : (studioImg || undefined),
     show: false,
     center: true,
     webPreferences: {
@@ -538,12 +567,16 @@ function openDashboardWindow(showImmediately = true) {
     },
   });
 
-  if (studioIcon) {
+  if (fs.existsSync(studioIco)) {
     try {
-      dashboardWindow.setIcon(studioIcon.image);
+      dashboardWindow.setIcon(studioIco);
     } catch (e) {
       console.warn('[main] Failed to set dashboardWindow icon:', e?.message);
     }
+  } else if (studioImg) {
+    try {
+      dashboardWindow.setIcon(studioImg);
+    } catch (e) {}
   }
 
   dashboardWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -600,14 +633,10 @@ function openDashboardWindow(showImmediately = true) {
 
 function createTray() {
   const candidateTrayPaths = [
-    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'grokki_studio_tray.png'),
-    path.join(__dirname, '../../assets/grokki_studio_tray.png'),
-    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'grokki_studio_icon.ico'),
-    path.join(__dirname, '../../assets/grokki_studio_icon.ico'),
-    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'grokki_tray.png'),
-    path.join(__dirname, '../../assets/grokki_tray.png'),
-    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'grokki_icon.ico'),
-    path.join(__dirname, '../../assets/grokki_icon.ico'),
+    getAppIconPath('grokki_studio_tray.png'),
+    getAppIconPath('grokki_studio_icon.ico'),
+    getAppIconPath('grokki_tray.png'),
+    getAppIconPath('grokki_icon.ico'),
   ];
   let icon = null;
   for (const p of candidateTrayPaths) {
