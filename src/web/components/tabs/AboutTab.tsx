@@ -10,7 +10,7 @@ import { FaGithub } from 'react-icons/fa6';
 const REPO = 'lonewolfFSD/grokki-studio';
 const REPO_URL = `https://github.com/${REPO}`;
 const DEVELOPER = 'lonewolfFSD';
-const BMC_URL = 'https://buymeacoffee.com/lonewolffsd';
+const BMC_URL = 'https://buymeacoffee.com/itzajx';
 
 const APP_VERSION = '1.52.324';
 const RELEASE = '2026.10';
@@ -281,20 +281,18 @@ export const AboutTab = React.memo<AboutTabProps>(({ systemInfo, hotkey }) => {
                 href={c.html_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1a1c24] transition-colors"
+                className="flex items-center gap-3 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1a1c24] transition-colors"
               >
                 <img
                   src={c.avatar_url}
                   alt={c.login}
-                  className="w-8 h-8 rounded-full border border-gray-200 dark:border-[#262833] bg-gray-100 dark:bg-[#1a1c24]"
+                  className="w-7.5 h-7.5 rounded-full border-2 border-gray-200 dark:border-[#262833] bg-gray-100 dark:bg-[#1a1c24]"
                 />
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
                     {c.login}
                   </p>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">
-                    {c.contributions} commit{c.contributions === 1 ? '' : 's'}
-                  </p>
+                 
                 </div>
               </a>
             ))}

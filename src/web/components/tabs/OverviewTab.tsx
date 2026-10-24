@@ -491,11 +491,11 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
                 {effectiveUpdates.map((update) => (
                   <article key={update.id} className="flex flex-col gap-1.5 px-5 py-4">
                     <div className="flex items-center gap-2.5">
-                      {update.tag && (
+                      {/* {update.tag && (
                         <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-[10px] font-semibold text-gray-600 dark:text-gray-300">
                           {update.tag}
                         </span>
-                      )}
+                      )} */}
                       <span className="text-[11px] text-gray-400 dark:text-gray-500">
                         {update.date}
                       </span>
@@ -504,7 +504,7 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
                       {update.title}
                     </strong>
                     {update.summary && (
-                      <p className="m-0 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                      <p className="-mt-0.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                         {update.summary}
                       </p>
                     )}
