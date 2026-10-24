@@ -612,7 +612,7 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h2 className="m-0 text-2xl mt-16 font-bold tracking-tight text-gray-900 dark:text-gray-100">
+            <h2 className="m-0 text-xl mt-16 font-bold tracking-tight text-gray-900 dark:text-gray-100">
               Voice Models
             </h2>
             {activeVoice && (

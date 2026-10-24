@@ -805,7 +805,7 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
       {/* Header */}
       <header className="flex flex-col mt-16 sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h2 className="m-0 text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+          <h2 className="m-0 text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
             AI Models
           </h2>
           <p className="m-0 mt-1.5 text-xs text-gray-500 dark:text-gray-400">

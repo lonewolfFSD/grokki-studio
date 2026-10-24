@@ -194,7 +194,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
       {/* Header Banner */}
       <div className="flex items-end justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+          <h2 className="text-xl font-bold mt-16 tracking-tight text-gray-900 dark:text-gray-100">
             Grokki Studio Settings
           </h2>
           <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
