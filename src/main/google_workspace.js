@@ -65,6 +65,33 @@ class GoogleWorkspaceManager {
     return null;
   }
 
+  saveCredentials(clientId, clientSecret) {
+    try {
+      const dir = path.dirname(this.credentialsPath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        this.credentialsPath,
+        JSON.stringify(
+          {
+            installed: {
+              client_id: (clientId || '').trim(),
+              client_secret: (clientSecret || '').trim(),
+              auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+              token_uri: 'https://oauth2.googleapis.com/token',
+            },
+          },
+          null,
+          2
+        ),
+        'utf8'
+      );
+      this.initClient();
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
   initClient() {
     const creds = this.getClientCredentials();
     if (!creds) return;
@@ -199,7 +226,7 @@ class GoogleWorkspaceManager {
       return {
         success: false,
         needsCredentials: true,
-        message: 'Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to your .env file or save credentials to data/google_credentials.json first.',
+        message: 'Google integration credentials are not configured. Please check your workspace settings.',
       };
     }
 

@@ -310,7 +310,7 @@ export const App: React.FC = () => {
       setOriginalConfig(merged);
       setHasUnsaved(false);
     } catch (err: any) {
-      alert('Failed to save changes: ' + err.message);
+      console.error('Failed to save changes:', err);
     } finally {
       setSaving(false);
     }

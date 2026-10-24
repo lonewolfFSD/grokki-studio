@@ -1418,11 +1418,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       connectGoogleBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Signing in...';
       try {
         const res = await window.jarvisAPI.connectGoogle();
-        if (res.needsCredentials) {
-          alert(res.message);
+        if (res && !res.success) {
+          console.warn('[Google Auth]', res.message || res.error);
         }
       } catch (err) {
-        alert(err.message);
+        console.error('[Google Auth Error]', err);
       }
       await updateGoogleStatus();
     });

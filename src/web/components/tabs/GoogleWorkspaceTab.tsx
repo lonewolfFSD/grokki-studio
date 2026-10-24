@@ -154,6 +154,8 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
 }) => {
   const [connectingGoogle, setConnectingGoogle] = useState(false);
   const [googleExpanded, setGoogleExpanded] = useState(true);
+  const [googleStatusMessage, setGoogleStatusMessage] = useState<string | null>(null);
+  const [googleError, setGoogleError] = useState<string | null>(null);
 
   // WhatsApp State (Auto-connected)
   const [whatsappExpanded, setWhatsappExpanded] = useState(false);
@@ -370,15 +372,21 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
     if (e) e.stopPropagation();
     if (!window.jarvisAPI?.connectGoogle) return;
     setConnectingGoogle(true);
+    setGoogleError(null);
+    setGoogleStatusMessage('Opening Google authorization in your browser...');
     try {
       const res = await window.jarvisAPI.connectGoogle();
       if (res && res.success) {
+        setGoogleStatusMessage(null);
+        setGoogleError(null);
         onRefreshStatus();
       } else {
-        alert('Google Auth: ' + (res?.message || res?.error || 'Authorization incomplete'));
+        setGoogleStatusMessage(null);
+        setGoogleError(res?.message || res?.error || 'Google authorization could not be completed.');
       }
     } catch (err: any) {
-      alert('Google Auth Error: ' + err.message);
+      setGoogleStatusMessage(null);
+      setGoogleError(err?.message || 'Error connecting to Google account.');
     } finally {
       setConnectingGoogle(false);
       onRefreshStatus();
@@ -460,7 +468,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
         setObsidianNotesCount(res.notesCount || 0);
       }
     } catch (err: any) {
-      alert('Failed to select Obsidian vault: ' + err.message);
+      console.warn('Failed to select Obsidian vault:', err?.message);
     } finally {
       setSelectingVault(false);
     }
@@ -978,7 +986,27 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
           }`}
         >
           <div className="overflow-hidden">
-            <div className="px-5 pb-5 pt-4 border-t border-[#e4e4eb] dark:border-[#1e2029]">
+            <div className="px-5 pb-5 pt-4 border-t border-[#e4e4eb] dark:border-[#1e2029] flex flex-col gap-3.5">
+              {/* Live Status / Error Banner */}
+              {googleStatusMessage && !connected && (
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400">
+                  <span>{googleStatusMessage}</span>
+                </div>
+              )}
+
+              {googleError && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400 flex items-center justify-between">
+                  <span>{googleError}</span>
+                  <button
+                    type="button"
+                    onClick={() => setGoogleError(null)}
+                    className="underline text-[11px] font-semibold cursor-pointer border-none bg-transparent text-red-600 dark:text-red-400"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-3 w-full">
                 {googleApps.map((app, idx) => (
                   <div

@@ -515,11 +515,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (res && res.success) {
           checkGoogleStatus();
         } else {
-          alert('Google Auth: ' + (res?.error || 'Authorization incomplete'));
+          console.warn('Google Auth:', res?.error || res?.message || 'Authorization incomplete');
           checkGoogleStatus();
         }
       } catch (err) {
-        alert('Google Auth Error: ' + err.message);
+        console.error('Google Auth Error:', err);
         checkGoogleStatus();
       }
     });
@@ -619,7 +619,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       hideUnsavedBar();
     } catch (err) {
-      alert('Failed to save: ' + err.message);
+      console.error('Failed to save:', err);
     } finally {
       if (btnSaveFloating) {
         btnSaveFloating.innerHTML = 'Save Changes';
