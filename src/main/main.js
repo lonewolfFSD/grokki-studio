@@ -132,7 +132,7 @@ function loadConfig() {
       if (!data.userNickname) data.userNickname = '';
       if (!data.userTone) data.userTone = 'companion';
       if (!data.userBio) data.userBio = '';
-      if (!data.dashboardTheme) data.dashboardTheme = 'dark';
+      if (!data.dashboardTheme) data.dashboardTheme = 'light';
       if (data.launchOnStartup === undefined) data.launchOnStartup = false;
       if (data.autoOpenStudioOnStartup === undefined) data.autoOpenStudioOnStartup = false;
       if (!data.closeAction) data.closeAction = 'tray';
@@ -146,12 +146,13 @@ function loadConfig() {
       if (data.soundEffectsEnabled === undefined) data.soundEffectsEnabled = true;
       if (data.autoCheckUpdates === undefined) data.autoCheckUpdates = true;
       if (data.hardwareAcceleration === undefined) data.hardwareAcceleration = true;
-      if (data.chatBackgroundGradient === undefined) data.chatBackgroundGradient = true;
+      if (data.chatBackgroundGradient === undefined) data.chatBackgroundGradient = false;
       if (!data.chatBackgroundEffect) data.chatBackgroundEffect = 'grokki-blue';
       if (data.grainientSettings === undefined) data.grainientSettings = null;
-      if (data.chatBackgroundNoise === undefined) data.chatBackgroundNoise = true;
-      if (data.glowCursorEnabled === undefined) data.glowCursorEnabled = true;
-      if (data.smoothCursorEnabled === undefined) data.smoothCursorEnabled = true;
+      if (data.chatBackgroundNoise === undefined) data.chatBackgroundNoise = false;
+      if (data.glowCursorEnabled === undefined) data.glowCursorEnabled = false;
+      if (data.smoothCursorEnabled === undefined) data.smoothCursorEnabled = false;
+      if (data.smoothScroll === undefined) data.smoothScroll = false;
       cachedConfig = data;
       return cachedConfig;
     }
@@ -192,7 +193,7 @@ function loadConfig() {
     userNickname: '',
     userTone: 'companion',
     userBio: '',
-    dashboardTheme: 'dark',
+    dashboardTheme: 'light',
     launchOnStartup: false,
     autoOpenStudioOnStartup: false,
     closeAction: 'tray',
@@ -206,9 +207,12 @@ function loadConfig() {
     soundEffectsEnabled: true,
     autoCheckUpdates: true,
     hardwareAcceleration: true,
-    chatBackgroundGradient: true,
+    chatBackgroundGradient: false,
     chatBackgroundEffect: 'grokki-blue',
-    chatBackgroundNoise: true,
+    chatBackgroundNoise: false,
+    glowCursorEnabled: false,
+    smoothCursorEnabled: false,
+    smoothScroll: false,
   };
   return cachedConfig;
 }
@@ -403,6 +407,30 @@ function toggleWindow() {
   handleGlobalHotkey();
 }
 
+function getStudioAppIcon() {
+  const candidatePaths = [
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'grokki_studio_icon.ico'),
+    path.join(process.resourcesPath || '', 'assets', 'grokki_studio_icon.ico'),
+    path.join(__dirname, '../../assets/grokki_studio_icon.ico'),
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'icon.ico'),
+    path.join(__dirname, '../../assets/icon.ico'),
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'grokki_studio_tray.png'),
+    path.join(__dirname, '../../assets/grokki_studio_tray.png'),
+  ];
+
+  for (const p of candidatePaths) {
+    try {
+      if (fs.existsSync(p)) {
+        const img = nativeImage.createFromPath(p);
+        if (!img.isEmpty()) {
+          return { path: p, image: img };
+        }
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
 function createSplashWindow(onFinish) {
   if (splashWindow && !splashWindow.isDestroyed()) {
     splashWindow.focus();
@@ -412,9 +440,7 @@ function createSplashWindow(onFinish) {
   // Pre-warm dashboard window off-screen while splash screen plays so it shows instantly
   openDashboardWindow(false);
 
-  const studioIcoPath = path.join(__dirname, '../../assets/grokki_studio_icon.ico');
-  const studioPngPath = path.join(__dirname, '../../assets/grokki_studio_tray.png');
-  const appIconPath = fs.existsSync(studioIcoPath) ? studioIcoPath : (fs.existsSync(studioPngPath) ? studioPngPath : undefined);
+  const studioIcon = getStudioAppIcon();
 
   splashWindow = new BrowserWindow({
     width: 540,
@@ -425,7 +451,8 @@ function createSplashWindow(onFinish) {
     alwaysOnTop: true,
     center: true,
     show: false,
-    icon: appIconPath,
+    skipTaskbar: true,
+    icon: studioIcon ? studioIcon.image : undefined,
     backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
@@ -483,9 +510,7 @@ function openDashboardWindow(showImmediately = true) {
     return;
   }
 
-  const studioIcoPath = path.join(__dirname, '../../assets/grokki_studio_icon.ico');
-  const studioPngPath = path.join(__dirname, '../../assets/grokki_studio_tray.png');
-  const appIconPath = fs.existsSync(studioIcoPath) ? studioIcoPath : (fs.existsSync(studioPngPath) ? studioPngPath : undefined);
+  const studioIcon = getStudioAppIcon();
 
   const config = loadConfig();
   const isLight = config.dashboardTheme !== 'dark';
@@ -500,7 +525,7 @@ function openDashboardWindow(showImmediately = true) {
     transparent: false,
     alwaysOnTop: !!config.alwaysOnTop,
     backgroundColor: isLight ? '#f7f7fa' : '#0c0d12',
-    icon: appIconPath,
+    icon: studioIcon ? studioIcon.image : undefined,
     show: false,
     center: true,
     webPreferences: {
@@ -512,6 +537,14 @@ function openDashboardWindow(showImmediately = true) {
       backgroundThrottling: false,
     },
   });
+
+  if (studioIcon) {
+    try {
+      dashboardWindow.setIcon(studioIcon.image);
+    } catch (e) {
+      console.warn('[main] Failed to set dashboardWindow icon:', e?.message);
+    }
+  }
 
   dashboardWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^(https?:|mailto:|spotify:|whatsapp:|music:)/i.test(url)) {
@@ -566,20 +599,29 @@ function openDashboardWindow(showImmediately = true) {
 }
 
 function createTray() {
-  const studioPngPath = path.join(__dirname, '../../assets/grokki_studio_tray.png');
-  const studioIcoPath = path.join(__dirname, '../../assets/grokki_studio_icon.ico');
-  const trayPngPath = path.join(__dirname, '../../assets/grokki_tray.png');
-  const icoPath = path.join(__dirname, '../../assets/grokki_icon.ico');
-  let icon;
-  if (fs.existsSync(studioPngPath)) {
-    icon = nativeImage.createFromPath(studioPngPath);
-  } else if (fs.existsSync(studioIcoPath)) {
-    icon = nativeImage.createFromPath(studioIcoPath);
-  } else if (fs.existsSync(trayPngPath)) {
-    icon = nativeImage.createFromPath(trayPngPath);
-  } else if (fs.existsSync(icoPath)) {
-    icon = nativeImage.createFromPath(icoPath);
-  } else {
+  const candidateTrayPaths = [
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'grokki_studio_tray.png'),
+    path.join(__dirname, '../../assets/grokki_studio_tray.png'),
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'grokki_studio_icon.ico'),
+    path.join(__dirname, '../../assets/grokki_studio_icon.ico'),
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'grokki_tray.png'),
+    path.join(__dirname, '../../assets/grokki_tray.png'),
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'assets', 'grokki_icon.ico'),
+    path.join(__dirname, '../../assets/grokki_icon.ico'),
+  ];
+  let icon = null;
+  for (const p of candidateTrayPaths) {
+    if (fs.existsSync(p)) {
+      try {
+        const img = nativeImage.createFromPath(p);
+        if (!img.isEmpty()) {
+          icon = img;
+          break;
+        }
+      } catch (e) {}
+    }
+  }
+  if (!icon) {
     icon = nativeImage.createEmpty();
   }
 

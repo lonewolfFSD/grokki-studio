@@ -52,7 +52,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
   userNickname: '',
   userTone: 'companion',
   userBio: '',
-  dashboardTheme: 'dark',
+  dashboardTheme: 'light',
   launchOnStartup: false,
   autoOpenStudioOnStartup: false,
   closeAction: 'tray',
@@ -66,12 +66,12 @@ const DEFAULT_CONFIG: JarvisConfig = {
   soundEffectsEnabled: true,
   autoCheckUpdates: true,
   hardwareAcceleration: true,
-  chatBackgroundGradient: true,
+  chatBackgroundGradient: false,
   chatBackgroundEffect: 'grokki-blue',
-  chatBackgroundNoise: true,
-  glowCursorEnabled: true,
-  smoothCursorEnabled: true,
-  smoothScroll: true,
+  chatBackgroundNoise: false,
+  glowCursorEnabled: false,
+  smoothCursorEnabled: false,
+  smoothScroll: false,
   smoothScrollIntensity: 5,
 };
 
@@ -88,7 +88,7 @@ export const App: React.FC = () => {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
 
-  useSmoothScroll(config.smoothScroll !== false, config.smoothScrollIntensity ?? 5, activeTab);
+  useSmoothScroll(!!config.smoothScroll, config.smoothScrollIntensity ?? 5, activeTab);
 
   const {
     conversations,
@@ -105,7 +105,7 @@ export const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize theme from config
-  const theme = config.dashboardTheme || 'dark';
+  const theme = config.dashboardTheme || 'light';
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -156,7 +156,7 @@ export const App: React.FC = () => {
         const merged = { ...DEFAULT_CONFIG, ...cfg };
         setConfig(merged);
         setOriginalConfig(merged);
-        const initialTheme = merged.dashboardTheme || 'dark';
+        const initialTheme = merged.dashboardTheme || 'light';
         if (initialTheme === 'dark') {
           document.documentElement.classList.add('dark');
           document.documentElement.classList.remove('light');
@@ -269,7 +269,7 @@ export const App: React.FC = () => {
 
   const handleToggleTheme = useCallback(() => {
     setConfig((prev) => {
-      const nextTheme = (prev.dashboardTheme || 'dark') === 'dark' ? 'light' : 'dark';
+      const nextTheme = (prev.dashboardTheme || 'light') === 'dark' ? 'light' : 'dark';
       if (nextTheme === 'dark') {
         document.documentElement.classList.add('dark');
         document.documentElement.classList.remove('light');
@@ -447,7 +447,7 @@ export const App: React.FC = () => {
 
   return (
     <>
-      {config.smoothCursorEnabled !== false && <SmoothCursor />}
+      {!!config.smoothCursorEnabled && <SmoothCursor />}
       <GlowCursor
         color="#5f8bff"
         intensity={1.3}
@@ -456,7 +456,7 @@ export const App: React.FC = () => {
         glow={1.2}
         clickBurst
         theme={theme === 'dark' ? 'dark' : 'light'}
-        enabled={config.glowCursorEnabled !== false}
+        enabled={!!config.glowCursorEnabled}
         className="w-screen h-screen"
       >
       <div className="w-full h-full flex flex-row overflow-hidden bg-[#f7f7fa] dark:bg-[#0c0d12] text-gray-900 dark:text-gray-100 font-sans">

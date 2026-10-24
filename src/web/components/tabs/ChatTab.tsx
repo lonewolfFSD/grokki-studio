@@ -2771,7 +2771,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
       {renderCameraModal()}
 
       {/* Background Gradient Effect (Grokki Blue ASCII or Grainient Fluid Mesh) */}
-      {config.chatBackgroundGradient !== false && (
+      {!!config.chatBackgroundGradient && (
         <div
           key={`chat-bg-${config.chatBackgroundEffect || 'grokki-blue'}`}
           className="absolute inset-0 pointer-events-none overflow-hidden z-0"
@@ -2837,7 +2837,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
       )}
 
       {/* Background Noise & Scanlines Overlay Above Gradient */}
-      {config.chatBackgroundNoise !== false && (
+      {!!config.chatBackgroundNoise && (
         <div
           className="absolute inset-0 pointer-events-none overflow-hidden z-0"
           style={{ width: '100%', height: '100%', position: 'absolute' }}

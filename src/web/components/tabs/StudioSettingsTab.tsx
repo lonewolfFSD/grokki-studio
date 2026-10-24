@@ -768,21 +768,21 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
             </div>
             <button
               type="button"
-              onClick={() => onChangeConfig({ chatBackgroundGradient: config.chatBackgroundGradient === false ? true : false })}
+              onClick={() => onChangeConfig({ chatBackgroundGradient: !config.chatBackgroundGradient })}
               className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out border-none ${
-                config.chatBackgroundGradient !== false ? 'bg-black dark:bg-white' : 'bg-gray-300 dark:bg-[#252836]'
+                config.chatBackgroundGradient ? 'bg-black dark:bg-white' : 'bg-gray-300 dark:bg-[#252836]'
               }`}
             >
               <div
                 className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
-                  config.chatBackgroundGradient !== false ? 'bg-white dark:bg-black translate-x-5' : 'bg-white translate-x-0'
+                  config.chatBackgroundGradient ? 'bg-white dark:bg-black translate-x-5' : 'bg-white translate-x-0'
                 }`}
               />
             </button>
           </div>
 
           {/* Gradient Style Effect Dropdown - Only appears if gradient background toggle is on */}
-          {config.chatBackgroundGradient !== false && (
+          {!!config.chatBackgroundGradient && (
             <div className="flex items-center justify-between pl-3 pr-2 py-2 rounded-lg bg-gray-50/80 dark:bg-[#12141c] border border-gray-200/70 dark:border-[#1e2029] gap-4">
               <div>
                 <strong className="block text-xs font-semibold text-gray-900 dark:text-gray-100">
@@ -837,14 +837,14 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
             </div>
             <button
               type="button"
-              onClick={() => onChangeConfig({ chatBackgroundNoise: config.chatBackgroundNoise === false ? true : false })}
+              onClick={() => onChangeConfig({ chatBackgroundNoise: !config.chatBackgroundNoise })}
               className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out border-none ${
-                config.chatBackgroundNoise !== false ? 'bg-black dark:bg-white' : 'bg-gray-300 dark:bg-[#252836]'
+                config.chatBackgroundNoise ? 'bg-black dark:bg-white' : 'bg-gray-300 dark:bg-[#252836]'
               }`}
             >
               <div
                 className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
-                  config.chatBackgroundNoise !== false ? 'bg-white dark:bg-black translate-x-5' : 'bg-white translate-x-0'
+                  config.chatBackgroundNoise ? 'bg-white dark:bg-black translate-x-5' : 'bg-white translate-x-0'
                 }`}
               />
             </button>

@@ -121,22 +121,22 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
           <button
             type="button"
             role="switch"
-            aria-checked={config.chatBackgroundGradient !== false}
-            onClick={() => onChangeConfig({ chatBackgroundGradient: config.chatBackgroundGradient === false })}
+            aria-checked={!!config.chatBackgroundGradient}
+            onClick={() => onChangeConfig({ chatBackgroundGradient: !config.chatBackgroundGradient })}
             className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-none p-0.5 transition-colors duration-200 ${
-              config.chatBackgroundGradient !== false ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-[#2a2d3a]'
+              config.chatBackgroundGradient ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-[#2a2d3a]'
             }`}
           >
             <span
               className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-black shadow-sm transition-transform duration-200 ${
-                config.chatBackgroundGradient !== false ? 'translate-x-5' : 'translate-x-0'
+                config.chatBackgroundGradient ? 'translate-x-5' : 'translate-x-0'
               }`}
             />
           </button>
         </div>
 
         {/* Effect Selector Dropdown - Only appears if gradient background toggle is on */}
-        {config.chatBackgroundGradient !== false && (
+        {!!config.chatBackgroundGradient && (
           <div className="pt-3 border-t border-gray-100 dark:border-[#1e2029] flex items-center justify-between gap-4">
             <div>
               <strong className="block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
@@ -193,15 +193,15 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
         <button
           type="button"
           role="switch"
-          aria-checked={config.chatBackgroundNoise !== false}
-          onClick={() => onChangeConfig({ chatBackgroundNoise: config.chatBackgroundNoise === false })}
+          aria-checked={!!config.chatBackgroundNoise}
+          onClick={() => onChangeConfig({ chatBackgroundNoise: !config.chatBackgroundNoise })}
           className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-none p-0.5 transition-colors duration-200 ${
-            config.chatBackgroundNoise !== false ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-[#2a2d3a]'
+            config.chatBackgroundNoise ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-[#2a2d3a]'
           }`}
         >
           <span
             className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-black shadow-sm transition-transform duration-200 ${
-              config.chatBackgroundNoise !== false ? 'translate-x-5' : 'translate-x-0'
+              config.chatBackgroundNoise ? 'translate-x-5' : 'translate-x-0'
             }`}
           />
         </button>
@@ -221,15 +221,15 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
         <button
           type="button"
           role="switch"
-          aria-checked={config.smoothCursorEnabled !== false}
-          onClick={() => onChangeConfig({ smoothCursorEnabled: config.smoothCursorEnabled === false })}
+          aria-checked={!!config.smoothCursorEnabled}
+          onClick={() => onChangeConfig({ smoothCursorEnabled: !config.smoothCursorEnabled })}
           className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-none p-0.5 transition-colors duration-200 ${
-            config.smoothCursorEnabled !== false ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-[#2a2d3a]'
+            config.smoothCursorEnabled ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-[#2a2d3a]'
           }`}
         >
           <span
             className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-black shadow-sm transition-transform duration-200 ${
-              config.smoothCursorEnabled !== false ? 'translate-x-5' : 'translate-x-0'
+              config.smoothCursorEnabled ? 'translate-x-5' : 'translate-x-0'
             }`}
           />
         </button>
@@ -248,15 +248,15 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
         <button
           type="button"
           role="switch"
-          aria-checked={config.glowCursorEnabled !== false}
-          onClick={() => onChangeConfig({ glowCursorEnabled: config.glowCursorEnabled === false })}
+          aria-checked={!!config.glowCursorEnabled}
+          onClick={() => onChangeConfig({ glowCursorEnabled: !config.glowCursorEnabled })}
           className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-none p-0.5 transition-colors duration-200 ${
-            config.glowCursorEnabled !== false ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-[#2a2d3a]'
+            config.glowCursorEnabled ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-[#2a2d3a]'
           }`}
         >
           <span
             className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-black shadow-sm transition-transform duration-200 ${
-              config.glowCursorEnabled !== false ? 'translate-x-5' : 'translate-x-0'
+              config.glowCursorEnabled ? 'translate-x-5' : 'translate-x-0'
             }`}
           />
         </button>
@@ -277,21 +277,21 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
           <button
             type="button"
             role="switch"
-            aria-checked={config.smoothScroll !== false}
-            onClick={() => onChangeConfig({ smoothScroll: config.smoothScroll === false })}
+            aria-checked={!!config.smoothScroll}
+            onClick={() => onChangeConfig({ smoothScroll: !config.smoothScroll })}
             className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-none p-0.5 transition-colors duration-200 ${
-              config.smoothScroll !== false ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-[#2a2d3a]'
+              config.smoothScroll ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-[#2a2d3a]'
             }`}
           >
             <span
               className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-black shadow-sm transition-transform duration-200 ${
-                config.smoothScroll !== false ? 'translate-x-5' : 'translate-x-0'
+                config.smoothScroll ? 'translate-x-5' : 'translate-x-0'
               }`}
             />
           </button>
         </div>
 
-        {config.smoothScroll !== false && (
+        {!!config.smoothScroll && (
           <div className="pt-3 border-t border-gray-100 dark:border-[#1e2029] flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-gray-700 dark:text-gray-300">

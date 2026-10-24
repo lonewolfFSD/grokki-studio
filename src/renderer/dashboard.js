@@ -369,8 +369,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   function applyConfigToUI(cfg) {
     if (!cfg) cfg = {};
 
-    // Dashboard Theme Mode (Default Dark)
-    currentThemeMode = cfg.dashboardTheme || 'dark';
+    // Dashboard Theme Mode (Default Light)
+    currentThemeMode = cfg.dashboardTheme || 'light';
     applyThemeMode(currentThemeMode);
 
     // Profile & Identity
