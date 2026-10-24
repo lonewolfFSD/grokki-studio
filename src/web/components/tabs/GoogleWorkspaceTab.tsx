@@ -325,9 +325,20 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       });
     }
 
+    let unsubGoogle: (() => void) | undefined;
+    if (window.jarvisAPI?.onGoogleConnected) {
+      unsubGoogle = window.jarvisAPI.onGoogleConnected(() => {
+        setConnectingGoogle(false);
+        setGoogleStatusMessage(null);
+        setGoogleError(null);
+        onRefreshStatus();
+      });
+    }
+
     return () => {
       if (unsubNotion) unsubNotion();
       if (unsubGitHub) unsubGitHub();
+      if (unsubGoogle) unsubGoogle();
     };
   }, []);
 
@@ -368,6 +379,43 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
     }
   };
 
+  // Auto-detect when Google is connected and clear waiting state
+  useEffect(() => {
+    if (connected) {
+      setConnectingGoogle(false);
+      setGoogleStatusMessage(null);
+    }
+  }, [connected]);
+
+  // Active polling while authorization flow is pending in browser
+  useEffect(() => {
+    if (!connectingGoogle) return;
+
+    const interval = setInterval(async () => {
+      if (window.jarvisAPI?.getGoogleStatus) {
+        try {
+          const res = await window.jarvisAPI.getGoogleStatus();
+          if (res?.connected) {
+            setConnectingGoogle(false);
+            setGoogleStatusMessage(null);
+            setGoogleError(null);
+            onRefreshStatus();
+          }
+        } catch (e) {}
+      }
+    }, 1500);
+
+    const timeout = setTimeout(() => {
+      setConnectingGoogle(false);
+      setGoogleStatusMessage(null);
+    }, 180000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [connectingGoogle, onRefreshStatus]);
+
   const handleConnectGoogle = async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!window.jarvisAPI?.connectGoogle) return;
@@ -377,19 +425,16 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
     try {
       const res = await window.jarvisAPI.connectGoogle();
       if (res && res.success) {
-        setGoogleStatusMessage(null);
-        setGoogleError(null);
-        onRefreshStatus();
+        setGoogleStatusMessage('Browser opened! Please select your Google account and grant permissions to connect Grokki.');
       } else {
+        setConnectingGoogle(false);
         setGoogleStatusMessage(null);
         setGoogleError(res?.message || res?.error || 'Google authorization could not be completed.');
       }
     } catch (err: any) {
+      setConnectingGoogle(false);
       setGoogleStatusMessage(null);
       setGoogleError(err?.message || 'Error connecting to Google account.');
-    } finally {
-      setConnectingGoogle(false);
-      onRefreshStatus();
     }
   };
 

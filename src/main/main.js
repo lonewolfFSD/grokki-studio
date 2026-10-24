@@ -12,6 +12,15 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.grokki.studio');
 }
 
+// Register grokki:// custom protocol for OAuth redirects & desktop deep links
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('grokki', process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('grokki');
+}
+
 const { getDataDir } = require('./data_dir');
 const grokkiDataDir = getDataDir();
 if (!app.isPackaged) {
@@ -65,6 +74,9 @@ app.on('second-instance', () => {
     if (dashboardWindow.isMinimized()) dashboardWindow.restore();
     dashboardWindow.show();
     dashboardWindow.focus();
+    if (dashboardWindow.webContents) {
+      dashboardWindow.webContents.send('jarvis:refresh-workspace-status');
+    }
   } else if (splashWindow && !splashWindow.isDestroyed()) {
     splashWindow.focus();
   } else {
@@ -74,6 +86,24 @@ app.on('second-instance', () => {
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
     showWindow();
+    if (mainWindow.webContents) {
+      mainWindow.webContents.send('jarvis:refresh-workspace-status');
+    }
+  }
+});
+
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+    if (dashboardWindow.isMinimized()) dashboardWindow.restore();
+    dashboardWindow.show();
+    dashboardWindow.focus();
+    if (dashboardWindow.webContents) {
+      dashboardWindow.webContents.send('jarvis:refresh-workspace-status');
+    }
+  }
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+    mainWindow.webContents.send('jarvis:refresh-workspace-status');
   }
 });
 
@@ -1094,7 +1124,14 @@ ipcMain.handle('jarvis:save-temp-file', async (event, { name, buffer }) => {
 
 ipcMain.handle('jarvis:connect-google', async () => {
   const googleWorkspace = require('./google_workspace');
-  return await googleWorkspace.startAuthFlow();
+  return await googleWorkspace.startAuthFlow((profile) => {
+    if (dashboardWindow && !dashboardWindow.isDestroyed() && dashboardWindow.webContents) {
+      dashboardWindow.webContents.send('google:connected', profile);
+    }
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+      mainWindow.webContents.send('google:connected', profile);
+    }
+  });
 });
 
 ipcMain.handle('jarvis:get-google-status', async () => {
@@ -1146,6 +1183,12 @@ ipcMain.handle('jarvis:save-config', async (event, newConfig) => {
 ipcMain.handle('jarvis:disconnect-google', async () => {
   const googleWorkspace = require('./google_workspace');
   const success = googleWorkspace.disconnect();
+  if (dashboardWindow && !dashboardWindow.isDestroyed() && dashboardWindow.webContents) {
+    dashboardWindow.webContents.send('google:disconnected');
+  }
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+    mainWindow.webContents.send('google:disconnected');
+  }
   return { success };
 });
 

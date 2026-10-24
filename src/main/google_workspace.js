@@ -223,7 +223,7 @@ class GoogleWorkspaceManager {
   /**
    * Start 1-Click Interactive Google OAuth Flow
    */
-  async startAuthFlow() {
+  async startAuthFlow(onSuccessCallback) {
     const creds = this.getClientCredentials();
     if (!creds) {
       return {
@@ -262,10 +262,19 @@ class GoogleWorkspaceManager {
               this.saveTokens(tokens);
 
               let userIdentifier = '';
+              let userProfile = null;
               try {
-                const profile = await this.getUserProfile();
-                userIdentifier = profile?.email || '';
+                userProfile = await this.getUserProfile();
+                userIdentifier = userProfile?.email || '';
               } catch (e) {}
+
+              if (typeof onSuccessCallback === 'function') {
+                try {
+                  onSuccessCallback(userProfile);
+                } catch (cbErr) {
+                  console.error('[GoogleWorkspace] Error in onSuccessCallback:', cbErr);
+                }
+              }
 
               const { renderOAuthCallbackHtml } = require('./oauth_template');
               const html = renderOAuthCallbackHtml({

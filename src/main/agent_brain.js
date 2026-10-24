@@ -24,8 +24,15 @@ const powerTools = require('./power_tools');
 function shouldAutoSearchWeb(prompt = '') {
   if (!prompt || typeof prompt !== 'string') return false;
   const p = prompt.toLowerCase().trim();
+
+  // Never auto search web for desktop actions, Google Workspace, WhatsApp, local tools, or file operations
+  if (/\b(google\s+(drive|doc|docs|sheet|sheets|slides|calendar|task|tasks|contacts?|workspace|account|mail)|drive|gmail|whatsapp|spotify|word|excel|powerpoint|calculator|notepad|screenshot|snip|volume|brightness|pc\s+health|folder|file|upload|download|save|create|delete|open|close|lock|sleep|shutdown|mute|unmute)\b/i.test(p)) {
+    return false;
+  }
+
   // Explicit web search keywords
-  if (/\b(search\s+(the\s+)?web|google|deep\s+search|web\s+search|live\s+search|browse\s+web)\b/i.test(p)) return true;
+  if (/\b(search\s+(the\s+)?web|deep\s+search|web\s+search|live\s+search|browse\s+web)\b/i.test(p)) return true;
+  if (/^google\s+(.+)/i.test(p)) return true;
   // Current events, protests, conflicts, happenings
   if (/\b(what('?s|\s+is)\s+(the\s+)?(protest|protests|strike|war|conflict|situation|news|happening|going\s+on))\b/i.test(p)) return true;
   if (/\b(going\s+on\s+in|happening\s+in|protests?\s+in)\b/i.test(p)) return true;
@@ -1580,13 +1587,53 @@ Respond concisely, naturally, and directly without robotic disclaimers. Use clea
     this.activeContext = context;
     this.activePrompt = prompt || '';
 
-    // Direct handling for attached images and videos
+    // Direct handling for attached files (Drive upload, WhatsApp share, vision, video)
     const directAttachPath = (context && context.filePath) || (context && context.attachedFile && (context.attachedFile.path || context.attachedFile)) || null;
     if (directAttachPath && typeof directAttachPath === 'string' && fs.existsSync(directAttachPath)) {
+      const pLower = (prompt || '').toLowerCase().trim();
       const ext = path.extname(directAttachPath).toLowerCase();
       const isImage = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'].includes(ext);
       const isVideo = ['.mp4', '.mkv', '.mov', '.webm', '.avi', '.flv', '.wmv', '.m4v'].includes(ext);
       const isShareOrUpload = /\b(whatsapp|google\s+drive|drive|upload|send|share)\b/i.test(prompt || '');
+
+      // Direct Google Drive Upload for attached file
+      const isDriveUpload = /\b(drive|google\s*drive)\b/i.test(pLower) && /\b(upload|save|put|send|export|backup|add)\b/i.test(pLower);
+      if (isDriveUpload) {
+        console.log(`[AgentBrain] Direct Drive upload matched for attached file: ${directAttachPath}`);
+        const res = await this.executeTool('upload_to_google_drive', { file_path: directAttachPath }, config.geminiApiKey || config.groqApiKey || '');
+        const replyText = res.message || 'File upload completed.';
+        memory.addTurn('user', prompt);
+        memory.addTurn('model', replyText);
+        return {
+          success: res.success !== false,
+          reply: replyText,
+          actionsExecuted: [{ name: 'upload_to_google_drive', args: { file_path: directAttachPath }, result: res }],
+        };
+      }
+
+      // Direct WhatsApp Share for attached file
+      const isWhatsAppSend = /\b(whatsapp)\b/i.test(pLower) && /\b(send|share|message)\b/i.test(pLower);
+      if (isWhatsAppSend) {
+        let contactMatch = prompt.match(/\bto\s+([a-zA-Z0-9_+ ]+?)(?:\s+on\s+whatsapp|\s+via\s+whatsapp|$)/i);
+        if (!contactMatch) {
+          contactMatch = prompt.match(/whatsapp\s+(?:to\s+)?([a-zA-Z0-9_+ ]+)/i);
+        }
+        const targetContact = contactMatch ? contactMatch[1].trim().replace(/^the\s+/i, '') : '';
+        console.log(`[AgentBrain] Direct WhatsApp send matched for attached file: ${directAttachPath}, contact: "${targetContact}"`);
+        const res = await this.executeTool('send_whatsapp_file_or_message', {
+          contact_or_phone: targetContact,
+          file_path: directAttachPath,
+          message: '',
+        }, config.geminiApiKey || config.groqApiKey || '');
+        const replyText = res.message || 'WhatsApp prepared.';
+        memory.addTurn('user', prompt);
+        memory.addTurn('model', replyText);
+        return {
+          success: res.success !== false,
+          reply: replyText,
+          actionsExecuted: [{ name: 'send_whatsapp_file_or_message', args: { contact_or_phone: targetContact, file_path: directAttachPath }, result: res }],
+        };
+      }
 
       if (isVideo && !isShareOrUpload) {
         const videoName = path.basename(directAttachPath);
@@ -2371,11 +2418,21 @@ Rules:
 
       case 'upload_to_google_drive': {
         if (!googleWorkspace.isConnected()) {
-          return { success: false, message: 'Google account not connected yet. Say "Connect my Google account" to upload to Drive.' };
+          return {
+            success: false,
+            message: '⚠️ Google account not connected yet. Please connect your Google account in Google Workspace settings first.',
+          };
         }
-        const targetPath = args.file_path || (this.activeContext?.attachedFile?.path);
-        if (!targetPath) {
-          return { success: false, message: 'No file specified or attached to upload.' };
+        let targetPath = args.file_path;
+        const attachPath = (this.activeContext && this.activeContext.filePath) ||
+          (this.activeContext && this.activeContext.attachedFile && (this.activeContext.attachedFile.path || this.activeContext.attachedFile)) || null;
+
+        if ((!targetPath || !fs.existsSync(targetPath)) && attachPath && fs.existsSync(attachPath)) {
+          targetPath = attachPath;
+        }
+
+        if (!targetPath || !fs.existsSync(targetPath)) {
+          return { success: false, message: `No valid file found to upload (${args.file_path || 'none attached'}).` };
         }
         const res = await googleWorkspace.uploadFileToDrive(targetPath);
         return { success: res.success, message: res.message };
@@ -2679,7 +2736,12 @@ Rules:
       case 'send_whatsapp_file_or_message': {
         const contactOrPhone = args.contact_or_phone || '';
         const message = args.message || '';
-        const filePath = args.file_path || (this.activeContext?.attachedFile?.path) || '';
+        let filePath = args.file_path || '';
+        const attachPath = (this.activeContext && this.activeContext.filePath) ||
+          (this.activeContext && this.activeContext.attachedFile && (this.activeContext.attachedFile.path || this.activeContext.attachedFile)) || null;
+        if ((!filePath || !fs.existsSync(filePath)) && attachPath && fs.existsSync(attachPath)) {
+          filePath = attachPath;
+        }
         return await this.handleWhatsAppSend({ contactOrPhone, message, filePath });
       }
 
@@ -3033,30 +3095,42 @@ Rules:
   // WhatsApp Automation: Supports direct phone numbers, Google Contact lookup, and file attachments
   async handleWhatsAppSend({ contactOrPhone, message, filePath }) {
     let phone = (contactOrPhone || '').replace(/[^\d+]/g, '');
-    let contactName = '';
+    let contactName = (contactOrPhone || '').trim();
 
-    // If contact is a name, try searching Google Contacts for their phone number
-    if ((!phone || phone.length < 7) && googleWorkspace.isConnected()) {
+    // If contact is a name without phone digits, try searching Google Contacts for their phone number
+    if ((!phone || phone.length < 7) && contactName && googleWorkspace.isConnected()) {
       try {
-        const contactRes = await googleWorkspace.searchContacts(contactOrPhone);
+        const contactRes = await googleWorkspace.searchContacts(contactName);
         if (contactRes && contactRes.contacts && contactRes.contacts.length > 0) {
           const matched = contactRes.contacts.find((c) => c.phone) || contactRes.contacts[0];
           if (matched && matched.phone) {
             phone = matched.phone.replace(/[^\d+]/g, '');
+            contactName = matched.name || contactName;
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('[WhatsApp] Google Contacts search error:', e.message);
+      }
     }
 
-    if (!phone || phone.length < 7) {
-      contactName = contactOrPhone;
+    let resolvedFilePath = filePath || '';
+    const attachPath = (this.activeContext && this.activeContext.filePath) ||
+      (this.activeContext && this.activeContext.attachedFile && (this.activeContext.attachedFile.path || this.activeContext.attachedFile)) || null;
+    if ((!resolvedFilePath || !fs.existsSync(resolvedFilePath)) && attachPath && fs.existsSync(attachPath)) {
+      resolvedFilePath = attachPath;
     }
 
-    const scriptPath = path.resolve(__dirname, 'office_helper.ps1');
+    let scriptPath = path.resolve(__dirname, 'office_helper.ps1');
+    if (scriptPath.includes('app.asar')) {
+      const unpacked = scriptPath.replace('app.asar', 'app.asar.unpacked');
+      if (fs.existsSync(unpacked)) scriptPath = unpacked;
+    }
     const safeMsg = (message || '').replace(/"/g, '`"');
     const safeContact = (contactName || '').replace(/"/g, '`"');
-    const safeFile = (filePath || '').replace(/"/g, '`"');
-    const cmd = `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${scriptPath}" -action whatsapp-send -phone "${phone}" -contactName "${safeContact}" -message "${safeMsg}" -filePath "${safeFile}"`;
+    const safeFile = (resolvedFilePath || '').replace(/"/g, '`"');
+    const hasPhone = phone && phone.length >= 7;
+
+    const cmd = `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${scriptPath}" -action whatsapp-send -phone "${hasPhone ? phone : ''}" -contactName "${safeContact}" -message "${safeMsg}" -filePath "${safeFile}"`;
 
     try {
       const res = await new Promise((resolve) => {
@@ -3067,7 +3141,7 @@ Rules:
       });
 
       const recipientDesc = phone ? `${contactOrPhone} (${phone})` : contactOrPhone;
-      const fileDesc = filePath ? ` with attachment "${path.basename(filePath)}"` : '';
+      const fileDesc = resolvedFilePath ? ` with attachment "${path.basename(resolvedFilePath)}"` : '';
       return {
         success: res.success,
         message: `WhatsApp: Opened chat for ${recipientDesc}${fileDesc}. Message and file ready to send!`,

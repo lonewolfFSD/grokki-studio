@@ -201,8 +201,40 @@ export const App: React.FC = () => {
       });
     }
 
+    let unsubGoogleConn: (() => void) | undefined;
+    if (api.onGoogleConnected) {
+      unsubGoogleConn = api.onGoogleConnected((profile) => {
+        setGoogleConnected(true);
+        setGoogleProfile(profile || null);
+      });
+    }
+
+    let unsubGoogleDisconn: (() => void) | undefined;
+    if (api.onGoogleDisconnected) {
+      unsubGoogleDisconn = api.onGoogleDisconnected(() => {
+        setGoogleConnected(false);
+        setGoogleProfile(null);
+      });
+    }
+
+    let unsubWorkspaceRefresh: (() => void) | undefined;
+    if (api.onRefreshWorkspaceStatus) {
+      unsubWorkspaceRefresh = api.onRefreshWorkspaceStatus(() => {
+        loadGoogleStatus();
+      });
+    }
+
+    const handleWindowFocus = () => {
+      loadGoogleStatus();
+    };
+    window.addEventListener('focus', handleWindowFocus);
+
     return () => {
       if (unsubMax) unsubMax();
+      if (unsubGoogleConn) unsubGoogleConn();
+      if (unsubGoogleDisconn) unsubGoogleDisconn();
+      if (unsubWorkspaceRefresh) unsubWorkspaceRefresh();
+      window.removeEventListener('focus', handleWindowFocus);
     };
   }, []);
 

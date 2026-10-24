@@ -284,6 +284,9 @@ export interface JarvisAPI {
   connectGoogle: () => Promise<{ success: boolean; message?: string; error?: string; needsCredentials?: boolean }>;
   disconnectGoogle?: () => Promise<{ success: boolean }>;
   getGoogleStatus: () => Promise<GoogleStatusResponse>;
+  onGoogleConnected?: (callback: (profile: GoogleProfile | null) => void) => () => void;
+  onGoogleDisconnected?: (callback: () => void) => () => void;
+  onRefreshWorkspaceStatus?: (callback: () => void) => () => void;
   saveGoogleCredentials?: (clientId: string, clientSecret: string) => Promise<{ success: boolean; error?: string }>;
   hasGoogleCredentials?: () => Promise<{ hasCredentials: boolean }>;
   connectNotion?: (token?: string) => Promise<{ success: boolean; message?: string; profile?: NotionProfile; error?: string; needsInput?: boolean; mode?: 'oauth' | 'token' }>;

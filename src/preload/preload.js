@@ -81,6 +81,21 @@ try {
     connectGoogle: () => ipcRenderer.invoke('jarvis:connect-google'),
     disconnectGoogle: () => ipcRenderer.invoke('jarvis:disconnect-google'),
     getGoogleStatus: () => ipcRenderer.invoke('jarvis:get-google-status'),
+    onGoogleConnected: (callback) => {
+      const handler = (event, profile) => callback(profile);
+      ipcRenderer.on('google:connected', handler);
+      return () => ipcRenderer.removeListener('google:connected', handler);
+    },
+    onGoogleDisconnected: (callback) => {
+      const handler = () => callback();
+      ipcRenderer.on('google:disconnected', handler);
+      return () => ipcRenderer.removeListener('google:disconnected', handler);
+    },
+    onRefreshWorkspaceStatus: (callback) => {
+      const handler = () => callback();
+      ipcRenderer.on('jarvis:refresh-workspace-status', handler);
+      return () => ipcRenderer.removeListener('jarvis:refresh-workspace-status', handler);
+    },
     saveGoogleCredentials: (clientId, clientSecret) => ipcRenderer.invoke('jarvis:save-google-credentials', { clientId, clientSecret }),
     hasGoogleCredentials: () => ipcRenderer.invoke('jarvis:has-google-credentials'),
     connectNotion: (token) => ipcRenderer.invoke('jarvis:connect-notion', token),
