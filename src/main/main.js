@@ -1149,6 +1149,16 @@ ipcMain.handle('jarvis:disconnect-google', async () => {
   return { success };
 });
 
+ipcMain.handle('jarvis:save-google-credentials', async (event, { clientId, clientSecret }) => {
+  const googleWorkspace = require('./google_workspace');
+  return googleWorkspace.saveCredentials(clientId, clientSecret);
+});
+
+ipcMain.handle('jarvis:has-google-credentials', async () => {
+  const googleWorkspace = require('./google_workspace');
+  return { hasCredentials: !!googleWorkspace.getClientCredentials() };
+});
+
 // Notion Workspace Integration
 ipcMain.handle('jarvis:connect-notion', async (event, token) => {
   const notionWorkspace = require('./notion_workspace');

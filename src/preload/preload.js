@@ -81,6 +81,8 @@ try {
     connectGoogle: () => ipcRenderer.invoke('jarvis:connect-google'),
     disconnectGoogle: () => ipcRenderer.invoke('jarvis:disconnect-google'),
     getGoogleStatus: () => ipcRenderer.invoke('jarvis:get-google-status'),
+    saveGoogleCredentials: (clientId, clientSecret) => ipcRenderer.invoke('jarvis:save-google-credentials', { clientId, clientSecret }),
+    hasGoogleCredentials: () => ipcRenderer.invoke('jarvis:has-google-credentials'),
     connectNotion: (token) => ipcRenderer.invoke('jarvis:connect-notion', token),
     disconnectNotion: () => ipcRenderer.invoke('jarvis:disconnect-notion'),
     getNotionStatus: () => ipcRenderer.invoke('jarvis:get-notion-status'),

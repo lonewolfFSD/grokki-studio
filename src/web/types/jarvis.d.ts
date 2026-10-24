@@ -281,9 +281,11 @@ export interface Conversation {
 export interface JarvisAPI {
   getConfig: () => Promise<JarvisConfig>;
   saveConfig: (cfg: Partial<JarvisConfig>) => Promise<JarvisConfig>;
-  connectGoogle: () => Promise<{ success: boolean; message?: string; error?: string }>;
+  connectGoogle: () => Promise<{ success: boolean; message?: string; error?: string; needsCredentials?: boolean }>;
   disconnectGoogle?: () => Promise<{ success: boolean }>;
   getGoogleStatus: () => Promise<GoogleStatusResponse>;
+  saveGoogleCredentials?: (clientId: string, clientSecret: string) => Promise<{ success: boolean; error?: string }>;
+  hasGoogleCredentials?: () => Promise<{ hasCredentials: boolean }>;
   connectNotion?: (token?: string) => Promise<{ success: boolean; message?: string; profile?: NotionProfile; error?: string; needsInput?: boolean; mode?: 'oauth' | 'token' }>;
   disconnectNotion?: () => Promise<{ success: boolean }>;
   getNotionStatus?: () => Promise<NotionStatusResponse>;
