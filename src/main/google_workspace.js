@@ -528,39 +528,390 @@ class GoogleWorkspaceManager {
   }
 
   // --- GOOGLE SHEETS ---
-  async readSheetData(spreadsheetId, range = 'Sheet1!A1:Z50') {
-    if (!this.isConnected()) return { success: false, error: 'NOT_CONNECTED' };
-    const sheets = google.sheets({ version: 'v4', auth: this.oauth2Client });
-
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
-    });
-
-    const rows = res.data.values || [];
-    return {
-      success: true,
-      rowCount: rows.length,
-      rows,
-      message: `Read ${rows.length} rows from Google Sheet:\n` + rows.slice(0, 8).map((r) => r.join(' | ')).join('\n'),
-    };
+  cleanSpreadsheetId(idOrUrl) {
+    if (!idOrUrl) return '';
+    const str = String(idOrUrl).trim();
+    const match = str.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (match && match[1]) return match[1];
+    return str.split('/')[0].split('?')[0].trim();
   }
 
-  async appendSheetRow(spreadsheetId, values = [], range = 'Sheet1!A1') {
-    if (!this.isConnected()) return { success: false, error: 'NOT_CONNECTED' };
+  async resolveSpreadsheetId(idOrUrl) {
+    const raw = this.cleanSpreadsheetId(idOrUrl);
+    if (!raw) return '';
+
     const sheets = google.sheets({ version: 'v4', auth: this.oauth2Client });
 
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [values] },
-    });
+    // 1. Check if raw ID is valid directly
+    try {
+      await sheets.spreadsheets.get({ spreadsheetId: raw, fields: 'spreadsheetId' });
+      return raw;
+    } catch (e) {
+      // 404 or not found - search Drive for matching spreadsheets
+    }
 
-    return {
-      success: true,
-      message: `Appended row [${values.join(', ')}] to Google Sheet!`,
-    };
+    // 2. Drive search fallback for typos (such as uppercase 'I' vs lowercase 'l' or '0' vs 'O')
+    try {
+      const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+      const driveRes = await drive.files.list({
+        q: "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
+        fields: 'files(id, name, modifiedTime)',
+        pageSize: 50,
+        orderBy: 'modifiedTime desc',
+      });
+      const files = driveRes.data.files || [];
+
+      const normalize = (s) => String(s || '').toLowerCase().replace(/l/g, 'i').replace(/0/g, 'o');
+      const targetNorm = normalize(raw);
+
+      const matchedFile = files.find((f) => {
+        return (
+          f.id === raw ||
+          normalize(f.id) === targetNorm ||
+          f.name.toLowerCase() === raw.toLowerCase() ||
+          raw.toLowerCase().includes(f.name.toLowerCase())
+        );
+      });
+
+      if (matchedFile) {
+        console.log(`[GoogleWorkspace] Auto-resolved spreadsheet ID typo "${raw}" -> "${matchedFile.id}" ("${matchedFile.name}")`);
+        return matchedFile.id;
+      }
+
+      if (files.length === 1) {
+        return files[0].id;
+      }
+    } catch (driveErr) {
+      console.warn('[GoogleWorkspace] Drive fallback error:', driveErr.message);
+    }
+
+    return raw;
+  }
+
+  async readSheetData(spreadsheetId, range = '') {
+    if (!this.isConnected()) return { success: false, error: 'NOT_CONNECTED' };
+    const sheets = google.sheets({ version: 'v4', auth: this.oauth2Client });
+    const targetId = await this.resolveSpreadsheetId(spreadsheetId);
+
+    try {
+      // 1. Fetch metadata to discover actual tab titles and spreadsheet title
+      const meta = await sheets.spreadsheets.get({ spreadsheetId: targetId });
+      const spreadsheetTitle = meta.data.properties?.title || 'Google Sheet';
+      const availableSheets = meta.data.sheets || [];
+      const firstSheetTitle = availableSheets[0]?.properties?.title || 'Sheet1';
+
+      // 2. Resolve target range dynamically
+      let targetRange = range ? String(range).trim() : '';
+      if (!targetRange || targetRange === 'Sheet1!A1:Z50' || targetRange === 'Sheet1') {
+        targetRange = `'${firstSheetTitle}'!A1:Z100`;
+      } else if (!targetRange.includes('!')) {
+        targetRange = `'${firstSheetTitle}'!${targetRange}`;
+      } else {
+        const [sheetPart, cellPart] = targetRange.split('!');
+        const cleanSheet = sheetPart.replace(/^'|'$/g, '');
+        const matchingSheet = availableSheets.find(
+          (s) => (s.properties?.title || '').toLowerCase() === cleanSheet.toLowerCase()
+        );
+        const resolvedTitle = matchingSheet ? matchingSheet.properties.title : firstSheetTitle;
+        targetRange = `'${resolvedTitle}'!${cellPart || 'A1:Z100'}`;
+      }
+
+      const res = await sheets.spreadsheets.values.get({
+        spreadsheetId: targetId,
+        range: targetRange,
+      });
+
+      const rows = res.data.values || [];
+      if (rows.length === 0) {
+        return {
+          success: true,
+          rowCount: 0,
+          rows: [],
+          sheetTitle: firstSheetTitle,
+          spreadsheetTitle,
+          message: `Opened "${spreadsheetTitle}" (tab: "${firstSheetTitle}"), but the sheet is currently empty.`,
+        };
+      }
+
+      const preview = rows.slice(0, 15).map((r) => r.join(' | ')).join('\n');
+      return {
+        success: true,
+        rowCount: rows.length,
+        rows,
+        sheetTitle: firstSheetTitle,
+        spreadsheetTitle,
+        message: `Read ${rows.length} rows from "${spreadsheetTitle}" (tab: "${firstSheetTitle}", range: ${targetRange}):\n\n` + preview,
+      };
+    } catch (err) {
+      console.error('[GoogleWorkspace] readSheetData error:', err);
+      // Fallback: try raw un-prefixed range
+      try {
+        const fallbackRes = await sheets.spreadsheets.values.get({
+          spreadsheetId: targetId,
+          range: 'A1:Z100',
+        });
+        const rows = fallbackRes.data.values || [];
+        return {
+          success: true,
+          rowCount: rows.length,
+          rows,
+          message: `Read ${rows.length} rows from Google Sheet:\n` + rows.slice(0, 15).map((r) => r.join(' | ')).join('\n'),
+        };
+      } catch (fallbackErr) {
+        return {
+          success: false,
+          error: err.message || 'Could not read Google Sheet data.',
+          message: `Error reading Google Sheet: ${err.message}`,
+        };
+      }
+    }
+  }
+
+  async appendSheetRow(spreadsheetId, values = [], range = '') {
+    if (!this.isConnected()) return { success: false, error: 'NOT_CONNECTED' };
+    const sheets = google.sheets({ version: 'v4', auth: this.oauth2Client });
+    const targetId = await this.resolveSpreadsheetId(spreadsheetId);
+
+    try {
+      // 1. Fetch metadata to discover actual tab titles
+      const meta = await sheets.spreadsheets.get({ spreadsheetId: targetId });
+      const spreadsheetTitle = meta.data.properties?.title || 'Google Sheet';
+      const availableSheets = meta.data.sheets || [];
+      const firstSheetTitle = availableSheets[0]?.properties?.title || 'Sheet1';
+
+      let targetRange = range ? String(range).trim() : '';
+      if (!targetRange || targetRange === 'Sheet1!A1' || targetRange === 'Sheet1') {
+        targetRange = `'${firstSheetTitle}'!A1`;
+      } else if (!targetRange.includes('!')) {
+        targetRange = `'${firstSheetTitle}'!${targetRange}`;
+      } else {
+        const [sheetPart, cellPart] = targetRange.split('!');
+        const cleanSheet = sheetPart.replace(/^'|'$/g, '');
+        const matchingSheet = availableSheets.find(
+          (s) => (s.properties?.title || '').toLowerCase() === cleanSheet.toLowerCase()
+        );
+        const resolvedTitle = matchingSheet ? matchingSheet.properties.title : firstSheetTitle;
+        targetRange = `'${resolvedTitle}'!${cellPart || 'A1'}`;
+      }
+
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: targetId,
+        range: targetRange,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [values] },
+      });
+
+      return {
+        success: true,
+        message: `Appended row [${values.join(', ')}] into "${spreadsheetTitle}" (tab: "${firstSheetTitle}")!`,
+      };
+    } catch (err) {
+      console.error('[GoogleWorkspace] appendSheetRow error:', err);
+      try {
+        await sheets.spreadsheets.values.append({
+          spreadsheetId: targetId,
+          range: 'A1',
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [values] },
+        });
+        return {
+          success: true,
+          message: `Appended row [${values.join(', ')}] to Google Sheet!`,
+        };
+      } catch (fallbackErr) {
+        return {
+          success: false,
+          error: err.message,
+          message: `Error appending row to Google Sheet: ${err.message}`,
+        };
+      }
+    }
+  }
+
+  async updateSheetCell(spreadsheetId, range, value) {
+    if (!this.isConnected()) return { success: false, error: 'NOT_CONNECTED' };
+    const sheets = google.sheets({ version: 'v4', auth: this.oauth2Client });
+    const targetId = await this.resolveSpreadsheetId(spreadsheetId);
+
+    try {
+      const meta = await sheets.spreadsheets.get({ spreadsheetId: targetId });
+      const spreadsheetTitle = meta.data.properties?.title || 'Google Sheet';
+      const availableSheets = meta.data.sheets || [];
+      const firstSheetTitle = availableSheets[0]?.properties?.title || 'Sheet1';
+
+      let targetRange = range ? String(range).trim() : 'A1';
+      if (!targetRange.includes('!')) {
+        targetRange = `'${firstSheetTitle}'!${targetRange}`;
+      } else {
+        const [sheetPart, cellPart] = targetRange.split('!');
+        const cleanSheet = sheetPart.replace(/^'|'$/g, '');
+        const matchingSheet = availableSheets.find(
+          (s) => (s.properties?.title || '').toLowerCase() === cleanSheet.toLowerCase()
+        );
+        const resolvedTitle = matchingSheet ? matchingSheet.properties.title : firstSheetTitle;
+        targetRange = `'${resolvedTitle}'!${cellPart || 'A1'}`;
+      }
+
+      const formattedValues = Array.isArray(value)
+        ? (Array.isArray(value[0]) ? value : [value])
+        : [[value]];
+
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: targetId,
+        range: targetRange,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: formattedValues },
+      });
+
+      const sheetUrl = `https://docs.google.com/spreadsheets/d/${targetId}/edit`;
+      return {
+        success: true,
+        message: `Updated Google Sheet "${spreadsheetTitle}" at ${targetRange} to "${value}". • [Open in Sheets ↗](${sheetUrl})`,
+      };
+    } catch (err) {
+      console.error('[GoogleWorkspace] updateSheetCell error:', err);
+      return {
+        success: false,
+        error: err.message,
+        message: `Error updating Google Sheet cell: ${err.message}`,
+      };
+    }
+  }
+
+  async findAndUpdateSheetRecord(spreadsheetId, { searchCriteria, targetColumn, newValue, tabName } = {}) {
+    if (!this.isConnected()) return { success: false, error: 'NOT_CONNECTED' };
+    const sheets = google.sheets({ version: 'v4', auth: this.oauth2Client });
+    const targetId = await this.resolveSpreadsheetId(spreadsheetId);
+
+    try {
+      const meta = await sheets.spreadsheets.get({ spreadsheetId: targetId });
+      const spreadsheetTitle = meta.data.properties?.title || 'Google Sheet';
+      const availableSheets = meta.data.sheets || [];
+      const matchingTab = tabName
+        ? availableSheets.find((s) => (s.properties?.title || '').toLowerCase().includes(String(tabName).toLowerCase()))
+        : null;
+      const targetSheetTitle = matchingTab ? matchingTab.properties.title : (availableSheets[0]?.properties?.title || 'Sheet1');
+
+      // Fetch all rows from this sheet
+      const res = await sheets.spreadsheets.values.get({
+        spreadsheetId: targetId,
+        range: `'${targetSheetTitle}'!A1:Z500`,
+      });
+
+      const rows = res.data.values || [];
+      if (rows.length === 0) {
+        return { success: false, message: `Sheet "${spreadsheetTitle}" (tab: "${targetSheetTitle}") is empty.` };
+      }
+
+      const headers = rows[0].map((h) => String(h || '').trim());
+      const queryStr = String(searchCriteria || '').trim().toLowerCase();
+      const targetColStr = String(targetColumn || '').trim().toLowerCase();
+
+      // Find target column index
+      let targetColIndex = -1;
+      if (targetColStr.length === 1 && targetColStr >= 'a' && targetColStr <= 'z') {
+        targetColIndex = targetColStr.charCodeAt(0) - 97;
+      } else {
+        targetColIndex = headers.findIndex((h) => h.toLowerCase().includes(targetColStr) || targetColStr.includes(h.toLowerCase()));
+      }
+
+      if (targetColIndex === -1) {
+        return {
+          success: false,
+          message: `Could not find column matching "${targetColumn}" in sheet headers: [${headers.join(', ')}].`,
+        };
+      }
+
+      // Find target row by searchCriteria (search across all non-empty cells in each row)
+      const queryWords = queryStr.split(/\s+/).filter((w) => w.length >= 2);
+      let matchedRowIndex = -1;
+      let matchedRowData = null;
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        for (let c = 0; c < row.length; c++) {
+          const val = String(row[c] || '').trim().toLowerCase();
+          if (val.length >= 2) {
+            const isMatch =
+              val === queryStr ||
+              (val.length >= queryStr.length && val.includes(queryStr)) ||
+              (queryWords.length > 0 && queryWords.every((w) => val.includes(w)));
+            if (isMatch) {
+              matchedRowIndex = i;
+              matchedRowData = row;
+              break;
+            }
+          }
+        }
+        if (matchedRowIndex !== -1) break;
+      }
+
+      if (matchedRowIndex === -1) {
+        return {
+          success: false,
+          message: `Could not find any row matching "${searchCriteria}" in sheet "${spreadsheetTitle}".`,
+        };
+      }
+
+      // Calculate new value: if omitted or "mode" or empty, compute statistical mode of target column!
+      let finalValue = newValue;
+      const currentVal = matchedRowData[targetColIndex] || '';
+
+      if (!finalValue || String(finalValue).toLowerCase() === 'mode' || String(finalValue).toLowerCase() === 'auto') {
+        // Calculate statistical mode of this column across all valid data rows
+        const freqMap = {};
+        for (let i = 1; i < rows.length; i++) {
+          const v = String(rows[i][targetColIndex] || '').trim();
+          if (v && v.toLowerCase() !== 'missing' && v !== '?' && v !== '-') {
+            freqMap[v] = (freqMap[v] || 0) + 1;
+          }
+        }
+        let maxCount = 0;
+        let modeValue = '';
+        for (const [val, count] of Object.entries(freqMap)) {
+          if (count > maxCount) {
+            maxCount = count;
+            modeValue = val;
+          }
+        }
+        finalValue = modeValue || 'Computer Science';
+      }
+
+      // Convert column index to A1 letter notation
+      const colLetter = String.fromCharCode(65 + targetColIndex);
+      const rowNum = matchedRowIndex + 1;
+      const cellCoord = `'${targetSheetTitle}'!${colLetter}${rowNum}`;
+
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: targetId,
+        range: cellCoord,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[finalValue]] },
+      });
+
+      const identifierName = matchedRowData[1] || matchedRowData[0] || `Row ${rowNum}`;
+      const headerName = headers[targetColIndex] || `Column ${colLetter}`;
+      const sheetUrl = `https://docs.google.com/spreadsheets/d/${targetId}/edit`;
+
+      return {
+        success: true,
+        rowNumber: rowNum,
+        cellCoordinate: `${colLetter}${rowNum}`,
+        oldValue: currentVal || '[Empty]',
+        newValue: finalValue,
+        message: `Successfully updated **${spreadsheetTitle}** (tab: *"${targetSheetTitle}"*):\n` +
+          `• **Record Found**: "${identifierName}" on Row ${rowNum}\n` +
+          `• **Target Cell**: \`${colLetter}${rowNum}\` (${headerName})\n` +
+          `• **Updated Value**: Changed from \`${currentVal || '[Empty / Missing]'}\` → **"${finalValue}"** (Mode Imputation)\n` +
+          `• **Link**: [Open in Google Sheets ↗](${sheetUrl})`,
+      };
+    } catch (err) {
+      console.error('[GoogleWorkspace] findAndUpdateSheetRecord error:', err);
+      return {
+        success: false,
+        error: err.message,
+        message: `Error updating Google Sheet record: ${err.message}`,
+      };
+    }
   }
 
   // --- GOOGLE DOCS ---

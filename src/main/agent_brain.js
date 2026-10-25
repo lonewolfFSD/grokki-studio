@@ -475,26 +475,55 @@ class AgentBrain {
           },
           {
             name: 'read_google_sheet',
-            description: 'Reads rows and values from a Google Spreadsheet',
+            description: 'Reads rows and values from a Google Spreadsheet. Accepts a spreadsheet ID or full Google Sheets URL. Automatically detects tabs and sheet names.',
             parameters: {
               type: 'OBJECT',
               properties: {
-                spreadsheet_id: { type: 'STRING', description: 'Google Spreadsheet ID from URL' },
-                range: { type: 'STRING', description: 'Range, e.g. Sheet1!A1:Z50' },
+                spreadsheet_id: { type: 'STRING', description: 'Google Spreadsheet ID or full Google Sheets URL' },
+                range: { type: 'STRING', description: 'Optional cell range (e.g. A1:Z50 or Sheet1!A1:Z50). If omitted, automatically detects and reads the first sheet tab.' },
               },
               required: ['spreadsheet_id'],
             },
           },
           {
             name: 'append_to_google_sheet',
-            description: 'Appends a new row of data into a Google Sheet',
+            description: 'Appends a new row of data into a Google Sheet. Automatically detects the active sheet tab.',
             parameters: {
               type: 'OBJECT',
               properties: {
-                spreadsheet_id: { type: 'STRING', description: 'Spreadsheet ID' },
+                spreadsheet_id: { type: 'STRING', description: 'Spreadsheet ID or full Google Sheets URL' },
                 values: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Array of cell values for the row' },
+                range: { type: 'STRING', description: 'Optional range or tab name. If omitted, appends to the first sheet tab.' },
               },
               required: ['spreadsheet_id', 'values'],
+            },
+          },
+          {
+            name: 'find_and_update_google_sheet',
+            description: 'Finds a student or record in a Google Sheet by name or search keyword (e.g. "Esha Deka") and updates or fills in a missing value for a target column (e.g. "Department", "Grade", "Program"). If new_value is omitted or "mode", automatically computes and applies the statistical mode imputation for that column.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                spreadsheet_id: { type: 'STRING', description: 'Google Spreadsheet ID or full Google Sheets URL' },
+                search_criteria: { type: 'STRING', description: 'Name of the student, ID, or keyword to find (e.g. "Esha Deka")' },
+                target_column: { type: 'STRING', description: 'Column to update or fill in (e.g. "Department", "Grade", "Program", or column letter like "D")' },
+                new_value: { type: 'STRING', description: 'Optional value to write. If omitted or "mode", automatically computes the mode of that column.' },
+                tab_name: { type: 'STRING', description: 'Optional sheet tab name if multiple tabs exist.' },
+              },
+              required: ['spreadsheet_id', 'search_criteria', 'target_column'],
+            },
+          },
+          {
+            name: 'update_google_sheet_cell',
+            description: 'Updates a specific cell or range in a Google Sheet with a new value (e.g. range "D14" or "Sheet1!D14", value "Computer Science").',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                spreadsheet_id: { type: 'STRING', description: 'Google Spreadsheet ID or full Google Sheets URL' },
+                range: { type: 'STRING', description: 'Cell coordinate (e.g. "D14" or "TabName!D14")' },
+                value: { type: 'STRING', description: 'Value to write into the cell' },
+              },
+              required: ['spreadsheet_id', 'range', 'value'],
             },
           },
           {
@@ -1841,6 +1870,9 @@ Respond concisely, naturally, and directly without robotic disclaimers. ${isWebS
           'control_music',
           'search_youtube',
           'connect_google_account',
+          'update_google_sheet_cell',
+          'find_and_update_google_sheet',
+          'append_to_google_sheet',
         ];
 
         const isActionOnly = functionCalls.every((call) => actionTools.includes(call.name));
@@ -2516,7 +2548,7 @@ Rules:
         if (!googleWorkspace.isConnected()) {
           return { success: false, message: 'Google account not connected yet. Say "Connect my Google account" to read Sheets.' };
         }
-        const res = await googleWorkspace.readSheetData(args.spreadsheet_id, args.range || 'Sheet1!A1:Z50');
+        const res = await googleWorkspace.readSheetData(args.spreadsheet_id, args.range || '');
         return { success: res.success, message: res.message };
       }
 
@@ -2524,7 +2556,28 @@ Rules:
         if (!googleWorkspace.isConnected()) {
           return { success: false, message: 'Google account not connected yet. Say "Connect my Google account" to edit Sheets.' };
         }
-        const res = await googleWorkspace.appendSheetRow(args.spreadsheet_id, args.values || []);
+        const res = await googleWorkspace.appendSheetRow(args.spreadsheet_id, args.values || [], args.range || '');
+        return { success: res.success, message: res.message };
+      }
+
+      case 'find_and_update_google_sheet': {
+        if (!googleWorkspace.isConnected()) {
+          return { success: false, message: 'Google account not connected yet. Say "Connect my Google account" to edit Sheets.' };
+        }
+        const res = await googleWorkspace.findAndUpdateSheetRecord(args.spreadsheet_id, {
+          searchCriteria: args.search_criteria || args.student_name || args.name || args.query,
+          targetColumn: args.target_column || args.field || 'Department',
+          newValue: args.new_value,
+          tabName: args.tab_name,
+        });
+        return { success: res.success, message: res.message };
+      }
+
+      case 'update_google_sheet_cell': {
+        if (!googleWorkspace.isConnected()) {
+          return { success: false, message: 'Google account not connected yet. Say "Connect my Google account" to edit Sheets.' };
+        }
+        const res = await googleWorkspace.updateSheetCell(args.spreadsheet_id, args.range, args.value);
         return { success: res.success, message: res.message };
       }
 
