@@ -40,7 +40,7 @@ function shouldAutoSearchWeb(prompt = '') {
   // Year-based queries for 2024-2029 (knowledge cutoff evasion)
   if (/\b(202[4-9]|203\d)\b/.test(p)) return true;
   // High-frequency factual questions: who won, who is the current, winner of, stock price of, etc.
-  if (/\b(who\s+won|who\s+is\s+the\s+current|winner\s+of|champions?\s+of|score\s+of|release\s+date\s+of|when\s+is\s+the\s+next|price\s+of|nobel\s+prize|election|president\s+of|ceo\s+of)\b/i.test(p)) return true;
+  if (/\b(exchange\s*rate|currency|forex|fx\s*rate|who\s+won|who\s+is\s+the\s+current|winner\s+of|champions?\s+of|score\s+of|release\s+date\s+of|when\s+is\s+the\s+next|price\s+of|stock\s+price|crypto\s+price|weather\s*(in|for)?|nobel\s+prize|election|president\s+of|ceo\s+of)\b/i.test(p)) return true;
   return false;
 }
 
@@ -1455,10 +1455,10 @@ class AgentBrain {
 
     // Groq Free Tier optimization: keep prompt lean (<3500 tokens) to guarantee zero 413 ITPM errors
     if (provider === 'groq') {
-      systemContent = `You are Grokki, a fast, highly concise AI assistant for Windows.
+      systemContent = `You are Grokki, a fast, highly concise AI assistant for Windows${isWebSearchActive ? ' with active real-time web search capabilities' : ''}.
 User: ${config.userNickname || config.userName || 'Friend'}.
 Tone: ${config.userTone || 'warm, friendly, direct'}.
-Respond concisely, naturally, and directly without robotic disclaimers. Use clean Markdown formatting.`;
+Respond concisely, naturally, and directly without robotic disclaimers. ${isWebSearchActive ? 'When live web search grounding is provided, answer directly with the real-time facts and numbers without robotic disclaimers. ' : ''}Use clean Markdown formatting.`;
       historyToUse = rawHistory.slice(-2);
     }
 
