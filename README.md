@@ -5,17 +5,17 @@
     <source media="(prefers-color-scheme: light)" srcset="assets/grokki_wordmark_light.png">
     <img src="assets/grokki_wordmark.png" alt="Grokki Studio" width="440">
   </picture>
-  <br />
-  <br />
-  <h3>Autonomous AI desktop companion living in an Apple-style Dynamic Island.</h3>
-  <p>Real-time desktop vision, physical OS mouse and keyboard automation, 65+ native Windows tools, and hybrid local/cloud intelligence.<br />Summoned instantly anywhere with Alt+Q.</p>
-  <p>
+    <p>
     <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-27272a?style=flat&logo=windows&logoColor=white&labelColor=18181b">
     <img alt="Electron" src="https://img.shields.io/badge/Electron-44.7-27272a?style=flat&logo=electron&logoColor=white&labelColor=18181b">
     <img alt="React" src="https://img.shields.io/badge/React-19-27272a?style=flat&logo=react&logoColor=61DAFB&labelColor=18181b">
     <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-7.0-27272a?style=flat&logo=typescript&logoColor=white&labelColor=18181b">
     <img alt="License" src="https://img.shields.io/badge/License-Non--Commercial-27272a?style=flat&labelColor=18181b">
   </p>
+
+  <h3>Autonomous AI desktop companion living in an Apple-style Dynamic Island.</h3>
+  <p>Real-time desktop vision, physical OS mouse and keyboard automation, 65+ native Windows tools, and hybrid local/cloud intelligence.<br />Summoned instantly anywhere with Alt+Q.</p>
+
   <p>
     <a href="#features"><strong>Features</strong></a> ·
     <a href="#screenshots"><strong>Screenshots</strong></a> ·
