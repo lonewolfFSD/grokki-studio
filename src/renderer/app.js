@@ -887,11 +887,117 @@ document.addEventListener('DOMContentLoaded', async () => {
     handleSlashInputChange();
   });
 
+  const mainInputMirror = document.getElementById('mainInputMirror');
+
+  function detectIslandBrandIcon(url) {
+    if (/github\.com|github\.io/i.test(url)) return 'fa-brands fa-github';
+    if (/gitlab\.com/i.test(url)) return 'fa-brands fa-gitlab';
+    if (/bitbucket\.org/i.test(url)) return 'fa-brands fa-bitbucket';
+    if (/youtube\.com|youtu\.be/i.test(url)) return 'fa-brands fa-youtube';
+    if (/docs\.google\.com\/spreadsheets|sheets\.google\.com/i.test(url)) return 'fa-solid fa-table-cells';
+    if (/docs\.google\.com\/document/i.test(url)) return 'fa-solid fa-file-lines';
+    if (/drive\.google\.com/i.test(url)) return 'fa-brands fa-google-drive';
+    if (/google\.com|mail\.google\.com/i.test(url)) return 'fa-brands fa-google';
+    if (/twitter\.com|(?:^|\/\/|\.)x\.com/i.test(url)) return 'fa-brands fa-x-twitter';
+    if (/discord\.com|discord\.gg/i.test(url)) return 'fa-brands fa-discord';
+    if (/figma\.com/i.test(url)) return 'fa-brands fa-figma';
+    if (/reddit\.com|redd\.it/i.test(url)) return 'fa-brands fa-reddit';
+    if (/spotify\.com/i.test(url)) return 'fa-brands fa-spotify';
+    if (/linkedin\.com/i.test(url)) return 'fa-brands fa-linkedin';
+    if (/stackoverflow\.com|stackexchange\.com/i.test(url)) return 'fa-brands fa-stack-overflow';
+    if (/whatsapp\.com|wa\.me/i.test(url)) return 'fa-brands fa-whatsapp';
+    if (/t\.me|telegram\.org|telegram\.me/i.test(url)) return 'fa-brands fa-telegram';
+    if (/npmjs\.com/i.test(url)) return 'fa-brands fa-npm';
+    if (/wikipedia\.org/i.test(url)) return 'fa-brands fa-wikipedia-w';
+    if (/amazon\.[a-z.]+|amzn\.to/i.test(url)) return 'fa-brands fa-amazon';
+    if (/twitch\.tv/i.test(url)) return 'fa-brands fa-twitch';
+    if (/medium\.com/i.test(url)) return 'fa-brands fa-medium';
+    if (/dribbble\.com/i.test(url)) return 'fa-brands fa-dribbble';
+    if (/instagram\.com/i.test(url)) return 'fa-brands fa-instagram';
+    if (/tiktok\.com/i.test(url)) return 'fa-brands fa-tiktok';
+    if (/facebook\.com/i.test(url)) return 'fa-brands fa-facebook';
+    return 'fa-solid fa-globe';
+  }
+
+  function escapeIslandHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function syncIslandMirrorScroll() {
+    if (mainInputMirror && mainInput) {
+      mainInputMirror.scrollLeft = mainInput.scrollLeft;
+    }
+  }
+
+  mainInput.addEventListener('scroll', syncIslandMirrorScroll);
+  mainInput.addEventListener('keyup', syncIslandMirrorScroll);
+  mainInput.addEventListener('click', (e) => {
+    syncIslandMirrorScroll();
+    if (e.ctrlKey || e.metaKey) {
+      const val = mainInput.value || '';
+      const matches = [...val.matchAll(/https?:\/\/[^\s]+/gi)];
+      if (matches.length > 0) {
+        const cursor = typeof mainInput.selectionStart === 'number' ? mainInput.selectionStart : 0;
+        const hoveredMatch = matches.find(m => cursor >= m.index && cursor <= m.index + m[0].length) || matches[0];
+        if (hoveredMatch) {
+          const cleanUrl = hoveredMatch[0].replace(/[),.;:!]+$/, '');
+          if (window.jarvisAPI && typeof window.jarvisAPI.openUrl === 'function') {
+            window.jarvisAPI.openUrl(cleanUrl);
+          } else {
+            window.open(cleanUrl, '_blank', 'noopener,noreferrer');
+          }
+        }
+      }
+    }
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Control' || e.key === 'Meta') {
+      mainInput.classList.add('ctrl-held');
+    }
+  });
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'Control' || e.key === 'Meta') {
+      mainInput.classList.remove('ctrl-held');
+    }
+  });
+  window.addEventListener('blur', () => {
+    mainInput.classList.remove('ctrl-held');
+  });
+
   function updateSendButtonState() {
-    if (mainInput.value.trim().length > 0) {
+    const val = mainInput.value || '';
+    if (val.trim().length > 0) {
       sendBtn.classList.add('has-text');
     } else {
       sendBtn.classList.remove('has-text');
+    }
+
+    if (/(https?:\/\/[^\s]+)/i.test(val) && mainInputMirror) {
+      const parts = val.split(/(https?:\/\/[^\s]+)/gi);
+      mainInputMirror.innerHTML = parts
+        .map((part) => {
+          if (/^https?:\/\/[^\s]+$/i.test(part)) {
+            const clean = part.replace(/[),.;:!]+$/, '');
+            const trailing = part.slice(clean.length);
+            const iconCls = detectIslandBrandIcon(clean);
+            return `<span class="island-inline-url"><i class="${iconCls}"></i><span>${escapeIslandHtml(clean)}</span></span>${escapeIslandHtml(trailing)}`;
+          }
+          return `<span>${escapeIslandHtml(part)}</span>`;
+        })
+        .join('');
+      mainInputMirror.classList.add('active');
+      mainInput.classList.add('has-brand-link');
+      requestAnimationFrame(syncIslandMirrorScroll);
+    } else {
+      if (mainInputMirror) {
+        mainInputMirror.innerHTML = '';
+        mainInputMirror.classList.remove('active');
+      }
+      mainInput.classList.remove('has-brand-link');
     }
   }
 

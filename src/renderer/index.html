@@ -58,14 +58,17 @@
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
-          <input 
-            type="text" 
-            id="mainInput" 
-            class="main-input" 
-            placeholder="Ask Grokki, drop a file, or give an order..." 
-            autocomplete="off"
-            spellcheck="false"
-          />
+          <div class="main-input-wrapper">
+            <div id="mainInputMirror" class="main-input-mirror" aria-hidden="true"></div>
+            <input 
+              type="text" 
+              id="mainInput" 
+              class="main-input" 
+              placeholder="Ask Grokki, drop a file, or give an order..." 
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
         </div>
 
         <!-- Mode A: Controls Group -->

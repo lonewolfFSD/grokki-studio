@@ -1,5 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
+  RichBrandInput,
+  renderContentWithBrandLinks,
+} from '../../utils/brandLinks';
+import {
   ArrowUp,
   Mic,
   Plus,
@@ -1303,7 +1307,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLElement | null>(null);
 
   // Voice Synthesizer & Speech-to-Text State
   const [isRecording, setIsRecording] = useState(false);
@@ -2180,7 +2184,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
     if (isMentionMode && scannedFiles.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -2952,16 +2956,15 @@ export const ChatTab = React.memo<ChatTabProps>(({
               </div>
             )}
 
-            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5">
+            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5 text-left">
               {/* Battle Stage Selector when Dual-Battle Mode is active */}
               {dualBattleEnabled && renderBattleStageBar('top')}
 
-              {/* Input Field on Top */}
-              <input
-                ref={inputRef}
-                type="text"
+              {/* Input Field on Top with Inline Brand Icon & Grokki Blue URL Highlighting */}
+              <RichBrandInput
+                inputRef={inputRef}
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
+                onChange={setInputValue}
                 onKeyDown={handleKeyDown}
                 placeholder={
                   isRecording
@@ -2974,7 +2977,6 @@ export const ChatTab = React.memo<ChatTabProps>(({
                     ? "Ask Grokki to compare both AI Brains side-by-side..."
                     : "Type / for slash commands, or ask Grokki anything..."
                 }
-                className="w-full bg-transparent border-none outline-none text-xs md:text-[13px] text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans px-1 pt-0.5 pb-0.5"
                 autoFocus
               />
 
@@ -3232,7 +3234,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                         )
                       )}
                       <p className="whitespace-pre-wrap m-0 leading-relaxed text-[13px]">
-                        {msg.content}
+                        {renderContentWithBrandLinks(msg.content)}
                       </p>
                     </div>
                   ) : (
@@ -3698,12 +3700,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
               {/* Battle Stage Selector when Dual-Battle Mode is active */}
               {dualBattleEnabled && renderBattleStageBar('top')}
 
-              {/* Input Field on Top */}
-              <input
-                ref={inputRef}
-                type="text"
+              {/* Input Field on Top with Inline Brand Icon & Grokki Blue URL Highlighting */}
+              <RichBrandInput
+                inputRef={inputRef}
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
+                onChange={setInputValue}
                 onKeyDown={handleKeyDown}
                 placeholder={
                   isRecording
@@ -3716,7 +3717,6 @@ export const ChatTab = React.memo<ChatTabProps>(({
                     ? "Ask Grokki to compare both AI Brains side-by-side..."
                     : "Type / for direct slash commands, or ask anything..."
                 }
-                className="w-full bg-transparent border-none outline-none text-xs md:text-[13px] text-gray-900 dark:text-gray-100 placeholder-gray-400 font-sans px-1 pt-0.5 pb-0.5"
               />
 
               {/* Bottom Row Below Input: Plus & Model Selector on Left, Mic & Send on Right */}
