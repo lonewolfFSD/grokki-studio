@@ -111,12 +111,12 @@ export const CURATED_MODELS: Record<string, { value: string; label: string; tag?
     { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash', tag: 'Legacy' },
   ],
   groq: [
-    { value: 'llama-3.3-70b-versatile', label: 'llama-3.3-70b-versatile', tag: 'Recommended' },
-    { value: 'llama-3.1-8b-instant', label: 'llama-3.1-8b-instant', tag: '500+ T/s' },
+    { value: 'openai/gpt-oss-120b', label: 'openai/gpt-oss-120b', tag: 'Recommended 120B' },
+    { value: 'openai/gpt-oss-20b', label: 'openai/gpt-oss-20b', tag: 'Ultra-Fast 20B' },
+    { value: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'meta-llama/llama-4-scout-17b-16e-instruct', tag: 'Llama 4 Scout' },
     { value: 'deepseek-r1-distill-llama-70b', label: 'deepseek-r1-distill-llama-70b', tag: 'Reasoning' },
-    { value: 'mixtral-8x7b-32768', label: 'mixtral-8x7b-32768', tag: '32k MoE' },
-    { value: 'gemma2-9b-it', label: 'gemma2-9b-it', tag: 'Google' },
-    { value: 'openai/gpt-oss-120b', label: 'openai/gpt-oss-120b', tag: 'Groq OSS' },
+    { value: 'llama-3.3-70b-versatile', label: 'llama-3.3-70b-versatile', tag: 'Llama 3.3 70B' },
+    { value: 'llama-3.1-8b-instant', label: 'llama-3.1-8b-instant', tag: '500+ T/s' },
   ],
   ollama: [
     { value: 'llama3.2', label: 'llama3.2', tag: 'Fast 3B' },

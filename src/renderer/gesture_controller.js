@@ -1,384 +1,722 @@
 /**
- * Grokki Touchless Presentation Controller
- * 1. Iron Man Style: Optical Motion Vector Webcam Hand Gesture Control
- *    - Wave Hand Right ➔ Next Slide
- *    - Wave Hand Left ⬅️ Previous Slide
- *    - Open Palm Hold ✋ Blackout Screen (PowerPoint/Google Slides 'B' key)
- * 2. Contextual Voice Cueing (Natural & Hands-Free)
- *    - Direct: "Next slide", "Previous slide", "Blank screen"
- *    - Contextual: "Moving on to the next topic...", "As you can see on the next slide..."
+ * Grokki Spatial Controller (MediaPipe AI Python Edition)
+ * Modes:
+ * 1. AIR-CURSOR SPATIAL CONTROL:
+ *    - Hand spatial pointer with adaptive EMA filtering (zero jitter)
+ *    - Pinch Thumb + Index -> Native Left Click & Drag
+ *    - Pinch Thumb + Middle -> Right Click
+ *    - 2 Fingers Up (Index + Middle) -> Smooth Document Scrolling
+ *    - Fist / Rest Hand -> Cursor Parked (Zero accidental clicks)
+ * 2. PRESENTATION MODE:
+ *    - 2 Fingers (Index + Middle) -> Next Slide
+ *    - 3 Fingers (Index + Middle + Ring) -> Previous Slide
+ *    - Open Palm Hold -> Blank Screen ('b' key)
+ * 3. NATIVE DRAGGING & INSTANT HARDWARE CAMERA RELEASE
  */
 
 class PresentationGestureController {
   constructor() {
     this.isActive = false;
-    this.videoEl = null;
-    this.canvasEl = null;
-    this.ctx = null;
-    this.stream = null;
-    this.animId = null;
+    this.currentMode = 'presentation'; // 'presentation' or 'air_cursor'
 
-    // Optical Motion Tracking
-    this.prevFrame = null;
-    this.motionHistory = [];
-    this.lastTriggerTime = 0;
-    this.cooldownMs = 750;
-
-    // Voice Cue Recognition
-    this.speechRecognizer = null;
-    this.isListeningVoice = false;
-
-    // UI HUD
+    // UI Elements
     this.hudEl = null;
+    this.sensorDotEl = null;
+    this.statusTextEl = null;
+    this.airBadgeEl = null;
+    this.airRadarDotEl = null;
+    this.slidesViewEl = null;
+    this.airViewEl = null;
+    this.slidesTabBtn = null;
+    this.airTabBtn = null;
+    this.prevIslandDisplay = '';
+    this.feedbackTimer = null;
+
     this.createHud();
+    this.listenToPythonDaemon();
   }
 
   createHud() {
     if (document.getElementById('grokki-presentation-hud')) return;
 
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `
+      #grokki-presentation-hud {
+        display: none;
+        position: fixed;
+        top: 16px;
+        left: calc(50% - 165px);
+        z-index: 99999;
+        width: 330px;
+        background: radial-gradient(140% 120% at 50% -20%, rgba(255, 255, 255, 0.15) 0%, rgba(18, 20, 28, 0.90) 45%, rgba(9, 10, 15, 0.96) 100%);
+        backdrop-filter: blur(48px) saturate(210%);
+        -webkit-backdrop-filter: blur(48px) saturate(210%);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.88),
+                    0 8px 24px -6px rgba(0, 0, 0, 0.55),
+                    inset 0 1px 0.5px 0 rgba(255, 255, 255, 0.55);
+        border-radius: 24px;
+        padding: 13px 15px;
+        color: #f8fafc;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+        user-select: none;
+        -webkit-app-region: drag;
+        animation: presHudSlideIn 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+        cursor: grab;
+      }
+
+      #grokki-presentation-hud:active {
+        cursor: grabbing;
+      }
+
+      @keyframes presHudSlideIn {
+        from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      .pres-hud-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 11px;
+        -webkit-app-region: drag;
+      }
+
+      .pres-hud-mode-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        padding: 2.5px 3.5px;
+        -webkit-app-region: no-drag !important;
+      }
+
+      .pres-mode-btn {
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.6);
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+        -webkit-app-region: no-drag !important;
+      }
+
+      .pres-mode-btn:hover {
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .pres-mode-btn.active {
+        background: rgba(56, 189, 248, 0.22);
+        border: 1px solid rgba(56, 189, 248, 0.45);
+        color: #38bdf8;
+        font-weight: 600;
+        box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+      }
+
+      .pres-hud-close {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        color: rgba(255, 255, 255, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 12px;
+        -webkit-app-region: no-drag !important;
+        transition: all 0.18s ease;
+      }
+
+      .pres-hud-close:hover {
+        background: rgba(239, 68, 68, 0.28);
+        border-color: rgba(239, 68, 68, 0.55);
+        color: #fca5a5;
+        transform: scale(1.1);
+      }
+
+      .pres-hud-close:active {
+        transform: scale(0.95);
+      }
+
+      /* Mode 1: Slides Track Bar */
+      .pres-sensor-track {
+        position: relative;
+        height: 22px;
+        border-radius: 11px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px;
+        margin-bottom: 9px;
+        overflow: hidden;
+        -webkit-app-region: no-drag !important;
+      }
+
+      .pres-sensor-zone-label {
+        font-size: 9.5px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.35);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        z-index: 2;
+        pointer-events: none;
+      }
+
+      .pres-sensor-dot {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 28px;
+        height: 14px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(56, 189, 248, 0.65) 0%, rgba(56, 189, 248, 0.15) 100%);
+        border: 1px solid rgba(56, 189, 248, 0.8);
+        box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+        transform: translate(-50%, -50%);
+        transition: left 0.06s linear, background 0.15s ease, transform 0.15s ease;
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      /* Mode 2: Air Cursor Spatial Radar */
+      .air-radar-box {
+        position: relative;
+        height: 38px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        margin-bottom: 9px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-app-region: no-drag !important;
+      }
+
+      .air-radar-grid {
+        position: absolute;
+        inset: 0;
+        background-size: 16px 16px;
+        background-image: radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+        pointer-events: none;
+      }
+
+      .air-radar-dot {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #38bdf8;
+        box-shadow: 0 0 12px #38bdf8;
+        border: 2px solid #ffffff;
+        transform: translate(-50%, -50%);
+        transition: left 0.05s linear, top 0.05s linear, background 0.15s ease, transform 0.15s ease;
+        z-index: 2;
+        pointer-events: none;
+      }
+
+      .air-radar-dot.pinched {
+        background: #34d399 !important;
+        box-shadow: 0 0 18px #34d399 !important;
+        transform: translate(-50%, -50%) scale(1.3) !important;
+      }
+
+      .air-gestures-guide {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 9.5px;
+        color: rgba(255, 255, 255, 0.42);
+        margin-bottom: 9px;
+        padding: 0 4px;
+      }
+
+      .air-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2.5px 8px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 600;
+        background: rgba(56, 189, 248, 0.14);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        color: #38bdf8;
+      }
+
+      .pres-status-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 11.5px;
+        color: rgba(255, 255, 255, 0.72);
+        margin-bottom: 10px;
+        min-height: 20px;
+        -webkit-app-region: drag;
+      }
+
+      .pres-status-left {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .pres-controls-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 6px;
+        -webkit-app-region: no-drag !important;
+      }
+
+      .pres-ctrl-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.11);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.88);
+        padding: 6px 8px;
+        border-radius: 11px;
+        cursor: pointer;
+        font-size: 11.5px;
+        font-weight: 500;
+        -webkit-app-region: no-drag !important;
+        transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .pres-ctrl-btn:hover {
+        background: rgba(255, 255, 255, 0.14);
+        border-color: rgba(255, 255, 255, 0.25);
+        color: #ffffff;
+        transform: translateY(-1px);
+      }
+
+      .pres-ctrl-btn:active {
+        transform: scale(0.95);
+      }
+
+      .pres-ctrl-btn.primary {
+        background: rgba(56, 189, 248, 0.16);
+        border-color: rgba(56, 189, 248, 0.38);
+        color: #38bdf8;
+        font-weight: 600;
+      }
+
+      .pres-ctrl-btn.primary:hover {
+        background: rgba(56, 189, 248, 0.26);
+        border-color: rgba(56, 189, 248, 0.6);
+        color: #7dd3fc;
+      }
+    `;
+    document.head.appendChild(styleEl);
+
     const hud = document.createElement('div');
     hud.id = 'grokki-presentation-hud';
-    hud.style.cssText = `
-      display: none;
-      position: fixed;
-      top: 14px;
-      right: 18px;
-      z-index: 99999;
-      background: rgba(15, 23, 42, 0.92);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
-      border-radius: 12px;
-      padding: 10px 14px;
-      color: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 12px;
-      min-width: 250px;
-      transition: all 0.25s ease;
-      user-select: none;
-    `;
-
     hud.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-        <div style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: #38bdf8;">
-          <span style="font-size: 14px;">📽️</span> Presentation Mode Active
+      <div class="pres-hud-header" title="Drag anywhere on header to move floating HUD">
+        <div class="pres-hud-mode-pill">
+          <button id="pres-tab-slides" class="pres-mode-btn active" title="Slides Mode (2 & 3 fingers)">
+            <i class="fa-solid fa-display"></i>
+            <span>Slides</span>
+          </button>
+          <button id="pres-tab-aircursor" class="pres-mode-btn" title="Air Cursor (Spatial Mouse Pointer)">
+            <i class="fa-solid fa-arrow-pointer"></i>
+            <span>Air Cursor</span>
+          </button>
         </div>
-        <button id="close-pres-hud-btn" style="background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 13px; line-height: 1;">✕</button>
+        <button id="close-pres-hud-btn" class="pres-hud-close" title="Exit Mode & Turn Off Camera">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
-      <div id="pres-status-text" style="color: #cbd5e1; font-size: 11px; margin-bottom: 8px;">
-        🖐️ Wave Left/Right to change slides | 🗣️ "Next slide"
+
+      <!-- Mode View A: Slides Mode -->
+      <div id="pres-view-slides">
+        <div class="pres-sensor-track" title="Live Optical Hand Sensor">
+          <span class="pres-sensor-zone-label"><i class="fa-solid fa-hand"></i> 3 Fingers (Prev)</span>
+          <div id="pres-sensor-dot" class="pres-sensor-dot"></div>
+          <span class="pres-sensor-zone-label">2 Fingers (Next) <i class="fa-solid fa-peace"></i></span>
+        </div>
+
+        <div class="pres-controls-grid">
+          <button id="pres-prev-btn" class="pres-ctrl-btn" title="Previous Slide (3 Fingers)">
+            <i class="fa-solid fa-chevron-left"></i>
+            <span>Prev (3)</span>
+          </button>
+          <button id="pres-black-btn" class="pres-ctrl-btn" title="Blackout Screen (Hold 5)">
+            <i class="fa-solid fa-eye-slash"></i>
+            <span>Blank (5)</span>
+          </button>
+          <button id="pres-next-btn" class="pres-ctrl-btn primary" title="Next Slide (2 Fingers)">
+            <span>Next (2)</span>
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
       </div>
-      <div style="display: flex; gap: 6px;">
-        <button id="pres-prev-btn" style="flex: 1; background: rgba(51, 65, 85, 0.6); border: 1px solid rgba(148, 163, 184, 0.25); color: #f8fafc; padding: 4px 6px; border-radius: 6px; cursor: pointer; font-size: 11px;">⬅️ Prev</button>
-        <button id="pres-black-btn" style="flex: 1; background: rgba(51, 65, 85, 0.6); border: 1px solid rgba(148, 163, 184, 0.25); color: #f8fafc; padding: 4px 6px; border-radius: 6px; cursor: pointer; font-size: 11px;">⏹️ Blank</button>
-        <button id="pres-next-btn" style="flex: 1; background: rgba(14, 165, 233, 0.25); border: 1px solid rgba(56, 189, 248, 0.5); color: #38bdf8; padding: 4px 6px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600;">Next ➡️</button>
+
+      <!-- Mode View B: Air Cursor Mode -->
+      <div id="pres-view-air" style="display: none;">
+        <div class="air-radar-box" title="Spatial Interaction Radar">
+          <div class="air-radar-grid"></div>
+          <div id="air-radar-dot" class="air-radar-dot"></div>
+        </div>
+
+        <div class="air-gestures-guide">
+          <span><i class="fa-solid fa-hand-pointer"></i> Move: Glide</span>
+          <span><i class="fa-solid fa-hand-holding"></i> Pinch: Click/Drag</span>
+          <span><i class="fa-solid fa-arrows-up-down"></i> 2-Fingers: Scroll</span>
+        </div>
+      </div>
+
+      <!-- Shared Status Row -->
+      <div class="pres-status-row">
+        <div id="pres-status-text" class="pres-status-left">
+          <i class="fa-solid fa-spinner fa-spin" style="color: #38bdf8;"></i>
+          <span>Starting Spatial 1-Hand AI...</span>
+        </div>
+        <span id="air-status-badge" class="air-badge" style="display: none;">
+          <i class="fa-solid fa-arrow-pointer"></i> Moving
+        </span>
       </div>
     `;
 
     document.body.appendChild(hud);
     this.hudEl = hud;
+    this.sensorDotEl = document.getElementById('pres-sensor-dot');
+    this.statusTextEl = document.getElementById('pres-status-text');
+    this.airBadgeEl = document.getElementById('air-status-badge');
+    this.airRadarDotEl = document.getElementById('air-radar-dot');
+    this.slidesViewEl = document.getElementById('pres-view-slides');
+    this.airViewEl = document.getElementById('pres-view-air');
+    this.slidesTabBtn = document.getElementById('pres-tab-slides');
+    this.airTabBtn = document.getElementById('pres-tab-aircursor');
 
-    // HUD Button Handlers
-    document.getElementById('pres-prev-btn').addEventListener('click', () => this.triggerSlide('prev', 'Manual Prev'));
-    document.getElementById('pres-black-btn').addEventListener('click', () => this.triggerSlide('blackout', 'Manual Blank'));
-    document.getElementById('pres-next-btn').addEventListener('click', () => this.triggerSlide('next', 'Manual Next'));
-    document.getElementById('close-pres-hud-btn').addEventListener('click', () => this.stop());
-  }
+    // Controls
+    document.getElementById('pres-prev-btn').addEventListener('click', () => this.triggerManual('prev'));
+    document.getElementById('pres-black-btn').addEventListener('click', () => this.triggerManual('blackout'));
+    document.getElementById('pres-next-btn').addEventListener('click', () => this.triggerManual('next'));
 
-  showFeedback(text, isNext = true) {
-    if (!this.hudEl) return;
-    const statusText = document.getElementById('pres-status-text');
-    if (statusText) {
-      statusText.innerHTML = `<span style="color: ${isNext ? '#4ade80' : '#f59e0b'}; font-weight: 600;">${text}</span>`;
-      setTimeout(() => {
-        if (this.isActive && statusText) {
-          statusText.innerHTML = '🖐️ Wave Left/Right to change slides | 🗣️ "Next slide"';
-        }
-      }, 1500);
+    // Mode Tabs
+    this.slidesTabBtn.addEventListener('click', () => this.switchMode('presentation'));
+    this.airTabBtn.addEventListener('click', () => this.switchMode('air_cursor'));
+
+    // Close button: explicitly stop mode and shut down camera
+    const closeBtn = document.getElementById('close-pres-hud-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        this.stop();
+      });
     }
   }
 
-  async triggerSlide(action, reason = '') {
-    const now = Date.now();
-    if (now - this.lastTriggerTime < this.cooldownMs) return;
-    this.lastTriggerTime = now;
+  switchMode(mode) {
+    this.currentMode = mode;
 
-    console.log(`[PresentationController] Triggering ${action} (${reason})`);
+    if (mode === 'air_cursor') {
+      if (this.slidesTabBtn) this.slidesTabBtn.classList.remove('active');
+      if (this.airTabBtn) this.airTabBtn.classList.add('active');
+      if (this.slidesViewEl) this.slidesViewEl.style.display = 'none';
+      if (this.airViewEl) this.airViewEl.style.display = 'block';
+      if (this.airBadgeEl) this.airBadgeEl.style.display = 'inline-flex';
+      if (this.statusTextEl) {
+        this.statusTextEl.innerHTML = `
+          <i class="fa-solid fa-hand" style="color: #38bdf8;"></i>
+          <span>Air Cursor Active · Move hand to aim</span>
+        `;
+      }
+    } else {
+      if (this.airTabBtn) this.airTabBtn.classList.remove('active');
+      if (this.slidesTabBtn) this.slidesTabBtn.classList.add('active');
+      if (this.airViewEl) this.airViewEl.style.display = 'none';
+      if (this.slidesViewEl) this.slidesViewEl.style.display = 'block';
+      if (this.airBadgeEl) this.airBadgeEl.style.display = 'none';
+      if (this.statusTextEl) {
+        this.statusTextEl.innerHTML = `
+          <i class="fa-solid fa-hand" style="color: #34d399;"></i>
+          <span>Ready · Show 2 fingers for Next, 3 for Prev</span>
+        `;
+      }
+    }
 
-    // Audio tick/haptic feedback
+    if (window.jarvisAPI && window.jarvisAPI.setGestureMode) {
+      window.jarvisAPI.setGestureMode(mode);
+    }
+  }
+
+  listenToPythonDaemon() {
+    if (!window.jarvisAPI || !window.jarvisAPI.onPresentationGesture) return;
+
+    window.jarvisAPI.onPresentationGesture((data) => {
+      if (!this.isActive) return;
+
+      // 1. Air Cursor Telemetry
+      if (data.type === 'air_cursor') {
+        if (this.airRadarDotEl && data.x !== undefined && data.y !== undefined) {
+          const px = Math.max(8, Math.min(92, data.x * 100));
+          const py = Math.max(12, Math.min(88, data.y * 100));
+          this.airRadarDotEl.style.left = `${px.toFixed(1)}%`;
+          this.airRadarDotEl.style.top = `${py.toFixed(1)}%`;
+
+          if (data.pinched) {
+            this.airRadarDotEl.classList.add('pinched');
+          } else {
+            this.airRadarDotEl.classList.remove('pinched');
+          }
+        }
+
+        if (this.airBadgeEl) {
+          if (data.state === 'drag') {
+            this.airBadgeEl.innerHTML = `<i class="fa-solid fa-hand-holding"></i> Pinch Drag`;
+            this.airBadgeEl.style.background = 'rgba(52, 211, 153, 0.2)';
+            this.airBadgeEl.style.borderColor = 'rgba(52, 211, 153, 0.5)';
+            this.airBadgeEl.style.color = '#34d399';
+          } else if (data.state === 'scroll') {
+            this.airBadgeEl.innerHTML = `<i class="fa-solid fa-arrows-up-down"></i> Scrolling`;
+            this.airBadgeEl.style.background = 'rgba(251, 191, 36, 0.2)';
+            this.airBadgeEl.style.borderColor = 'rgba(251, 191, 36, 0.5)';
+            this.airBadgeEl.style.color = '#fbbf24';
+          } else if (data.state === 'right_click') {
+            this.airBadgeEl.innerHTML = `<i class="fa-solid fa-mouse"></i> Right Click`;
+            this.airBadgeEl.style.background = 'rgba(168, 85, 247, 0.2)';
+            this.airBadgeEl.style.borderColor = 'rgba(168, 85, 247, 0.5)';
+            this.airBadgeEl.style.color = '#c084fc';
+          } else {
+            this.airBadgeEl.innerHTML = `<i class="fa-solid fa-arrow-pointer"></i> Moving`;
+            this.airBadgeEl.style.background = 'rgba(56, 189, 248, 0.14)';
+            this.airBadgeEl.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+            this.airBadgeEl.style.color = '#38bdf8';
+          }
+        }
+      }
+
+      // 2. Presentation Slide Gestures
+      else if (data.type === 'hand' && this.currentMode === 'presentation') {
+        const pct = Math.max(12, Math.min(88, data.x * 100));
+        if (this.sensorDotEl) {
+          this.sensorDotEl.style.left = `${pct.toFixed(1)}%`;
+          this.sensorDotEl.style.background = 'rgba(52, 211, 153, 0.9)';
+        }
+        if (this.statusTextEl && !this.feedbackTimer) {
+          const fingers = data.fingers;
+          let icon = 'fa-hand';
+          let label = data.label || 'Hand Active';
+          if (fingers === 2) {
+            icon = 'fa-peace';
+            label = '✌️ 2 Fingers Detected (Next Slide)';
+          } else if (fingers === 3) {
+            icon = 'fa-hand';
+            label = '🤟 3 Fingers Detected (Previous Slide)';
+          } else if (fingers === 5) {
+            icon = 'fa-hand';
+            label = '✋ Open Palm (Hold for Blank Screen)';
+          }
+          this.statusTextEl.innerHTML = `
+            <i class="fa-solid ${icon}" style="color: #34d399;"></i>
+            <span>${label}</span>
+          `;
+        }
+      }
+
+      // 3. Actions
+      else if (data.type === 'action') {
+        this.playHapticTick(data.action);
+        if (data.action === 'next') {
+          this.showFeedback('fa-solid fa-peace', data.reason || '✌️ 2 Fingers · Next Slide', '#34d399');
+        } else if (data.action === 'prev') {
+          this.showFeedback('fa-solid fa-hand', data.reason || '🤟 3 Fingers · Previous Slide', '#38bdf8');
+        } else if (data.action === 'blackout') {
+          this.showFeedback('fa-solid fa-eye-slash', data.reason || '✋ Open Palm · Screen Blanked', '#fbbf24');
+        }
+      }
+
+      // 4. Status, Ready, and Error Handling
+      else if (data.type === 'status') {
+        if (this.statusTextEl && !this.feedbackTimer) {
+          this.statusTextEl.innerHTML = `
+            <i class="fa-solid fa-spinner fa-spin" style="color: #38bdf8;"></i>
+            <span>${data.message || 'Connecting to Spatial AI...'}</span>
+          `;
+        }
+      } else if (data.type === 'error' || data.type === 'exit') {
+        if (this.statusTextEl) {
+          this.statusTextEl.innerHTML = `
+            <i class="fa-solid fa-triangle-exclamation" style="color: #f87171;"></i>
+            <span>Webcam unavailable · Use manual controls</span>
+          `;
+        }
+      } else if (data.type === 'ready') {
+        if (data.mode) {
+          this.switchMode(data.mode);
+        }
+        if (this.statusTextEl) {
+          this.statusTextEl.innerHTML = this.currentMode === 'air_cursor'
+            ? `<i class="fa-solid fa-hand" style="color: #34d399;"></i><span>Air Cursor Ready · Pinch to click</span>`
+            : `<i class="fa-solid fa-hand" style="color: #34d399;"></i><span>Ready · Show 2 fingers for Next, 3 for Prev</span>`;
+        }
+        this.showFeedback('fa-solid fa-circle-check', 'Spatial 1-Hand AI Online', '#34d399');
+      } else if (data.type === 'no_hand') {
+        if (this.sensorDotEl) {
+          this.sensorDotEl.style.left = '50%';
+          this.sensorDotEl.style.background = '';
+        }
+        if (this.airRadarDotEl) {
+          this.airRadarDotEl.style.left = '50%';
+          this.airRadarDotEl.style.top = '50%';
+          this.airRadarDotEl.classList.remove('pinched');
+        }
+        if (this.statusTextEl && !this.feedbackTimer) {
+          this.statusTextEl.innerHTML = this.currentMode === 'air_cursor'
+            ? `<i class="fa-solid fa-hand" style="color: #38bdf8;"></i><span>Aim hand at screen to control cursor</span>`
+            : `<i class="fa-solid fa-hand" style="color: #38bdf8;"></i><span>Ready · Show 2 fingers for Next, 3 for Prev</span>`;
+        }
+      }
+    });
+  }
+
+  playHapticTick(action) {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(action === 'next' ? 660 : 440, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+      osc.frequency.setValueAtTime(action === 'next' ? 720 : action === 'prev' ? 520 : 380, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.065);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start();
-      osc.stop(audioCtx.currentTime + 0.09);
+      osc.stop(audioCtx.currentTime + 0.07);
     } catch (e) {}
+  }
 
-    const isNext = action === 'next';
-    const label = action === 'next' ? '➡️ Next Slide' : (action === 'prev' ? '⬅️ Previous Slide' : '⏹️ Blackout Screen');
-    this.showFeedback(`${label} (${reason})`, isNext);
+  showFeedback(iconClass, text, accentColor = '#38bdf8') {
+    if (!this.statusTextEl) return;
+    this.statusTextEl.innerHTML = `
+      <i class="${iconClass}" style="color: ${accentColor};"></i>
+      <span style="color: #ffffff; font-weight: 600;">${text}</span>
+    `;
+    if (this.feedbackTimer) clearTimeout(this.feedbackTimer);
+    this.feedbackTimer = setTimeout(() => {
+      this.feedbackTimer = null;
+      if (this.isActive && this.statusTextEl) {
+        this.statusTextEl.innerHTML = this.currentMode === 'air_cursor'
+          ? `<i class="fa-solid fa-hand" style="color: #38bdf8;"></i><span>Air Cursor Ready · Pinch to click</span>`
+          : `<i class="fa-solid fa-hand" style="color: #38bdf8;"></i><span>Ready · Show 2 fingers for Next, 3 for Prev</span>`;
+      }
+    }, 1200);
+  }
+
+  async triggerManual(action) {
+    this.playHapticTick(action);
+    if (action === 'next') {
+      this.showFeedback('fa-solid fa-arrow-right', 'Next Slide · Manual Click', '#34d399');
+    } else if (action === 'prev') {
+      this.showFeedback('fa-solid fa-arrow-left', 'Previous Slide · Manual Click', '#38bdf8');
+    } else {
+      this.showFeedback('fa-solid fa-eye-slash', 'Screen Blanked · Manual Click', '#fbbf24');
+    }
 
     if (window.jarvisAPI && window.jarvisAPI.slideControl) {
-      await window.jarvisAPI.slideControl(action);
+      window.jarvisAPI.slideControl(action);
     }
   }
 
-  // ==========================================
-  // 1. WEBCAM OPTICAL MOTION GESTURE TRACKER
-  // ==========================================
-
-  async startWebcamGestureTracker() {
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 30 } },
-        audio: false,
-      });
-
-      this.videoEl = document.createElement('video');
-      this.videoEl.autoplay = true;
-      this.videoEl.playsInline = true;
-      this.videoEl.muted = true;
-      this.videoEl.srcObject = this.stream;
-
-      await new Promise((resolve) => {
-        this.videoEl.onloadedmetadata = () => {
-          this.videoEl.play();
-          resolve();
-        };
-      });
-
-      this.canvasEl = document.createElement('canvas');
-      this.canvasEl.width = 64;
-      this.canvasEl.height = 48;
-      this.ctx = this.canvasEl.getContext('2d', { willReadFrequently: true });
-
-      this.prevFrame = null;
-      this.motionHistory = [];
-      this.processVideoFrame();
-      console.log('[PresentationController] Webcam Gesture Tracker started.');
-    } catch (err) {
-      console.warn('[PresentationController] Webcam could not be accessed:', err.message);
-      this.showFeedback('⚠️ Webcam access denied (Voice cues still active)', false);
-    }
-  }
-
-  processVideoFrame() {
-    if (!this.isActive) return;
-
-    if (this.videoEl && this.videoEl.readyState >= 2 && this.ctx) {
-      const w = this.canvasEl.width;
-      const h = this.canvasEl.height;
-
-      this.ctx.drawImage(this.videoEl, 0, 0, w, h);
-      const imgData = this.ctx.getImageData(0, 0, w, h);
-      const data = imgData.data;
-
-      // Extract grayscale luminance buffer
-      const currentLuma = new Uint8Array(w * h);
-      for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-        currentLuma[j] = (data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000;
+  start(mode = 'presentation') {
+    if (this.isActive) {
+      if (mode && mode !== this.currentMode) {
+        this.switchMode(mode);
       }
-
-      if (this.prevFrame) {
-        let diffSum = 0;
-        let weightedX = 0;
-        let diffCount = 0;
-
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            const idx = y * w + x;
-            const diff = Math.abs(currentLuma[idx] - this.prevFrame[idx]);
-            if (diff > 26) { // Sensitivity threshold
-              diffSum += diff;
-              weightedX += x * diff;
-              diffCount++;
-            }
-          }
-        }
-
-        const totalPixels = w * h;
-        const motionPct = diffCount / totalPixels;
-
-        if (diffCount > 35 && motionPct < 0.85) {
-          const centerX = weightedX / diffSum;
-          this.motionHistory.push({ x: centerX, time: performance.now() });
-
-          // Keep sliding window of ~260ms (7 frames)
-          if (this.motionHistory.length > 7) {
-            this.motionHistory.shift();
-          }
-
-          if (this.motionHistory.length >= 5) {
-            const first = this.motionHistory[0];
-            const last = this.motionHistory[this.motionHistory.length - 1];
-            const deltaX = last.x - first.x;
-            const deltaTime = last.time - first.time;
-
-            if (deltaTime > 60 && deltaTime < 400) {
-              // Note: Front webcam is mirrored. Moving physical hand Left->Right creates deltaX > +10
-              if (deltaX > 11) {
-                this.triggerSlide('next', '🖐️ Hand Swipe Right');
-                this.motionHistory = [];
-              } else if (deltaX < -11) {
-                this.triggerSlide('prev', '🖐️ Hand Swipe Left');
-                this.motionHistory = [];
-              }
-            }
-          }
-        } else if (motionPct >= 0.65) {
-          // Open Palm / Rapid Cover
-          this.triggerSlide('blackout', '✋ Open Palm Blank');
-          this.motionHistory = [];
-        }
-      }
-
-      this.prevFrame = currentLuma;
-    }
-
-    this.animId = requestAnimationFrame(() => this.processVideoFrame());
-  }
-
-  // ==========================================
-  // 2. CONTEXTUAL VOICE CUE DETECTOR
-  // ==========================================
-
-  startVoiceCueDetector() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      console.warn('[PresentationController] Web Speech API not supported for voice cues.');
       return;
     }
-
-    try {
-      this.speechRecognizer = new SpeechRecognition();
-      this.speechRecognizer.continuous = true;
-      this.speechRecognizer.interimResults = true;
-      this.speechRecognizer.lang = 'en-US';
-
-      this.speechRecognizer.onresult = (event) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript.toLowerCase().trim();
-          this.evaluateVoiceTranscript(transcript);
-        }
-      };
-
-      this.speechRecognizer.onerror = (e) => {
-        // Silently handle recognition restarts
-        if (this.isActive && e.error !== 'aborted') {
-          setTimeout(() => {
-            if (this.isActive) this.restartVoice();
-          }, 1000);
-        }
-      };
-
-      this.speechRecognizer.onend = () => {
-        if (this.isActive) {
-          this.restartVoice();
-        }
-      };
-
-      this.speechRecognizer.start();
-      this.isListeningVoice = true;
-      console.log('[PresentationController] Contextual Voice Cue Detector active.');
-    } catch (err) {
-      console.warn('[PresentationController] Voice recognizer error:', err.message);
-    }
-  }
-
-  restartVoice() {
-    try {
-      if (this.speechRecognizer) {
-        this.speechRecognizer.start();
-      }
-    } catch (e) {}
-  }
-
-  evaluateVoiceTranscript(text) {
-    if (!text) return;
-
-    // Direct Next triggers
-    if (/\b(next\s+slide|slide\s+forward|go\s+forward|advance\s+slide|next\s+page)\b/i.test(text)) {
-      this.triggerSlide('next', '🗣️ "Next slide"');
-      return;
-    }
-
-    // Natural Contextual Transition Cues
-    if (/\b(moving\s+on\s+to\s+(the\s+)?next(\s+(slide|topic|point))?|as\s+you\s+can\s+see\s+on\s+(the\s+)?next\s+slide|turning\s+to\s+(the\s+)?next\s+slide|let'?s\s+(look\s+at|move\s+to)\s+(the\s+)?next\s+slide)\b/i.test(text)) {
-      this.triggerSlide('next', '🗣️ Contextual Transition');
-      return;
-    }
-
-    // Direct Previous triggers
-    if (/\b(previous\s+slide|prev\s+slide|slide\s+back|go\s+back\s+a\s+slide|back\s+slide|one\s+slide\s+back)\b/i.test(text)) {
-      this.triggerSlide('prev', '🗣️ "Previous slide"');
-      return;
-    }
-
-    // Blackout / Attention pause
-    if (/\b(black\s+screen|blank\s+screen|blackout\s+screen|pause\s+presentation)\b/i.test(text)) {
-      this.triggerSlide('blackout', '🗣️ "Blank screen"');
-    }
-  }
-
-  // ==========================================
-  // ACTIVATION & LIFECYCLE
-  // ==========================================
-
-  start() {
-    if (this.isActive) return;
     this.isActive = true;
+    this.currentMode = mode;
 
-    if (this.hudEl) this.hudEl.style.display = 'block';
+    // Minimize Island bar so only the floating presentation window is visible
+    const island = document.getElementById('islandContainer');
+    if (island) {
+      this.prevIslandDisplay = island.style.display;
+      island.style.display = 'none';
+    }
 
-    this.startWebcamGestureTracker();
-    this.startVoiceCueDetector();
+    if (this.hudEl) {
+      this.hudEl.style.display = 'block';
+      this.switchMode(mode);
+      if (this.statusTextEl) {
+        this.statusTextEl.innerHTML = `
+          <i class="fa-solid fa-spinner fa-spin" style="color: #38bdf8;"></i>
+          <span>Starting Spatial 1-Hand AI...</span>
+        `;
+      }
+    }
 
-    console.log('[PresentationController] Touchless presentation slide changer ACTIVE.');
+    // Start Python MediaPipe Spatial AI Daemon via Electron IPC
+    if (window.jarvisAPI && window.jarvisAPI.togglePresentationMode) {
+      window.jarvisAPI.togglePresentationMode(true, mode);
+    }
   }
 
   stop() {
+    if (!this.isActive && (!this.hudEl || this.hudEl.style.display === 'none')) return;
     this.isActive = false;
 
-    if (this.animId) {
-      cancelAnimationFrame(this.animId);
-      this.animId = null;
+    if (this.feedbackTimer) {
+      clearTimeout(this.feedbackTimer);
+      this.feedbackTimer = null;
     }
 
-    if (this.stream) {
-      this.stream.getTracks().forEach((track) => track.stop());
-      this.stream = null;
+    if (this.hudEl) {
+      this.hudEl.style.display = 'none';
     }
 
-    if (this.speechRecognizer) {
-      try { this.speechRecognizer.stop(); } catch (e) {}
-      this.speechRecognizer = null;
+    // Stop Python MediaPipe Spatial AI Daemon via Electron IPC (frees camera immediately)
+    if (window.jarvisAPI && window.jarvisAPI.togglePresentationMode) {
+      window.jarvisAPI.togglePresentationMode(false);
+    }
+    if (window.jarvisAPI && window.jarvisAPI.killCamera) {
+      window.jarvisAPI.killCamera();
     }
 
-    if (this.hudEl) this.hudEl.style.display = 'none';
-
-    console.log('[PresentationController] Presentation slide changer STOPPED.');
+    // Restore Island bar and snap window cleanly back to default position
+    const island = document.getElementById('islandContainer');
+    if (island) {
+      island.style.display = this.prevIslandDisplay || '';
+    }
+    if (window.jarvisAPI && window.jarvisAPI.resetWindowPosition) {
+      window.jarvisAPI.resetWindowPosition();
+    }
   }
 
-  toggle() {
+  toggle(mode = 'presentation') {
     if (this.isActive) this.stop();
-    else this.start();
+    else this.start(mode);
   }
 }
 
-// Instantiate and bind to window
 window.presentationController = new PresentationGestureController();
 
-// Listen to main process IPC events
 if (window.jarvisAPI && window.jarvisAPI.onPresentationModeToggled) {
   window.jarvisAPI.onPresentationModeToggled((data) => {
     if (data && data.active) {
-      window.presentationController.start();
+      window.presentationController.start(data.mode || 'presentation');
     } else {
       window.presentationController.stop();
     }

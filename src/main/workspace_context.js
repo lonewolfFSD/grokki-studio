@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const { dialog } = require('electron');
+const os = require('os');
+const { dialog, shell } = require('electron');
 const { getDataDir } = require('./data_dir');
 
 class WorkspaceContextManager {
@@ -285,22 +286,6 @@ class WorkspaceContextManager {
       const targetPath = typeof mention === 'string' ? mention : (mention.path || mention.fullPath);
       if (!targetPath) continue;
 
-      // Special mention: @workspace or @codebase
-      if (targetPath === '@workspace' || targetPath === '@codebase' || targetPath === 'workspace' || targetPath === 'codebase') {
-        const scan = this.scanWorkspaceFiles({ query: '', maxResults: 120 });
-        if (scan.success) {
-          const fileList = scan.items.map(it => `- ${it.type === 'folder' ? '📁 ' : '📄 '}${it.path}`).join('\n');
-          parts.push(
-            `\n================================================================\n` +
-            `WORKSPACE PROJECT MAP: ${this.workspaceRoot} (${scan.totalMatches} files & folders)\n` +
-            `================================================================\n` +
-            `${fileList}\n` +
-            `================================================================\n`
-          );
-        }
-        continue;
-      }
-
       const readRes = this.readWorkspaceItem(targetPath);
       if (!readRes || !readRes.success) continue;
 
@@ -327,6 +312,126 @@ class WorkspaceContextManager {
 
     return parts.join('\n');
   }
+
+  async openWorkspaceFile(filePathOrName) {
+    if (!filePathOrName || typeof filePathOrName !== 'string') {
+      return { success: false, error: 'No file specified' };
+    }
+
+    // Clean up mentions, quotes, line numbers like @main.tsx, 'main.tsx', main.tsx:42, main.tsx#L10
+    const clean = filePathOrName
+      .trim()
+      .replace(/^[@`"']+|[`"']+$/g, '')
+      .split(/[:#]/)[0]
+      .trim();
+
+    if (!clean) {
+      return { success: false, error: 'Empty file name' };
+    }
+
+    let targetPath = null;
+
+    // 1. Direct absolute path check
+    if (path.isAbsolute(clean) && fs.existsSync(clean)) {
+      try {
+        if (fs.statSync(clean).isFile()) targetPath = clean;
+      } catch (e) {}
+    }
+
+    // 2. Direct relative path from workspaceRoot
+    const root = this.workspaceRoot || process.cwd();
+    if (!targetPath && root) {
+      const candidate = path.resolve(root, clean);
+      if (fs.existsSync(candidate)) {
+        try {
+          if (fs.statSync(candidate).isFile()) targetPath = candidate;
+        } catch (e) {}
+      }
+    }
+
+    // 3. Search in workspace file cache / scanned tree
+    if (!targetPath && root && fs.existsSync(root)) {
+      this.scanWorkspaceFiles({ maxResults: 1000 });
+      const baseSearch = path.basename(clean).toLowerCase();
+      const normClean = clean.replace(/\\/g, '/').toLowerCase();
+
+      // Priority A: relative path match
+      let match = (this.cache.files || []).find((f) => {
+        const normF = (f.path || '').replace(/\\/g, '/').toLowerCase();
+        return normF === normClean || normF.endsWith('/' + normClean);
+      });
+
+      // Priority B: exact file name match
+      if (!match) {
+        match = (this.cache.files || []).find((f) => {
+          return (f.name || '').toLowerCase() === baseSearch;
+        });
+      }
+
+      if (match && match.fullPath && fs.existsSync(match.fullPath)) {
+        targetPath = match.fullPath;
+      }
+    }
+
+    // 4. If still not found and current working directory is different from workspaceRoot, search process.cwd()
+    const appCwd = process.cwd();
+    if (!targetPath && appCwd && appCwd !== root && fs.existsSync(appCwd)) {
+      const candidateCwd = path.resolve(appCwd, clean);
+      if (fs.existsSync(candidateCwd)) {
+        try {
+          if (fs.statSync(candidateCwd).isFile()) targetPath = candidateCwd;
+        } catch (e) {}
+      }
+    }
+
+    // 5. Check user Desktop, Downloads, or Documents
+    if (!targetPath) {
+      try {
+        const home = os.homedir();
+        const searchDirs = [
+          path.join(home, 'Desktop'),
+          path.join(home, 'Downloads'),
+          path.join(home, 'Documents'),
+        ];
+        for (const sDir of searchDirs) {
+          const candidate = path.join(sDir, clean);
+          if (fs.existsSync(candidate)) {
+            try {
+              if (fs.statSync(candidate).isFile()) {
+                targetPath = candidate;
+                break;
+              }
+            } catch (e) {}
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!targetPath) {
+      return { success: false, error: 'File "' + clean + '" not found on desktop or in workspace.' };
+    }
+
+    try {
+      if (shell && typeof shell.openPath === 'function') {
+        const openErr = await shell.openPath(targetPath);
+        if (openErr) {
+          shell.showItemInFolder(targetPath);
+        }
+        return { success: true, fullPath: targetPath };
+      } else {
+        return { success: false, error: 'Electron shell not available' };
+      }
+    } catch (err) {
+      try {
+        if (shell && typeof shell.showItemInFolder === 'function') {
+          shell.showItemInFolder(targetPath);
+          return { success: true, fullPath: targetPath, revealed: true };
+        }
+      } catch (e2) {}
+      return { success: false, error: err.message };
+    }
+  }
+
 }
 
 module.exports = new WorkspaceContextManager();

@@ -64,7 +64,8 @@ try {
     executeDualAI: (prompt, brainA, brainB, context) => ipcRenderer.invoke('jarvis:execute-dual-ai', prompt, brainA, brainB, context),
     synthesizeConsensus: (prompt, replyA, replyB, brainAName, brainBName) => ipcRenderer.invoke('jarvis:synthesize-consensus', prompt, replyA, replyB, brainAName, brainBName),
     executeAIAudio: (data) => ipcRenderer.invoke('jarvis:execute-ai-audio', data),
-    speakText: (text, voice) => ipcRenderer.invoke('jarvis:speak', { text, voice }),
+    speakText: (text, voice, options = {}) => ipcRenderer.invoke('jarvis:speak', { text, voice, ...options }),
+    fetchElevenLabsVoices: (options = {}) => ipcRenderer.invoke('jarvis:fetch-elevenlabs-voices', options),
     selectFile: () => ipcRenderer.invoke('jarvis:select-file'),
     searchWeb: (query, maxResults) => ipcRenderer.invoke('jarvis:search-web', query, maxResults),
 
@@ -73,7 +74,15 @@ try {
     onPresentationModeToggled: (callback) => {
       ipcRenderer.on('jarvis:presentation-mode', (event, data) => callback(data));
     },
-    togglePresentationMode: (active) => ipcRenderer.send('jarvis:toggle-presentation-mode', active),
+    onPresentationGesture: (callback) => {
+      ipcRenderer.on('jarvis:presentation-gesture', (event, data) => callback(data));
+    },
+    togglePresentationMode: (active, mode = 'presentation') => ipcRenderer.send('jarvis:toggle-presentation-mode', active, mode),
+    setGestureMode: (mode) => ipcRenderer.send('jarvis:set-gesture-mode', mode),
+    killCamera: () => ipcRenderer.invoke('jarvis:kill-camera'),
+    setWindowPosition: (x, y) => ipcRenderer.invoke('jarvis:set-window-position', { x, y }),
+    getWindowPosition: () => ipcRenderer.invoke('jarvis:get-window-position'),
+    resetWindowPosition: () => ipcRenderer.invoke('jarvis:reset-window-position'),
 
     // Configuration & Google & Notion Workspaces
     getConfig: () => ipcRenderer.invoke('jarvis:get-config'),
@@ -139,6 +148,7 @@ try {
     selectWorkspaceFolder: () => ipcRenderer.invoke('jarvis:select-workspace-folder'),
     scanWorkspaceFiles: (options) => ipcRenderer.invoke('jarvis:scan-workspace-files', options),
     readWorkspaceItem: (path) => ipcRenderer.invoke('jarvis:read-workspace-item', path),
+    openWorkspaceFile: (filePathOrName) => ipcRenderer.invoke('jarvis:open-workspace-file', filePathOrName),
 
     closeDashboard: () => ipcRenderer.send('dashboard:close'),
     minimizeDashboard: () => ipcRenderer.send('dashboard:minimize'),

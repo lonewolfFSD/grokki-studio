@@ -126,27 +126,6 @@ export const WorkspaceMentionMenu: React.FC<WorkspaceMentionMenuProps> = ({
           </span>
         </div>
 
-        {/* Special Action: @workspace */}
-        <div
-          onClick={() => onSelect('workspace_map')}
-          className={`flex items-center justify-between px-3 py-1.5 rounded-xl cursor-pointer transition-all ${
-            selectedIndex === -2
-              ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'
-              : 'hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
-          }`}
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Layers className="w-4 h-4 text-purple-500 flex-shrink-0" />
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs font-semibold">@workspace</span>
-              <span className="text-[10px] text-gray-400 truncate">Include entire project tree & structure</span>
-            </div>
-          </div>
-          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-purple-100/50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
-            Codebase
-          </span>
-        </div>
-
         {items.length === 0 ? (
           <div className="px-3 py-4 text-center text-xs text-gray-400">
             No matching files or folders found in workspace

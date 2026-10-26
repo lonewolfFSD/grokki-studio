@@ -1,7 +1,7 @@
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { exec, execFile } = require('child_process');
+const { exec, execFile, spawn } = require('child_process');
 let electronModule = {};
 try {
   electronModule = require('electron');
@@ -123,6 +123,77 @@ function runPowerShell(args) {
   });
 }
 
+let slideKeyDaemon = null;
+function ensureSlideKeyDaemon() {
+  if (slideKeyDaemon && !slideKeyDaemon.killed && slideKeyDaemon.stdin && !slideKeyDaemon.stdin.destroyed) {
+    return slideKeyDaemon;
+  }
+  try {
+    const psScript = [
+      'Add-Type -TypeDefinition @"',
+      'using System;',
+      'using System.Runtime.InteropServices;',
+      'using System.Text;',
+      'using System.Threading;',
+      'public class FastSlideKey {',
+      '    [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);',
+      '    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();',
+      '    [DllImport("user32.dll", CharSet = CharSet.Auto)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);',
+      '    public static void Tap(byte vk) {',
+      '        IntPtr hwnd = GetForegroundWindow();',
+      '        StringBuilder sb = new StringBuilder(128);',
+      '        GetWindowText(hwnd, sb, 128);',
+      '        string title = sb.ToString();',
+      '        if (title.IndexOf("Grokki", StringComparison.OrdinalIgnoreCase) >= 0) {',
+      '            keybd_event(0x12, 0, 0, UIntPtr.Zero);',
+      '            Thread.Sleep(10);',
+      '            keybd_event(0x09, 0, 0, UIntPtr.Zero);',
+      '            Thread.Sleep(10);',
+      '            keybd_event(0x09, 0, 2, UIntPtr.Zero);',
+      '            Thread.Sleep(10);',
+      '            keybd_event(0x12, 0, 2, UIntPtr.Zero);',
+      '            Thread.Sleep(45);',
+      '        }',
+      '        keybd_event(vk, 0, 0, UIntPtr.Zero);',
+      '        Thread.Sleep(8);',
+      '        keybd_event(vk, 0, 2, UIntPtr.Zero);',
+      '    }',
+      '}',
+      '"@',
+      'while ($true) {',
+      '    $line = [Console]::In.ReadLine()',
+      '    if ($null -eq $line) { break }',
+      '    $cmd = $line.Trim().ToLower()',
+      '    if ($cmd -eq "next") { [FastSlideKey]::Tap(0x27) }',
+      '    elseif ($cmd -eq "prev") { [FastSlideKey]::Tap(0x25) }',
+      '    elseif ($cmd -eq "blackout") { [FastSlideKey]::Tap(0x42) }',
+      '    elseif ($cmd -eq "fullscreen") { [FastSlideKey]::Tap(0x74) }',
+      '}'
+    ].join('\n');
+
+    slideKeyDaemon = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psScript], {
+      stdio: ['pipe', 'ignore', 'ignore'],
+      windowsHide: true,
+    });
+    slideKeyDaemon.on('exit', () => { slideKeyDaemon = null; });
+    slideKeyDaemon.on('error', () => { slideKeyDaemon = null; });
+  } catch (e) {
+    slideKeyDaemon = null;
+  }
+  return slideKeyDaemon;
+}
+
+function sendFastSlideKey(action) {
+  const daemon = ensureSlideKeyDaemon();
+  if (daemon && daemon.stdin && !daemon.stdin.destroyed) {
+    try {
+      daemon.stdin.write(`${action}\n`);
+      return true;
+    } catch (e) {}
+  }
+  return false;
+}
+
 async function resolveYouTubeVideoId(query) {
   try {
     const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
@@ -144,20 +215,8 @@ async function resolveYouTubeVideoId(query) {
 
 function expandSlashDirective(text) {
   const trimmed = (text || '').trim();
-  if (trimmed.startsWith('/plan ')) {
-    return `[MODE: PLAN]\nFormulate a rigorous, detailed step-by-step architectural execution plan for the following task:\n${trimmed.slice(6)}`;
-  }
-  if (trimmed.startsWith('/goal ')) {
-    return `[MODE: GOAL]\nRun autonomously and execute until the following goal is completely finished:\n${trimmed.slice(6)}`;
-  }
-  if (trimmed.startsWith('/grill-me ')) {
-    return `[MODE: GRILL-ME]\nInterview me interactively by asking 2-4 clarifying questions to align on requirements and resolve design decisions for:\n${trimmed.slice(10)}`;
-  }
   if (trimmed.startsWith('/btw ')) {
-    return `[MODE: BTW]\nAnswer this quick side question directly, accurately, and concisely without altering the overall task context:\n${trimmed.slice(5)}`;
-  }
-  if (trimmed.startsWith('/teamwork-preview ')) {
-    return `[MODE: TEAMWORK]\nOutline an autonomous multi-agent team division of labour and task roles for:\n${trimmed.slice(18)}`;
+    return "[MODE: BTW]\nAnswer this quick side question directly, accurately, and concisely without altering the overall task context:\n" + trimmed.slice(5);
   }
   return text;
 }
@@ -1041,6 +1100,13 @@ class AgentBrain {
       if (cmd === 'browser' && rest) {
         return { tool: 'open_url', args: { url: rest.startsWith('http') ? rest : `https://www.google.com/search?q=${encodeURIComponent(rest)}` } };
       }
+      if (cmd === 'present' || cmd === 'presentation') {
+        return { tool: 'presentation_slide_changer', args: { action: rest === 'stop' ? 'stop_mode' : 'start_mode' } };
+      }
+      if (cmd === 'organize') {
+        const isDesktop = /desktop/i.test(rest);
+        return { tool: 'organize_folder', args: { target_folder: isDesktop ? 'desktop' : 'downloads' } };
+      }
     }
 
     // If Viva / Oral Exam is active, handle stop/export or route answers directly
@@ -1252,11 +1318,17 @@ class AgentBrain {
       return { tool: 'offline_airgap_mode', args: { action: 'status' } };
     }
 
-    // --- 12. Smart Presentation Slide Changer Fast Intents ---
+    // --- 12. Smart Presentation Slide Changer & Air Cursor Fast Intents ---
+    if (/\b(start|enable|turn\s+on|activate|launch)?\s*(air\s*cursor|spatial\s*mouse|spatial\s*cursor|hand\s*mouse)\b/i.test(p) ||
+        /^\/(aircursor|air_cursor|air)$/i.test(p)) {
+      return { tool: 'presentation_slide_changer', args: { action: 'air_cursor' } };
+    }
     if (/\b(start|enable|turn\s+on|activate|launch)\s+(presentation|slide\s+changer|gesture\s+slide|touchless\s+slide)\s*(mode)?\b/i.test(p)) {
       return { tool: 'presentation_slide_changer', args: { action: 'start_mode' } };
     }
-    if (/\b(stop|disable|turn\s+off|deactivate|exit)\s+(presentation|slide\s+changer|gesture\s+slide)\s*(mode)?\b/i.test(p)) {
+    if (/^(deactivate|stop|exit|cancel|turn\s+off|disable|close|quit)$/i.test(p) ||
+        /\b(stop|disable|turn\s+off|deactivate|exit|cancel|close|kill)\s+(presentation|slide\s+changer|gesture\s+slide|camera|webcam)\s*(mode)?\b/i.test(p) ||
+        /\b(camera|webcam)\s+(off|stop|disable|kill|close)\b/i.test(p)) {
       return { tool: 'presentation_slide_changer', args: { action: 'stop_mode' } };
     }
     if (/\b(next\s+slide|slide\s+forward|advance\s+slide|next\s+page\s+slide|moving\s+on\s+to\s+(the\s+)?next\s+(slide|topic)|as\s+you\s+can\s+see\s+on\s+(the\s+)?next\s+slide)\b/i.test(p)) {
@@ -4664,19 +4736,34 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
     try {
       const action = (args.action || 'next').toLowerCase();
 
-      if (action === 'start_mode') {
+      if (action === 'start_mode' || action === 'air_cursor' || action === 'presentation') {
+        ensureSlideKeyDaemon();
+        const mode = action === 'air_cursor' ? 'air_cursor' : 'presentation';
+        if (typeof this.onPresentationToggle === 'function') {
+          try {
+            this.onPresentationToggle(true, mode);
+          } catch (e) {}
+        }
         try {
           if (electronModule && electronModule.ipcMain) {
-            electronModule.ipcMain.emit('jarvis:toggle-presentation-mode', null, true);
+            electronModule.ipcMain.emit('jarvis:toggle-presentation-mode', null, true, mode);
           }
         } catch (e) {}
         return {
           success: true,
-          message: `📽️ **Smart Presentation Mode ACTIVATED!**\n- 🖐️ **Webcam Gesture Sensor**: Wave Hand Right ➔ Next Slide | Left ⬅️ Previous\n- 🗣️ **Contextual Voice Cues**: Say *"Next slide"*, *"Moving on..."*, or *"Go back"* without touching your laptop!\n- 💡 Say *"Stop presentation mode"* when finished.`,
+          actionType: mode === 'air_cursor' ? 'START_AIR_CURSOR' : 'START_PRESENTATION',
+          message: mode === 'air_cursor'
+            ? `🖐️ **Air-Cursor Spatial Control Active**\n- **Point & Move**: Move index finger in the air to glide the mouse pointer\n- **Pinch-to-Click**: Pinch Thumb + Index to click or hold to drag\n- **Right-Click**: Pinch Thumb + Middle finger\n- **Air-Scroll**: Hold 2 fingers up (Index + Middle) and move up/down to scroll\n- **Rest**: Make a fist or lower hand to pause tracking`
+            : `📽️ **Presentation Control Active**\n- **2 Fingers**: Next Slide\n- **3 Fingers**: Previous Slide\n- **5 Fingers Held**: Blank Screen`,
         };
       }
 
       if (action === 'stop_mode') {
+        if (typeof this.onPresentationToggle === 'function') {
+          try {
+            this.onPresentationToggle(false);
+          } catch (e) {}
+        }
         try {
           if (electronModule && electronModule.ipcMain) {
             electronModule.ipcMain.emit('jarvis:toggle-presentation-mode', null, false);
@@ -4684,21 +4771,26 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
         } catch (e) {}
         return {
           success: true,
-          message: `⏹️ **Presentation Mode Deactivated.** Webcam gesture and voice slide tracking stopped.`,
+          actionType: 'STOP_PRESENTATION',
+          message: `**Presentation Control Stopped.** Optical hand sensor and webcam have been completely deactivated.`,
         };
       }
 
-      const res = await runPowerShell(`-action slide-control -keys "${action}"`);
+      const sentFast = sendFastSlideKey(action);
+      if (!sentFast) {
+        await runPowerShell(`-action slide-control -keys "${action}"`);
+      }
+
       const actionLabels = {
-        next: '➡️ **Advanced to Next Slide**',
-        prev: '⬅️ **Moved to Previous Slide**',
-        blackout: '⏹️ **Toggled Blackout Screen** (audience attention mode)',
-        fullscreen: '🖥️ **Started Fullscreen Slideshow** (`F5`)',
+        next: '**Advanced to Next Slide**',
+        prev: '**Moved to Previous Slide**',
+        blackout: '**Toggled Blackout Screen**',
+        fullscreen: '**Started Fullscreen Slideshow** (`F5`)',
       };
 
       return {
         success: true,
-        message: actionLabels[action] || `📽️ Presentation action: ${action}`,
+        message: actionLabels[action] || `Presentation action: ${action}`,
       };
     } catch (err) {
       return { success: false, message: `Slide changer error: ${err.message}` };

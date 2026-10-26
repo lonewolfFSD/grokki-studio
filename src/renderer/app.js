@@ -183,14 +183,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     return out;
   }
 
+  function getIslandFileIconClass(ext) {
+    const e = (ext || '').toLowerCase();
+    if (['tsx', 'jsx'].includes(e)) return 'fa-brands fa-react';
+    if (['js', 'mjs', 'cjs', 'ts', 'mts', 'cts'].includes(e)) return 'fa-brands fa-js';
+    if (['py', 'pyw'].includes(e)) return 'fa-brands fa-python';
+    if (['html', 'htm'].includes(e)) return 'fa-brands fa-html5';
+    if (['css', 'scss', 'sass', 'less'].includes(e)) return 'fa-brands fa-css3-alt';
+    if (['java'].includes(e)) return 'fa-brands fa-java';
+    if (['rs'].includes(e)) return 'fa-brands fa-rust';
+    if (['go'].includes(e)) return 'fa-brands fa-golang';
+    if (['pdf'].includes(e)) return 'fa-solid fa-file-pdf';
+    if (['doc', 'docx'].includes(e)) return 'fa-solid fa-file-word';
+    if (['xls', 'xlsx', 'csv'].includes(e)) return 'fa-solid fa-file-csv';
+    if (['ppt', 'pptx'].includes(e)) return 'fa-solid fa-file-powerpoint';
+    if (['md', 'markdown', 'txt'].includes(e)) return 'fa-solid fa-file-lines';
+    return 'fa-solid fa-file-code';
+  }
+
   function parseMarkdownFallback(text) {
     let out = text;
 
-    // Inline code
+    // Inline code (detect filenames with extension -> Grokki Blue file chip)
     out = out.replace(/`([^`\n]+)`/g, (_, c) => {
-      // If inline backtick actually contains a LaTeX formula (e.g. `\frac{a}{b}` or `x^2 + 2x`), render it as math!
       if (/(\\frac|\\int|\\sum|\\sqrt|\^[0-9a-zA-Z{]|_[0-9a-zA-Z{])/.test(c) && !/[{};=]/.test(c.replace(/\\[a-zA-Z]+\{[^{}]*\}/g, ''))) {
         return renderMathExpr(c, false);
+      }
+      const trimmed = c.trim();
+      const rawFile = trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
+      const fileMatch = rawFile.match(/^([a-zA-Z0-9_\-\.\/\\]+\.(tsx|ts|jsx|js|mjs|cjs|py|html|css|scss|json|ya?ml|toml|sql|rs|go|c|cpp|h|hpp|cs|java|sh|ps1|md|txt|pdf|docx?|pptx?|xlsx?|csv))$/i);
+      if (fileMatch) {
+        const cleanName = fileMatch[1];
+        const ext = fileMatch[2].toLowerCase();
+        const iconCls = getIslandFileIconClass(ext);
+        return `<span class="island-file-chip" data-grokki-file-chip="true" data-file-name="${cleanName}" title="Ctrl + Click to open ${cleanName}"><i class="${iconCls}"></i><span>${trimmed}</span></span>`;
       }
       return `<code>${c}</code>`;
     });
@@ -217,8 +243,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Bullets (•, -, *)
     out = out.replace(/^[•\-\*] (.*$)/gim, '<li>$1</li>');
-    out = out.replace(/(<li>.*<\/li>)/gms, '<ul>$1</ul>');
-    out = out.replace(/<\/ul>\s*<ul>/g, '');
+    out = out.replace(/(?:<li>[^\n]*<\/li>\s*)+/g, (match) => `<ul>${match}</ul>`);
 
     // Paragraphs / Linebreaks
     out = out.replace(/\n\n+/g, '</p><p>');
@@ -280,6 +305,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     responseText.classList.remove('grokki-typing-active');
 
     if (!animate) {
+      responseText.innerHTML = html;
+      enhanceCodeBlocks(responseText);
+      return;
+    }
+
+    // For very long responses (>1800 chars), skip per-word span wrapping to keep DOM ultra-fast and prevent UI freeze
+    if (html.length > 1800) {
       responseText.innerHTML = html;
       enhanceCodeBlocks(responseText);
       return;
@@ -399,8 +431,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Intercept any clicked links inside Grokki's responses and open in default browser
+  // Intercept any clicked links or file chips inside Grokki's responses
   responseText.addEventListener('click', (ev) => {
+    const fileChip = ev.target.closest('[data-grokki-file-chip]');
+    if (fileChip) {
+      const fileName = fileChip.getAttribute('data-file-name') || fileChip.textContent || '';
+      const hasSelection = !!(window.getSelection && window.getSelection().toString());
+      if (ev.ctrlKey || ev.metaKey || !hasSelection) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (window.jarvisAPI && window.jarvisAPI.openWorkspaceFile) {
+          window.jarvisAPI.openWorkspaceFile(fileName);
+        }
+        return;
+      }
+    }
+
     const link = ev.target.closest('a');
     if (link) {
       ev.preventDefault();
@@ -541,13 +587,94 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 6. Initialize Grokki Agent
   const agent = new window.GrokkiAgent(window.jarvisAPI);
 
+  // Helper to extract a brief, natural spoken response for voice output
+  function summarizeForSpokenVoice(rawText, actions = []) {
+    if (!rawText && (!actions || actions.length === 0)) return '';
+
+    // 1. Check if specific actions were executed
+    if (actions && actions.length > 0) {
+      for (const act of actions) {
+        const name = (act.name || act.type || '').toLowerCase();
+        const actionSub = (act.action || '').toLowerCase();
+
+        if (name.includes('presentation') || actionSub.includes('presentation')) {
+          const lowerText = (rawText || '').toLowerCase();
+          if (lowerText.includes('stop') || lowerText.includes('off') || lowerText.includes('exit') || lowerText.includes('deactivat') || lowerText.includes('closed')) {
+            return 'Presentation mode deactivated.';
+          }
+          return 'Presentation mode activated.';
+        }
+        if (name.includes('organize') || actionSub.includes('organize')) {
+          return 'Folder organized.';
+        }
+        if (name.includes('volume') || actionSub.includes('volume')) {
+          return 'Volume updated.';
+        }
+        if (name.includes('screen_capture') || name.includes('screenshot') || actionSub.includes('screenshot')) {
+          return 'Screenshot captured.';
+        }
+        if (name.includes('lock_in') || name.includes('focus') || actionSub.includes('lock_in')) {
+          return 'Lock-in session started.';
+        }
+        if (name.includes('open_app') || actionSub.includes('open_app')) {
+          const app = act.appName || 'App';
+          return `${app} opened.`;
+        }
+        if (name.includes('pc_health') || name.includes('health')) {
+          return 'System health check complete.';
+        }
+        if (name.includes('whatsapp')) {
+          return 'Message sent.';
+        }
+        if (name.includes('drive')) {
+          return 'File uploaded to Google Drive.';
+        }
+      }
+    }
+
+    if (!rawText) return 'Done.';
+
+    // 2. Clean markdown, formatting, code blocks, URLs
+    let clean = String(rawText)
+      .replace(/```[\s\S]*?```/g, '') // strip code blocks
+      .replace(/`([^`]+)`/g, '$1')     // strip inline code ticks
+      .replace(/!\[.*?\]\(.*?\)/g, '') // strip images
+      .replace(/\[([^\]]+)\]\(.*?\)/g, '$1') // strip links, keep label
+      .replace(/[*_#~>|-]/g, ' ')      // strip markdown symbols
+      .replace(/https?:\/\/\S+/g, '')  // strip URLs
+      .replace(/\s+/g, ' ')            // collapse whitespace
+      .trim();
+
+    if (!clean) return 'All set.';
+
+    // 3. Extract the first concise sentence
+    const sentenceMatch = clean.match(/^([^.!?\n]+[.!?]?)/);
+    let firstSentence = sentenceMatch ? sentenceMatch[1].trim() : clean;
+
+    // Remove any leading bullet numbers or dots (e.g. "1." or "•")
+    firstSentence = firstSentence.replace(/^[\d\.\-\s•]+/, '').trim();
+
+    // 4. Cap at max ~95 characters to keep it brief and conversational
+    if (firstSentence.length > 95) {
+      const truncated = firstSentence.slice(0, 95);
+      const lastSpace = truncated.lastIndexOf(' ');
+      if (lastSpace > 50) {
+        firstSentence = truncated.slice(0, lastSpace) + '.';
+      } else {
+        firstSentence = truncated + '...';
+      }
+    }
+
+    return firstSentence || 'Done.';
+  }
+
   // 5. Initialize Voice Engine
   const voice = new window.VoiceEngine(
     grokbot,
     async (spokenText) => {
       mainInput.value = spokenText;
       updateSendButtonState();
-      await handleUserPrompt(spokenText);
+      await handleUserPrompt(spokenText, { isVoice: true });
     },
     (status) => {
       if (status === 'listening') {
@@ -599,7 +726,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         sound.playSuccess();
         grokbot.setState('happy');
-        voice.speak(response.reply, () => {
+        const spoken = summarizeForSpokenVoice(response.reply, response.actionsExecuted);
+        voice.speak(spoken, () => {
           grokbot.setState('idle');
           if (currentMode === 'voice') {
             setTimeout(() => {
@@ -638,6 +766,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             voice.startListening();
           }
         }, 200);
+      }
+    },
+    // On Live Interim Speech Recognized
+    (interimText) => {
+      if (currentMode === 'voice' && !agentProcessing && interimText) {
+        userText.innerText = interimText;
       }
     }
   );
@@ -705,6 +839,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       ttsVoiceSelect.value = config.ttsVoice;
       voice.setVoice(config.ttsVoice);
     }
+    if (voice && typeof voice.setTTSProvider === 'function') {
+      voice.setTTSProvider(
+        config.ttsProvider || 'grokki',
+        config.elevenlabsVoiceId,
+        config.elevenlabsApiKey,
+        config.elevenlabsModel
+      );
+    }
   } catch (e) {}
 
   // Live Sync with Dashboard Studio Updates
@@ -717,6 +859,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (updated.ttsVoice && voice && typeof voice.setVoice === 'function') {
         voice.setVoice(updated.ttsVoice);
         if (ttsVoiceSelect) ttsVoiceSelect.value = updated.ttsVoice;
+      }
+      if (voice && typeof voice.setTTSProvider === 'function') {
+        voice.setTTSProvider(
+          updated.ttsProvider || 'grokki',
+          updated.elevenlabsVoiceId,
+          updated.elevenlabsApiKey,
+          updated.elevenlabsModel
+        );
       }
       if (updated.provider && typeof updateProviderUI === 'function') {
         updateProviderUI(updated.provider);
@@ -784,19 +934,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentFilteredCommands = [];
 
   const OVERLAY_SLASH_COMMANDS = [
-    { name: 'btw', desc: 'Ask a quick question without interrupting the main conversation.', icon: 'fa-solid fa-circle-question', hasArg: true },
-    { name: 'goal', desc: 'Run until the specified goal is completely finished.', icon: 'fa-solid fa-bullseye', hasArg: true },
-    { name: 'compact', desc: 'Compact the conversation now (summarize history to free up the context window).', icon: 'fa-solid fa-compress', hasArg: false },
-    { name: 'schedule', desc: 'Run an instruction on a recurring schedule or as a one-time timer.', icon: 'fa-solid fa-clock', hasArg: true },
-    { name: 'browser', desc: 'Invoke a browser agent for web tasks.', icon: 'fa-solid fa-globe', hasArg: true },
-    { name: 'plan', desc: 'Plan carefully before executing a task.', icon: 'fa-solid fa-list-check', hasArg: true },
-    { name: 'grill-me', desc: 'Interview me to align on a plan.', icon: 'fa-solid fa-comments', hasArg: true },
-    { name: 'teamwork-preview', desc: 'Invoke a team of agents to autonomously tackle large projects.', icon: 'fa-solid fa-users', hasArg: true },
-    { name: 'status', desc: 'Check live PC health, CPU load, RTX GPU temp, and memory usage.', icon: 'fa-solid fa-chart-line', hasArg: false },
+    { name: 'aircursor', desc: 'Spatial hand mouse: move pointer in air, pinch to click/drag, 2 fingers to scroll.', icon: 'fa-solid fa-arrow-pointer', hasArg: false },
+    { name: 'present', desc: 'Start touchless optical hand-gesture & voice presentation control.', icon: 'fa-solid fa-display', hasArg: false },
+    { name: 'organize', desc: 'Auto-sort messy Downloads or Desktop folder into clean categories.', icon: 'fa-solid fa-folder-tree', hasArg: false },
+    { name: 'status', desc: 'Check live PC health, CPU load, RTX GPU temp, and memory usage.', icon: 'fa-solid fa-microchip', hasArg: false },
     { name: 'clean', desc: 'Clear temporary junk cache files and purge recycle bin.', icon: 'fa-solid fa-broom', hasArg: false },
     { name: 'screenshot', desc: 'Capture a clean fullscreen screenshot to Desktop and clipboard.', icon: 'fa-solid fa-camera', hasArg: false },
     { name: 'lock', desc: 'Immediately lock Windows workstation.', icon: 'fa-solid fa-lock', hasArg: false },
-    { name: 'notes', desc: 'Generate study notes or meeting summary document to Desktop.', icon: 'fa-solid fa-file-lines', hasArg: true }
+    { name: 'sleep', desc: 'Put PC to sleep.', icon: 'fa-solid fa-moon', hasArg: false },
+    { name: 'mute', desc: 'Mute system master audio.', icon: 'fa-solid fa-volume-xmark', hasArg: false },
+    { name: 'unmute', desc: 'Unmute system master audio.', icon: 'fa-solid fa-volume-high', hasArg: false },
+    { name: 'notes', desc: 'Generate study notes or revision document to Desktop.', icon: 'fa-solid fa-file-pen', hasArg: true },
+    { name: 'schedule', desc: 'Set a spoken reminder or timed OS action.', icon: 'fa-solid fa-clock', hasArg: true },
+    { name: 'browser', desc: 'Open a website or search the web.', icon: 'fa-solid fa-globe', hasArg: true },
+    { name: 'btw', desc: 'Ask a quick side question without altering context.', icon: 'fa-solid fa-bolt', hasArg: true },
+    { name: 'compact', desc: 'Clear and compact conversation memory.', icon: 'fa-solid fa-compress', hasArg: false }
   ];
 
   function isSlashPaletteActive() {
@@ -862,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateSendButtonState();
     } else {
       hideSlashPalette();
-      handleUserPrompt(`/${cmd.name}`);
+      handleUserPrompt(`/${cmd.name}`, { isVoice: false });
     }
   }
 
@@ -1031,13 +1183,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.key === 'Enter') {
       e.preventDefault();
       hideSlashPalette();
-      handleUserPrompt(mainInput.value);
+      handleUserPrompt(mainInput.value, { isVoice: false });
     }
   });
 
   sendBtn.addEventListener('click', () => {
     hideSlashPalette();
-    handleUserPrompt(mainInput.value);
+    handleUserPrompt(mainInput.value, { isVoice: false });
   });
 
   // Mouse hover tracking
@@ -1084,19 +1236,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       const actions = [];
       if (isStudyDoc) {
         actions.push(
-          { label: `🎙️ Viva Oral Quiz`, prompt: `Start a Viva oral exam quiz from this attached document`, autoSubmit: true },
-          { label: `🗂️ Anki Flashcards`, prompt: `Export Anki flashcards from this attached document`, autoSubmit: true },
-          { label: `🎯 1-Page Cheat Sheet`, prompt: `Generate a 1-page exam cheat sheet from this attached document and save it`, autoSubmit: true },
-          { label: `📝 Revision Notes`, prompt: `Create high-yield study revision notes from this attached document and save it to my Desktop`, autoSubmit: true },
-          { label: `❓ Exam Questions`, prompt: `Generate top probable exam questions with model answers from this attached document`, autoSubmit: true },
-          { label: `💡 Explain Like I'm 10`, prompt: `Explain the core concepts of this attached document using the Feynman technique like I'm 10`, autoSubmit: true },
+          { label: `<i class="fa-solid fa-microphone-lines"></i><span>Viva Oral Quiz</span>`, prompt: `Start a Viva oral exam quiz from this attached document`, autoSubmit: true },
+          { label: `<i class="fa-solid fa-layer-group"></i><span>Anki Flashcards</span>`, prompt: `Export Anki flashcards from this attached document`, autoSubmit: true },
+          { label: `<i class="fa-solid fa-bolt"></i><span>1-Page Cheat Sheet</span>`, prompt: `Generate a 1-page exam cheat sheet from this attached document and save it`, autoSubmit: true },
+          { label: `<i class="fa-solid fa-file-pen"></i><span>Revision Notes</span>`, prompt: `Create high-yield study revision notes from this attached document and save it to my Desktop`, autoSubmit: true },
+          { label: `<i class="fa-solid fa-circle-question"></i><span>Exam Questions</span>`, prompt: `Generate top probable exam questions with model answers from this attached document`, autoSubmit: true },
+          { label: `<i class="fa-solid fa-lightbulb"></i><span>Explain Concept</span>`, prompt: `Explain the core concepts of this attached document using the Feynman technique like I'm 10`, autoSubmit: true },
         );
       }
 
       actions.push(
-        { label: `<i class="fa-brands fa-whatsapp"></i> Send on WhatsApp`, prompt: `Send this file "${fileName}" on WhatsApp to ` },
-        { label: `<i class="fa-brands fa-google-drive"></i> Upload to Drive`, prompt: `Upload this file to my Google Drive` },
-        { label: `<i class="fa-solid fa-trash-can"></i> Remove`, action: 'remove' }
+        { label: `<i class="fa-brands fa-whatsapp"></i><span>Send on WhatsApp</span>`, prompt: `Send this file "${fileName}" on WhatsApp to ` },
+        { label: `<i class="fa-brands fa-google-drive"></i><span>Upload to Drive</span>`, prompt: `Upload this file to my Google Drive` },
+        { label: `<i class="fa-solid fa-xmark"></i><span>Remove</span>`, action: 'remove' }
       );
 
       actions.forEach((act) => {
@@ -1110,7 +1262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             responseText.innerText = 'Attachment removed.';
             optionRow.innerHTML = '';
           } else if (act.autoSubmit) {
-            handleUserPrompt(act.prompt);
+            handleUserPrompt(act.prompt, { isVoice: false });
           } else {
             mainInput.value = act.prompt;
             mainInput.focus();
@@ -1209,8 +1361,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Bring back chat mode with victory celebration banner
         setPillDisplayMode('chat');
-        userText.innerHTML = `🔥 <strong>Lock-In Block Finished!</strong>`;
-        setResponseHTML(`<h3>🏆 Outstanding Work!</h3><p>You completed a full <strong>${durationMinutes}-minute focus session</strong> on <em>${lockInSubjectName}</em>.</p><p style="color:#a8c7fa; margin-top:6px;">Take a well-deserved 5-minute breather or stretch!</p>`);
+        userText.innerHTML = `<i class="fa-solid fa-fire-flame-curved" style="color:#ff9f0a; margin-right:6px;"></i> <strong>Lock-In Block Finished</strong>`;
+        setResponseHTML(`<h3><i class="fa-solid fa-award" style="color:#38bdf8; margin-right:6px;"></i> Focus Session Complete</h3><p>You completed a full <strong>${durationMinutes}-minute focus session</strong> on <em>${lockInSubjectName}</em>.</p><p style="color:#a8c7fa; margin-top:6px;">Take a well-deserved 5-minute breather.</p>`);
         islandDrawer.classList.add('open');
         islandContainer.classList.add('has-drawer-open');
 
@@ -1357,7 +1509,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 8. Execute User Order + Mini-Grokki Worker Simulation
-  async function handleUserPrompt(promptText) {
+  async function handleUserPrompt(promptText, { isVoice = false } = {}) {
     const text = (promptText || mainInput.value || '').trim();
     if (!text || agentProcessing) return;
 
@@ -1369,6 +1521,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     setResponseHTML('<span style="color:rgba(255,255,255,0.5);">Thinking...</span>');
     islandDrawer.classList.add('open');
     islandContainer.classList.add('has-drawer-open');
+
+    // Immediate local deactivation hook for camera and presentation mode
+    const lowerText = text.toLowerCase().trim();
+    if (
+      lowerText === 'deactivate' ||
+      lowerText === 'stop' ||
+      lowerText === 'exit' ||
+      lowerText === 'camera off' ||
+      lowerText === 'turn off camera' ||
+      lowerText.includes('stop presentation') ||
+      lowerText.includes('turn off presentation') ||
+      lowerText.includes('deactivate presentation')
+    ) {
+      if (window.presentationController) {
+        window.presentationController.stop();
+      }
+      if (window.jarvisAPI && window.jarvisAPI.togglePresentationMode) {
+        window.jarvisAPI.togglePresentationMode(false);
+      }
+      if (window.jarvisAPI && window.jarvisAPI.killCamera) {
+        window.jarvisAPI.killCamera();
+      }
+    }
 
     grokbot.setState('thinking');
 
@@ -1387,6 +1562,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       islandDrawer.classList.add('open');
       islandContainer.classList.add('has-drawer-open');
 
+      // AI Text Response Fallback: If AI message says presentation mode is off, shut off camera!
+      const replyLower = (response?.reply || '').toLowerCase();
+      if (
+        replyLower.includes('presentation-control mode turned off') ||
+        replyLower.includes('presentation mode deactivated') ||
+        replyLower.includes('presentation control stopped') ||
+        (replyLower.includes('presentation') && (replyLower.includes('turned off') || replyLower.includes('deactivated') || replyLower.includes('stopped')))
+      ) {
+        if (window.presentationController) {
+          window.presentationController.stop();
+        }
+        if (window.jarvisAPI && window.jarvisAPI.togglePresentationMode) {
+          window.jarvisAPI.togglePresentationMode(false);
+        }
+        if (window.jarvisAPI && window.jarvisAPI.killCamera) {
+          window.jarvisAPI.killCamera();
+        }
+      }
+
       // Render interactive options if Grokki is asking for a pivot
       const optionRow = document.getElementById('optionRow');
       optionRow.innerHTML = '';
@@ -1397,7 +1591,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           chip.innerHTML = `<i class="fa-solid fa-arrow-turn-down"></i> ${opt.label}`;
           chip.addEventListener('click', () => {
             sound.playPoke();
-            handleUserPrompt(opt.label);
+            handleUserPrompt(opt.label, { isVoice: false });
           });
           optionRow.appendChild(chip);
         });
@@ -1417,17 +1611,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             const subject = act.result?.subject || act.args?.subject || 'Study';
             startLockInTimer(duration, subject);
           }
+
+          if (act.name === 'presentation_slide_changer' || act.result?.actionType === 'START_AIR_CURSOR' || act.result?.actionType === 'START_PRESENTATION') {
+            const pAction = (act.args?.action || '').toLowerCase();
+            const mode = (pAction === 'air_cursor' || act.result?.actionType === 'START_AIR_CURSOR') ? 'air_cursor' : 'presentation';
+            if ((pAction === 'start_mode' || pAction === 'air_cursor' || act.result?.actionType?.startsWith('START')) && window.presentationController) {
+              window.presentationController.start(mode);
+            } else if ((pAction === 'stop_mode' || act.result?.actionType === 'STOP_PRESENTATION') && window.presentationController) {
+              window.presentationController.stop();
+            }
+          }
         });
       }
 
       // If no contextual follow-up chips, show high-value student & automation quick action chips
       if (!response.options || response.options.length === 0) {
         const defaultChips = [
-          { label: '📸 Snap & Solve', prompt: 'Snap and solve my screen' },
-          { label: '💻 PC & GPU Health', prompt: 'Check PC health' },
-          { label: '🗂️ Organize Downloads', prompt: 'Organize my Downloads folder' },
-          { label: '⏱️ Lock-In 25m', prompt: 'Start a 25-minute study lock-in session' },
-          { label: '🛠️ Bug Doctor', prompt: 'Fix my code bug in VS Code' },
+          { label: '<i class="fa-solid fa-arrow-pointer"></i><span>Air Cursor</span>', prompt: '/aircursor' },
+          { label: '<i class="fa-solid fa-expand"></i><span>Snap & Solve</span>', prompt: 'Snap and solve my screen' },
+          { label: '<i class="fa-solid fa-microchip"></i><span>PC & GPU Health</span>', prompt: 'Check PC health' },
+          { label: '<i class="fa-solid fa-folder-tree"></i><span>Organize Downloads</span>', prompt: 'Organize my Downloads folder' },
+          { label: '<i class="fa-solid fa-display"></i><span>Presentation Mode</span>', prompt: '/present' },
+          { label: '<i class="fa-solid fa-stopwatch"></i><span>Lock-In 25m</span>', prompt: 'Start a 25-minute study lock-in session' },
+          { label: '<i class="fa-solid fa-screwdriver-wrench"></i><span>Bug Doctor</span>', prompt: 'Fix my code bug in VS Code' },
         ];
         defaultChips.forEach((sc) => {
           const chip = document.createElement('button');
@@ -1439,7 +1645,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               mainInput.value = sc.prompt;
               mainInput.focus();
             } else {
-              handleUserPrompt(sc.prompt);
+              handleUserPrompt(sc.prompt, { isVoice: false });
             }
           });
           optionRow.appendChild(chip);
@@ -1450,22 +1656,32 @@ document.addEventListener('DOMContentLoaded', async () => {
       sound.playSuccess();
       grokbot.setState('happy');
 
-      voice.speak(response.reply, () => {
-        grokbot.setState('idle');
-        if (currentMode === 'voice') {
-          setTimeout(() => {
-            if (currentMode === 'voice' && !agentProcessing) {
-              userText.innerText = 'Listening for your command...';
-              voice.startListening();
-            }
-          }, 350);
-        }
-      });
+      if (isVoice) {
+        const spoken = summarizeForSpokenVoice(response.reply, response.actionsExecuted);
+        voice.speak(spoken, () => {
+          grokbot.setState('idle');
+          if (currentMode === 'voice') {
+            setTimeout(() => {
+              if (currentMode === 'voice' && !agentProcessing) {
+                userText.innerText = 'Listening for your command...';
+                voice.startListening();
+              }
+            }, 350);
+          }
+        });
+      } else {
+        // User typed or clicked - no voice reply, text-only in drawer
+        setTimeout(() => {
+          if (!agentProcessing) {
+            grokbot.setState('idle');
+          }
+        }, 1200);
+      }
     } catch (err) {
       responseText.innerText = `Error: ${err.message}`;
       islandDrawer.classList.add('open');
       grokbot.setState('idle');
-      if (currentMode === 'voice') {
+      if (isVoice && currentMode === 'voice') {
         setTimeout(() => {
           if (currentMode === 'voice' && !agentProcessing) {
             userText.innerText = 'Listening for your command...';
@@ -1590,7 +1806,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const command = (data && data.command) ? data.command.trim() : '';
       if (command) {
         mainInput.value = command;
-        handleUserPrompt(command);
+        handleUserPrompt(command, { isVoice: true });
       } else {
         // Hey Grokki opens in voice mode!
         setMode('voice');
@@ -1602,25 +1818,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 10. Window State & Transitions (Cute Squash & Stretch Launch Animation)
+  // 10. Window State & Transitions (Squash & Stretch Launch Animation)
   const GREETING_LINES = [
-    "Hi! 👋",
-    "Hey there! ✨",
-    "Ready to roll! 🚀",
-    "Sup human! 👀",
-    "Grokki online! ⚡",
-    "At your service! 🎩",
-    "What's the plan? 💡",
-    "Good to see ya! 🌟",
-    "How can I help? 🤖",
-    "Let's build! 🛠️",
-    "I'm all ears! 👂",
-    "Grokki's here! 💫",
-    "What are we making? 🎨",
-    "Ready when you are! 🎯",
-    "Beep boop! 🛸",
-    "Hey friend! ☕",
-    "All systems go! 🌟"
+    "Ready",
+    "Online",
+    "Standing by",
+    "Listening",
+    "At your service",
+    "Grokki Online",
+    "All systems go"
   ];
 
   let launchTimer = null;
@@ -1782,11 +1988,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (window.jarvisAPI && window.jarvisAPI.onReminderFired) {
     window.jarvisAPI.onReminderFired((data) => {
       const text = (data && data.reminderText) ? data.reminderText : 'Time is up for your scheduled reminder!';
-      const osAct = (data && data.osAction && data.osAction !== 'none') ? `\n\n⚡ *Executing scheduled OS action: **${data.osAction.toUpperCase()}**...*` : '';
+      const osAct = (data && data.osAction && data.osAction !== 'none') ? `\n\n*Executing scheduled OS action: **${data.osAction.toUpperCase()}**...*` : '';
       islandContainer.classList.remove('hidden-state');
       islandContainer.classList.remove('is-launching');
-      userText.innerHTML = `<i class="fa-solid fa-bell" style="color:#fbbf24; margin-right:6px;"></i> <strong>Scheduled Reminder (${data.fireTimeStr || 'Now'})</strong>`;
-      setResponseHTML(renderMarkdownHTML(`### ⏰ Reminder Alert!\n**${text}**${osAct}`), true);
+      userText.innerHTML = `<i class="fa-solid fa-bell" style="color:#38bdf8; margin-right:6px;"></i> <strong>Scheduled Reminder (${data.fireTimeStr || 'Now'})</strong>`;
+      setResponseHTML(renderMarkdownHTML(`### Reminder Alert\n**${text}**${osAct}`), true);
       islandDrawer.classList.add('open');
       islandContainer.classList.add('has-drawer-open');
       sound.playSuccess();

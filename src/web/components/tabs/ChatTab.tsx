@@ -199,12 +199,6 @@ const STUDIO_SLASH_COMMANDS: SlashCommand[] = [
     hasArg: true,
   },
   {
-    name: 'goal',
-    desc: 'Run until the specified goal is completely finished.',
-    icon: Target,
-    hasArg: true,
-  },
-  {
     name: 'compact',
     desc: 'Compact the conversation now (summarize history to free up the context window).',
     icon: Minimize2,
@@ -218,26 +212,8 @@ const STUDIO_SLASH_COMMANDS: SlashCommand[] = [
   },
   {
     name: 'browser',
-    desc: 'Invoke a browser agent for web tasks.',
+    desc: 'Search the web or open an online resource in your browser.',
     icon: Globe,
-    hasArg: true,
-  },
-  {
-    name: 'plan',
-    desc: 'Plan carefully before executing a task.',
-    icon: ListOrdered,
-    hasArg: true,
-  },
-  {
-    name: 'grill-me',
-    desc: 'Interview me to align on a plan.',
-    icon: MessageSquareText,
-    hasArg: true,
-  },
-  {
-    name: 'teamwork-preview',
-    desc: 'Invoke a team of agents to autonomously tackle large projects.',
-    icon: Users,
     hasArg: true,
   },
   {
@@ -266,7 +242,7 @@ const STUDIO_SLASH_COMMANDS: SlashCommand[] = [
   },
   {
     name: 'notes',
-    desc: 'Generate study notes or meeting summary document to Desktop.',
+    desc: 'Generate study notes or lecture summary document to Desktop.',
     icon: FileText,
     hasArg: true,
   },
@@ -459,9 +435,108 @@ function getLanguageLogoSvg(lang: string): string {
     </svg>`;
   }
 
+  if (l === 'markdown' || l === 'md' || l === 'mdx') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="4" width="20" height="16" rx="3" stroke="#38BDF8" stroke-width="1.8"/>
+      <path d="M6 15V9l2.5 3L11 9v6M15 12l2.5 3 2.5-3M17.5 9v6" stroke="#38BDF8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
+  if (l === 'docker' || l === 'dockerfile') {
+    return `<svg viewBox="0 0 24 24" width="14" height="14" fill="#0db7ed" xmlns="http://www.w3.org/2000/svg">
+      <path d="M13.98 10.03h2.36v2.36h-2.36zm-3.13 0h2.36v2.36h-2.36zm-3.13 0h2.36v2.36H7.72zm6.26-3.13h2.36v2.36h-2.36zm-3.13 0h2.36v2.36h-2.36zm-3.13 0h2.36v2.36H7.72zm6.26-3.13h2.36v2.36h-2.36zm-3.13 0h2.36v2.36h-2.36zm-3.13 0h2.36v2.36H7.72zM21.9 12.1c-.38-.28-1.42-.47-2.12-.4-.14-.72-.6-1.39-1.29-1.84l-.62-.4-.4.62c-.42.66-.56 1.44-.45 2.21-.49.25-1.14.33-1.68.33H1.47c-.28 0-.5.22-.5.5 0 2.22.8 4.27 2.27 5.79 1.63 1.69 3.86 2.65 6.27 2.65 6.07 0 11.23-4.14 12.39-9.87.53-.1.97-.33 1.25-.56l.48-.38-.73-.51z"/>
+    </svg>`;
+  }
+
   return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="m16 18 6-6-6-6M8 6l-6 6 6 6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#38BDF8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <polyline points="14 2 14 8 20 8" stroke="#38BDF8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`;
+}
+
+const KNOWN_FILE_EXTENSIONS: Record<string, string> = {
+  tsx: 'tsx',
+  ts: 'ts',
+  mts: 'ts',
+  cts: 'ts',
+  jsx: 'jsx',
+  js: 'js',
+  mjs: 'js',
+  cjs: 'js',
+  py: 'py',
+  pyw: 'py',
+  html: 'html',
+  htm: 'html',
+  css: 'css',
+  scss: 'scss',
+  sass: 'scss',
+  less: 'less',
+  json: 'json',
+  jsonc: 'json',
+  json5: 'json',
+  yaml: 'yaml',
+  yml: 'yaml',
+  toml: 'toml',
+  sql: 'sql',
+  prisma: 'sql',
+  rs: 'rs',
+  go: 'go',
+  c: 'c',
+  cpp: 'cpp',
+  cxx: 'cpp',
+  cc: 'cpp',
+  h: 'c',
+  hpp: 'cpp',
+  cs: 'cs',
+  java: 'java',
+  kt: 'java',
+  kts: 'java',
+  scala: 'java',
+  dart: 'js',
+  swift: 'cs',
+  rb: 'py',
+  php: 'js',
+  sh: 'bash',
+  bash: 'bash',
+  zsh: 'bash',
+  ps1: 'powershell',
+  bat: 'cmd',
+  cmd: 'cmd',
+  md: 'markdown',
+  markdown: 'markdown',
+  mdx: 'markdown',
+  txt: 'code',
+  log: 'code',
+  pdf: 'code',
+  csv: 'code',
+  env: 'json',
+  dockerfile: 'dockerfile',
+  gitignore: 'code',
+  lock: 'json',
+};
+
+function extractFileInfo(text: string): { fileName: string; ext: string; cleanName: string } | null {
+  if (!text) return null;
+  const trimmed = text.trim();
+  // Strip optional leading @
+  const raw = trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
+  // Dotfiles like .gitignore or .env
+  if (/^\.[a-zA-Z0-9_-]+$/.test(raw)) {
+    const ext = raw.slice(1).toLowerCase();
+    if (KNOWN_FILE_EXTENSIONS[ext]) {
+      return { fileName: trimmed, ext, cleanName: raw };
+    }
+  }
+  // Standard filename with extension (e.g. main.tsx, src/web/App.tsx, package.json)
+  const match = raw.match(/^([a-zA-Z0-9_\-\.\/\\]+\.([a-zA-Z0-9_-]{1,10}))$/);
+  if (!match) return null;
+  const cleanName = match[1];
+  const ext = match[2].toLowerCase();
+  if (KNOWN_FILE_EXTENSIONS[ext]) {
+    if (ext.length === 1 && !/^[a-zA-Z0-9_]{2,}/.test(cleanName)) return null;
+    return { fileName: trimmed, ext, cleanName };
+  }
+  return null;
 }
 
 const htmlRenderCache = new Map<string, string>();
@@ -570,6 +645,72 @@ function formatRichMarkdownHtml(rawContent: string, grounding?: GroundingMetadat
     }
   });
 
+  // 4. Enhance inline <code> matching filenames into interactive Grokki File Chips
+  doc.querySelectorAll('code').forEach((codeEl) => {
+    if (codeEl.closest('pre')) return; // skip code windows
+    const rawText = (codeEl.textContent || '').trim();
+    const info = extractFileInfo(rawText);
+    if (info) {
+      const chip = doc.createElement('span');
+      chip.className = 'grokki-file-chip';
+      chip.setAttribute('data-grokki-file-chip', 'true');
+      chip.setAttribute('data-file-name', info.cleanName);
+      chip.setAttribute('title', `Ctrl + Click to open ${info.cleanName} in desktop`);
+      const logoSvg = getLanguageLogoSvg(info.ext);
+      chip.innerHTML = `<span class="grokki-file-chip-icon">${logoSvg}</span><span class="grokki-file-chip-name">${rawText}</span>`;
+      codeEl.parentNode?.replaceChild(chip, codeEl);
+    }
+  });
+
+  // 5. Scan text nodes for standalone file mentions (e.g. main.tsx, @main.tsx, App.tsx, package.json)
+  const FILE_IN_TEXT_REGEX = /(?:^|[\s(\[<{"'`])(@?[a-zA-Z0-9_\-\.\/\\]+\.(?:tsx|ts|mts|cts|jsx|js|mjs|cjs|py|pyw|html|htm|css|scss|sass|less|json|jsonc|ya?ml|toml|sql|prisma|rs|go|c|cpp|cxx|cc|h|hpp|cs|java|kt|scala|dart|swift|rb|php|sh|bash|zsh|ps1|bat|cmd|md|markdown|mdx|txt|pdf|csv|lock))\b/gi;
+
+  const textNodes: Text[] = [];
+  const collectTextNodes = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const val = node.textContent || '';
+      if (val.trim() && FILE_IN_TEXT_REGEX.test(val)) {
+        textNodes.push(node as Text);
+      }
+      return;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as Element;
+      if (['PRE', 'CODE', 'A', 'BUTTON', 'SCRIPT', 'STYLE', 'SVG'].includes(el.tagName)) return;
+      if (el.classList.contains('grokki-file-chip') || el.classList.contains('grokki-code-window')) return;
+      Array.from(node.childNodes).forEach(collectTextNodes);
+    }
+  };
+  collectTextNodes(doc.body);
+
+  for (const tNode of textNodes) {
+    const parent = tNode.parentNode;
+    if (!parent) continue;
+    const text = tNode.textContent || '';
+    const parts = text.split(/(?:^|(?<=[\s(\[<{"'`]))(@?[a-zA-Z0-9_\-\.\/\\]+\.(?:tsx|ts|mts|cts|jsx|js|mjs|cjs|py|pyw|html|htm|css|scss|sass|less|json|jsonc|ya?ml|toml|sql|prisma|rs|go|c|cpp|cxx|cc|h|hpp|cs|java|kt|scala|dart|swift|rb|php|sh|bash|zsh|ps1|bat|cmd|md|markdown|mdx|txt|pdf|csv|lock))\b/gi);
+    if (parts.length <= 1) continue;
+
+    const frag = doc.createDocumentFragment();
+    for (const part of parts) {
+      if (!part) continue;
+      const info = extractFileInfo(part);
+      const isExcludedBrand = !part.startsWith('@') && !part.includes('/') && !part.includes('\\') && ['node.js', 'vue.js', 'next.js', 'react.js'].includes(part.toLowerCase());
+      if (info && !isExcludedBrand) {
+        const chip = doc.createElement('span');
+        chip.className = 'grokki-file-chip';
+        chip.setAttribute('data-grokki-file-chip', 'true');
+        chip.setAttribute('data-file-name', info.cleanName);
+        chip.setAttribute('title', `Ctrl + Click to open ${info.cleanName} in desktop`);
+        const logoSvg = getLanguageLogoSvg(info.ext);
+        chip.innerHTML = `<span class="grokki-file-chip-icon">${logoSvg}</span><span class="grokki-file-chip-name">${part}</span>`;
+        frag.appendChild(chip);
+      } else {
+        frag.appendChild(doc.createTextNode(part));
+      }
+    }
+    parent.replaceChild(frag, tNode);
+  }
+
   let finalHtml = doc.body.innerHTML;
 
   // Transform [1], [2], [1, 2] citations into interactive Perplexity citation badges
@@ -622,6 +763,21 @@ const StaticMessageContent = React.memo<{
         }
       }
       return;
+    }
+
+        // 0b. Handle Grokki file chip click (Ctrl+Click or normal click)
+    const fileChip = target?.closest('[data-grokki-file-chip]') as HTMLElement | null;
+    if (fileChip) {
+      const fileName = fileChip.getAttribute('data-file-name') || fileChip.textContent || '';
+      const hasSelection = !!window.getSelection()?.toString();
+      if (e.ctrlKey || e.metaKey || !hasSelection) {
+        e.preventDefault();
+        e.stopPropagation();
+        fileChip.classList.add('grokki-file-chip-opening');
+        setTimeout(() => fileChip.classList.remove('grokki-file-chip-opening'), 500);
+        window.jarvisAPI?.openWorkspaceFile?.(fileName).catch(console.error);
+        return;
+      }
     }
 
     // 1. Open links externally in the user's system browser
@@ -714,6 +870,21 @@ const AnimatedMessageContent: React.FC<{
       return;
     }
 
+        // 0b. Handle Grokki file chip click (Ctrl+Click or normal click)
+    const fileChip = target?.closest('[data-grokki-file-chip]') as HTMLElement | null;
+    if (fileChip) {
+      const fileName = fileChip.getAttribute('data-file-name') || fileChip.textContent || '';
+      const hasSelection = !!window.getSelection()?.toString();
+      if (e.ctrlKey || e.metaKey || !hasSelection) {
+        e.preventDefault();
+        e.stopPropagation();
+        fileChip.classList.add('grokki-file-chip-opening');
+        setTimeout(() => fileChip.classList.remove('grokki-file-chip-opening'), 500);
+        window.jarvisAPI?.openWorkspaceFile?.(fileName).catch(console.error);
+        return;
+      }
+    }
+
     // 1. Open links externally in the user's system browser
     const anchor = target?.closest('a') as HTMLAnchorElement | null;
     if (anchor) {
@@ -801,7 +972,7 @@ const AnimatedMessageContent: React.FC<{
       if (node.nodeType === Node.ELEMENT_NODE) {
         const el = node as Element;
         if (['SCRIPT', 'STYLE', 'SVG'].includes(el.tagName)) return;
-        if (el.classList.contains('grokki-code-header')) return;
+        if (el.classList.contains('grokki-code-header') || el.classList.contains('grokki-file-chip')) return;
         Array.from(node.childNodes).forEach(walk);
       }
     }
@@ -1888,22 +2059,9 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }
   };
 
-  const handleSelectMention = (item: WorkspaceMention | 'select_folder' | 'workspace_map') => {
+  const handleSelectMention = (item: WorkspaceMention | 'select_folder') => {
     if (item === 'select_folder') {
       handleSelectWorkspaceFolder();
-      return;
-    }
-    if (item === 'workspace_map') {
-      const prefix = inputValue.slice(0, lastAtIdx);
-      const suffix = inputValue.slice(lastAtIdx + 1 + mentionQuery.length);
-      setInputValue(`${prefix}@workspace ${suffix}`.trimStart());
-      setStagedMentions((prev) =>
-        prev.some((m) => m.path === '@workspace')
-          ? prev
-          : [...prev, { name: 'workspace', path: '@workspace', type: 'workspace' }]
-      );
-      setMentionDismissed(true);
-      setTimeout(() => inputRef.current?.focus(), 40);
       return;
     }
 
@@ -1957,6 +2115,33 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }
 
     const currentMentions = [...stagedMentions];
+    if (text.includes('@')) {
+      const inlineMatches = text.match(/@([a-zA-Z0-9_.\-/\\]+)/g) || [];
+      for (const rawToken of inlineMatches) {
+        const cleanToken = rawToken.slice(1).replace(/[.,;:!?)]+$/, '');
+        if (!cleanToken) continue;
+        if (cleanToken.toLowerCase() === 'workspace' || cleanToken.toLowerCase() === 'codebase') {
+          if (!currentMentions.some((m) => m.path === '@workspace')) {
+            currentMentions.push({ name: 'workspace', path: '@workspace', type: 'workspace' });
+          }
+          continue;
+        }
+        const matchedScan = scannedFiles.find(
+          (f) =>
+            f.name.toLowerCase() === cleanToken.toLowerCase() ||
+            f.path.toLowerCase() === cleanToken.toLowerCase()
+        );
+        if (matchedScan && !currentMentions.some((m) => m.path === matchedScan.path)) {
+          currentMentions.push(matchedScan);
+        } else if (!currentMentions.some((m) => m.name.toLowerCase() === cleanToken.toLowerCase() || m.path.toLowerCase() === cleanToken.toLowerCase())) {
+          currentMentions.push({
+            name: cleanToken.split(/[/\\]/).pop() || cleanToken,
+            path: cleanToken,
+            type: 'file',
+          });
+        }
+      }
+    }
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -2337,11 +2522,78 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
     setSpeakingId(id);
     try {
+      const cleanText = text.replace(/[*#`_~\[\]]/g, '').trim().slice(0, 500);
+      const isElevenLabs = config.ttsProvider === 'elevenlabs';
+      const elKey = (config.elevenlabsApiKey || '').trim();
+
+      // Direct ElevenLabs v3 / Flash synthesis in ChatTab so it always works immediately
+      if (isElevenLabs && elKey && cleanText) {
+        const rawVoiceId = String(config.elevenlabsVoiceId || 'JBFqnCBsd6RMkjVDRZzb').split('__')[0];
+        const targetVoice =
+          rawVoiceId &&
+          !rawVoiceId.startsWith('af_') &&
+          !rawVoiceId.startsWith('am_') &&
+          !rawVoiceId.startsWith('bf_') &&
+          !rawVoiceId.startsWith('bm_')
+            ? rawVoiceId
+            : 'JBFqnCBsd6RMkjVDRZzb';
+        const prefModel = config.elevenlabsModel || 'eleven_v3';
+        const modelsToTry =
+          prefModel === 'eleven_v3'
+            ? ['eleven_v3', 'eleven_flash_v2_5', 'eleven_multilingual_v2']
+            : [prefModel, 'eleven_flash_v2_5'];
+
+        for (const m of modelsToTry) {
+          try {
+            const q = m === 'eleven_v3' ? 'output_format=mp3_44100_128' : 'optimize_streaming_latency=3&output_format=mp3_44100_128';
+            const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(targetVoice)}?${q}`, {
+              method: 'POST',
+              headers: {
+                'xi-api-key': elKey,
+                'Content-Type': 'application/json',
+                Accept: 'audio/mpeg',
+              },
+              body: JSON.stringify({
+                text: cleanText,
+                model_id: m,
+                voice_settings: { stability: 0.5, similarity_boost: 0.78, style: 0.15, use_speaker_boost: true },
+              }),
+            });
+            if (r.ok) {
+              const blob = await r.blob();
+              const blobUrl = URL.createObjectURL(blob);
+              const audio = new Audio(blobUrl);
+              audioRef.current = audio;
+              audio.onended = () => {
+                URL.revokeObjectURL(blobUrl);
+                setSpeakingId(null);
+                audioRef.current = null;
+              };
+              audio.onerror = () => {
+                URL.revokeObjectURL(blobUrl);
+                setSpeakingId(null);
+                audioRef.current = null;
+              };
+              await audio.play();
+              return;
+            }
+            if (r.status === 401) break;
+          } catch (e) {}
+        }
+      }
+
       if (window.jarvisAPI?.speakText) {
-        const cleanText = text.replace(/[*#`_~\[\]]/g, '').slice(0, 350);
-        const res = await window.jarvisAPI.speakText(cleanText, config.ttsVoice || 'af_bella');
+        const voiceToUse = isElevenLabs
+          ? (config.elevenlabsVoiceId || 'JBFqnCBsd6RMkjVDRZzb')
+          : (config.ttsVoice || 'af_bella');
+        const res = await window.jarvisAPI.speakText(cleanText, voiceToUse, {
+          provider: isElevenLabs ? 'elevenlabs' : 'grokki',
+          apiKey: config.elevenlabsApiKey,
+          model: config.elevenlabsModel || 'eleven_v3',
+        });
         if (res && res.success && res.base64Audio) {
-          const audio = new Audio(`data:audio/wav;base64,${res.base64Audio}`);
+          const mime = res.mimeType || 'audio/wav';
+          const audio = new Audio(`data:${mime};base64,${res.base64Audio}`);
           audioRef.current = audio;
           audio.onended = () => {
             setSpeakingId(null);

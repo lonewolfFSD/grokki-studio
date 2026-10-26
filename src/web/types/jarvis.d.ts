@@ -69,6 +69,11 @@ export interface JarvisConfig {
   wakeWordEnabled?: boolean;
   musicProvider?: string;
   ttsVoice?: string;
+  ttsProvider?: 'grokki' | 'elevenlabs';
+  elevenlabsApiKey?: string;
+  elevenlabsVoiceId?: string;
+  elevenlabsVoiceName?: string;
+  elevenlabsModel?: string;
   userName?: string;
   userNickname?: string;
   userTone?: 'companion' | 'architect' | 'sarcastic' | 'executive';
@@ -319,6 +324,7 @@ export interface JarvisAPI {
   selectWorkspaceFolder?: () => Promise<{ success?: boolean; canceled?: boolean; workspaceRoot?: string; folderName?: string }>;
   scanWorkspaceFiles?: (options?: { query?: string; maxResults?: number }) => Promise<{ success: boolean; workspaceRoot: string; folderName: string; items: WorkspaceMention[]; totalMatches: number; error?: string }>;
   readWorkspaceItem?: (itemPath: string) => Promise<{ success: boolean; type?: 'file' | 'folder'; name?: string; path?: string; fullPath?: string; ext?: string; size?: number; lines?: number; content?: string; tree?: string; error?: string }>;
+  openWorkspaceFile?: (filePathOrName: string) => Promise<{ success: boolean; fullPath?: string; error?: string; revealed?: boolean }>;
   closeDashboard: () => void;
   minimizeDashboard: () => void;
   maximizeDashboard?: () => void;
@@ -327,7 +333,23 @@ export interface JarvisAPI {
   testAiKey: (options: { provider: string; key?: string; model?: string; endpoint?: string }) => Promise<{ success: boolean; latencyMs?: number; reply?: string; error?: string }>;
   fetchProviderModels?: (options: { provider: string; key?: string; endpoint?: string }) => Promise<{ success: boolean; models?: string[]; error?: string }>;
   getSystemInfo: () => Promise<SystemInfo>;
-  speakText: (text: string, voice: string) => Promise<{ success: boolean; base64Audio?: string; error?: string }>;
+  speakText: (text: string, voice: string, options?: { provider?: 'grokki' | 'elevenlabs'; apiKey?: string; model?: string }) => Promise<{ success: boolean; base64Audio?: string; mimeType?: string; cleanText?: string; error?: string }>;
+  fetchElevenLabsVoices?: (options?: { apiKey?: string; search?: string; pageSize?: number }) => Promise<{
+    success: boolean;
+    voices?: Array<{
+      id: string;
+      name: string;
+      style: string;
+      tag: string;
+      accent: 'us' | 'uk';
+      gender: 'female' | 'male';
+      previewUrl?: string;
+      category?: string;
+    }>;
+    authenticated?: boolean;
+    totalCount?: number;
+    error?: string;
+  }>;
   executeAI?: (prompt: string, context?: any) => Promise<{ success: boolean; reply?: string; message?: string; actionsExecuted?: any[]; grounding?: GroundingMetadata; error?: string }>;
   executeDualAI?: (prompt: string, brainA: any, brainB: any, context?: any) => Promise<{ success: boolean; isDual: boolean; brainA: any; brainB: any }>;
   synthesizeConsensus?: (prompt: string, replyA: string, replyB: string, brainAName: string, brainBName: string) => Promise<{ success: boolean; consensus: string }>;

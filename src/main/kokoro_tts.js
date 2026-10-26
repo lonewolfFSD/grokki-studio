@@ -198,25 +198,19 @@ class KokoroTTSService {
       return `Here you go! Check out the result on your screen.`;
     }
 
-    // 5. Keep spoken voice ultra-snappy (1-2 short sentences, max 145 chars)
-    // If the displayed text is long, only speak the opening sentence so the app never lags!
-    const maxSpokenLen = 145;
+    // 5. Keep spoken voice ultra-snappy (1 short sentence, max 95 chars)
+    // If the displayed text is long, only speak the opening takeaway so synthesis is sub-second!
+    const maxSpokenLen = 95;
     if (text.length > maxSpokenLen || hadLongContent) {
       const sentences = text.match(/[^.!?]+[.!?]+/g);
       if (sentences && sentences.length > 0) {
         let first = sentences[0].trim();
-        // If first sentence is just a short header fragment, include second sentence if it fits
-        if (first.length < 55 && sentences[1] && (first.length + sentences[1].length) <= maxSpokenLen) {
-          first = `${first} ${sentences[1].trim()}`;
-        }
         if (first.length > maxSpokenLen) {
-          first = first.substring(0, maxSpokenLen).replace(/\s+\S*$/, '') + '...';
-        } else if (hadLongContent && first.length < 95 && !/screen|below/i.test(first)) {
-          first = `${first} Check out the full details right here!`;
+          first = first.substring(0, maxSpokenLen).replace(/\s+\S*$/, '') + '.';
         }
         text = first;
       } else {
-        text = text.substring(0, maxSpokenLen).replace(/\s+\S*$/, '') + '...';
+        text = text.substring(0, maxSpokenLen).replace(/\s+\S*$/, '') + '.';
       }
     }
 
@@ -225,16 +219,28 @@ class KokoroTTSService {
 
   async synthesize(text, voice = 'af_heart') {
     const cleanText = this.formatForExpressiveSpeech(text);
-    if (!cleanText) return { success: false, error: 'Empty text' };
+    if (!cleanText) return { success: false, error: 'Empty text', cleanText: '' };
+
+    // Only use Kokoro if the model is already warm in memory and text is short;
+    // otherwise return cleanText immediately so the renderer can speak with zero delay!
+    if (!this.ttsInstance) {
+      // Trigger non-blocking background warm-up if not started
+      this.getTTS().catch(() => {});
+      return {
+        success: false,
+        useFastNative: true,
+        cleanText,
+      };
+    }
 
     try {
-      const tts = await this.getTTS();
+      const tts = this.ttsInstance;
       const targetVoice = voice || this.defaultVoice;
 
       const startTime = Date.now();
       const audio = await tts.generate(cleanText, {
         voice: targetVoice,
-        speed: 1.0,
+        speed: 1.05,
       });
       const durationMs = Date.now() - startTime;
       console.log(`[KokoroTTS] Synthesized "${cleanText}" in ${durationMs}ms with voice "${targetVoice}"`);
@@ -246,12 +252,13 @@ class KokoroTTSService {
       return {
         success: true,
         base64Audio,
+        cleanText,
         mimeType: 'audio/wav',
         durationMs,
       };
     } catch (err) {
       console.error('[KokoroTTS] Synthesis error:', err);
-      return { success: false, error: err.message };
+      return { success: false, error: err.message, cleanText };
     }
   }
 

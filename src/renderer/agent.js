@@ -155,16 +155,23 @@ class GrokkiAgent {
         actionsExecuted: [],
       };
     }
-    const arrayBuffer = await audioBlob.arrayBuffer();
-    const base64Audio = btoa(
-      new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-    );
+
+    const base64Audio = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const resStr = String(reader.result || '');
+        const commaIdx = resStr.indexOf(',');
+        resolve(commaIdx !== -1 ? resStr.slice(commaIdx + 1) : '');
+      };
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(audioBlob);
+    });
 
     try {
       const res = await this.timeout(api.executeAIAudio({
         base64Audio,
         mimeType: audioBlob.type || 'audio/webm',
-      }), 18000, 'Voice AI busy');
+      }), 22000, 'Voice AI timed out');
 
       if (res && res.success) {
         return {
@@ -173,17 +180,23 @@ class GrokkiAgent {
           actionsExecuted: res.actionsExecuted || [],
         };
       }
-      let errorReply = 'Voice processing failed. Try typing.';
       if (res?.error === 'NO_SPEECH_DETECTED') {
-        errorReply = 'No speech detected.';
-      } else if (res?.error === 'NO_API_KEY') {
+        return {
+          error: 'NO_SPEECH_DETECTED',
+          reply: '',
+          transcript: '',
+          actionsExecuted: [],
+        };
+      }
+      let errorReply = 'Voice processing failed. Try typing.';
+      if (res?.error === 'NO_API_KEY') {
         errorReply = 'No API key configured.';
       } else if (res?.error) {
         errorReply = typeof res.error === 'string' ? res.error : 'Voice error.';
       }
       return {
         reply: errorReply,
-        transcript: 'Voice command',
+        transcript: res?.transcript || 'Voice command',
         actionsExecuted: [],
       };
     } catch (err) {

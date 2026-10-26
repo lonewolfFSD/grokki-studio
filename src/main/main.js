@@ -7,6 +7,7 @@ const { GoogleGenAI } = require('@google/genai');
 const agentBrain = require('./agent_brain');
 const { searchWeb } = require('./web_search');
 const kokoroTTS = require('./kokoro_tts');
+const elevenlabsTTS = require('./elevenlabs_tts');
 app.setName('Grokki Studio');
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.grokki.studio');
@@ -158,6 +159,11 @@ function loadConfig() {
       if (data.wakeWordEnabled === undefined) data.wakeWordEnabled = true;
       if (!data.musicProvider) data.musicProvider = 'ytmusic';
       if (!data.ttsVoice) data.ttsVoice = 'af_bella';
+      if (!data.ttsProvider) data.ttsProvider = 'grokki';
+      if (data.elevenlabsApiKey === undefined) data.elevenlabsApiKey = (process.env.ELEVENLABS_API_KEY || '').trim();
+      if (!data.elevenlabsVoiceId) data.elevenlabsVoiceId = 'JBFqnCBsd6RMkjVDRZzb';
+      if (!data.elevenlabsVoiceName) data.elevenlabsVoiceName = 'George';
+      if (!data.elevenlabsModel) data.elevenlabsModel = 'eleven_v3';
       if (!data.userName) data.userName = '';
       if (!data.userNickname) data.userNickname = '';
       if (!data.userTone) data.userTone = 'companion';
@@ -216,6 +222,11 @@ function loadConfig() {
     voiceEnabled: true,
     ttsEnabled: true,
     ttsVoice: 'af_bella',
+    ttsProvider: 'grokki',
+    elevenlabsApiKey: (process.env.ELEVENLABS_API_KEY || '').trim(),
+    elevenlabsVoiceId: 'JBFqnCBsd6RMkjVDRZzb',
+    elevenlabsVoiceName: 'George',
+    elevenlabsModel: 'eleven_v3',
     pillTheme: 'original',
     wakeWordEnabled: true,
     musicProvider: 'ytmusic',
@@ -1037,10 +1048,178 @@ ipcMain.handle('jarvis:slide-control', async (event, action) => {
   return await agentBrain.executeTool('presentation_slide_changer', { action });
 });
 
-ipcMain.on('jarvis:toggle-presentation-mode', (event, active) => {
-  if (mainWindow && mainWindow.webContents) {
-    mainWindow.webContents.send('jarvis:presentation-mode', { active: Boolean(active) });
+let handGestureProcess = null;
+let handGesturePid = null;
+
+function stopHandGestureDaemon() {
+  const proc = handGestureProcess;
+  const pid = handGesturePid || (proc ? proc.pid : null);
+  handGestureProcess = null;
+  handGesturePid = null;
+
+  if (proc) {
+    try {
+      if (proc.stdin && !proc.stdin.destroyed) {
+        proc.stdin.write('stop\n');
+        proc.stdin.end();
+      }
+    } catch (e) {}
+
+    try {
+      proc.kill('SIGTERM');
+    } catch (e) {}
   }
+
+  if (process.platform === 'win32' && pid) {
+    try {
+      exec(`taskkill /pid ${pid} /t /f`, () => {});
+    } catch (e) {}
+  }
+
+  console.log('[Presentation] Python Hand Gesture Daemon stopped and camera freed.');
+}
+
+// Bind agentBrain callback directly so voice/chat tools shut down camera with 0 IPC hops
+agentBrain.onPresentationToggle = (active, mode = 'presentation') => {
+  const isAct = Boolean(active);
+  if (isAct) {
+    startHandGestureDaemon(mode);
+  } else {
+    stopHandGestureDaemon();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { width: screenWidth } = primaryDisplay.workAreaSize;
+      const winWidth = 660;
+      const x = Math.round((screenWidth - winWidth) / 2);
+      mainWindow.setPosition(x, 0);
+      mainWindow.webContents.send('jarvis:presentation-mode', { active: false, mode });
+    }
+  }
+};
+
+function getPythonExecutable() {
+  const customPath = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Python', 'Python314', 'python.exe');
+  if (fs.existsSync(customPath)) return customPath;
+  return process.platform === 'win32' ? 'python' : 'python3';
+}
+
+function startHandGestureDaemon(initialMode = 'presentation') {
+  stopHandGestureDaemon();
+
+  const daemonPath = path.join(__dirname, 'hand_gesture_daemon.py');
+  if (!fs.existsSync(daemonPath)) {
+    console.warn('[Presentation] hand_gesture_daemon.py not found at', daemonPath);
+    return;
+  }
+
+  try {
+    const pythonExe = getPythonExecutable();
+    // '-u' is critical: forces unbuffered binary stdout so gestures are delivered with 0ms delay!
+    handGestureProcess = spawn(pythonExe, ['-u', daemonPath, '--mode', initialMode], {
+      cwd: path.join(__dirname, '../../'),
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+      env: { ...process.env, PYTHONUNBUFFERED: '1' },
+    });
+    handGesturePid = handGestureProcess.pid;
+
+    let buffer = '';
+    handGestureProcess.stdout.on('data', (chunk) => {
+      buffer += chunk.toString();
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const payload = JSON.parse(trimmed);
+          if (payload.type === 'action' && payload.action) {
+            agentBrain.executeTool('presentation_slide_changer', { action: payload.action }).catch(() => {});
+          }
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('jarvis:presentation-gesture', payload);
+          }
+        } catch (e) {}
+      }
+    });
+
+    handGestureProcess.stderr.on('data', (data) => {
+      console.warn('[Spatial Hand AI]', data.toString().trim());
+    });
+
+    handGestureProcess.on('exit', (code) => {
+      handGestureProcess = null;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('jarvis:presentation-gesture', { type: 'exit', code });
+      }
+    });
+
+    console.log('[Spatial AI] Python MediaPipe Daemon started with', pythonExe, '(PID:', handGestureProcess.pid, 'Mode:', initialMode, ')');
+  } catch (err) {
+    console.error('[Spatial AI] Failed to launch Python Hand AI Daemon:', err);
+  }
+}
+
+ipcMain.on('jarvis:toggle-presentation-mode', (event, active, mode = 'presentation') => {
+  const isAct = Boolean(active);
+  if (isAct) {
+    startHandGestureDaemon(mode);
+  } else {
+    stopHandGestureDaemon();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { width: screenWidth } = primaryDisplay.workAreaSize;
+      const winWidth = 660;
+      const x = Math.round((screenWidth - winWidth) / 2);
+      mainWindow.setPosition(x, 0);
+    }
+  }
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send('jarvis:presentation-mode', { active: isAct, mode });
+  }
+});
+
+ipcMain.on('jarvis:set-gesture-mode', (event, mode) => {
+  if (handGestureProcess && handGestureProcess.stdin && !handGestureProcess.stdin.destroyed) {
+    try {
+      handGestureProcess.stdin.write(JSON.stringify({ cmd: 'set_mode', mode }) + '\n');
+    } catch (e) {}
+  }
+});
+
+ipcMain.handle('jarvis:kill-camera', () => {
+  stopHandGestureDaemon();
+  return true;
+});
+
+ipcMain.handle('jarvis:get-window-position', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const [x, y] = mainWindow.getPosition();
+    return { x, y };
+  }
+  return { x: 0, y: 0 };
+});
+
+ipcMain.handle('jarvis:set-window-position', (event, { x, y }) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setPosition(Math.round(x), Math.round(y));
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('jarvis:reset-window-position', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width: screenWidth } = primaryDisplay.workAreaSize;
+    const winWidth = 660;
+    const x = Math.round((screenWidth - winWidth) / 2);
+    const y = 0;
+    mainWindow.setPosition(x, y);
+    return true;
+  }
+  return false;
 });
 
 ipcMain.handle('jarvis:run-command', async (event, command) => {
@@ -1152,11 +1331,32 @@ ipcMain.handle('jarvis:execute-ai-audio', async (event, { base64Audio, mimeType 
   return await agentBrain.runAudio(base64Audio, mimeType, config);
 });
 
-ipcMain.handle('jarvis:speak', async (event, { text, voice }) => {
+ipcMain.handle('jarvis:speak', async (event, { text, voice, provider, apiKey, model } = {}) => {
   const config = loadConfig();
-  if (config.ttsEnabled === false) return { success: false, disabled: true };
-  const voiceToUse = voice || config.ttsVoice || 'af_bella';
+  if (config.ttsEnabled === false && !provider) return { success: false, disabled: true };
+  const activeProvider = provider || config.ttsProvider || 'grokki';
+  if (activeProvider === 'elevenlabs') {
+    const elKey = (apiKey !== undefined ? apiKey : config.elevenlabsApiKey) || '';
+    const elVoice = voice || config.elevenlabsVoiceId || 'JBFqnCBsd6RMkjVDRZzb';
+    const elModel = model || config.elevenlabsModel || 'eleven_v3';
+    if (elKey.trim()) {
+      const elRes = await elevenlabsTTS.synthesize(text, elVoice, elKey.trim(), elModel);
+      if (elRes && elRes.success) return elRes;
+      if (provider === 'elevenlabs') return elRes; // explicit preview request should report error if key invalid
+    } else if (provider === 'elevenlabs') {
+      return { success: false, error: 'Please enter your ElevenLabs API key first.' };
+    }
+  }
+  const voiceToUse = (voice && (voice.startsWith('af_') || voice.startsWith('am_') || voice.startsWith('bf_') || voice.startsWith('bm_')))
+    ? voice
+    : (config.ttsVoice || 'af_bella');
   return await kokoroTTS.synthesize(text, voiceToUse);
+});
+
+ipcMain.handle('jarvis:fetch-elevenlabs-voices', async (event, { apiKey, search, pageSize } = {}) => {
+  const config = loadConfig();
+  const keyToUse = (apiKey !== undefined ? apiKey : config.elevenlabsApiKey) || '';
+  return await elevenlabsTTS.fetchVoices({ apiKey: keyToUse, search, pageSize });
 });
 
 ipcMain.handle('jarvis:get-config', async () => {
@@ -1360,6 +1560,10 @@ ipcMain.handle('jarvis:scan-workspace-files', async (event, options = {}) => {
 
 ipcMain.handle('jarvis:read-workspace-item', async (event, itemPath) => {
   return workspaceContext.readWorkspaceItem(itemPath);
+});
+
+ipcMain.handle('jarvis:open-workspace-file', async (event, filePathOrName) => {
+  return await workspaceContext.openWorkspaceFile(filePathOrName);
 });
 
 // Dashboard Studio Controls & Live Tests
@@ -2022,6 +2226,7 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
+  stopHandGestureDaemon();
   if (wakeWordService) {
     wakeWordService.stop();
   }

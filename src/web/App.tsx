@@ -42,6 +42,11 @@ const DEFAULT_CONFIG: JarvisConfig = {
   omnirouterModel: 'omnirouter/auto',
   omnirouterEndpoint: 'https://api.omnirouter.ai/v1',
   ttsVoice: 'af_bella',
+  ttsProvider: 'grokki',
+  elevenlabsApiKey: '',
+  elevenlabsVoiceId: 'JBFqnCBsd6RMkjVDRZzb',
+  elevenlabsVoiceName: 'George',
+  elevenlabsModel: 'eleven_v3',
   ttsEnabled: true,
   wakeWordEnabled: true,
   pillTheme: 'glass',
@@ -281,11 +286,24 @@ export const App: React.FC = () => {
     }
   };
 
-  // Track unsaved changes
+  // Track unsaved changes, and immediately persist voice engine / ElevenLabs settings so ChatTab & Island use them right away
   const handleConfigChange = useCallback((patch: Partial<JarvisConfig>) => {
     setConfig((prev) => {
       const next = { ...prev, ...patch };
-      setHasUnsaved(true);
+      const isImmediateVoicePatch =
+        'ttsProvider' in patch ||
+        'elevenlabsApiKey' in patch ||
+        'elevenlabsVoiceId' in patch ||
+        'elevenlabsVoiceName' in patch ||
+        'elevenlabsModel' in patch ||
+        'ttsVoice' in patch ||
+        'ttsEnabled' in patch;
+      if (isImmediateVoicePatch && window.jarvisAPI?.saveConfig) {
+        window.jarvisAPI.saveConfig(next);
+        setOriginalConfig((orig) => ({ ...orig, ...patch }));
+      } else {
+        setHasUnsaved(true);
+      }
       return next;
     });
   }, []);
@@ -375,7 +393,11 @@ export const App: React.FC = () => {
   }, []);
 
   // Voice Sample Preview
-  const handlePreviewVoice = useCallback(async (voiceId: string, customText?: string) => {
+  const handlePreviewVoice = useCallback(async (
+    voiceId: string,
+    customText?: string,
+    options?: { provider?: 'grokki' | 'elevenlabs'; apiKey?: string; previewUrl?: string }
+  ) => {
     if (playingVoice === voiceId) {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -394,16 +416,123 @@ export const App: React.FC = () => {
     setPlayingVoice(voiceId);
 
     try {
+      const providerToUse = options?.provider || config.ttsProvider || 'grokki';
+      const apiKeyToUse = (options?.apiKey !== undefined ? options.apiKey : config.elevenlabsApiKey) || '';
+
+      // Helper for direct browser ElevenLabs synthesis (works even if Electron main process wasn't restarted)
+      const synthesizeElevenLabsDirect = async (text: string, vId: string, key: string, prefModel: string) => {
+        const clean = text.replace(/[*#`_~\[\]]/g, '').trim().slice(0, 500);
+        if (!clean || !key.trim()) return null;
+        const rawVoiceId = String(vId || 'JBFqnCBsd6RMkjVDRZzb').split('__')[0];
+        const targetVoice =
+          rawVoiceId &&
+          !rawVoiceId.startsWith('af_') &&
+          !rawVoiceId.startsWith('am_') &&
+          !rawVoiceId.startsWith('bf_') &&
+          !rawVoiceId.startsWith('bm_')
+            ? rawVoiceId
+            : 'JBFqnCBsd6RMkjVDRZzb';
+        const modelsToTry =
+          prefModel === 'eleven_v3'
+            ? ['eleven_v3', 'eleven_flash_v2_5', 'eleven_multilingual_v2']
+            : [prefModel, 'eleven_flash_v2_5'];
+
+        for (const m of modelsToTry) {
+          try {
+            const q = m === 'eleven_v3' ? 'output_format=mp3_44100_128' : 'optimize_streaming_latency=3&output_format=mp3_44100_128';
+            const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(targetVoice)}?${q}`, {
+              method: 'POST',
+              headers: {
+                'xi-api-key': key.trim(),
+                'Content-Type': 'application/json',
+                Accept: 'audio/mpeg',
+              },
+              body: JSON.stringify({
+                text: clean,
+                model_id: m,
+                voice_settings: { stability: 0.5, similarity_boost: 0.78, style: 0.15, use_speaker_boost: true },
+              }),
+            });
+            if (r.ok) {
+              const blob = await r.blob();
+              return URL.createObjectURL(blob);
+            }
+            if (r.status === 401) break;
+          } catch (e) {}
+        }
+        return null;
+      };
+
+      // If ElevenLabs is selected and we have an API key, synthesize directly with ElevenLabs v3 / Flash
+      if (providerToUse === 'elevenlabs' && apiKeyToUse.trim()) {
+        const blobUrl = await synthesizeElevenLabsDirect(
+          textToSpeak,
+          voiceId,
+          apiKeyToUse,
+          config.elevenlabsModel || 'eleven_v3'
+        );
+        if (blobUrl) {
+          const audio = new Audio(blobUrl);
+          audioRef.current = audio;
+          audio.onended = () => {
+            URL.revokeObjectURL(blobUrl);
+            setPlayingVoice(null);
+            audioRef.current = null;
+          };
+          audio.onerror = () => {
+            URL.revokeObjectURL(blobUrl);
+            setPlayingVoice(null);
+            audioRef.current = null;
+          };
+          await audio.play();
+          return;
+        }
+      }
+
+      // If ElevenLabs is selected and API key isn't entered yet, play sample previewUrl if available
+      if (providerToUse === 'elevenlabs' && options?.previewUrl && (!customText || !apiKeyToUse.trim())) {
+        const audio = new Audio(options.previewUrl);
+        audioRef.current = audio;
+        audio.onended = () => {
+          setPlayingVoice(null);
+          audioRef.current = null;
+        };
+        audio.onerror = () => {
+          setPlayingVoice(null);
+          audioRef.current = null;
+        };
+        await audio.play();
+        return;
+      }
+
       if (window.jarvisAPI?.speakText) {
-        const res = await window.jarvisAPI.speakText(textToSpeak, voiceId);
+        const res = await window.jarvisAPI.speakText(textToSpeak, voiceId, {
+          provider: providerToUse,
+          apiKey: apiKeyToUse,
+          model: config.elevenlabsModel || 'eleven_v3',
+        });
         if (res && res.success && res.base64Audio) {
-          const audio = new Audio(`data:audio/wav;base64,${res.base64Audio}`);
+          const mime = res.mimeType || 'audio/wav';
+          const audio = new Audio(`data:${mime};base64,${res.base64Audio}`);
           audioRef.current = audio;
           audio.onended = () => {
             setPlayingVoice(null);
             audioRef.current = null;
           };
           audio.play();
+        } else if (options?.previewUrl) {
+          // Fallback to ElevenLabs sample previewUrl if API call failed
+          const audio = new Audio(options.previewUrl);
+          audioRef.current = audio;
+          audio.onended = () => {
+            setPlayingVoice(null);
+            audioRef.current = null;
+          };
+          audio.onerror = () => {
+            setPlayingVoice(null);
+            audioRef.current = null;
+          };
+          await audio.play();
         } else {
           setPlayingVoice(null);
         }
@@ -414,7 +543,7 @@ export const App: React.FC = () => {
       console.error('TTS error:', err);
       setPlayingVoice(null);
     }
-  }, [playingVoice]);
+  }, [playingVoice, config.ttsProvider, config.elevenlabsApiKey, config.elevenlabsModel]);
 
   const effectiveHotkeys = getEffectiveHotkeys(config);
 

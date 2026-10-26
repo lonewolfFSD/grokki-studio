@@ -89,7 +89,7 @@ async function callOpenAICompatible({
   }
 
   const payload = {
-    model: model || 'llama-3.3-70b-versatile',
+    model: model || 'openai/gpt-oss-120b',
     messages,
     temperature,
   };
@@ -129,40 +129,51 @@ async function callOpenAICompatible({
   }
 }
 
-async function transcribeWithGroqWhisper({ apiKey, base64Audio, mimeType = 'audio/webm', signal = null }) {
+async function transcribeWithGroqWhisper({ apiKey, base64Audio, mimeType = 'audio/webm', signal = null, timeout = 8000 }) {
   if (!apiKey) {
     throw new Error('GROQ_API_KEY_REQUIRED');
   }
 
   const binaryBuffer = Buffer.from(base64Audio, 'base64');
-  const blob = new Blob([binaryBuffer], { type: mimeType });
+  const cleanMime = (mimeType || 'audio/webm').split(';')[0].trim() || 'audio/webm';
+  const ext = cleanMime.includes('mp4') ? 'mp4' : cleanMime.includes('wav') ? 'wav' : 'webm';
+  const blob = new Blob([binaryBuffer], { type: cleanMime });
 
   const formData = new FormData();
-  formData.append('file', blob, 'audio.webm');
-  formData.append('model', 'whisper-large-v3');
+  formData.append('file', blob, `audio.${ext}`);
+  formData.append('model', 'whisper-large-v3-turbo');
   formData.append('response_format', 'json');
+  formData.append('temperature', '0');
 
   const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
   if (signal) {
     signal.addEventListener('abort', () => controller.abort());
   }
 
-  const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey.trim()}`,
-    },
-    body: formData,
-    signal: controller.signal,
-  });
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey.trim()}`,
+      },
+      body: formData,
+      signal: controller.signal,
+    });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Groq Whisper Error: ${errText}`);
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Groq Whisper Error (${res.status}): ${errText}`);
+    }
+
+    const data = await res.json();
+    return data.text || '';
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
   }
-
-  const data = await res.json();
-  return data.text || '';
 }
 
 module.exports = {
