@@ -4743,17 +4743,18 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
           try {
             this.onPresentationToggle(true, mode);
           } catch (e) {}
+        } else {
+          try {
+            if (electronModule && electronModule.ipcMain) {
+              electronModule.ipcMain.emit('jarvis:toggle-presentation-mode', null, true, mode);
+            }
+          } catch (e) {}
         }
-        try {
-          if (electronModule && electronModule.ipcMain) {
-            electronModule.ipcMain.emit('jarvis:toggle-presentation-mode', null, true, mode);
-          }
-        } catch (e) {}
         return {
           success: true,
           actionType: mode === 'air_cursor' ? 'START_AIR_CURSOR' : 'START_PRESENTATION',
           message: mode === 'air_cursor'
-            ? `🖐️ **Air-Cursor Spatial Control Active**\n- **Point & Move**: Move index finger in the air to glide the mouse pointer\n- **Pinch-to-Click**: Pinch Thumb + Index to click or hold to drag\n- **Right-Click**: Pinch Thumb + Middle finger\n- **Air-Scroll**: Hold 2 fingers up (Index + Middle) and move up/down to scroll\n- **Rest**: Make a fist or lower hand to pause tracking`
+            ? `🖐️ **Air-Cursor Spatial Control Active**\n- **Point & Move**: Move index finger in the air to glide the mouse pointer\n- **Click & Drag**: Touch Index and Middle fingertips together to click or hold to drag files to Grokki Island\n- **Release / Drop**: Separate Index and Middle fingers to release or drop\n- **Right-Click**: Pinch Thumb + Index finger\n- **Air-Scroll**: Raise 3 fingers (Index + Middle + Ring) up/down to scroll\n- **Rest**: Make a fist or lower hand to pause tracking`
             : `📽️ **Presentation Control Active**\n- **2 Fingers**: Next Slide\n- **3 Fingers**: Previous Slide\n- **5 Fingers Held**: Blank Screen`,
         };
       }
@@ -4763,12 +4764,13 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
           try {
             this.onPresentationToggle(false);
           } catch (e) {}
+        } else {
+          try {
+            if (electronModule && electronModule.ipcMain) {
+              electronModule.ipcMain.emit('jarvis:toggle-presentation-mode', null, false);
+            }
+          } catch (e) {}
         }
-        try {
-          if (electronModule && electronModule.ipcMain) {
-            electronModule.ipcMain.emit('jarvis:toggle-presentation-mode', null, false);
-          }
-        } catch (e) {}
         return {
           success: true,
           actionType: 'STOP_PRESENTATION',

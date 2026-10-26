@@ -77,6 +77,9 @@ try {
     onPresentationGesture: (callback) => {
       ipcRenderer.on('jarvis:presentation-gesture', (event, data) => callback(data));
     },
+    onLeftHandAction: (callback) => {
+      ipcRenderer.on('jarvis:left-hand-action', (event, data) => callback(data));
+    },
     togglePresentationMode: (active, mode = 'presentation') => ipcRenderer.send('jarvis:toggle-presentation-mode', active, mode),
     setGestureMode: (mode) => ipcRenderer.send('jarvis:set-gesture-mode', mode),
     killCamera: () => ipcRenderer.invoke('jarvis:kill-camera'),

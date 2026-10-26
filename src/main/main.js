@@ -189,6 +189,8 @@ function loadConfig() {
       if (data.glowCursorEnabled === undefined) data.glowCursorEnabled = false;
       if (data.smoothCursorEnabled === undefined) data.smoothCursorEnabled = false;
       if (data.smoothScroll === undefined) data.smoothScroll = false;
+      if (!data.spatialLeftHand1FingerApp) data.spatialLeftHand1FingerApp = 'whatsapp';
+      if (!data.spatialLeftHand2FingersApp) data.spatialLeftHand2FingersApp = 'chrome';
       cachedConfig = data;
       return cachedConfig;
     }
@@ -758,16 +760,16 @@ function registerShortcuts() {
   console.log(`[Main] Global hotkey [${shortcut}] active: ${registered}`);
 }
 
-// Desktop Automation Tool Handlers
-ipcMain.handle('jarvis:open-app', async (event, appName) => {
+function openApp(appName) {
   const lower = (appName || '').trim().toLowerCase();
   
   if (!lower || lower.length < 2 || ['hi', 'hello', 'hey', 'grokki', 'grokbot', 'jarvis', 'what', 'who', 'how', 'why', 'ok', 'yes', 'no'].includes(lower)) {
-    return { success: false, error: `"${appName}" is not an application.` };
+    return Promise.resolve({ success: false, error: `"${appName}" is not an application.` });
   }
   
   // App mapping dictionary for Windows
   const appMap = {
+    'whatsapp': 'whatsapp:',
     'spotify': 'spotify:',
     'notepad': 'notepad.exe',
     'code': 'code',
@@ -792,6 +794,7 @@ ipcMain.handle('jarvis:open-app', async (event, appName) => {
     'settings': 'ms-settings:',
     'discord': 'discord:',
     'slack': 'slack:',
+    'telegram': 'tg:',
   };
 
   const target = appMap[lower] || lower;
@@ -828,6 +831,11 @@ ipcMain.handle('jarvis:open-app', async (event, appName) => {
       }
     });
   });
+}
+
+// Desktop Automation Tool Handlers
+ipcMain.handle('jarvis:open-app', async (event, appName) => {
+  return await openApp(appName);
 });
 
 ipcMain.handle('jarvis:write-file', async (event, { filename, content, openInEditor = true, directory }) => {
@@ -1084,6 +1092,9 @@ agentBrain.onPresentationToggle = (active, mode = 'presentation') => {
   const isAct = Boolean(active);
   if (isAct) {
     startHandGestureDaemon(mode);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+    }
   } else {
     stopHandGestureDaemon();
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1135,7 +1146,42 @@ function startHandGestureDaemon(initialMode = 'presentation') {
         try {
           const payload = JSON.parse(trimmed);
           if (payload.type === 'action' && payload.action) {
-            agentBrain.executeTool('presentation_slide_changer', { action: payload.action }).catch(() => {});
+            if (payload.action === 'emergency_lock') {
+              console.log('[Spatial AI] 🚨 Emergency Pinky Gesture -> Locking Windows Workstation!');
+              stopHandGestureDaemon();
+              try {
+                const { exec } = require('child_process');
+                exec('rundll32.exe user32.dll,LockWorkStation');
+              } catch (e) {}
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('jarvis:presentation-mode', { active: false, mode: 'air_cursor' });
+              }
+            } else if (payload.action === 'stop_air_cursor') {
+              console.log('[Spatial AI] ✋ Open Palm Gesture -> Stopping Air Cursor!');
+              stopHandGestureDaemon();
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('jarvis:presentation-mode', { active: false, mode: 'air_cursor' });
+              }
+            } else {
+              agentBrain.executeTool('presentation_slide_changer', { action: payload.action }).catch(() => {});
+            }
+          }
+          if (payload.type === 'left_hand_gesture' && payload.fingers) {
+            const config = loadConfig();
+            const fingers = payload.fingers;
+            const targetApp = fingers === 1
+              ? (config.spatialLeftHand1FingerApp || 'whatsapp')
+              : (config.spatialLeftHand2FingersApp || 'chrome');
+
+            console.log(`[Spatial Multi-Hand] Left Hand Gesture (${fingers} finger${fingers > 1 ? 's' : ''}) -> Launching app: ${targetApp}`);
+            openApp(targetApp).catch((err) => console.warn('[Spatial App Launch Error]', err));
+
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('jarvis:left-hand-action', {
+                fingers,
+                app: targetApp,
+              });
+            }
           }
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('jarvis:presentation-gesture', payload);
@@ -1149,6 +1195,7 @@ function startHandGestureDaemon(initialMode = 'presentation') {
     });
 
     handGestureProcess.on('exit', (code) => {
+      console.log('[Spatial AI] Python daemon terminated with exit code:', code);
       handGestureProcess = null;
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('jarvis:presentation-gesture', { type: 'exit', code });
@@ -1165,6 +1212,9 @@ ipcMain.on('jarvis:toggle-presentation-mode', (event, active, mode = 'presentati
   const isAct = Boolean(active);
   if (isAct) {
     startHandGestureDaemon(mode);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      showWindow();
+    }
   } else {
     stopHandGestureDaemon();
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1173,6 +1223,7 @@ ipcMain.on('jarvis:toggle-presentation-mode', (event, active, mode = 'presentati
       const winWidth = 660;
       const x = Math.round((screenWidth - winWidth) / 2);
       mainWindow.setPosition(x, 0);
+      showWindow();
     }
   }
   if (mainWindow && mainWindow.webContents) {

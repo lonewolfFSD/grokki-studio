@@ -101,6 +101,8 @@ export interface JarvisConfig {
   smoothScroll?: boolean;
   smoothScrollIntensity?: number;
   notionApiKey?: string;
+  spatialLeftHand1FingerApp?: string;
+  spatialLeftHand2FingersApp?: string;
 }
 
 export interface GoogleProfile {

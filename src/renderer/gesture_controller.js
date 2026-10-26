@@ -21,6 +21,7 @@ class PresentationGestureController {
 
     // UI Elements
     this.hudEl = null;
+    this.islandBadgeEl = null;
     this.sensorDotEl = null;
     this.statusTextEl = null;
     this.airBadgeEl = null;
@@ -33,6 +34,7 @@ class PresentationGestureController {
     this.feedbackTimer = null;
 
     this.createHud();
+    this.setupIslandControls();
     this.listenToPythonDaemon();
   }
 
@@ -325,6 +327,43 @@ class PresentationGestureController {
         border-color: rgba(56, 189, 248, 0.6);
         color: #7dd3fc;
       }
+
+      .air-cursor-mini-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        background: rgba(56, 189, 248, 0.16);
+        border: 1px solid rgba(56, 189, 248, 0.38);
+        border-radius: 999px;
+        color: #38bdf8;
+        font-size: 11.5px;
+        font-weight: 600;
+        cursor: pointer;
+        -webkit-app-region: no-drag !important;
+        box-shadow: 0 0 12px rgba(56, 189, 248, 0.22);
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        animation: airBadgePulse 2.4s infinite ease-in-out;
+      }
+
+      .air-cursor-mini-btn:hover {
+        background: rgba(239, 68, 68, 0.25);
+        border-color: rgba(239, 68, 68, 0.55);
+        color: #fca5a5;
+        transform: scale(1.04);
+      }
+
+      .air-cursor-mini-btn.dragging {
+        background: rgba(52, 211, 153, 0.25);
+        border-color: rgba(52, 211, 153, 0.6);
+        color: #34d399;
+        box-shadow: 0 0 18px rgba(52, 211, 153, 0.45);
+      }
+
+      @keyframes airBadgePulse {
+        0%, 100% { box-shadow: 0 0 8px rgba(56, 189, 248, 0.2); }
+        50% { box-shadow: 0 0 16px rgba(56, 189, 248, 0.42); }
+      }
     `;
     document.head.appendChild(styleEl);
 
@@ -380,8 +419,8 @@ class PresentationGestureController {
 
         <div class="air-gestures-guide">
           <span><i class="fa-solid fa-hand-pointer"></i> Move: Glide</span>
-          <span><i class="fa-solid fa-hand-holding"></i> Pinch: Click/Drag</span>
-          <span><i class="fa-solid fa-arrows-up-down"></i> 2-Fingers: Scroll</span>
+          <span><i class="fa-solid fa-peace"></i> Touch 2: Drag/Drop</span>
+          <span><i class="fa-solid fa-arrows-up-down"></i> 3-Fingers: Scroll</span>
         </div>
       </div>
 
@@ -428,22 +467,107 @@ class PresentationGestureController {
     }
   }
 
-  switchMode(mode) {
-    this.currentMode = mode;
+  setupIslandControls() {
+    if (this.islandBadgeEl) return;
+    const existing = document.getElementById('airCursorIslandBadge');
+    if (existing) {
+      this.islandBadgeEl = existing;
+      return;
+    }
 
-    if (mode === 'air_cursor') {
-      if (this.slidesTabBtn) this.slidesTabBtn.classList.remove('active');
-      if (this.airTabBtn) this.airTabBtn.classList.add('active');
-      if (this.slidesViewEl) this.slidesViewEl.style.display = 'none';
-      if (this.airViewEl) this.airViewEl.style.display = 'block';
-      if (this.airBadgeEl) this.airBadgeEl.style.display = 'inline-flex';
-      if (this.statusTextEl) {
-        this.statusTextEl.innerHTML = `
-          <i class="fa-solid fa-hand" style="color: #38bdf8;"></i>
-          <span>Air Cursor Active · Move hand to aim</span>
+    const controlsGroup = document.getElementById('normalControlsGroup');
+    if (!controlsGroup) {
+      setTimeout(() => this.setupIslandControls(), 500);
+      return;
+    }
+
+    const btn = document.createElement('button');
+    btn.id = 'airCursorIslandBadge';
+    btn.className = 'air-cursor-mini-btn';
+    btn.style.display = 'none';
+    btn.title = 'Air Cursor Active (Touch Index+Middle to Drag) · Click to Stop & Turn Off Camera';
+    btn.innerHTML = `
+      <i class="fa-solid fa-hand-pointer" style="color: #38bdf8;"></i>
+      <span>Air Cursor</span>
+      <i class="fa-solid fa-xmark" style="font-size: 10px; margin-left: 2px; opacity: 0.7;"></i>
+    `;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this.stop();
+    });
+
+    const sendBtn = document.getElementById('sendBtn');
+    if (sendBtn) {
+      controlsGroup.insertBefore(btn, sendBtn);
+    } else {
+      controlsGroup.appendChild(btn);
+    }
+    this.islandBadgeEl = btn;
+  }
+
+  updateIslandBadge(active, state = 'move') {
+    if (!this.islandBadgeEl) this.setupIslandControls();
+    const btn = this.islandBadgeEl || document.getElementById('airCursorIslandBadge');
+    const bubble = document.getElementById('grokkiHiBubble');
+
+    if (!active) {
+      if (btn) btn.style.display = 'none';
+      if (bubble && bubble.textContent && bubble.textContent.includes('Air Cursor')) {
+        bubble.textContent = 'Ready';
+      }
+      return;
+    }
+
+    if (btn) {
+      btn.style.display = 'inline-flex';
+      if (state === 'drag') {
+        btn.classList.add('dragging');
+        btn.innerHTML = `
+          <i class="fa-solid fa-hand-holding" style="color: #34d399;"></i>
+          <span>Dragging</span>
+          <i class="fa-solid fa-xmark" style="font-size: 10px; margin-left: 2px; opacity: 0.7;"></i>
+        `;
+      } else if (state === 'scroll') {
+        btn.classList.remove('dragging');
+        btn.innerHTML = `
+          <i class="fa-solid fa-arrows-up-down" style="color: #fbbf24;"></i>
+          <span>Scrolling</span>
+          <i class="fa-solid fa-xmark" style="font-size: 10px; margin-left: 2px; opacity: 0.7;"></i>
+        `;
+      } else {
+        btn.classList.remove('dragging');
+        btn.innerHTML = `
+          <i class="fa-solid fa-hand-pointer" style="color: #38bdf8;"></i>
+          <span>Air Cursor</span>
+          <i class="fa-solid fa-xmark" style="font-size: 10px; margin-left: 2px; opacity: 0.7;"></i>
         `;
       }
+    }
+
+    if (bubble) {
+      bubble.textContent = state === 'drag' ? 'Holding 🤏' : 'Air Cursor ✌️';
+    }
+  }
+
+  switchMode(mode) {
+    this.currentMode = mode;
+    const island = document.getElementById('islandContainer');
+
+    if (mode === 'air_cursor') {
+      // In Air Cursor mode: do NOT show floating HUD window; keep Grokki Island visible!
+      if (this.hudEl) this.hudEl.style.display = 'none';
+      if (island) {
+        island.style.display = '';
+        island.classList.remove('hidden-state');
+      }
+      this.updateIslandBadge(true, 'move');
     } else {
+      // In Presentation mode: show floating HUD window, minimize Grokki Island
+      if (island) island.style.display = 'none';
+      if (this.hudEl) this.hudEl.style.display = 'block';
+      this.updateIslandBadge(false);
+
       if (this.airTabBtn) this.airTabBtn.classList.remove('active');
       if (this.slidesTabBtn) this.slidesTabBtn.classList.add('active');
       if (this.airViewEl) this.airViewEl.style.display = 'none';
@@ -470,6 +594,9 @@ class PresentationGestureController {
 
       // 1. Air Cursor Telemetry
       if (data.type === 'air_cursor') {
+        if (this.currentMode === 'air_cursor') {
+          this.updateIslandBadge(true, data.state);
+        }
         if (this.airRadarDotEl && data.x !== undefined && data.y !== undefined) {
           const px = Math.max(8, Math.min(92, data.x * 100));
           const py = Math.max(12, Math.min(88, data.y * 100));
@@ -539,7 +666,13 @@ class PresentationGestureController {
       // 3. Actions
       else if (data.type === 'action') {
         this.playHapticTick(data.action);
-        if (data.action === 'next') {
+        if (data.action === 'emergency_lock') {
+          this.showFeedback('fa-solid fa-lock', '🚨 Emergency Sign Out Triggered', '#ef4444');
+          this.stop();
+        } else if (data.action === 'stop_air_cursor') {
+          this.showFeedback('fa-solid fa-hand', '✋ Open Palm · Air Cursor Stopped', '#fbbf24');
+          this.stop();
+        } else if (data.action === 'next') {
           this.showFeedback('fa-solid fa-peace', data.reason || '✌️ 2 Fingers · Next Slide', '#34d399');
         } else if (data.action === 'prev') {
           this.showFeedback('fa-solid fa-hand', data.reason || '🤟 3 Fingers · Previous Slide', '#38bdf8');
@@ -590,6 +723,24 @@ class PresentationGestureController {
         }
       }
     });
+
+    if (window.jarvisAPI && window.jarvisAPI.onLeftHandAction) {
+      window.jarvisAPI.onLeftHandAction((data) => {
+        this.playHapticTick('next');
+        const targetApp = data.app ? data.app.toUpperCase() : 'APP';
+        const label = `Left Hand (${data.fingers} finger${data.fingers > 1 ? 's' : ''}) -> Opened ${targetApp}`;
+        this.showFeedback('fa-solid fa-bolt', label, '#38bdf8');
+        if (this.islandBadgeEl) {
+          const prevHTML = this.islandBadgeEl.innerHTML;
+          this.islandBadgeEl.innerHTML = `<i class="fa-solid fa-bolt" style="color: #38bdf8;"></i> ${targetApp}`;
+          setTimeout(() => {
+            if (this.islandBadgeEl && this.isActive) {
+              this.updateIslandBadge(true, 'move');
+            }
+          }, 1600);
+        }
+      });
+    }
   }
 
   playHapticTick(action) {
@@ -650,22 +801,38 @@ class PresentationGestureController {
     this.isActive = true;
     this.currentMode = mode;
 
-    // Minimize Island bar so only the floating presentation window is visible
     const island = document.getElementById('islandContainer');
-    if (island) {
-      this.prevIslandDisplay = island.style.display;
-      island.style.display = 'none';
-    }
 
-    if (this.hudEl) {
-      this.hudEl.style.display = 'block';
-      this.switchMode(mode);
-      if (this.statusTextEl) {
-        this.statusTextEl.innerHTML = `
-          <i class="fa-solid fa-spinner fa-spin" style="color: #38bdf8;"></i>
-          <span>Starting Spatial 1-Hand AI...</span>
-        `;
+    if (mode === 'air_cursor') {
+      // In Air Cursor mode: keep Grokki Island visible and hide floating presentation HUD completely!
+      if (island) {
+        island.style.display = '';
+        island.classList.remove('hidden-state');
       }
+      if (this.hudEl) {
+        this.hudEl.style.display = 'none';
+      }
+      this.updateIslandBadge(true, 'move');
+      if (window.jarvisAPI && window.jarvisAPI.showWindow) {
+        window.jarvisAPI.showWindow();
+      }
+    } else {
+      // Presentation Mode: show floating HUD and minimize Island bar
+      if (island) {
+        this.prevIslandDisplay = island.style.display;
+        island.style.display = 'none';
+      }
+      if (this.hudEl) {
+        this.hudEl.style.display = 'block';
+        this.switchMode('presentation');
+        if (this.statusTextEl) {
+          this.statusTextEl.innerHTML = `
+            <i class="fa-solid fa-spinner fa-spin" style="color: #38bdf8;"></i>
+            <span>Starting Spatial 1-Hand AI...</span>
+          `;
+        }
+      }
+      this.updateIslandBadge(false);
     }
 
     // Start Python MediaPipe Spatial AI Daemon via Electron IPC
@@ -674,10 +841,7 @@ class PresentationGestureController {
     }
   }
 
-  stop() {
-    if (!this.isActive && (!this.hudEl || this.hudEl.style.display === 'none')) return;
-    this.isActive = false;
-
+  cleanupUi() {
     if (this.feedbackTimer) {
       clearTimeout(this.feedbackTimer);
       this.feedbackTimer = null;
@@ -687,21 +851,35 @@ class PresentationGestureController {
       this.hudEl.style.display = 'none';
     }
 
-    // Stop Python MediaPipe Spatial AI Daemon via Electron IPC (frees camera immediately)
-    if (window.jarvisAPI && window.jarvisAPI.togglePresentationMode) {
-      window.jarvisAPI.togglePresentationMode(false);
-    }
-    if (window.jarvisAPI && window.jarvisAPI.killCamera) {
-      window.jarvisAPI.killCamera();
-    }
+    this.updateIslandBadge(false);
 
-    // Restore Island bar and snap window cleanly back to default position
+    // Restore Island container to visible interactive state
     const island = document.getElementById('islandContainer');
     if (island) {
-      island.style.display = this.prevIslandDisplay || '';
+      island.style.display = '';
+      island.classList.remove('hidden-state');
     }
     if (window.jarvisAPI && window.jarvisAPI.resetWindowPosition) {
       window.jarvisAPI.resetWindowPosition();
+    }
+  }
+
+  stop(notifyMain = true) {
+    if (!this.isActive) {
+      this.cleanupUi();
+      return;
+    }
+    this.isActive = false;
+    this.cleanupUi();
+
+    // Only notify Main if stop was initiated from renderer (avoids infinite loop)
+    if (notifyMain) {
+      if (window.jarvisAPI && window.jarvisAPI.togglePresentationMode) {
+        window.jarvisAPI.togglePresentationMode(false);
+      }
+      if (window.jarvisAPI && window.jarvisAPI.killCamera) {
+        window.jarvisAPI.killCamera();
+      }
     }
   }
 
@@ -718,7 +896,7 @@ if (window.jarvisAPI && window.jarvisAPI.onPresentationModeToggled) {
     if (data && data.active) {
       window.presentationController.start(data.mode || 'presentation');
     } else {
-      window.presentationController.stop();
+      window.presentationController.stop(false);
     }
   });
 }

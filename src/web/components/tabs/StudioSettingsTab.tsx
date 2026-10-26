@@ -208,6 +208,81 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
         )}
       </div>
 
+      {/* Spatial Multi-Hand Controls (Air Cursor) */}
+      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-sky-500/10 dark:bg-sky-400/10 border border-sky-500/20 flex items-center justify-center text-sky-500 dark:text-sky-400">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                Spatial Multi-Hand Controls
+              </h3>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                Right Hand pinches to drag files. Left Hand gestures summon companion apps instantly without dropping files.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          {/* Left Hand 1 Finger */}
+          <div className="flex flex-col gap-1.5 p-3.5 rounded-xl border border-gray-100 dark:border-[#1e2029] bg-gray-50/60 dark:bg-[#181922]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">☝️</span>
+                <strong className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                  Left Hand: 1 Finger Up
+                </strong>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 font-semibold">
+                Auto-Launch
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+              App to open or focus when 1 finger is raised on your left hand.
+            </p>
+            <div className="mt-1">
+              <input
+                type="text"
+                value={config.spatialLeftHand1FingerApp || 'whatsapp'}
+                onChange={(e) => onChangeConfig({ spatialLeftHand1FingerApp: e.target.value.trim().toLowerCase() })}
+                placeholder="e.g. whatsapp, chrome, explorer, notepad..."
+                className="w-full h-8 px-3 rounded-lg font-mono text-xs font-medium border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#13141a] text-gray-900 dark:text-white focus:outline-none focus:border-sky-500 transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Left Hand 2 Fingers */}
+          <div className="flex flex-col gap-1.5 p-3.5 rounded-xl border border-gray-100 dark:border-[#1e2029] bg-gray-50/60 dark:bg-[#181922]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">✌️</span>
+                <strong className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                  Left Hand: 2 Fingers Up
+                </strong>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 font-semibold">
+                Auto-Launch
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+              App to open or focus when 2 fingers are raised on your left hand.
+            </p>
+            <div className="mt-1">
+              <input
+                type="text"
+                value={config.spatialLeftHand2FingersApp || 'chrome'}
+                onChange={(e) => onChangeConfig({ spatialLeftHand2FingersApp: e.target.value.trim().toLowerCase() })}
+                placeholder="e.g. chrome, explorer, discord, telegram..."
+                className="w-full h-8 px-3 rounded-lg font-mono text-xs font-medium border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#13141a] text-gray-900 dark:text-white focus:outline-none focus:border-sky-500 transition-colors"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Keyboard Shortcuts & Hotkeys Section */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center justify-between gap-2">

@@ -1943,7 +1943,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    if (action === 'show' || islandContainer.classList.contains('hidden-state')) {
+    if (action === 'show' || islandContainer.classList.contains('hidden-state') || islandContainer.style.display === 'none') {
+      islandContainer.style.display = '';
       islandContainer.classList.remove('hidden-state');
       if (isTimerActive && !isShowingFullTimer) {
         setPillDisplayMode('timer');
