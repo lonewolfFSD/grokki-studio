@@ -723,6 +723,136 @@ class PocketGrokkiServer {
         this.broadcast({ type: 'hop_land_on_phone', location: 'phone' });
       }, 1100);
     }
+
+    // 5. DIRECT OS CONTROL (Volume, Sleep, Sign out, Power, Media, Mic, Screenshot)
+    else if (msg.type === 'direct_os_control') {
+      try {
+        const result = await this.executeDirectOsControl(msg.action, msg.value);
+        ws.send(JSON.stringify({
+          type: 'os_control_result',
+          action: msg.action,
+          ...result
+        }));
+      } catch (err) {
+        ws.send(JSON.stringify({
+          type: 'os_control_result',
+          action: msg.action,
+          success: false,
+          message: err.message
+        }));
+      }
+    }
+  }
+
+  async executeDirectOsControl(action, value) {
+    const scriptPath = path.join(__dirname, 'os_input.ps1').replace('app.asar', 'app.asar.unpacked');
+    const runPs = (args) => {
+      return new Promise((resolve) => {
+        exec(`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${scriptPath}" ${args}`, { timeout: 10000 }, (err, stdout, stderr) => {
+          if (err) {
+            console.warn(`[Pocket OS Control] ${args} error:`, err.message);
+            resolve({ success: false, error: err.message });
+          } else {
+            resolve({ success: true, output: (stdout || '').trim() });
+          }
+        });
+      });
+    };
+
+    switch (action) {
+      case 'volume_get': {
+        const res = await runPs('-action volume-get');
+        const vol = parseInt(res.output, 10);
+        return { success: res.success, volume: isNaN(vol) ? 50 : vol, message: `Volume: ${isNaN(vol) ? 50 : vol}%` };
+      }
+      case 'volume_set': {
+        const v = Math.max(0, Math.min(100, parseInt(value, 10) || 50));
+        const res = await runPs(`-action volume-set -volume ${v}`);
+        return { success: res.success, volume: v, message: `Volume set to ${v}%` };
+      }
+      case 'volume_up': {
+        const res = await runPs('-action volume-up');
+        const vol = parseInt(res.output, 10);
+        return { success: res.success, volume: isNaN(vol) ? undefined : vol, message: `Volume raised${!isNaN(vol) ? ' to ' + vol + '%' : ''}` };
+      }
+      case 'volume_down': {
+        const res = await runPs('-action volume-down');
+        const vol = parseInt(res.output, 10);
+        return { success: res.success, volume: isNaN(vol) ? undefined : vol, message: `Volume lowered${!isNaN(vol) ? ' to ' + vol + '%' : ''}` };
+      }
+      case 'volume_mute': {
+        const res = await runPs('-action volume-toggle');
+        const isMuted = (res.output || '').toLowerCase().includes('true');
+        return { success: res.success, muted: isMuted, message: isMuted ? 'Muted audio' : 'Unmuted audio' };
+      }
+      case 'media_play': {
+        await runPs('-action media -keys play');
+        return { success: true, message: 'Media Play/Pause toggled' };
+      }
+      case 'media_next': {
+        await runPs('-action media -keys next');
+        return { success: true, message: 'Next track' };
+      }
+      case 'media_prev': {
+        await runPs('-action media -keys prev');
+        return { success: true, message: 'Previous track' };
+      }
+      case 'mic_mute': {
+        await runPs('-action mic-mute');
+        return { success: true, message: 'Microphone mute toggled' };
+      }
+      case 'lock': {
+        await runPs('-action system-power -keys lock');
+        return { success: true, message: 'PC locked' };
+      }
+      case 'sleep': {
+        setTimeout(() => {
+          runPs('-action system-power -keys sleep');
+        }, 500);
+        return { success: true, message: 'Putting PC to sleep...' };
+      }
+      case 'signout': {
+        setTimeout(() => {
+          exec('shutdown.exe /l', (err) => {
+            if (err) console.warn('[Pocket OS Control] Sign out error:', err);
+          });
+        }, 800);
+        return { success: true, message: 'Signing out of Windows...' };
+      }
+      case 'shutdown': {
+        exec('shutdown.exe /s /t 15 /c "Shutdown scheduled by Grokki Mobile Companion (15s to cancel)"');
+        return { success: true, message: 'PC shutdown in 15s. Click Cancel Power to abort.' };
+      }
+      case 'restart': {
+        exec('shutdown.exe /r /t 15 /c "Restart scheduled by Grokki Mobile Companion (15s to cancel)"');
+        return { success: true, message: 'PC restart in 15s. Click Cancel Power to abort.' };
+      }
+      case 'cancel_power': {
+        exec('shutdown.exe /a');
+        return { success: true, message: 'Shutdown/Restart cancelled!' };
+      }
+      case 'screenshot': {
+        try {
+          const sources = await desktopCapturer.getSources({
+            types: ['screen'],
+            thumbnailSize: { width: 1920, height: 1080 }
+          });
+          if (sources && sources.length > 0) {
+            const imgBuffer = sources[0].thumbnail.toJPEG(85);
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const target = path.join(os.tmpdir(), `PC_Screenshot_${stamp}.jpg`);
+            fs.writeFileSync(target, imgBuffer);
+            this.beamFileToPhone(target);
+            return { success: true, message: 'PC screenshot captured and beamed to phone!' };
+          }
+        } catch (e) {
+          console.warn('[Pocket OS Control] Screenshot error:', e);
+        }
+        return { success: false, message: 'Screenshot capture failed' };
+      }
+      default:
+        return { success: false, message: `Unknown OS action: ${action}` };
+    }
   }
 
   beamFileToPhone(filePath) {
@@ -783,11 +913,25 @@ class PocketGrokkiServer {
       background: radial-gradient(circle at 50% 42%, rgba(156, 67, 254, 0.20) 0%, rgba(76, 194, 233, 0.07) 38%, rgba(0, 0, 0, 0) 68%);
     }
 
-    /* Status */
-    .status {
+    /* Top Bar & Status */
+    .top-bar {
       position: relative;
-      z-index: 5;
-      padding: max(env(safe-area-inset-top), 14px) 20px 0;
+      z-index: 30;
+      padding: max(env(safe-area-inset-top), 14px) 18px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .top-spacer {
+      width: 38px;
+      height: 38px;
+      visibility: hidden;
+      flex-shrink: 0;
+    }
+    .status {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -805,6 +949,37 @@ class PocketGrokkiServer {
       transition: background 0.3s ease;
     }
     .dot.off { background: #ff453a; }
+
+    .top-btn {
+      flex-shrink: 0;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 0.5px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(25px) saturate(160%);
+      -webkit-backdrop-filter: blur(25px) saturate(160%);
+      color: rgba(255, 255, 255, 0.88);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.16s ease, background 0.2s ease;
+    }
+    .top-btn:active {
+      transform: scale(0.92);
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+    .top-btn svg {
+      width: 19px;
+      height: 19px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
 
     /* Stage */
     .stage {
@@ -1108,6 +1283,317 @@ class PocketGrokkiServer {
       cursor: pointer;
     }
 
+    /* Control Center — Pure Apple Fluid Motion & Matte Dark Glass */
+    .os-sheet {
+      background: rgba(22, 22, 24, 0.92);
+      backdrop-filter: blur(50px) saturate(200%);
+      -webkit-backdrop-filter: blur(50px) saturate(200%);
+      border-top: 0.5px solid rgba(255, 255, 255, 0.14);
+      border-radius: 34px 34px 0 0;
+      padding: 12px 18px max(env(safe-area-inset-bottom), 22px);
+      max-height: 88vh;
+      width: 100%;
+      max-width: 440px;
+      margin: 0 auto;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      scrollbar-width: none;
+      transform-origin: bottom center;
+    }
+    .os-sheet::-webkit-scrollbar { display: none; }
+
+    /* Fluid Spring Sheet Entrance */
+    .sheet-wrap.open .os-sheet {
+      transform: translateY(0);
+      animation: appleSheetSpring 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes appleSheetSpring {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    /* Staggered Apple Cascade for Sheet Elements */
+    .sheet-wrap.open .os-sheet > * {
+      animation: appleCascadeIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    .sheet-wrap.open .os-sheet > *:nth-child(1) { animation-delay: 0.03s; }
+    .sheet-wrap.open .os-sheet > *:nth-child(2) { animation-delay: 0.06s; }
+    .sheet-wrap.open .os-sheet > *:nth-child(3) { animation-delay: 0.09s; }
+    .sheet-wrap.open .os-sheet > *:nth-child(4) { animation-delay: 0.12s; }
+    .sheet-wrap.open .os-sheet > *:nth-child(5) { animation-delay: 0.15s; }
+    .sheet-wrap.open .os-sheet > *:nth-child(6) { animation-delay: 0.18s; }
+    @keyframes appleCascadeIn {
+      0% { opacity: 0; transform: translateY(14px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Header & Dynamic Island Capsule */
+    .os-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2px;
+    }
+    .os-island-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 12px 5px 9px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 0.5px solid rgba(255, 255, 255, 0.1);
+      font-size: 12.5px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.85);
+      letter-spacing: -0.2px;
+      transition: transform 0.36s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  background 0.25s ease,
+                  border-color 0.25s ease,
+                  color 0.2s ease;
+      will-change: transform;
+    }
+    .os-island-pill.pulse {
+      transform: scale(1.06);
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.3);
+      color: #ffffff;
+    }
+    .os-island-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #30d158;
+      box-shadow: 0 0 8px rgba(48, 209, 88, 0.7);
+      transition: transform 0.25s ease;
+    }
+    .os-island-pill.pulse .os-island-dot {
+      transform: scale(1.35);
+    }
+    .os-close-x {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease;
+    }
+    .os-close-x:active {
+      transform: scale(0.86);
+      background: rgba(255, 255, 255, 0.22);
+      color: #ffffff;
+    }
+
+    /* Chunky iOS Volume Slider Capsule with Spring Scrub */
+    .os-vol-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .os-mute {
+      flex-shrink: 0;
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      border: 0.5px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease;
+    }
+    .os-mute:active {
+      transform: scale(0.88);
+      background: rgba(255, 255, 255, 0.2);
+    }
+    .os-mute svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .os-vol-capsule {
+      position: relative;
+      flex: 1;
+      height: 54px;
+      border-radius: 27px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 0.5px solid rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .os-vol-capsule:active {
+      transform: scale(1.02);
+    }
+    .os-vol-fill {
+      position: absolute;
+      inset: 0 auto 0 0;
+      background: #ffffff;
+      border-radius: 27px;
+      transition: width 0.35s cubic-bezier(0.34, 1.25, 0.64, 1);
+      pointer-events: none;
+    }
+    .os-vol-capsule:active .os-vol-fill {
+      transition: none;
+    }
+    .os-vol-val {
+      position: absolute;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14.5px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: #ffffff;
+      mix-blend-mode: difference;
+      pointer-events: none;
+      letter-spacing: -0.2px;
+    }
+    .os-vol-slider {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      margin: 0;
+      -webkit-appearance: none;
+    }
+
+    /* Subdued Segmented Level Presets */
+    .os-preset-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+    }
+    .os-preset-btn {
+      padding: 8px 0;
+      border-radius: 12px;
+      border: 0.5px solid rgba(255, 255, 255, 0.07);
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  background 0.2s ease,
+                  color 0.15s ease;
+    }
+    .os-preset-btn:active {
+      transform: scale(0.91);
+      background: rgba(255, 255, 255, 0.16);
+      color: #ffffff;
+    }
+
+    /* Native iOS Media Capsule */
+    .os-media-capsule {
+      height: 48px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 0.5px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 12px;
+    }
+    .os-media-btn {
+      flex: 1;
+      height: 100%;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.88);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.18s ease;
+    }
+    .os-media-btn:active {
+      transform: scale(0.82);
+      opacity: 0.5;
+    }
+    .os-media-btn svg {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      fill: currentColor;
+      stroke-width: 1.5;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+    }
+
+    /* Native Apple 4-Wide Squircle Action Grid */
+    .os-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .os-tile {
+      aspect-ratio: 1;
+      border-radius: 20px;
+      border: 0.5px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.07);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.36s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  background 0.2s ease,
+                  box-shadow 0.25s ease;
+      will-change: transform;
+    }
+    .os-tile:active {
+      transform: scale(0.88);
+      background: rgba(255, 255, 255, 0.18);
+    }
+    .os-tile svg {
+      width: 23px;
+      height: 23px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .os-tile:active svg {
+      transform: scale(0.92);
+    }
+    .os-tile.warm {
+      color: rgba(255, 255, 255, 0.9);
+    }
+    .os-tile.danger {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* Spring Flash Gleam on Action */
+    @keyframes appleGleam {
+      0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.45); }
+      100% { box-shadow: 0 0 0 18px rgba(255, 255, 255, 0); }
+    }
+    .os-tile.gleam, .os-mute.gleam {
+      animation: appleGleam 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
     /* Hop animations */
     .grokki.launching { animation: launch 0.85s cubic-bezier(0.7, 0, 0.84, 0) forwards; }
     @keyframes launch {
@@ -1140,10 +1626,16 @@ class PocketGrokkiServer {
 
   <div class="ambient"></div>
 
-  <div class="status">
-    <div class="dot" id="dot"></div>
-    <span id="statusText">Connecting</span>
-  </div>
+  <header class="top-bar">
+    <div class="top-spacer"></div>
+    <div class="status" id="statusPill">
+      <div class="dot" id="dot"></div>
+      <span id="statusText">Connecting</span>
+    </div>
+    <button class="top-btn" id="osControlBtn" aria-label="PC OS Controls" title="Direct PC OS Controls">
+      <svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+    </button>
+  </header>
 
   <main class="stage">
     <div class="grokki" id="grokki">
@@ -1190,6 +1682,79 @@ class PocketGrokkiServer {
       <div class="sheet-body" id="sheetBody"></div>
       <a href="#" class="sheet-btn" id="sheetDownload" download>Download</a>
       <button class="sheet-close" id="sheetClose">Done</button>
+    </div>
+  </div>
+
+  <!-- Control Center -->
+  <div class="sheet-wrap" id="osSheetWrap">
+    <div class="sheet os-sheet">
+      <div class="grab"></div>
+
+      <div class="os-header">
+        <div class="os-island-pill" id="osStatusPill">
+          <span class="os-island-dot"></span>
+          <span id="osSubtitleText">LonewolfFSD-LAPTOP</span>
+        </div>
+        <button class="os-close-x" id="osSheetClose" aria-label="Close">✕</button>
+      </div>
+
+      <div class="os-vol-row">
+        <button class="os-mute" data-action="volume_mute" id="osMuteBtn" aria-label="Mute">
+          <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        </button>
+        <div class="os-vol-capsule">
+          <div class="os-vol-fill" id="osVolFill" style="width: 50%;"></div>
+          <span class="os-vol-val" id="osVolVal">50%</span>
+          <input type="range" class="os-vol-slider" id="osVolSlider" min="0" max="100" value="50" step="2" />
+        </div>
+      </div>
+
+      <div class="os-preset-row">
+        <button class="os-preset-btn" data-action="volume_set" data-val="25">25</button>
+        <button class="os-preset-btn" data-action="volume_set" data-val="50">50</button>
+        <button class="os-preset-btn" data-action="volume_set" data-val="75">75</button>
+        <button class="os-preset-btn" data-action="volume_set" data-val="100">MAX</button>
+      </div>
+
+      <div class="os-media-capsule">
+        <button class="os-media-btn" data-action="media_prev" aria-label="Previous">
+          <svg viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5" fill="none"/></svg>
+        </button>
+        <button class="os-media-btn" data-action="media_play" aria-label="Play / Pause">
+          <svg viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+        </button>
+        <button class="os-media-btn" data-action="media_next" aria-label="Next">
+          <svg viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" fill="none"/></svg>
+        </button>
+      </div>
+
+      <div class="os-grid">
+        <button class="os-tile" data-action="lock" aria-label="Lock PC">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </button>
+        <button class="os-tile" data-action="sleep" aria-label="Sleep Mode">
+          <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <button class="os-tile" data-action="screenshot" aria-label="Screenshot">
+          <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </button>
+        <button class="os-tile" data-action="mic_mute" aria-label="Mute Mic">
+          <svg viewBox="0 0 24 24"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+        </button>
+
+        <button class="os-tile" data-action="signout" aria-label="Sign Out">
+          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+        <button class="os-tile warm" data-action="restart" aria-label="Restart">
+          <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        </button>
+        <button class="os-tile danger" data-action="shutdown" aria-label="Shutdown">
+          <svg viewBox="0 0 24 24"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+        </button>
+        <button class="os-tile" data-action="cancel_power" aria-label="Cancel">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -1821,6 +2386,41 @@ void main() {
     const sheetBody = $('sheetBody');
     const sheetDownload = $('sheetDownload');
 
+    // OS Control Elements (Apple Control Center)
+    const osControlBtn = $('osControlBtn');
+    const osSheetWrap = $('osSheetWrap');
+    const osSheetClose = $('osSheetClose');
+    const osStatusPill = $('osStatusPill');
+    const osSubtitleText = $('osSubtitleText');
+    const osStatusDot = $('osStatusDot');
+    const osVolSlider = $('osVolSlider');
+    const osVolFill = $('osVolFill');
+    const osVolVal = $('osVolVal');
+    let originalPcName = 'LonewolfFSD-LAPTOP';
+    let osSubTimer = null;
+
+    function setOsStatus(text) {
+      if (!osSubtitleText) return;
+      osSubtitleText.innerText = text;
+      if (osStatusPill) {
+        osStatusPill.classList.remove('pulse');
+        void osStatusPill.offsetWidth;
+        osStatusPill.classList.add('pulse');
+      }
+      clearTimeout(osSubTimer);
+      osSubTimer = setTimeout(() => {
+        if (osSubtitleText) osSubtitleText.innerText = originalPcName;
+        if (osStatusPill) osStatusPill.classList.remove('pulse');
+      }, 2400);
+    }
+
+    function setVolumeDisplay(vol) {
+      const v = Math.max(0, Math.min(100, Math.round(vol)));
+      if (osVolSlider) osVolSlider.value = v;
+      if (osVolFill) osVolFill.style.width = v + '%';
+      if (osVolVal) osVolVal.innerText = v + '%';
+    }
+
     const ICON_SEND = '<path d="M7 17L17 7M8 7h9v9"/>';
     const ICON_SUMMON = '<path d="M17 7L7 17M16 17H7V8"/>';
 
@@ -1961,6 +2561,8 @@ void main() {
     function handleServerMessage(msg) {
       if (msg.type === 'welcome') {
         statusText.innerText = msg.pcName || 'Connected';
+        originalPcName = msg.pcName || 'Connected';
+        if (osSubtitleText) osSubtitleText.innerText = originalPcName;
         if (msg.grokkiLocation === 'pc') {
           updateLocation('pc');
           hideGrokki();
@@ -1969,6 +2571,15 @@ void main() {
           updateLocation('phone');
           showGrokki();
           subtitle.innerText = 'I’m here';
+        }
+      } else if (msg.type === 'os_control_result') {
+        playChirp();
+        try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) {}
+        if (msg.volume !== undefined) {
+          setVolumeDisplay(msg.volume);
+        }
+        if (msg.message) {
+          setOsStatus(msg.message);
         }
       } else if (msg.type === 'grokki_location') {
         updateLocation(msg.location);
@@ -2121,6 +2732,76 @@ void main() {
     });
 
     $('sheetClose').addEventListener('click', () => sheetWrap.classList.remove('open'));
+
+    // --- Direct OS Controls ---
+    if (osControlBtn && osSheetWrap) {
+      osControlBtn.addEventListener('click', () => {
+        osSheetWrap.classList.add('open');
+        playChirp();
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'direct_os_control', action: 'volume_get' }));
+        }
+      });
+    }
+
+    if (osSheetClose && osSheetWrap) {
+      osSheetClose.addEventListener('click', () => {
+        osSheetWrap.classList.remove('open');
+      });
+    }
+
+    // Close sheets on backdrop click outside .sheet
+    if (osSheetWrap) {
+      osSheetWrap.addEventListener('click', (e) => {
+        if (e.target === osSheetWrap) osSheetWrap.classList.remove('open');
+      });
+    }
+    if (sheetWrap) {
+      sheetWrap.addEventListener('click', (e) => {
+        if (e.target === sheetWrap) sheetWrap.classList.remove('open');
+      });
+    }
+
+    let volDebounce = null;
+    if (osVolSlider) {
+      osVolSlider.addEventListener('input', (e) => {
+        const v = parseInt(e.target.value, 10);
+        setVolumeDisplay(v);
+        clearTimeout(volDebounce);
+        volDebounce = setTimeout(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'direct_os_control', action: 'volume_set', value: v }));
+          }
+        }, 65);
+      });
+    }
+
+    document.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const act = btn.getAttribute('data-action');
+        const val = btn.getAttribute('data-val');
+        if (!act) return;
+
+        btn.classList.remove('gleam');
+        void btn.offsetWidth;
+        btn.classList.add('gleam');
+
+        playChirp();
+        try { if (navigator.vibrate) navigator.vibrate(20); } catch (err) {}
+
+        if (act === 'volume_set' && val !== null) {
+          setVolumeDisplay(parseInt(val, 10));
+        }
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'direct_os_control', action: act, value: val }));
+          setOsStatus(act.replace(/_/g, ' ') + '…');
+        } else {
+          setOsStatus('Disconnected');
+        }
+      });
+    });
 
     // --- Voice ---
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
