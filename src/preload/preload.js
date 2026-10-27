@@ -173,6 +173,50 @@ try {
     onConfigUpdated: (callback) => {
       ipcRenderer.on('config:updated', (event, data) => callback(data));
     },
+
+    // Pocket Grokki (Zero-Install Mobile LAN Bridge)
+    getPocketStatus: () => ipcRenderer.invoke('jarvis:get-pocket-status'),
+    togglePocketServer: (enable) => ipcRenderer.invoke('jarvis:toggle-pocket-server', enable),
+    onPocketDeviceConnected: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('jarvis:pocket-device-connected', handler);
+      return () => ipcRenderer.removeListener('jarvis:pocket-device-connected', handler);
+    },
+    onPocketDeviceDisconnected: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('jarvis:pocket-device-disconnected', handler);
+      return () => ipcRenderer.removeListener('jarvis:pocket-device-disconnected', handler);
+    },
+    onPocketPhotoReceived: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('jarvis:pocket-photo-received', handler);
+      return () => ipcRenderer.removeListener('jarvis:pocket-photo-received', handler);
+    },
+    onPocketChatSent: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('jarvis:pocket-chat-sent', handler);
+      return () => ipcRenderer.removeListener('jarvis:pocket-chat-sent', handler);
+    },
+
+    // Tamagotchi Dimension Hop
+    hopGrokkiToPhone: () => ipcRenderer.invoke('jarvis:hop-grokki-to-phone'),
+    hopGrokkiToPC: () => ipcRenderer.invoke('jarvis:hop-grokki-to-pc'),
+    beamFileToPhone: (filePath) => ipcRenderer.invoke('jarvis:beam-file-to-phone', filePath),
+    onGrokkiHoppedToPhone: (callback) => {
+      const handler = () => callback();
+      ipcRenderer.on('jarvis:grokki-hopped-to-phone', handler);
+      return () => ipcRenderer.removeListener('jarvis:grokki-hopped-to-phone', handler);
+    },
+    onGrokkiHoppedToPC: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('jarvis:grokki-hopped-to-pc', handler);
+      return () => ipcRenderer.removeListener('jarvis:grokki-hopped-to-pc', handler);
+    },
+    onPocketTaskCompleted: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('jarvis:pocket-task-completed', handler);
+      return () => ipcRenderer.removeListener('jarvis:pocket-task-completed', handler);
+    },
   });
   console.log('Preload: jarvisAPI successfully exposed in main world.');
 } catch (err) {

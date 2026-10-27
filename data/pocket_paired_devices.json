@@ -1,0 +1,18 @@
+[
+  {
+    "id": "phone_1793116900752_x8rljm",
+    "type": "Android",
+    "ip": "192.168.31.69",
+    "name": "Android",
+    "pairedAt": 1793115097186,
+    "lastSeen": 1793117268801
+  },
+  {
+    "id": "phone_1793117156175_0ioibt",
+    "type": "Phone",
+    "ip": "127.0.0.1",
+    "name": "Phone",
+    "pairedAt": 1793117156194,
+    "lastSeen": 1793117156585
+  }
+]

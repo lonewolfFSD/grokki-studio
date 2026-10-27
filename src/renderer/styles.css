@@ -53,6 +53,14 @@ body {
   transform: translateY(0);
 }
 
+/* Atmospheric god light rays ONLY appear on summon / active presence on PC */
+body:has(.island-container.hidden-state) .light-rays-backdrop,
+body:has(.island-container.is-exiting-to-mobile) .light-rays-backdrop {
+  opacity: 0 !important;
+  transform: translateY(-8px) !important;
+  pointer-events: none !important;
+}
+
 .light-rays-backdrop canvas {
   width: 100%;
   height: 100%;
@@ -515,6 +523,77 @@ body {
 
 #grokbot-canvas:active {
   transform: scale(0.92);
+}
+
+/* Grokki Reverse Intro: Slide from Left Dock to Center, Squeeze Flat, and Fly Up Out of Screen */
+@keyframes grokkiSlideCenterFlyUp {
+  0% {
+    transform: translate3d(0px, 0px, 0) scale(1, 1);
+    opacity: 1;
+  }
+  15% {
+    transform: translate3d(0px, -4px, 0) scale(0.96, 1.05);
+  }
+  42% {
+    /* Arrive in center */
+    transform: translate3d(275px, 0px, 0) scale(1, 1);
+  }
+  58% {
+    /* Anticipation squash in center */
+    transform: translate3d(275px, 9px, 0) scale(1.48, 0.54);
+  }
+  74% {
+    /* Rebound spring upward */
+    transform: translate3d(275px, -14px, 0) scale(0.88, 1.25);
+  }
+  100% {
+    /* Supersonic rocket blast UP out of top screen */
+    transform: translate3d(275px, -120px, 0) scale(0.3, 2.4);
+    opacity: 0;
+  }
+}
+
+/* Pill collapses from expanded state towards center */
+@keyframes pillCollapseToCenter {
+  0% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  40% {
+    transform: scaleX(0.4);
+  }
+  80% {
+    transform: scaleX(0.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+}
+
+@keyframes contentVeilOut {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+
+.island-container.is-exiting-to-mobile .bot-wrapper {
+  animation: grokkiSlideCenterFlyUp 0.95s cubic-bezier(0.2, 0.9, 0.3, 1) forwards !important;
+}
+
+.island-container.is-exiting-to-mobile .pill-backdrop {
+  animation: pillCollapseToCenter 0.82s cubic-bezier(0.25, 0.1, 0.25, 1) 0.12s forwards !important;
+}
+
+.island-container.is-exiting-to-mobile .input-area,
+.island-container.is-exiting-to-mobile .controls-group {
+  animation: contentVeilOut 0.25s ease-in forwards !important;
 }
 
 /* Input Area */

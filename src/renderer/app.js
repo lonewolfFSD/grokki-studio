@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const responseText = document.getElementById('responseText');
   const badgeRow = document.getElementById('badgeRow');
   const settingsBtn = document.getElementById('settingsBtn');
+  const pocketGrokkiBtn = document.getElementById('pocketGrokkiBtn');
   const settingsSheet = document.getElementById('settingsSheet');
   const closeSettingsBtn = document.getElementById('closeSettingsBtn');
   const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
@@ -934,6 +935,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentFilteredCommands = [];
 
   const OVERLAY_SLASH_COMMANDS = [
+    { name: 'pocket', desc: 'Pocket Grokki: Zero-install mobile companion (Camera Snap & Solve, Remote Control, Mobile Chat).', icon: 'fa-solid fa-mobile-screen-button', hasArg: false },
+    { name: 'beam', desc: 'Dimension Hop: Beam the attached file or screenshot directly to your connected phone.', icon: 'fa-solid fa-plane-departure', hasArg: false },
     { name: 'aircursor', desc: 'Spatial hand mouse: move pointer in air, pinch to click/drag, 2 fingers to scroll.', icon: 'fa-solid fa-arrow-pointer', hasArg: false },
     { name: 'present', desc: 'Start touchless optical hand-gesture & voice presentation control.', icon: 'fa-solid fa-display', hasArg: false },
     { name: 'organize', desc: 'Auto-sort messy Downloads or Desktop folder into clean categories.', icon: 'fa-solid fa-folder-tree', hasArg: false },
@@ -1520,10 +1523,93 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Pocket Grokki QR Code & Connection Card in Dynamic Island
+  async function showPocketGrokkiCard() {
+    try {
+      let status = { active: false };
+      if (window.jarvisAPI && window.jarvisAPI.getPocketStatus) {
+        status = await window.jarvisAPI.getPocketStatus();
+        if (!status || !status.active) {
+          status = await window.jarvisAPI.togglePocketServer(true);
+        }
+      }
+
+      const cardHtml = `
+        <div class="pocket-grokki-card" style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px 12px; background: rgba(255,255,255,0.04); border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); margin: 6px 0; text-align: center;">
+          <div style="font-weight: 700; font-size: 14px; color: #f3f4f6; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-mobile-screen-button" style="color: #60a5fa;"></i> Pocket Grokki — Mobile Companion
+          </div>
+          <div style="color: rgba(255,255,255,0.65); font-size: 11.5px; max-width: 330px; line-height: 1.4;">
+            Scan with your iPhone or Android camera on the same Wi-Fi. Zero app install needed!
+          </div>
+          ${status && status.qrDataUrl ? `
+          <div style="background: white; padding: 9px; border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.6);">
+            <img src="${status.qrDataUrl}" style="width: 170px; height: 170px; display: block; border-radius: 8px;" alt="Pocket Grokki QR" />
+          </div>` : ''}
+          <div style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.45); padding: 7px 14px; border-radius: 20px; font-family: monospace; font-size: 12px; color: #93c5fd; border: 1px solid rgba(147,197,253,0.25);">
+            <i class="fa-solid fa-wifi"></i> <span>${(status && status.url) || 'http://127.0.0.1:8765'}</span>
+          </div>
+          <div style="display: flex; justify-content: center; gap: 14px; font-size: 11px; color: rgba(255,255,255,0.5);">
+            <span><i class="fa-solid fa-camera"></i> Camera Snap & Solve</span>
+            <span><i class="fa-solid fa-gamepad"></i> PC Remote</span>
+            <span><i class="fa-solid fa-comments"></i> Mobile Chat</span>
+          </div>
+          ${status && status.connectedCount > 0 ? `
+          <div style="font-size: 11px; color: #34d399; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-circle-check"></i> ${status.connectedCount} phone${status.connectedCount > 1 ? 's' : ''} connected
+          </div>` : ''}
+        </div>
+      `;
+
+      badgeRow.innerHTML = '';
+      const pill = document.createElement('span');
+      pill.className = 'apple-pill-badge';
+      pill.innerHTML = `<i class="fa-solid fa-mobile-screen"></i> Pocket Grokki`;
+      badgeRow.appendChild(pill);
+
+      setResponseHTML(cardHtml);
+      islandDrawer.classList.add('open');
+      islandContainer.classList.add('has-drawer-open');
+      sound.playSuccess();
+      grokbot.setState('happy');
+    } catch (err) {
+      console.error('[Pocket Grokki UI] Error showing QR card:', err);
+    }
+  }
+
   // 8. Execute User Order + Mini-Grokki Worker Simulation
   async function handleUserPrompt(promptText, { isVoice = false } = {}) {
     const text = (promptText || mainInput.value || '').trim();
     if (!text || agentProcessing) return;
+
+    const lowerText = text.toLowerCase().trim();
+    if (lowerText === '/pocket' || lowerText === 'pocket' || lowerText === 'pocket grokki' || lowerText === '/pocketgrokki') {
+      mainInput.value = '';
+      updateSendButtonState();
+      userText.innerText = '/pocket';
+      await showPocketGrokkiCard();
+      return;
+    }
+
+    if (lowerText === '/beam' || lowerText === 'beam' || lowerText.startsWith('beam to phone')) {
+      mainInput.value = '';
+      updateSendButtonState();
+      if (activeAttachment && activeAttachment.path) {
+        if (window.jarvisAPI && window.jarvisAPI.beamFileToPhone) {
+          window.jarvisAPI.beamFileToPhone(activeAttachment.path);
+          sound.playSuccess();
+          grokbot.setState('happy');
+          setResponseHTML(`<div style="display:flex;align-items:center;gap:8px;padding:12px;background:rgba(56,189,248,0.12);border-radius:14px;color:#7dd3fc;border:1px solid rgba(56,189,248,0.3);"><i class="fa-solid fa-plane-departure"></i> <span>🛸 Beamed <strong>${activeAttachment.name}</strong> to your phone!</span></div>`);
+          islandDrawer.classList.add('open');
+          islandContainer.classList.add('has-drawer-open');
+        }
+      } else {
+        setResponseHTML(`<div style="padding:10px;color:rgba(255,255,255,0.7);"><i class="fa-solid fa-circle-info"></i> Attach a file or screenshot first, then type <code>/beam</code> to send it to your phone!</div>`);
+        islandDrawer.classList.add('open');
+        islandContainer.classList.add('has-drawer-open');
+      }
+      return;
+    }
 
     agentProcessing = true;
     mainInput.value = '';
@@ -1535,7 +1621,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     islandContainer.classList.add('has-drawer-open');
 
     // Immediate local deactivation hook for camera and presentation mode
-    const lowerText = text.toLowerCase().trim();
     if (
       lowerText === 'deactivate' ||
       lowerText === 'stop' ||
@@ -1622,6 +1707,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const duration = act.result?.durationMinutes || act.args?.duration_minutes || 25;
             const subject = act.result?.subject || act.args?.subject || 'Study';
             startLockInTimer(duration, subject);
+          }
+
+          if (act.name === 'pocket_grokki' || act.result?.actionType === 'SHOW_POCKET_GROKKI') {
+            showPocketGrokkiCard();
           }
 
           if (act.name === 'presentation_slide_changer' || act.result?.actionType === 'START_AIR_CURSOR' || act.result?.actionType === 'START_PRESENTATION') {
@@ -1750,6 +1839,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   settingsBtn.addEventListener('click', openSettings);
+  if (pocketGrokkiBtn) {
+    pocketGrokkiBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showPocketGrokkiCard();
+    });
+  }
 
   if (connectGoogleBtn) {
     connectGoogleBtn.addEventListener('click', async () => {
@@ -1865,6 +1960,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     islandContainer.classList.remove('hidden-state');
     islandContainer.classList.remove('is-launching');
+    islandContainer.classList.remove('is-exiting-to-mobile');
 
     // Force reflow so animation cleanly restarts
     void islandContainer.offsetWidth;
@@ -2017,6 +2113,137 @@ document.addEventListener('DOMContentLoaded', async () => {
       voice.speak(`Hey! Quick reminder... ${text}`, () => {
         grokbot.setState('idle');
       });
+    });
+  }
+
+  // Pocket Grokki Event Handlers (Mobile Camera Snap & Solve, Connected notifications)
+  if (window.jarvisAPI && window.jarvisAPI.onPocketPhotoReceived) {
+    window.jarvisAPI.onPocketPhotoReceived(async (data) => {
+      console.log('[Pocket Grokki] Photo received from phone:', data);
+      sound.playSuccess();
+      grokbot.setState('surprised');
+
+      // Summon Grokki Island if hidden
+      islandContainer.classList.remove('hidden-state');
+      if (window.jarvisAPI && window.jarvisAPI.showWindow) {
+        window.jarvisAPI.showWindow();
+      }
+
+      setAttachment({
+        name: data.name || 'Phone Camera Photo.jpg',
+        path: data.path,
+        size: 0
+      });
+
+      userText.innerHTML = `<i class="fa-solid fa-mobile-screen-button" style="color: #60a5fa; margin-right: 6px;"></i> <strong>Phone Camera Snap</strong>`;
+      setResponseHTML('<span style="color:rgba(255,255,255,0.6);"><i class="fa-solid fa-circle-notch fa-spin"></i> Photo received from phone camera! Grokki is analyzing and solving...</span>');
+      islandDrawer.classList.add('open');
+      islandContainer.classList.add('has-drawer-open');
+
+      const solvePrompt = data.prompt || "Please analyze, solve, and explain this photo from my phone camera in detail.";
+      await handleUserPrompt(solvePrompt, { isVoice: false });
+    });
+  }
+
+  if (window.jarvisAPI && window.jarvisAPI.onPocketDeviceConnected) {
+    window.jarvisAPI.onPocketDeviceConnected((data) => {
+      sound.playSuccess();
+      grokbot.setState('happy');
+      const pill = document.createElement('span');
+      pill.className = 'apple-pill-badge';
+      const statusLabel = data.isAutoConnected ? 'Auto-Linked' : 'Linked';
+      pill.innerHTML = `<i class="fa-solid fa-mobile-screen-button"></i> 📱 ${data.deviceType} ${statusLabel}`;
+      badgeRow.appendChild(pill);
+      setTimeout(() => {
+        if (pill.parentNode) pill.remove();
+      }, 5000);
+    });
+  }
+
+  if (window.jarvisAPI && window.jarvisAPI.onPocketChatSent) {
+    window.jarvisAPI.onPocketChatSent(() => {
+      grokbot.setState('surprised');
+      setTimeout(() => grokbot.setState('idle'), 2000);
+    });
+  }
+
+  // Grokki Reverse Intro: Slide from Left Dock to Center, Squeeze Flat, and Fly Up to Phone
+  function playExitToMobileAnimation() {
+    if (chimeTimer) clearTimeout(chimeTimer);
+    if (launchTimer) clearTimeout(launchTimer);
+    if (lightRaysContainer) lightRaysContainer.classList.remove('active');
+
+    islandContainer.classList.remove('is-launching');
+    islandContainer.classList.remove('hidden-state');
+    void islandContainer.offsetWidth;
+    islandContainer.classList.add('is-exiting-to-mobile');
+
+    sound.playPoke();
+    setTimeout(() => {
+      sound.playLaunch();
+    }, 550);
+
+    setTimeout(() => {
+      islandContainer.classList.remove('is-exiting-to-mobile');
+      islandContainer.classList.add('hidden-state');
+      if (lightRaysContainer) lightRaysContainer.classList.remove('active');
+      const botWrapper = document.querySelector('.bot-wrapper');
+      if (botWrapper) {
+        botWrapper.style.visibility = 'hidden';
+      }
+    }, 980);
+  }
+
+  // Dimension Hop IPC Listeners (Phone <-> PC Island)
+  if (window.jarvisAPI && window.jarvisAPI.onGrokkiHoppedToPhone) {
+    window.jarvisAPI.onGrokkiHoppedToPhone(() => {
+      playExitToMobileAnimation();
+    });
+  }
+
+  if (window.jarvisAPI && window.jarvisAPI.onGrokkiHoppedToPC) {
+    window.jarvisAPI.onGrokkiHoppedToPC((data) => {
+      const botWrapper = document.querySelector('.bot-wrapper');
+      if (botWrapper) {
+        botWrapper.style.visibility = 'visible';
+      }
+      playLaunchAnimation();
+
+      // Handle file saved confirmation from phone (NEVER trigger vision or prompt execution!)
+      if (data && data.action === 'file_saved') {
+        sound.playSuccess();
+        grokbot.setState('happy');
+        userText.innerHTML = `<i class="fa-solid fa-circle-check" style="color: #34d399; margin-right: 6px;"></i> <strong>[From Phone]</strong> Saved ${data.fileName}`;
+        setResponseHTML(`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;color:#34d399;"><i class="fa-solid fa-check"></i> <span>Grokki saved <strong>${data.fileName}</strong> to your PC at <code>${data.savePath}</code></span></div>`);
+        islandDrawer.classList.add('open');
+        islandContainer.classList.add('has-drawer-open');
+        return;
+      }
+
+      // Only execute if an actual user instruction was provided from phone!
+      const instruction = (data && data.instruction ? data.instruction.trim() : '');
+      if (instruction) {
+        if (data.filePath) {
+          setAttachment({
+            name: data.fileName || 'Phone File',
+            path: data.filePath,
+            size: 0
+          });
+        }
+        userText.innerHTML = `<i class="fa-solid fa-mobile-screen" style="color: #60a5fa; margin-right: 6px;"></i> <strong>[From Phone]</strong> ${instruction}`;
+        islandDrawer.classList.add('open');
+        islandContainer.classList.add('has-drawer-open');
+        setTimeout(() => {
+          handleUserPrompt(instruction, { isVoice: false });
+        }, 1600);
+      }
+    });
+  }
+
+  if (window.jarvisAPI && window.jarvisAPI.onPocketTaskCompleted) {
+    window.jarvisAPI.onPocketTaskCompleted(() => {
+      sound.playSuccess();
+      grokbot.setState('happy');
     });
   }
 

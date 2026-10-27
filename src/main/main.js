@@ -15,6 +15,7 @@ const agentBrain = require('./agent_brain');
 const { searchWeb } = require('./web_search');
 const kokoroTTS = require('./kokoro_tts');
 const elevenlabsTTS = require('./elevenlabs_tts');
+const PocketGrokkiServer = require('./pocket_grokki_server');
 app.setName('Grokki Studio');
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.grokki.studio');
@@ -125,6 +126,7 @@ let isQuitting = false;
 let isVisible = true;
 let hideTimeout = null;
 let wakeWordService = null;
+let pocketGrokkiServer = null;
 
 function loadConfig() {
   if (cachedConfig) return cachedConfig;
@@ -429,6 +431,10 @@ function createWindow(showOnReady = false) {
   });
 
   mainWindow.once('ready-to-show', () => {
+    if (pocketGrokkiServer) {
+      pocketGrokkiServer.mainWindow = mainWindow;
+      pocketGrokkiServer.checkLanForPairedDevices();
+    }
     // Keep dynamic island hidden on initial launch.
     // It will only be summoned on Alt+Q (or custom hotkey), tray click,
     // or voice wake word if enabled in settings.
@@ -2288,6 +2294,50 @@ ipcMain.on('jarvis:show-window', () => {
   showWindow();
 });
 
+// Pocket Grokki (Zero-Install Mobile LAN Bridge)
+ipcMain.handle('jarvis:get-pocket-status', async () => {
+  if (!pocketGrokkiServer) return { active: false };
+  return pocketGrokkiServer.getStatus();
+});
+
+ipcMain.handle('jarvis:toggle-pocket-server', async (event, enable) => {
+  if (!pocketGrokkiServer) {
+    pocketGrokkiServer = new PocketGrokkiServer({ agentBrain, mainWindow, loadConfig });
+  }
+  if (enable) {
+    return await pocketGrokkiServer.start();
+  } else {
+    pocketGrokkiServer.stop();
+    return pocketGrokkiServer.getStatus();
+  }
+});
+
+// Tamagotchi Dimension Hop
+ipcMain.handle('jarvis:hop-grokki-to-phone', async () => {
+  if (pocketGrokkiServer) {
+    pocketGrokkiServer.grokkiLocation = 'phone';
+    pocketGrokkiServer.broadcast({ type: 'grokki_location', location: 'phone' });
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('jarvis:hop-grokki-to-pc', async () => {
+  if (pocketGrokkiServer) {
+    pocketGrokkiServer.grokkiLocation = 'pc';
+    pocketGrokkiServer.broadcast({ type: 'grokki_location', location: 'pc' });
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('jarvis:beam-file-to-phone', async (event, filePath) => {
+  if (pocketGrokkiServer) {
+    return pocketGrokkiServer.beamFileToPhone(filePath);
+  }
+  return false;
+});
+
 // App Lifecycle
 app.whenReady().then(() => {
   // Grant microphone and media permissions
@@ -2303,6 +2353,20 @@ app.whenReady().then(() => {
   createWindow(!!config.showIslandOnStartup);
   createTray();
   registerShortcuts();
+
+  // Initialize Pocket Grokki (Zero-Install Mobile LAN Bridge)
+  try {
+    pocketGrokkiServer = new PocketGrokkiServer({
+      agentBrain,
+      mainWindow,
+      loadConfig
+    });
+    pocketGrokkiServer.start().catch((err) => {
+      console.warn('[Main] Pocket Grokki startup error:', err?.message || err);
+    });
+  } catch (err) {
+    console.warn('[Main] Could not initialize Pocket Grokki:', err?.message || err);
+  }
 
   // If opening Grokki Studio directly (not auto-started on Windows boot):
   const isAutostart = process.argv.includes('--autostart') || process.argv.includes('--hidden') || process.argv.includes('--background');
@@ -2362,6 +2426,9 @@ app.whenReady().then(() => {
 
 app.on('will-quit', () => {
   stopHandGestureDaemon();
+  if (pocketGrokkiServer) {
+    pocketGrokkiServer.stop();
+  }
   if (wakeWordService) {
     wakeWordService.stop();
   }

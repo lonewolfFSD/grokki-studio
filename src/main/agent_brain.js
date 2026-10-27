@@ -1030,6 +1030,17 @@ class AgentBrain {
             },
           },
           {
+            name: 'pocket_grokki',
+            description: 'Pocket Grokki (Zero-Install Mobile LAN Companion Bridge): Connects phone wirelessly over Wi-Fi to snap homework or study notes with phone camera, remote control PC (lock, media, volume), and mobile chat.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                action: { type: 'STRING', description: '"show_qr", "status", "enable", or "disable"' },
+              },
+              required: ['action'],
+            },
+          },
+          {
             name: 'presentation_slide_changer',
             description: 'Smart Presentation Slide Changer (Touchless Iron Man Style & Voice): Advances slides (next), moves to previous slide (prev), toggles blackout screen (blackout), starts fullscreen slideshow (fullscreen), or starts/stops hands-free presentation mode.',
             parameters: {
@@ -1099,6 +1110,9 @@ class AgentBrain {
       }
       if (cmd === 'browser' && rest) {
         return { tool: 'open_url', args: { url: rest.startsWith('http') ? rest : `https://www.google.com/search?q=${encodeURIComponent(rest)}` } };
+      }
+      if (cmd === 'pocket' || cmd === 'pocketgrokki') {
+        return { tool: 'pocket_grokki', args: { action: 'show_qr' } };
       }
       if (cmd === 'present' || cmd === 'presentation') {
         return { tool: 'presentation_slide_changer', args: { action: rest === 'stop' ? 'stop_mode' : 'start_mode' } };
@@ -1342,6 +1356,12 @@ class AgentBrain {
     }
     if (/\b(start\s+(the\s+)?slideshow|fullscreen\s+slides?)\b/i.test(p)) {
       return { tool: 'presentation_slide_changer', args: { action: 'fullscreen' } };
+    }
+
+    // Pocket Grokki (Mobile Companion Bridge)
+    if (/\b(pocket\s*grokki|connect\s*(my\s*)?phone|link\s*(my\s*)?phone|phone\s*(companion|bridge|qr)|show\s*phone\s*qr|scan\s*phone\s*qr)\b/i.test(p) ||
+        /^\/(pocket|pocketgrokki|phone)$/i.test(p)) {
+      return { tool: 'pocket_grokki', args: { action: 'show_qr' } };
     }
 
     // Volume Unmute
@@ -1736,6 +1756,55 @@ Respond concisely, naturally, and directly without robotic disclaimers. ${isWebS
         };
       }
 
+      // Direct File Save to PC (Desktop, Downloads, Documents, etc.)
+      const isSaveFile = /\b(save|put|store|keep|download|move|copy)\b/i.test(pLower) ||
+        /\b(desktop|downloads?|documents?|pictures?|videos?)\b/i.test(pLower);
+      const isNotAnalysis = !/\b(what|explain|describe|solve|read|analyze|inspect|ocr|transcribe|summarize|detail|who|where)\b|\?/i.test(pLower);
+
+      if (isSaveFile && isNotAnalysis) {
+        let targetDir = path.join(os.homedir(), 'Desktop');
+        if (/\bdownload(s)?\b/i.test(pLower)) targetDir = path.join(os.homedir(), 'Downloads');
+        else if (/\bdocument(s)?\b/i.test(pLower)) targetDir = path.join(os.homedir(), 'Documents');
+        else if (/\b(picture|photo)(s)?\b/i.test(pLower)) targetDir = path.join(os.homedir(), 'Pictures');
+        else if (/\bvideo(s)?\b/i.test(pLower)) targetDir = path.join(os.homedir(), 'Videos');
+        const driveMatch = pLower.match(/\b([a-z]:\\[^ "']+)/i);
+        if (driveMatch) targetDir = driveMatch[1];
+
+        if (!fs.existsSync(targetDir)) {
+          fs.mkdirSync(targetDir, { recursive: true });
+        }
+
+        const fileName = (context && context.attachedFile && context.attachedFile.name) || path.basename(directAttachPath);
+        let savePath = path.join(targetDir, fileName);
+        if (fs.existsSync(savePath) && path.resolve(savePath) !== path.resolve(directAttachPath)) {
+          const extName = path.extname(fileName);
+          const baseName = path.basename(fileName, extName);
+          savePath = path.join(targetDir, `${baseName}_${Date.now()}${extName}`);
+        }
+
+        if (path.resolve(savePath) !== path.resolve(directAttachPath)) {
+          try {
+            fs.copyFileSync(directAttachPath, savePath);
+          } catch (e) {
+            fs.writeFileSync(savePath, fs.readFileSync(directAttachPath));
+          }
+        }
+
+        try {
+          const { shell } = require('electron');
+          shell.showItemInFolder(savePath);
+        } catch (e) {}
+
+        const replyText = `✅ Grokki saved **\`${path.basename(savePath)}\`** to your PC at:\n\`${savePath}\``;
+        memory.addTurn('user', prompt);
+        memory.addTurn('model', replyText);
+        return {
+          success: true,
+          reply: replyText,
+          actionsExecuted: [{ name: 'save_file_to_pc', args: { file_path: savePath, destination: targetDir }, result: { success: true, savePath } }],
+        };
+      }
+
       if (isVideo && !isShareOrUpload) {
         const videoName = path.basename(directAttachPath);
         const replyText = `🎬 **Video watching & analysis is disabled** to prevent high token consumption.\n\nYou can still use **\`${videoName}\`** to:\n1. **Send on WhatsApp** — e.g. *"Send this video to Rohan on WhatsApp"*\n2. **Upload to Google Drive** — e.g. *"Upload this video to my Google Drive"*`;
@@ -1746,16 +1815,19 @@ Respond concisely, naturally, and directly without robotic disclaimers. ${isWebS
         };
       }
 
-      if (isImage && !isShareOrUpload) {
-        const visionRes = await this.analyzeAttachedImage(directAttachPath, prompt, config.geminiApiKey || '');
-        const replyText = visionRes.message || 'Analyzed attached image.';
-        memory.addTurn('user', `${prompt || 'Analyze image'} [Attached image: ${path.basename(directAttachPath)}]`);
-        memory.addTurn('model', replyText);
-        return {
-          success: true,
-          reply: replyText,
-          actionsExecuted: [{ name: 'read_attached_file', args: { file_path: directAttachPath }, result: visionRes }],
-        };
+      if (isImage && !isShareOrUpload && !isSaveFile) {
+        const isVisionPrompt = !prompt || /\b(what|explain|describe|solve|read|analyze|inspect|see|transcribe|look|ocr|tell\s+me|detail|who|where)\b|\?/i.test(prompt);
+        if (isVisionPrompt) {
+          const visionRes = await this.analyzeAttachedImage(directAttachPath, prompt, config.geminiApiKey || '');
+          const replyText = visionRes.message || 'Analyzed attached image.';
+          memory.addTurn('user', `${prompt || 'Analyze image'} [Attached image: ${path.basename(directAttachPath)}]`);
+          memory.addTurn('model', replyText);
+          return {
+            success: true,
+            reply: replyText,
+            actionsExecuted: [{ name: 'read_attached_file', args: { file_path: directAttachPath }, result: visionRes }],
+          };
+        }
       }
     }
 
@@ -1920,6 +1992,7 @@ Respond concisely, naturally, and directly without robotic disclaimers. ${isWebS
           'document_swiss_knife',
           'form_autofiller',
           'offline_airgap_mode',
+          'pocket_grokki',
           'presentation_slide_changer',
           'find_files_and_folders',
           'inspect_vscode_errors',
@@ -3087,6 +3160,14 @@ Rules:
             message: `### ✈️ Air-Gap & Offline Connectivity Status\n- 🌐 **Internet Connection**: ${isOnline ? 'Online (Connected ✅)' : 'Offline (Disconnected ❌)'}\n- 🔒 **Forced Air-Gapped Mode**: ${powerTools.airgapForced ? '**Active (Cloud disabled)**' : 'Inactive (Cloud active)'}\n- 🦙 **Local Ollama Inference**: ${ollama.isRunning ? `Running ✅ (${ollama.models.length} model${ollama.models.length === 1 ? '' : 's'})` : 'Offline / Not Started'}`,
           };
         }
+      }
+
+      case 'pocket_grokki': {
+        return {
+          success: true,
+          actionType: 'SHOW_POCKET_GROKKI',
+          message: '📱 Pocket Grokki is ready! Scan the QR code with your iPhone or Android camera to instantly connect over local Wi-Fi.'
+        };
       }
 
       case 'presentation_slide_changer': {
