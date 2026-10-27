@@ -241,14 +241,14 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
               </span>
             </div>
             <p className="text-[11px] text-gray-500 dark:text-gray-400">
-              App to open or focus when 1 finger is raised on your left hand.
+              App to open or summon when 1 finger is raised on your left hand (default: Grokki Island).
             </p>
             <div className="mt-1">
               <input
                 type="text"
-                value={config.spatialLeftHand1FingerApp || 'whatsapp'}
+                value={config.spatialLeftHand1FingerApp || 'grokki'}
                 onChange={(e) => onChangeConfig({ spatialLeftHand1FingerApp: e.target.value.trim().toLowerCase() })}
-                placeholder="e.g. whatsapp, chrome, explorer, notepad..."
+                placeholder="e.g. grokki, whatsapp, chrome, explorer..."
                 className="w-full h-8 px-3 rounded-lg font-mono text-xs font-medium border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#13141a] text-gray-900 dark:text-white focus:outline-none focus:border-sky-500 transition-colors"
               />
             </div>
@@ -268,14 +268,14 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
               </span>
             </div>
             <p className="text-[11px] text-gray-500 dark:text-gray-400">
-              App to open or focus when 2 fingers are raised on your left hand.
+              App to open or focus when 2 fingers are raised on your left hand (default: WhatsApp).
             </p>
             <div className="mt-1">
               <input
                 type="text"
-                value={config.spatialLeftHand2FingersApp || 'chrome'}
+                value={config.spatialLeftHand2FingersApp || 'whatsapp'}
                 onChange={(e) => onChangeConfig({ spatialLeftHand2FingersApp: e.target.value.trim().toLowerCase() })}
-                placeholder="e.g. chrome, explorer, discord, telegram..."
+                placeholder="e.g. whatsapp, chrome, explorer, discord..."
                 className="w-full h-8 px-3 rounded-lg font-mono text-xs font-medium border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#13141a] text-gray-900 dark:text-white focus:outline-none focus:border-sky-500 transition-colors"
               />
             </div>

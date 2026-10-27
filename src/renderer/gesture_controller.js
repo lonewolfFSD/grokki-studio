@@ -418,8 +418,8 @@ class PresentationGestureController {
         </div>
 
         <div class="air-gestures-guide">
-          <span><i class="fa-solid fa-hand-pointer"></i> Move: Glide</span>
-          <span><i class="fa-solid fa-peace"></i> Touch 2: Drag/Drop</span>
+          <span><i class="fa-solid fa-hand-pointer"></i> Move: Aim</span>
+          <span><i class="fa-solid fa-computer-mouse"></i> Thumb+Index: Click</span>
           <span><i class="fa-solid fa-arrows-up-down"></i> 3-Fingers: Scroll</span>
         </div>
       </div>
@@ -555,16 +555,32 @@ class PresentationGestureController {
     const island = document.getElementById('islandContainer');
 
     if (mode === 'air_cursor') {
-      // In Air Cursor mode: do NOT show floating HUD window; keep Grokki Island visible!
-      if (this.hudEl) this.hudEl.style.display = 'none';
+      // In Air Cursor mode: HIDE Grokki Island, SHOW small Air Cursor HUD window!
       if (island) {
-        island.style.display = '';
-        island.classList.remove('hidden-state');
+        island.style.display = 'none';
+        island.classList.add('hidden-state');
       }
-      this.updateIslandBadge(true, 'move');
+      if (this.hudEl) {
+        this.hudEl.style.display = 'block';
+      }
+      if (this.airTabBtn) this.airTabBtn.classList.add('active');
+      if (this.slidesTabBtn) this.slidesTabBtn.classList.remove('active');
+      if (this.airViewEl) this.airViewEl.style.display = 'block';
+      if (this.slidesViewEl) this.slidesViewEl.style.display = 'none';
+      if (this.airBadgeEl) this.airBadgeEl.style.display = 'inline-flex';
+      if (this.statusTextEl) {
+        this.statusTextEl.innerHTML = `
+          <i class="fa-solid fa-hand-pointer" style="color: #38bdf8;"></i>
+          <span>Air Cursor Active · Aim: Move · Thumb+Index: Click · 3-Pinch: Drag</span>
+        `;
+      }
+      this.updateIslandBadge(false);
     } else {
       // In Presentation mode: show floating HUD window, minimize Grokki Island
-      if (island) island.style.display = 'none';
+      if (island) {
+        island.style.display = 'none';
+        island.classList.add('hidden-state');
+      }
       if (this.hudEl) this.hudEl.style.display = 'block';
       this.updateIslandBadge(false);
 
@@ -612,10 +628,15 @@ class PresentationGestureController {
 
         if (this.airBadgeEl) {
           if (data.state === 'drag') {
-            this.airBadgeEl.innerHTML = `<i class="fa-solid fa-hand-holding"></i> Pinch Drag`;
+            this.airBadgeEl.innerHTML = `<i class="fa-solid fa-hand-holding"></i> 3-Finger Drag`;
             this.airBadgeEl.style.background = 'rgba(52, 211, 153, 0.2)';
             this.airBadgeEl.style.borderColor = 'rgba(52, 211, 153, 0.5)';
             this.airBadgeEl.style.color = '#34d399';
+          } else if (data.state === 'click') {
+            this.airBadgeEl.innerHTML = `<i class="fa-solid fa-arrow-pointer"></i> Left Click`;
+            this.airBadgeEl.style.background = 'rgba(56, 189, 248, 0.25)';
+            this.airBadgeEl.style.borderColor = 'rgba(56, 189, 248, 0.6)';
+            this.airBadgeEl.style.color = '#38bdf8';
           } else if (data.state === 'scroll') {
             this.airBadgeEl.innerHTML = `<i class="fa-solid fa-arrows-up-down"></i> Scrolling`;
             this.airBadgeEl.style.background = 'rgba(251, 191, 36, 0.2)';
@@ -702,7 +723,7 @@ class PresentationGestureController {
         }
         if (this.statusTextEl) {
           this.statusTextEl.innerHTML = this.currentMode === 'air_cursor'
-            ? `<i class="fa-solid fa-hand" style="color: #34d399;"></i><span>Air Cursor Ready · Pinch to click</span>`
+            ? `<i class="fa-solid fa-hand" style="color: #34d399;"></i><span>Air Cursor Ready · Thumb+Index: Click</span>`
             : `<i class="fa-solid fa-hand" style="color: #34d399;"></i><span>Ready · Show 2 fingers for Next, 3 for Prev</span>`;
         }
         this.showFeedback('fa-solid fa-circle-check', 'Spatial 1-Hand AI Online', '#34d399');
@@ -727,18 +748,21 @@ class PresentationGestureController {
     if (window.jarvisAPI && window.jarvisAPI.onLeftHandAction) {
       window.jarvisAPI.onLeftHandAction((data) => {
         this.playHapticTick('next');
-        const targetApp = data.app ? data.app.toUpperCase() : 'APP';
-        const label = `Left Hand (${data.fingers} finger${data.fingers > 1 ? 's' : ''}) -> Opened ${targetApp}`;
-        this.showFeedback('fa-solid fa-bolt', label, '#38bdf8');
-        if (this.islandBadgeEl) {
-          const prevHTML = this.islandBadgeEl.innerHTML;
-          this.islandBadgeEl.innerHTML = `<i class="fa-solid fa-bolt" style="color: #38bdf8;"></i> ${targetApp}`;
-          setTimeout(() => {
-            if (this.islandBadgeEl && this.isActive) {
-              this.updateIslandBadge(true, 'move');
-            }
-          }, 1600);
+        if (data.fingers === 1 || data.action === 'open_island' || data.app === 'grokki' || data.app === 'island') {
+          const island = document.getElementById('islandContainer');
+          if (island) {
+            island.style.display = '';
+            island.classList.remove('hidden-state');
+            const mainInput = document.getElementById('mainInput');
+            if (mainInput) mainInput.focus();
+          }
+          this.showFeedback('fa-solid fa-island-tropical', '☝️ Left Hand · Grokki Island Opened', '#38bdf8');
+          return;
         }
+
+        const targetApp = (data.app || 'whatsapp').toUpperCase();
+        const label = `Left Hand (2 fingers) -> Opened ${targetApp}`;
+        this.showFeedback('fa-solid fa-bolt', label, '#38bdf8');
       });
     }
   }
@@ -770,7 +794,7 @@ class PresentationGestureController {
       this.feedbackTimer = null;
       if (this.isActive && this.statusTextEl) {
         this.statusTextEl.innerHTML = this.currentMode === 'air_cursor'
-          ? `<i class="fa-solid fa-hand" style="color: #38bdf8;"></i><span>Air Cursor Ready · Pinch to click</span>`
+          ? `<i class="fa-solid fa-hand" style="color: #38bdf8;"></i><span>Air Cursor Ready · Thumb+Index: Click</span>`
           : `<i class="fa-solid fa-hand" style="color: #38bdf8;"></i><span>Ready · Show 2 fingers for Next, 3 for Prev</span>`;
       }
     }, 1200);
@@ -804,23 +828,23 @@ class PresentationGestureController {
     const island = document.getElementById('islandContainer');
 
     if (mode === 'air_cursor') {
-      // In Air Cursor mode: keep Grokki Island visible and hide floating presentation HUD completely!
+      // In Air Cursor mode: HIDE Grokki Island, SHOW small Air Cursor HUD window!
       if (island) {
-        island.style.display = '';
-        island.classList.remove('hidden-state');
+        island.style.display = 'none';
+        island.classList.add('hidden-state');
       }
       if (this.hudEl) {
-        this.hudEl.style.display = 'none';
+        this.hudEl.style.display = 'block';
       }
-      this.updateIslandBadge(true, 'move');
+      this.switchMode('air_cursor');
       if (window.jarvisAPI && window.jarvisAPI.showWindow) {
         window.jarvisAPI.showWindow();
       }
     } else {
       // Presentation Mode: show floating HUD and minimize Island bar
       if (island) {
-        this.prevIslandDisplay = island.style.display;
         island.style.display = 'none';
+        island.classList.add('hidden-state');
       }
       if (this.hudEl) {
         this.hudEl.style.display = 'block';

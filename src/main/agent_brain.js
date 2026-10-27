@@ -4754,7 +4754,7 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
           success: true,
           actionType: mode === 'air_cursor' ? 'START_AIR_CURSOR' : 'START_PRESENTATION',
           message: mode === 'air_cursor'
-            ? `🖐️ **Air-Cursor Spatial Control Active**\n- **Point & Move**: Move index finger in the air to glide the mouse pointer\n- **Click & Drag**: Touch Index and Middle fingertips together to click or hold to drag files to Grokki Island\n- **Release / Drop**: Separate Index and Middle fingers to release or drop\n- **Right-Click**: Pinch Thumb + Index finger\n- **Air-Scroll**: Raise 3 fingers (Index + Middle + Ring) up/down to scroll\n- **Rest**: Make a fist or lower hand to pause tracking`
+            ? `🖐️ **Air-Cursor Spatial Control Active**\n- **Point & Move**: Extend index finger fully straight to glide the mouse pointer (bend index finger to pause/stop tracking)\n- **Left Click**: Pinch Thumb + Index finger\n- **Click & Drag**: 3-Finger Pinch (Index + Middle + Thumb together) to drag files\n- **Release / Drop**: Open/separate your 3 fingers to drop\n- **Right-Click**: Pinch Thumb + Middle finger\n- **Air-Scroll**: Raise 3 fingers (Index + Middle + Ring) upright to scroll\n- **Left Hand 1 Finger**: Opens Grokki Island\n- **Left Hand 2 Fingers**: Opens WhatsApp\n- **Pinky Finger ONLY**: 🚨 Emergency Windows Lock Screen\n- **Open Palm (5 Fingers)**: Turn off Air Cursor`
             : `📽️ **Presentation Control Active**\n- **2 Fingers**: Next Slide\n- **3 Fingers**: Previous Slide\n- **5 Fingers Held**: Blank Screen`,
         };
       }

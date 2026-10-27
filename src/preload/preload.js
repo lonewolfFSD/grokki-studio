@@ -8,6 +8,7 @@ try {
 try {
   contextBridge.exposeInMainWorld('jarvisAPI', {
     // Window events
+    showWindow: () => ipcRenderer.send('jarvis:show-window'),
     hideWindow: () => ipcRenderer.send('jarvis:hide'),
     onWindowStateChanged: (callback) => {
       ipcRenderer.on('window:state-changed', (event, data) => callback(data));

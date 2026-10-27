@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Grokki Spatial AI Daemon (MediaPipe AI Python Engine)
 Features:
@@ -17,6 +18,7 @@ Features:
 """
 import sys
 import os
+import io
 import json
 import time
 import signal
@@ -25,6 +27,18 @@ import argparse
 import cv2
 import numpy as np
 import mediapipe as mp
+
+# Configure UTF-8 encoding on standard I/O for Windows
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+if hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 # Win32 Native Cursor API
 try:
@@ -106,24 +120,32 @@ def is_finger_extended(hand, tip_idx, pip_idx):
     dist_tip_wrist = np.hypot(tip.x - wrist.x, tip.y - wrist.y)
     dist_pip_wrist = np.hypot(pip.x - wrist.x, pip.y - wrist.y)
 
-    is_upright = tip.y < pip.y
-    has_reach = dist_tip_wrist > (dist_pip_wrist * 1.08)
+    # Tip must have clear outward extension from wrist
+    has_reach = dist_tip_wrist > (dist_pip_wrist * 1.05)
+    # Not curled down backwards into palm
+    not_curled_down = tip.y < (pip.y + 0.05)
 
-    return is_upright and has_reach
+    return has_reach and not_curled_down
 
 def is_pinky_only(hand):
     if not hand or len(hand) < 21:
+        return False
+    # Hand must be actively elevated in frame, not resting on table edge or keyboard
+    if hand[0].y > 0.86:
         return False
     index_up = is_finger_extended(hand, 8, 6)
     middle_up = is_finger_extended(hand, 12, 10)
     ring_up = is_finger_extended(hand, 16, 14)
     pinky_up = is_finger_extended(hand, 20, 18)
 
+    # Folded check: index, middle, ring tips should be tucked down
+    folded_others = (hand[8].y > hand[6].y - 0.02) and (hand[12].y > hand[10].y - 0.02) and (hand[16].y > hand[14].y - 0.02)
+
     thumb_dist_tip = np.hypot(hand[4].x - hand[17].x, hand[4].y - hand[17].y)
     thumb_dist_ip = np.hypot(hand[3].x - hand[17].x, hand[3].y - hand[17].y)
     thumb_up = thumb_dist_tip > (thumb_dist_ip * 1.15)
 
-    return pinky_up and not index_up and not middle_up and not ring_up and not thumb_up
+    return pinky_up and not index_up and not middle_up and not ring_up and not thumb_up and folded_others
 
 class OneEuroFilter:
     """
@@ -288,15 +310,18 @@ def main():
     # Right Hand Cursor, Click & Pinch Drag States (1 Euro Filter)
     euro_filter_x = OneEuroFilter(min_cutoff=0.9, beta=0.035)
     euro_filter_y = OneEuroFilter(min_cutoff=0.9, beta=0.035)
-    pinch_dist_history = []
+    pinch_ti_history = []
+    pinch_tm_history = []
+    pinch_im_history = []
     consecutive_pinch_frames = 0
     consecutive_open_frames = 0
-    is_pinched_left = False
-    is_pinched_right = False
     pinch_in_progress = False
     pinch_start_time = 0.0
     pinch_start_pos = (0, 0)
     has_drag_started = False
+    is_pinched_left = False          # True when holding left mouse down (drag)
+    is_pinched_right = False         # True when Right-Click is active
+    last_drop_time = 0.0             # Timestamp of most recent file/drag drop (prevents accidental stop)
     prev_scroll_y = None
     last_air_state = "move"
 
@@ -307,7 +332,7 @@ def main():
     stop_palm_hold_frames = 0
     left_palm_hold_frames = 0
 
-    # Left Hand Companion App States (1 Finger / 2 Fingers)
+    # Left Hand Companion App States (1 Finger: Island / 2 Fingers: WhatsApp)
     current_left_gesture = None
     left_gesture_hold_frames = 0
     last_triggered_left = None
@@ -351,14 +376,14 @@ def main():
                 # - LEFT HAND: 1-Finger / 2-Fingers Quick App Launcher
                 # ========================================================
                 if current_mode == "air_cursor":
-                    # --- PROCESS LEFT HAND (App Summoning & Open Palm Stop) ---
+                    # --- PROCESS LEFT HAND (1 Finger: Island, 2 Fingers: WhatsApp, 5 Fingers: Stop) ---
                     if left_hand is not None:
                         left_fingers, _ = classify_fingers(left_hand)
-                        if left_fingers == 5:
+                        if left_fingers == 5 and left_hand[0].y < 0.70 and (now - last_drop_time > 4.0):
                             left_palm_hold_frames += 1
                             current_left_gesture = None
                             left_gesture_hold_frames = 0
-                            if left_palm_hold_frames >= 25:  # ~800ms Open Palm hold
+                            if left_palm_hold_frames >= 90:  # ~1.3s deliberate Open Palm hold
                                 left_palm_hold_frames = 0
                                 if is_pinched_left and HAS_WIN32:
                                     user32.mouse_event(0x0004, 0, 0, 0, 0)
@@ -379,10 +404,12 @@ def main():
                                 if can_fire_left:
                                     last_triggered_left = left_fingers
                                     last_left_trigger_time = now
+                                    action_name = "open_island" if left_fingers == 1 else "open_whatsapp"
                                     log_event({
                                         "type": "left_hand_gesture",
                                         "fingers": left_fingers,
-                                        "label": f"Left Hand: {left_fingers} Finger(s)"
+                                        "action": action_name,
+                                        "label": f"Left Hand: {'☝️ 1 Finger · Grokki Island' if left_fingers == 1 else '✌️ 2 Fingers · WhatsApp'}"
                                     })
                         else:
                             left_palm_hold_frames = 0
@@ -395,7 +422,7 @@ def main():
                         left_gesture_hold_frames = 0
                         last_triggered_left = None
 
-                    # --- PROCESS RIGHT HAND (Cursor, Tap Click, Pinch Drag & Emergency Lock) ---
+                    # --- PROCESS RIGHT HAND (Cursor, 3-Finger Drag, Thumb+Index Click, Thumb+Middle Right Click) ---
                     if right_hand is not None:
                         r_wrist = right_hand[0]
                         r_thumb = right_hand[4]
@@ -403,13 +430,12 @@ def main():
                         r_middle = right_hand[12]
                         r_knuckle = right_hand[9]
 
-                        # Invariant 3D palm scale (eliminates foreshortening when hand tilts)
+                        # Stable 2D palm scale (eliminates 3D z-axis noise)
                         dx_w = r_knuckle.x - r_wrist.x
                         dy_w = r_knuckle.y - r_wrist.y
-                        dz_w = (r_knuckle.z - r_wrist.z) if hasattr(r_knuckle, 'z') else 0.0
-                        palm_scale_3d = float(np.sqrt(dx_w*dx_w + dy_w*dy_w + dz_w*dz_w))
-                        if palm_scale_3d < 0.04:
-                            palm_scale_3d = 0.15
+                        palm_scale = float(np.hypot(dx_w, dy_w))
+                        if palm_scale < 0.04:
+                            palm_scale = 0.15
 
                         r_fingers, _ = classify_fingers(right_hand)
                         r_index_up = is_finger_extended(right_hand, 8, 6)
@@ -417,25 +443,23 @@ def main():
                         r_ring_up = is_finger_extended(right_hand, 16, 14)
                         r_pinky_up = is_finger_extended(right_hand, 20, 18)
 
-                        # 3D Distance between Thumb tip (4) and Index tip (8)
-                        dx_ti = r_thumb.x - r_index.x
-                        dy_ti = r_thumb.y - r_index.y
-                        dz_ti = (r_thumb.z - r_index.z) if hasattr(r_thumb, 'z') else 0.0
-                        dist_3d_ti = float(np.sqrt(dx_ti*dx_ti + dy_ti*dy_ti + dz_ti*dz_ti))
-                        norm_pinch = dist_3d_ti / palm_scale_3d
+                        # Normalized 2D distances between fingertips
+                        norm_ti = float(np.hypot(r_thumb.x - r_index.x, r_thumb.y - r_index.y)) / palm_scale
+                        norm_tm = float(np.hypot(r_thumb.x - r_middle.x, r_thumb.y - r_middle.y)) / palm_scale
+                        norm_im = float(np.hypot(r_index.x - r_middle.x, r_index.y - r_middle.y)) / palm_scale
 
-                        # 3-frame rolling median filter to wipe out camera noise spikes
-                        pinch_dist_history.append(norm_pinch)
-                        if len(pinch_dist_history) > 3:
-                            pinch_dist_history.pop(0)
-                        smoothed_pinch = float(np.median(pinch_dist_history))
+                        # Rolling median filter on all 3 inter-finger distances
+                        pinch_ti_history.append(norm_ti)
+                        if len(pinch_ti_history) > 3: pinch_ti_history.pop(0)
+                        smooth_ti = float(np.median(pinch_ti_history))
 
-                        # 3D Distance between Thumb tip (4) and Middle tip (12) for Right-Click
-                        dx_tm = r_thumb.x - r_middle.x
-                        dy_tm = r_thumb.y - r_middle.y
-                        dz_tm = (r_thumb.z - r_middle.z) if hasattr(r_thumb, 'z') else 0.0
-                        dist_3d_tm = float(np.sqrt(dx_tm*dx_tm + dy_tm*dy_tm + dz_tm*dz_tm))
-                        norm_middle_pinch = dist_3d_tm / palm_scale_3d
+                        pinch_tm_history.append(norm_tm)
+                        if len(pinch_tm_history) > 3: pinch_tm_history.pop(0)
+                        smooth_tm = float(np.median(pinch_tm_history))
+
+                        pinch_im_history.append(norm_im)
+                        if len(pinch_im_history) > 3: pinch_im_history.pop(0)
+                        smooth_im = float(np.median(pinch_im_history))
 
                         # ========================================================
                         # GESTURE 1: EMERGENCY SIGN OUT / LOCK WINDOWS (Pinky ONLY)
@@ -443,8 +467,9 @@ def main():
                         if is_pinky_only(right_hand):
                             pinky_hold_frames += 1
                             stop_palm_hold_frames = 0
-                            consecutive_pinch_frames = 0
-                            if pinky_hold_frames >= 14:  # ~450ms hold
+                            consecutive_drag_frames = 0
+                            consecutive_click_frames = 0
+                            if pinky_hold_frames >= 40:  # ~1.3s deliberate hold (prevents accidental trigger)
                                 pinky_hold_frames = 0
                                 if is_pinched_left and HAS_WIN32:
                                     user32.mouse_event(0x0004, 0, 0, 0, 0)
@@ -467,9 +492,10 @@ def main():
                         # ========================================================
                         # GESTURE 2: TURN OFF AIR-CURSOR (Open Palm 5 Fingers)
                         # ========================================================
-                        if r_fingers == 5 and r_index_up and r_middle_up and r_ring_up and r_pinky_up and smoothed_pinch > 0.40:
+                        time_since_drop = now - last_drop_time
+                        if (r_fingers == 5 and r_index_up and r_middle_up and r_ring_up and r_pinky_up and smooth_ti > 0.42 and smooth_tm > 0.42 and time_since_drop > 4.0):
                             stop_palm_hold_frames += 1
-                            if stop_palm_hold_frames >= 28:  # ~900ms hold
+                            if stop_palm_hold_frames >= 90:  # ~1.3s deliberate hold
                                 stop_palm_hold_frames = 0
                                 if is_pinched_left and HAS_WIN32:
                                     user32.mouse_event(0x0004, 0, 0, 0, 0)
@@ -495,15 +521,16 @@ def main():
                             has_drag_started = False
                             consecutive_pinch_frames = 0
                             consecutive_open_frames = 0
+                            prev_scroll_y = None
                             last_air_state = "parked"
                             if now - last_ui_stream_time > 0.05:
                                 last_ui_stream_time = now
                                 log_event({"type": "air_cursor", "state": "parked", "label": "Right Hand Rested (Fist)"})
 
                         # ========================================================
-                        # GESTURE 4: SCROLL MODE -> 3 FINGERS UP (Index+Middle+Ring)
+                        # GESTURE 4: SCROLL MODE -> 3 FINGERS UP (Index+Middle+Ring upright, Pinky down)
                         # ========================================================
-                        elif r_index_up and r_middle_up and r_ring_up and not r_pinky_up and smoothed_pinch > 0.35:
+                        elif r_index_up and r_middle_up and r_ring_up and not r_pinky_up and smooth_ti > 0.32:
                             if is_pinched_left and HAS_WIN32:
                                 user32.mouse_event(0x0004, 0, 0, 0, 0)
                                 is_pinched_left = False
@@ -513,28 +540,29 @@ def main():
                             consecutive_open_frames = 0
 
                             if prev_scroll_y is not None:
-                                dy = r_index.y - prev_scroll_y
-                                if abs(dy) > 0.006:
-                                    wheel_delta = int(-dy * 2600)
+                                dy = r_middle.y - prev_scroll_y
+                                if abs(dy) > 0.003:
+                                    wheel_delta = int(-dy * 3200)
                                     if HAS_WIN32:
                                         user32.mouse_event(0x0800, 0, 0, wheel_delta, 0)
-                                    prev_scroll_y = r_index.y
+                                    prev_scroll_y = r_middle.y
                                     last_air_state = "scroll"
                             else:
-                                prev_scroll_y = r_index.y
+                                prev_scroll_y = r_middle.y
 
                             if now - last_ui_stream_time > 0.05:
                                 last_ui_stream_time = now
                                 log_event({"type": "air_cursor", "state": "scroll", "label": "Air Scrolling (3 Fingers)"})
 
                         # ========================================================
-                        # GESTURE 5: POINTER MOVEMENT, TAP LEFT CLICK & PINCH DRAG
+                        # GESTURE 5: POINTER MOVEMENT, TAP LEFT CLICK, PINCH DRAG & DROP, AND RIGHT CLICK
                         # ========================================================
                         else:
                             prev_scroll_y = None
 
-                            # Right Click: Thumb + Middle pinch when Index is separated
-                            if norm_middle_pinch < 0.25 and smoothed_pinch > 0.35 and not is_pinched_left and not pinch_in_progress:
+                            # Right Click: Thumb + Middle pinch ONLY when Index AND Middle are extended up, Ring is down
+                            # When pointing normally, r_middle_up is FALSE, so right click can NEVER spike!
+                            if r_index_up and r_middle_up and not r_ring_up and smooth_tm < 0.28 and smooth_ti > 0.32 and not is_pinched_left and not pinch_in_progress:
                                 if not is_pinched_right:
                                     is_pinched_right = True
                                     if HAS_WIN32:
@@ -543,12 +571,12 @@ def main():
                                     last_air_state = "right_click"
                                     log_event({"type": "air_cursor", "state": "right_click", "label": "Right Click"})
                             else:
-                                if is_pinched_right and norm_middle_pinch >= 0.35:
+                                if is_pinched_right and smooth_tm >= 0.36:
                                     is_pinched_right = False
 
-                            # Index fingertip position mapping
-                            track_x = r_index.x
-                            track_y = r_index.y
+                            # Index fingertip position mapping (midpoint when dragging for stability)
+                            track_x = (r_thumb.x + r_index.x) / 2.0 if is_pinched_left else r_index.x
+                            track_y = (r_thumb.y + r_index.y) / 2.0 if is_pinched_left else r_index.y
 
                             raw_norm_x = (track_x - BOX_X_MIN) / (BOX_X_MAX - BOX_X_MIN)
                             raw_norm_y = (track_y - BOX_Y_MIN) / (BOX_Y_MAX - BOX_Y_MIN)
@@ -558,18 +586,29 @@ def main():
                             target_x = norm_x * (SCREEN_WIDTH - 1)
                             target_y = norm_y * (SCREEN_HEIGHT - 1)
 
-                            # 1 Euro Filter: silky smooth, zero-tremor stationary + zero lag on fast sweep
+                            # 1 Euro Filter: zero tremor, zero lag
                             filtered_x = euro_filter_x.filter(target_x, now)
                             filtered_y = euro_filter_y.filter(target_y, now)
 
                             final_x = int(round(filtered_x))
                             final_y = int(round(filtered_y))
 
+                            # Move Windows pointer
+                            if HAS_WIN32:
+                                abs_x = int((final_x / max(1, SCREEN_WIDTH - 1)) * 65535)
+                                abs_y = int((final_y / max(1, SCREEN_HEIGHT - 1)) * 65535)
+                                user32.mouse_event(0x8001, abs_x, abs_y, 0, 0)
+                                user32.SetCursorPos(final_x, final_y)
+
+                            # Check for 3-finger pinch (Thumb+Index+Middle) or 2-finger pinch (Thumb+Index)
+                            is_3finger_pinch = (smooth_ti < 0.30 and smooth_tm < 0.30 and smooth_im < 0.28 and r_middle_up)
+                            is_thumb_index_pinch = (smooth_ti < 0.28)
+
                             # Debounced Index + Thumb Pinch detection:
-                            if smoothed_pinch < 0.28:
+                            if is_thumb_index_pinch or is_3finger_pinch:
                                 consecutive_pinch_frames += 1
                                 consecutive_open_frames = 0
-                            elif smoothed_pinch >= 0.38:
+                            elif smooth_ti >= 0.36:
                                 consecutive_open_frames += 1
                                 consecutive_pinch_frames = 0
                             else:
@@ -582,15 +621,23 @@ def main():
                                 pinch_start_time = now
                                 pinch_start_pos = (final_x, final_y)
                                 has_drag_started = False
+                                # 3-finger pinch: engage drag immediately
+                                if is_3finger_pinch:
+                                    has_drag_started = True
+                                    is_pinched_left = True
+                                    if HAS_WIN32:
+                                        user32.mouse_event(0x0002, 0, 0, 0, 0)  # LEFT DOWN
+                                    last_air_state = "drag"
+                                    log_event({"type": "air_cursor", "state": "drag", "label": "🤏 3-Finger Dragging"})
 
                             # 2. While fingers are touching:
                             if pinch_in_progress:
                                 dist_from_start = np.hypot(final_x - pinch_start_pos[0], final_y - pinch_start_pos[1])
                                 pinch_duration = now - pinch_start_time
 
-                                # Transition into DRAG if moved > 14 pixels OR held > 350ms
+                                # Transition into DRAG if moved > 12 pixels OR held > 280ms
                                 if not has_drag_started:
-                                    if dist_from_start > 14 or (pinch_duration > 0.35 and dist_from_start > 4):
+                                    if dist_from_start > 12 or (pinch_duration > 0.28 and dist_from_start > 3):
                                         has_drag_started = True
                                         is_pinched_left = True
                                         if HAS_WIN32:
@@ -600,51 +647,41 @@ def main():
                                             user32.SetCursorPos(pinch_start_pos[0], pinch_start_pos[1])
                                             user32.mouse_event(0x0002, 0, 0, 0, 0)  # LEFT DOWN
                                         last_air_state = "drag"
-                                        log_event({"type": "air_cursor", "state": "drag", "label": "🤏 Dragging (Thumb+Index)"})
-
-                                if has_drag_started:
-                                    if HAS_WIN32:
-                                        abs_x = int((final_x / max(1, SCREEN_WIDTH - 1)) * 65535)
-                                        abs_y = int((final_y / max(1, SCREEN_HEIGHT - 1)) * 65535)
-                                        user32.mouse_event(0x8001, abs_x, abs_y, 0, 0)
-                                        user32.SetCursorPos(final_x, final_y)
+                                        log_event({"type": "air_cursor", "state": "drag", "label": "🤏 Dragging"})
 
                                 # 3. Release check:
-                                if consecutive_open_frames >= 3 or r_fingers == 0:
+                                if consecutive_open_frames >= 2 or r_fingers == 0:
                                     pinch_in_progress = False
                                     if has_drag_started:
                                         # Drag finished: Drop
+                                        last_drop_time = now
                                         is_pinched_left = False
                                         if HAS_WIN32:
                                             user32.mouse_event(0x0004, 0, 0, 0, 0)  # LEFT UP
                                         last_air_state = "move"
-                                        log_event({"type": "air_cursor", "state": "move", "label": "Pinch Released (Dropped)"})
+                                        log_event({"type": "air_cursor", "state": "move", "label": "Dropped"})
                                     else:
                                         # Quick tap & release -> CRISP SINGLE LEFT CLICK!
                                         if HAS_WIN32:
                                             user32.mouse_event(0x0002, 0, 0, 0, 0)  # LEFT DOWN
                                             user32.mouse_event(0x0004, 0, 0, 0, 0)  # LEFT UP
                                         last_air_state = "click"
-                                        log_event({"type": "air_cursor", "state": "click", "label": "🖱️ Single Left Click"})
+                                        log_event({"type": "air_cursor", "state": "click", "label": "🖱️ Left Click"})
                                     has_drag_started = False
-
                             else:
-                                # Not pinching: free gliding cursor
-                                if HAS_WIN32:
-                                    abs_x = int((final_x / max(1, SCREEN_WIDTH - 1)) * 65535)
-                                    abs_y = int((final_y / max(1, SCREEN_HEIGHT - 1)) * 65535)
-                                    user32.mouse_event(0x8001, abs_x, abs_y, 0, 0)
-                                    user32.SetCursorPos(final_x, final_y)
+                                if last_air_state not in ("drag", "click", "right_click", "scroll"):
+                                    last_air_state = "move"
 
                             if now - last_ui_stream_time > 0.05:
                                 last_ui_stream_time = now
+                                label_text = "🤏 Dragging" if is_pinched_left else ("🖱️ Left Click" if last_air_state == "click" else "🖐️ Cursor Active")
                                 log_event({
                                     "type": "air_cursor",
                                     "state": "drag" if is_pinched_left else ("click" if last_air_state == "click" else "move"),
                                     "x": float(norm_x),
                                     "y": float(norm_y),
                                     "pinched": is_pinched_left,
-                                    "label": "🤏 Dragging (Thumb+Index)" if is_pinched_left else ("🖱️ Left Click" if last_air_state == "click" else "🖐️ Cursor Active")
+                                    "label": label_text
                                 })
 
                     else:
@@ -654,6 +691,8 @@ def main():
                             is_pinched_left = False
                         pinch_in_progress = False
                         has_drag_started = False
+                        consecutive_pinch_frames = 0
+                        consecutive_open_frames = 0
                         euro_filter_x.reset()
                         euro_filter_y.reset()
                         prev_scroll_y = None

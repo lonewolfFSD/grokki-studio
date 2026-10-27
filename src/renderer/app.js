@@ -1448,7 +1448,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Bulletproof Drag & Drop Reaction with counter
   let dragCounter = 0;
 
+  function isIslandAcceptingDrops() {
+    if (!islandContainer) return false;
+    if (islandContainer.style.display === 'none') return false;
+    if (islandContainer.classList.contains('hidden-state')) return false;
+    if (window.presentationController && window.presentationController.isActive) return false;
+    return true;
+  }
+
   window.addEventListener('dragenter', (e) => {
+    if (!isIslandAcceptingDrops()) return;
     e.preventDefault();
     dragCounter++;
     islandContainer.classList.add('drag-active');
@@ -1456,6 +1465,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   window.addEventListener('dragover', (e) => {
+    if (!isIslandAcceptingDrops()) return;
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
     if (!islandContainer.classList.contains('drag-active')) {
@@ -1464,6 +1474,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   window.addEventListener('dragleave', (e) => {
+    if (!isIslandAcceptingDrops()) return;
     e.preventDefault();
     dragCounter--;
     if (dragCounter <= 0) {
@@ -1474,6 +1485,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   window.addEventListener('drop', async (e) => {
+    if (!isIslandAcceptingDrops()) return;
     e.preventDefault();
     dragCounter = 0;
     islandContainer.classList.remove('drag-active');
@@ -1616,6 +1628,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const pAction = (act.args?.action || '').toLowerCase();
             const mode = (pAction === 'air_cursor' || act.result?.actionType === 'START_AIR_CURSOR') ? 'air_cursor' : 'presentation';
             if ((pAction === 'start_mode' || pAction === 'air_cursor' || act.result?.actionType?.startsWith('START')) && window.presentationController) {
+              if (mode === 'air_cursor') {
+                islandContainer.style.display = 'none';
+                islandContainer.classList.add('hidden-state');
+              }
               window.presentationController.start(mode);
             } else if ((pAction === 'stop_mode' || act.result?.actionType === 'STOP_PRESENTATION') && window.presentationController) {
               window.presentationController.stop();

@@ -3,6 +3,13 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { exec, spawn } = require('child_process');
+
+process.on('uncaughtException', (err) => {
+  console.error('[Main] Uncaught Exception:', err?.message || err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.warn('[Main] Unhandled Rejection:', reason);
+});
 const { GoogleGenAI } = require('@google/genai');
 const agentBrain = require('./agent_brain');
 const { searchWeb } = require('./web_search');
@@ -189,8 +196,8 @@ function loadConfig() {
       if (data.glowCursorEnabled === undefined) data.glowCursorEnabled = false;
       if (data.smoothCursorEnabled === undefined) data.smoothCursorEnabled = false;
       if (data.smoothScroll === undefined) data.smoothScroll = false;
-      if (!data.spatialLeftHand1FingerApp) data.spatialLeftHand1FingerApp = 'whatsapp';
-      if (!data.spatialLeftHand2FingersApp) data.spatialLeftHand2FingersApp = 'chrome';
+      if (!data.spatialLeftHand1FingerApp) data.spatialLeftHand1FingerApp = 'grokki';
+      if (!data.spatialLeftHand2FingersApp) data.spatialLeftHand2FingersApp = 'whatsapp';
       cachedConfig = data;
       return cachedConfig;
     }
@@ -471,6 +478,15 @@ function handleGlobalHotkey() {
     createWindow(true);
     return;
   }
+
+  // Restore full 660x580 window bounds when summoning island
+  try {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width: screenWidth } = primaryDisplay.workAreaSize;
+    const winWidth = 660;
+    const x = Math.round((screenWidth - winWidth) / 2);
+    mainWindow.setBounds({ x, y: 0, width: winWidth, height: 580 });
+  } catch (e) {}
 
   // If window is currently hidden, ALWAYS show it and summon in typing mode
   if (!isVisible || !mainWindow.isVisible()) {
@@ -1130,9 +1146,20 @@ function startHandGestureDaemon(initialMode = 'presentation') {
       cwd: path.join(__dirname, '../../'),
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
-      env: { ...process.env, PYTHONUNBUFFERED: '1' },
+      env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' },
     });
     handGesturePid = handGestureProcess.pid;
+
+    handGestureProcess.on('error', (err) => {
+      console.warn('[Spatial AI] Python daemon process error:', err?.message);
+      handGestureProcess = null;
+    });
+
+    if (handGestureProcess.stdin) {
+      handGestureProcess.stdin.on('error', (err) => {
+        console.warn('[Spatial AI] Python daemon stdin error (ignored):', err?.message);
+      });
+    }
 
     let buffer = '';
     handGestureProcess.stdout.on('data', (chunk) => {
@@ -1170,16 +1197,34 @@ function startHandGestureDaemon(initialMode = 'presentation') {
             const config = loadConfig();
             const fingers = payload.fingers;
             const targetApp = fingers === 1
-              ? (config.spatialLeftHand1FingerApp || 'whatsapp')
-              : (config.spatialLeftHand2FingersApp || 'chrome');
+              ? (config.spatialLeftHand1FingerApp || 'grokki')
+              : (config.spatialLeftHand2FingersApp || 'whatsapp');
 
-            console.log(`[Spatial Multi-Hand] Left Hand Gesture (${fingers} finger${fingers > 1 ? 's' : ''}) -> Launching app: ${targetApp}`);
-            openApp(targetApp).catch((err) => console.warn('[Spatial App Launch Error]', err));
+            if (fingers === 1 || targetApp === 'grokki' || targetApp === 'island' || payload.action === 'open_island') {
+              console.log('[Spatial Multi-Hand] Left Hand 1 Finger -> Opening Grokki Island');
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                try {
+                  const primaryDisplay = screen.getPrimaryDisplay();
+                  const { width: screenWidth } = primaryDisplay.workAreaSize;
+                  const winWidth = 660;
+                  const x = Math.round((screenWidth - winWidth) / 2);
+                  mainWindow.setBounds({ x, y: 0, width: winWidth, height: 580 });
+                } catch (e) {}
+              }
+              showWindow();
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('hotkey:trigger', { action: 'show' });
+              }
+            } else {
+              console.log(`[Spatial Multi-Hand] Left Hand Gesture (${fingers} fingers) -> Launching app: ${targetApp}`);
+              openApp(targetApp).catch((err) => console.warn('[Spatial App Launch Error]', err));
+            }
 
             if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send('jarvis:left-hand-action', {
                 fingers,
                 app: targetApp,
+                action: payload.action,
               });
             }
           }
@@ -1213,16 +1258,33 @@ ipcMain.on('jarvis:toggle-presentation-mode', (event, active, mode = 'presentati
   if (isAct) {
     startHandGestureDaemon(mode);
     if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        const primaryDisplay = screen.getPrimaryDisplay();
+        const { width: screenWidth } = primaryDisplay.workAreaSize;
+        if (mode === 'air_cursor') {
+          // Shrink window to compact HUD pill at top edge so the entire desktop is 100% free for dragging and dropping files
+          const hudWidth = 360;
+          const hudHeight = 130;
+          const hudX = Math.round((screenWidth - hudWidth) / 2);
+          mainWindow.setBounds({ x: hudX, y: 10, width: hudWidth, height: hudHeight });
+        } else {
+          const winWidth = 660;
+          const x = Math.round((screenWidth - winWidth) / 2);
+          mainWindow.setBounds({ x, y: 0, width: winWidth, height: 580 });
+        }
+      } catch (e) {}
       showWindow();
     }
   } else {
     stopHandGestureDaemon();
     if (mainWindow && !mainWindow.isDestroyed()) {
-      const primaryDisplay = screen.getPrimaryDisplay();
-      const { width: screenWidth } = primaryDisplay.workAreaSize;
-      const winWidth = 660;
-      const x = Math.round((screenWidth - winWidth) / 2);
-      mainWindow.setPosition(x, 0);
+      try {
+        const primaryDisplay = screen.getPrimaryDisplay();
+        const { width: screenWidth } = primaryDisplay.workAreaSize;
+        const winWidth = 660;
+        const x = Math.round((screenWidth - winWidth) / 2);
+        mainWindow.setBounds({ x, y: 0, width: winWidth, height: 580 });
+      } catch (e) {}
       showWindow();
     }
   }
@@ -1232,9 +1294,27 @@ ipcMain.on('jarvis:toggle-presentation-mode', (event, active, mode = 'presentati
 });
 
 ipcMain.on('jarvis:set-gesture-mode', (event, mode) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { width: screenWidth } = primaryDisplay.workAreaSize;
+      if (mode === 'air_cursor') {
+        const hudWidth = 360;
+        const hudHeight = 130;
+        const hudX = Math.round((screenWidth - hudWidth) / 2);
+        mainWindow.setBounds({ x: hudX, y: 10, width: hudWidth, height: hudHeight });
+      } else {
+        const winWidth = 660;
+        const x = Math.round((screenWidth - winWidth) / 2);
+        mainWindow.setBounds({ x, y: 0, width: winWidth, height: 580 });
+      }
+    } catch (e) {}
+  }
   if (handGestureProcess && handGestureProcess.stdin && !handGestureProcess.stdin.destroyed) {
     try {
-      handGestureProcess.stdin.write(JSON.stringify({ cmd: 'set_mode', mode }) + '\n');
+      handGestureProcess.stdin.write(JSON.stringify({ cmd: 'set_mode', mode }) + '\n', (err) => {
+        if (err) console.warn('[Spatial AI] set_mode write error (ignored):', err?.message);
+      });
     } catch (e) {}
   }
 });
@@ -2202,6 +2282,10 @@ ipcMain.on('jarvis:hide', () => {
   if (wakeWordService) {
     wakeWordService.resume();
   }
+});
+
+ipcMain.on('jarvis:show-window', () => {
+  showWindow();
 });
 
 // App Lifecycle
