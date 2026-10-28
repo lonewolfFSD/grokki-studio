@@ -17,6 +17,8 @@ const crypto = require('crypto');
 const { exec } = require('child_process');
 const { clipboard, desktopCapturer, shell } = require('electron');
 const powerTools = require('./power_tools');
+const kokoroTTS = require('./kokoro_tts');
+const elevenlabsTTS = require('./elevenlabs_tts');
 
 class PocketGrokkiServer {
   constructor(options = {}) {
@@ -37,6 +39,33 @@ class PocketGrokkiServer {
     this.downloads = new Map();
     // One-time secret in the PC QR code URL that guarantees physical access to PC
     this.qrSecret = crypto.randomBytes(16).toString('hex');
+  }
+
+  // Synthesize speech reply for mobile companion using configured voice engine (Kokoro or ElevenLabs)
+  async synthesizeSpeech(text, config = {}) {
+    if (!text) return null;
+    try {
+      const activeProvider = config.ttsProvider || 'grokki';
+      if (activeProvider === 'elevenlabs' && config.elevenlabsApiKey && config.elevenlabsApiKey.trim()) {
+        const voiceId = config.elevenlabsVoiceId || 'JBFqnCBsd6RMkjVDRZzb';
+        const modelId = config.elevenlabsModel || 'eleven_v3';
+        const res = await elevenlabsTTS.synthesize(text, voiceId, config.elevenlabsApiKey.trim(), modelId);
+        if (res && res.success && res.base64Audio) {
+          return res;
+        }
+      }
+      // Natural Kokoro-82M Studio Voice
+      if (!kokoroTTS.ttsInstance && typeof kokoroTTS.getTTS === 'function') {
+        await kokoroTTS.getTTS();
+      }
+      const voice = (config.ttsVoice && (config.ttsVoice.startsWith('af_') || config.ttsVoice.startsWith('am_') || config.ttsVoice.startsWith('bf_') || config.ttsVoice.startsWith('bm_')))
+        ? config.ttsVoice
+        : 'af_bella';
+      return await kokoroTTS.synthesize(text, voice);
+    } catch (e) {
+      console.warn('[PocketGrokkiServer] Speech synthesis error:', e.message);
+      return null;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1066,9 +1095,27 @@ class PocketGrokkiServer {
           const res = await runner.call(this.agentBrain, text, config, { source: 'pocket_mobile_chat' });
           const reply = res?.reply || res?.text || 'Done!';
 
+          let audioBase64 = null;
+          let audioMime = null;
+          // When interacting from host device, synthesize reply using Kokoro or ElevenLabs
+          if (isOwner && (msg.isVoice || config.ttsEnabled !== false)) {
+            try {
+              const ttsRes = await this.synthesizeSpeech(reply, config);
+              if (ttsRes && ttsRes.success && ttsRes.base64Audio) {
+                audioBase64 = ttsRes.base64Audio;
+                audioMime = ttsRes.mimeType || (config.ttsProvider === 'elevenlabs' ? 'audio/mpeg' : 'audio/wav');
+              }
+            } catch (ttsErr) {
+              console.warn('[PocketGrokkiServer] Voice synthesis error:', ttsErr?.message || ttsErr);
+            }
+          }
+
           ws.send(JSON.stringify({
             type: 'mobile_chat_reply',
-            reply
+            reply,
+            audio: audioBase64,
+            mime: audioMime,
+            isVoice: Boolean(msg.isVoice)
           }));
         } catch (e) {
           ws.send(JSON.stringify({
@@ -1080,6 +1127,20 @@ class PocketGrokkiServer {
         ws.send(JSON.stringify({
           type: 'mobile_chat_reply',
           reply: `Grokki: "${text}"`
+        }));
+      }
+    }
+
+    else if (msg.type === 'synthesize_speech' && isOwner) {
+      const text = (msg.text || '').trim();
+      if (text) {
+        const config = typeof this.loadConfig === 'function' ? this.loadConfig() : {};
+        const ttsRes = await this.synthesizeSpeech(text, config);
+        ws.send(JSON.stringify({
+          type: 'speech_audio',
+          success: Boolean(ttsRes && ttsRes.success),
+          audio: ttsRes?.base64Audio || null,
+          mime: ttsRes?.mimeType || 'audio/wav'
         }));
       }
     }
@@ -2698,6 +2759,9 @@ class PocketGrokkiServer {
       <button class="btn" id="fileBtn" aria-label="Attach file">
         <svg viewBox="0 0 24 24"><path d="M20 11.5l-8 8a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10 17.5a2 2 0 0 1-3-3l7.5-7.5"/></svg>
       </button>
+      <button class="btn" id="micBtn" aria-label="Talk with Grokki" title="Talk with Grokki" style="display: none;">
+        <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
       <button class="btn primary" id="pcBtn" aria-label="Send to PC">
         <svg id="pcIcon" viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg>
       </button>
@@ -3513,6 +3577,7 @@ void main() {
     const promptInput = $('promptInput');
     const kbBtn = $('kbBtn');
     const fileBtn = $('fileBtn');
+    const micBtn = $('micBtn');
     const pcBtn = $('pcBtn');
     const pcIcon = $('pcIcon');
     const goBtn = $('goBtn');
@@ -3793,10 +3858,12 @@ void main() {
         if (topSpacer) topSpacer.style.display = 'block';
         if (killAllSessionsBtn) killAllSessionsBtn.style.display = 'none';
         if (osKillerRow) osKillerRow.style.display = 'none';
+        if (micBtn) micBtn.style.display = 'none';
         statusText.innerText = 'Sub-Device · ' + originalPcName;
       } else {
         if (osControlBtn) osControlBtn.style.display = 'flex';
         if (osKillerRow) osKillerRow.style.display = 'block';
+        if (micBtn) micBtn.style.display = 'flex';
         statusText.innerText = originalPcName;
         updateShootBtnVisibility();
       }
@@ -3822,6 +3889,7 @@ void main() {
         if (shootBtn) shootBtn.style.display = 'none';
         if (topSpacer) topSpacer.style.display = 'block';
         if (killAllSessionsBtn) killAllSessionsBtn.style.display = 'none';
+        if (micBtn) micBtn.style.display = 'none';
       }
     }
 
@@ -3837,19 +3905,22 @@ void main() {
           pcBtn.setAttribute('aria-label', 'Summon to phone');
           pcBtn.disabled = false;
           [kbBtn, fileBtn].forEach(b => { if (b) b.disabled = true; });
+          if (micBtn) micBtn.disabled = false;
         } else if (isAway) {
           pcIcon.innerHTML = ICON_SUMMON;
           pcBtn.setAttribute('aria-label', 'Recall Grokki');
           pcBtn.disabled = false;
           [kbBtn, fileBtn].forEach(b => { if (b) b.disabled = true; });
+          if (micBtn) micBtn.disabled = false;
         } else {
           pcIcon.innerHTML = ICON_SEND;
           pcBtn.setAttribute('aria-label', 'Send to PC');
           pcBtn.disabled = false;
-          [kbBtn, fileBtn].forEach(b => { if (b) b.disabled = false; });
+          [kbBtn, fileBtn, micBtn].forEach(b => { if (b) b.disabled = false; });
         }
       } else {
-        // Sub-connected device
+        // Sub-connected device (guest)
+        if (micBtn) micBtn.style.display = 'none';
         if (onPhone) {
           pcIcon.innerHTML = ICON_SEND;
           pcBtn.setAttribute('aria-label', 'Send Grokki Back to Host');
@@ -4100,6 +4171,13 @@ void main() {
         reply.style.display = 'block';
         reply.innerText = msg.reply;
         pokeCreature();
+        if (msg.audio) {
+          playVoiceAudio(msg.audio, msg.mime || 'audio/wav');
+        }
+      } else if (msg.type === 'speech_audio') {
+        if (msg.audio) {
+          playVoiceAudio(msg.audio, msg.mime || 'audio/wav');
+        }
       } else if (msg.type === 'dimension_task_complete') {
         playChime();
         sheetBody.innerText = msg.reply;
@@ -4284,6 +4362,244 @@ void main() {
       kbBtn.classList.toggle('active', open);
       if (open) promptInput.focus(); else promptInput.blur();
     });
+
+    // --- Voice Talk & Speech Synthesis (Host Only) ---
+    let currentVoiceAudio = null;
+    let recognition = null;
+    let isListening = false;
+
+    function playVoiceAudio(base64Data, mime = 'audio/wav') {
+      try {
+        if (currentVoiceAudio) {
+          try { currentVoiceAudio.pause(); } catch (e) {}
+          currentVoiceAudio = null;
+        }
+        const audioSrc = 'data:' + (mime || 'audio/wav') + ';base64,' + base64Data;
+        const audio = new Audio(audioSrc);
+        currentVoiceAudio = audio;
+
+        audio.onplay = () => {
+          isHappy = true;
+          pokeCreature();
+        };
+        audio.onended = () => {
+          isHappy = false;
+          currentVoiceAudio = null;
+        };
+        audio.onerror = (e) => {
+          console.warn('[VoiceAudio Error]', e);
+          isHappy = false;
+          currentVoiceAudio = null;
+        };
+
+        const p = audio.play();
+        if (p !== undefined) {
+          p.catch(err => {
+            console.warn('[Voice Autoplay Blocked]', err);
+            const touchUnlock = () => {
+              audio.play().catch(() => {});
+              document.removeEventListener('click', touchUnlock);
+              document.removeEventListener('touchend', touchUnlock);
+            };
+            document.addEventListener('click', touchUnlock, { once: true });
+            document.addEventListener('touchend', touchUnlock, { once: true });
+          });
+        }
+      } catch (err) {
+        console.warn('[VoiceAudio Error]', err);
+      }
+    }
+
+    function initSpeechRecognition() {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) return null;
+      try {
+        const rec = new SpeechRec();
+        rec.continuous = false;
+        rec.interimResults = true;
+        rec.maxAlternatives = 1;
+        rec.lang = 'en-US';
+        return rec;
+      } catch (e) {
+        console.warn('[SpeechRec Init Error]', e);
+        return null;
+      }
+    }
+
+    async function requestMicAccess() {
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(function(track) { track.stop(); });
+          return true;
+        }
+        var legacyGUM = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+        if (legacyGUM) {
+          var stream = await new Promise(function(resolve, reject) {
+            legacyGUM.call(navigator, { audio: true }, resolve, reject);
+          });
+          if (stream && stream.getTracks) {
+            stream.getTracks().forEach(function(t) { t.stop(); });
+          } else if (stream && stream.stop) {
+            stream.stop();
+          }
+          return true;
+        }
+      } catch (err) {
+        console.warn('[Microphone Permission Error]', err);
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          subtitle.innerText = 'Microphone permission denied. Allow mic in browser settings.';
+          playAlert();
+          return false;
+        }
+      }
+      return true;
+    }
+
+    async function toggleMic() {
+      if (userRole !== 'owner') return;
+
+      // Prime audio on user touch so phone allows subsequent voice audio playback
+      try {
+        if (!window.__audioPrimed) {
+          const silence = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+          silence.play().catch(() => {});
+          window.__audioPrimed = true;
+        }
+      } catch (e) {}
+
+      if (isListening) {
+        stopListening();
+        return;
+      }
+
+      await startListening();
+    }
+
+    async function startListening() {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        subtitle.innerText = 'Voice recognition requires Chrome or Safari';
+        playAlert();
+        if (!inputBar.classList.contains('open')) kbBtn.click();
+        return;
+      }
+
+      // Explicitly ask for microphone permission so native browser prompt appears
+      subtitle.innerText = 'Asking for microphone permission…';
+      const permitted = await requestMicAccess();
+      if (!permitted) return;
+
+      if (recognition) {
+        try { recognition.abort(); } catch (e) {}
+      }
+      recognition = initSpeechRecognition();
+      if (!recognition) {
+        subtitle.innerText = 'Could not access microphone';
+        playAlert();
+        return;
+      }
+
+      try {
+        if (navigator.vibrate) navigator.vibrate(35);
+      } catch (e) {}
+
+      let finalTranscript = '';
+      let hasReceivedResult = false;
+
+      recognition.onstart = () => {
+        isListening = true;
+        if (micBtn) micBtn.classList.add('listening');
+        subtitle.innerText = 'Listening… speak to Grokki';
+        playChirp();
+      };
+
+      recognition.onresult = (event) => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const item = event.results[i];
+          if (item.isFinal) {
+            finalTranscript += item[0].transcript;
+          } else {
+            interim += item[0].transcript;
+          }
+        }
+        const currentText = finalTranscript || interim;
+        if (currentText) {
+          hasReceivedResult = true;
+          subtitle.innerText = '"' + currentText + '"';
+          promptInput.value = currentText;
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn('[SpeechRecognition Error]', event.error);
+        stopListening();
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          subtitle.innerText = 'Microphone permission denied. Allow mic in browser settings.';
+        } else if (event.error === 'network') {
+          subtitle.innerText = 'Voice network error. Check internet connection.';
+        } else if (event.error !== 'no-speech') {
+          subtitle.innerText = 'Voice error: ' + event.error;
+        } else {
+          subtitle.innerText = "I didn't catch that";
+        }
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+        if (micBtn) micBtn.classList.remove('listening');
+        const text = (finalTranscript || promptInput.value || '').trim();
+        if (text && hasReceivedResult) {
+          promptInput.value = '';
+          subtitle.innerText = 'Thinking…';
+          targetTilt = -0.22;
+          playChirp();
+          reply.style.display = 'none';
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'mobile_chat', text, isVoice: true }));
+          }
+        } else {
+          if (subtitle.innerText.includes('Listening')) {
+            subtitle.innerText = '';
+          }
+        }
+      };
+
+      try {
+        recognition.start();
+      } catch (err) {
+        console.warn('[Speech] Start exception:', err);
+        isListening = false;
+        if (micBtn) micBtn.classList.remove('listening');
+        try { recognition.abort(); } catch (e) {}
+      }
+    }
+
+    function stopListening() {
+      isListening = false;
+      if (micBtn) micBtn.classList.remove('listening');
+      if (recognition) {
+        try { recognition.stop(); } catch (e) {}
+      }
+    }
+
+    if (micBtn) {
+      micBtn.addEventListener('click', () => {
+        if (userRole !== 'owner') return;
+
+        // If Grokki is currently on PC or away, summon him to phone first!
+        if (grokkiLocation !== 'phone') {
+          playChirp();
+          subtitle.innerText = 'Summoning Grokki…';
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'hop_to_phone' }));
+          }
+        }
+
+        toggleMic();
+      });
+    }
 
     // --- File ---
     fileBtn.addEventListener('click', () => filePicker.click());
