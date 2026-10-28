@@ -40,6 +40,7 @@ Grokki is an autonomous Windows desktop agent designed to live directly at the t
 | Capability | Scope | What it does |
 | :--- | ---: | :--- |
 | **System & Desktop Agency** | 18 tools | Mouse tracking, keyboard injection, audio, window management, screen capture |
+| **P2P Pocket Grokki Mobile** | Local LAN | Zero-cloud QR pairing, summon hopping, cross-device envelope beam, attendance sync |
 | **Workspace Integrations** | 22 tools | Google Workspace, Notion databases, local Obsidian vaults, GitHub CLI |
 | **Productivity & Code** | 15 tools | Artifact sandbox canvas, VS Code bug diagnosis, file parsing, document authoring |
 | **Media & Audio** | 10 tools | Spotify, YouTube Music, Apple Music controls, playlist search, lecture synthesis |
@@ -48,6 +49,14 @@ Grokki is an autonomous Windows desktop agent designed to live directly at the t
 ---
 
 ## Features
+
+### Peer-to-Peer Pocket Grokki Mobile (LAN Companion)
+Bring your autonomous desktop assistant directly to your mobile phone over your local Wi-Fi without third-party servers, cloud relays, or exposed ports:
+* **Zero-Cloud P2P LAN Pairing**: Pair your smartphone with your Windows PC in seconds using a dynamic cryptographic QR code or single-click local discovery. All communication is strictly local to your private network.
+* **Cross-Device Summon Hopping**: Teleport Grokki seamlessly between your desktop screen and your mobile device. Summon Grokki directly onto your phone screen or shoot him back onto your Windows desktop Dynamic Island with fluid portal physics.
+* **Animated Envelope File Transfer**: Drag and drop documents, images, or code on desktop into Grokki to package them into an animated envelope and beam them directly to your phone (and vice-versa) for instant offline download and opening.
+* **Live Academic & ERP Attendance Tracking**: Auto-sync and view live university ERP records, course attendance percentages, and shortage warnings (`+N classes needed for 75%`) directly on mobile with session auto-recovery and zero credential exposure.
+* **Remote Pocket Agency**: Ask questions, trigger desktop tools, manage playback, and access clipboard sync on the move.
 
 ### Genuine desktop blur
 Windows cannot natively blur third-party desktop windows behind transparent frameless Electron surfaces. Grokki implements a dedicated GPU-accelerated capture pipeline:
@@ -124,6 +133,12 @@ Grokki features a built-in provider switcher supporting both paid frontier flags
 
 ```
 Grokki Agent Runtime
+├── Peer-to-Peer Mobile Ecosystem (Pocket Grokki)
+│   ├── Dynamic QR-code device pairing & local encrypted LAN discovery
+│   ├── Bidirectional device-to-device summon hopping (PC ⟷ Mobile)
+│   ├── P2P Envelope File Beam & instant cross-device payload delivery
+│   └── Mobile University ERP portal & attendance tracking
+│
 ├── System & OS Controls
 │   ├── Mouse tracking, double-clicks, right-clicks, and cursor easing
 │   ├── Window management (focus, minimize, maximize, snap, close)
@@ -162,6 +177,12 @@ Grokki Agent Runtime
 
 <div align="center">
   <table>
+    <tr>
+      <td colspan="2" align="center">
+        <img src="assets/screenshots/Pocket Grokki Mobile.png" alt="Peer-to-Peer Pocket Grokki Mobile Companion" width="100%"/>
+        <br/><sub><b>Peer-to-Peer Pocket Grokki Mobile (Zero-Cloud LAN Pairing, Summon Hopping & Envelope File Beam)</b></sub>
+      </td>
+    </tr>
     <tr>
       <td width="50%" align="center">
         <img src="assets/screenshots/Vision.png" alt="Dynamic Island with Real GPU Desktop Blur" width="100%"/>
