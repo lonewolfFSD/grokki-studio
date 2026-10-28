@@ -1703,6 +1703,33 @@ ipcMain.handle('jarvis:open-workspace-file', async (event, filePathOrName) => {
   return await workspaceContext.openWorkspaceFile(filePathOrName);
 });
 
+// Academic / University Portal Integration (Assam Don Bosco University ERP)
+const academicPortal = require('./academic_portal');
+
+ipcMain.handle('jarvis:get-academic-status', async () => {
+  return academicPortal.getStatus();
+});
+
+ipcMain.handle('jarvis:save-academic-credentials', async (event, { university, username, password }) => {
+  return academicPortal.saveCredentials(university, username, password);
+});
+
+ipcMain.handle('jarvis:sync-academic-portal', async () => {
+  try {
+    return await academicPortal.sync();
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('jarvis:disconnect-academic-portal', async () => {
+  return academicPortal.unlink();
+});
+
+ipcMain.handle('jarvis:get-academic-data', async () => {
+  return academicPortal.getCachedData();
+});
+
 // Dashboard Studio Controls & Live Tests
 ipcMain.on('dashboard:close', () => {
   const config = loadConfig();
@@ -2315,18 +2342,14 @@ ipcMain.handle('jarvis:toggle-pocket-server', async (event, enable) => {
 // Tamagotchi Dimension Hop
 ipcMain.handle('jarvis:hop-grokki-to-phone', async () => {
   if (pocketGrokkiServer) {
-    pocketGrokkiServer.grokkiLocation = 'phone';
-    pocketGrokkiServer.broadcast({ type: 'grokki_location', location: 'phone' });
-    return true;
+    return pocketGrokkiServer.hopToPhone();
   }
   return false;
 });
 
 ipcMain.handle('jarvis:hop-grokki-to-pc', async () => {
   if (pocketGrokkiServer) {
-    pocketGrokkiServer.grokkiLocation = 'pc';
-    pocketGrokkiServer.broadcast({ type: 'grokki_location', location: 'pc' });
-    return true;
+    return pocketGrokkiServer.hopToPc();
   }
   return false;
 });

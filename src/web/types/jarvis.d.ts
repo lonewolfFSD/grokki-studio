@@ -327,6 +327,11 @@ export interface JarvisAPI {
   scanWorkspaceFiles?: (options?: { query?: string; maxResults?: number }) => Promise<{ success: boolean; workspaceRoot: string; folderName: string; items: WorkspaceMention[]; totalMatches: number; error?: string }>;
   readWorkspaceItem?: (itemPath: string) => Promise<{ success: boolean; type?: 'file' | 'folder'; name?: string; path?: string; fullPath?: string; ext?: string; size?: number; lines?: number; content?: string; tree?: string; error?: string }>;
   openWorkspaceFile?: (filePathOrName: string) => Promise<{ success: boolean; fullPath?: string; error?: string; revealed?: boolean }>;
+  getAcademicStatus?: () => Promise<{ linked: boolean; university?: string; universityName?: string; username?: string; lastSynced?: number; hasData?: boolean; hasPassword?: boolean }>;
+  saveAcademicCredentials?: (data: { university: string; username: string; password?: string }) => Promise<any>;
+  syncAcademicPortal?: () => Promise<{ success: boolean; lastSynced?: number; studentName?: string; totalSubjects?: number; error?: string; data?: any }>;
+  disconnectAcademicPortal?: () => Promise<{ success: boolean; error?: string }>;
+  getAcademicData?: () => Promise<any>;
   closeDashboard: () => void;
   minimizeDashboard: () => void;
   maximizeDashboard?: () => void;

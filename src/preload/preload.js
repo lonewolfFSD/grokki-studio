@@ -217,6 +217,13 @@ try {
       ipcRenderer.on('jarvis:pocket-task-completed', handler);
       return () => ipcRenderer.removeListener('jarvis:pocket-task-completed', handler);
     },
+
+    // University / Academic Portal
+    getAcademicStatus: () => ipcRenderer.invoke('jarvis:get-academic-status'),
+    saveAcademicCredentials: (data) => ipcRenderer.invoke('jarvis:save-academic-credentials', data),
+    syncAcademicPortal: () => ipcRenderer.invoke('jarvis:sync-academic-portal'),
+    disconnectAcademicPortal: () => ipcRenderer.invoke('jarvis:disconnect-academic-portal'),
+    getAcademicData: () => ipcRenderer.invoke('jarvis:get-academic-data'),
   });
   console.log('Preload: jarvisAPI successfully exposed in main world.');
 } catch (err) {

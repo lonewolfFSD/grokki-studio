@@ -3,16 +3,40 @@
     "id": "phone_1793116900752_x8rljm",
     "type": "Android",
     "ip": "192.168.31.69",
-    "name": "Android",
+    "name": "Android (Host)",
     "pairedAt": 1793115097186,
-    "lastSeen": 1793121244661
+    "lastSeen": 1793206110384
   },
   {
-    "id": "phone_1793121156248_dfv4lc",
-    "type": "Phone",
+    "id": "phone_1793163834239_hhud40",
+    "type": "Android",
+    "ip": "10.134.235.156",
+    "name": "Android (Host)",
+    "pairedAt": 1793163833728,
+    "lastSeen": 1793171869042
+  },
+  {
+    "id": "phone_1793163834239_hhud40",
+    "type": "Android",
+    "ip": "10.134.235.156",
+    "name": "Android (Main)",
+    "pairedAt": 1793163833728,
+    "lastSeen": 1793166584646
+  },
+  {
+    "id": "phone_1793166940610_00ons7",
+    "type": "Android",
+    "ip": "10.134.235.194",
+    "name": "Android (Main)",
+    "pairedAt": 1793166940373,
+    "lastSeen": 1793171634998
+  },
+  {
+    "id": "known_owner",
+    "type": "Android",
     "ip": "127.0.0.1",
-    "name": "Phone",
-    "pairedAt": 1793117156194,
-    "lastSeen": 1793121156333
+    "name": "Android (Host)",
+    "pairedAt": 1793168205904,
+    "lastSeen": 1793196315878
   }
 ]

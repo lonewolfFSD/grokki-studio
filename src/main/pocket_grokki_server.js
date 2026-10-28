@@ -13,6 +13,7 @@ const path = require('path');
 const fs = require('fs');
 const WebSocket = require('ws');
 const QRCode = require('qrcode');
+const crypto = require('crypto');
 const { exec } = require('child_process');
 const { clipboard, desktopCapturer, shell } = require('electron');
 const powerTools = require('./power_tools');
@@ -30,7 +31,210 @@ class PocketGrokkiServer {
     this.qrDataUrl = null;
     this.localIp = this.detectLocalIp();
     this.connectedDevices = new Map();
-    this.grokkiLocation = 'pc';
+    // Who currently holds Grokki: 'pc' | 'owner' | '<guest peerId>'
+    this.grokkiHolder = 'pc';
+    // Capability tokens for file downloads (token -> { path, expires })
+    this.downloads = new Map();
+    // One-time secret in the PC QR code URL that guarantees physical access to PC
+    this.qrSecret = crypto.randomBytes(16).toString('hex');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Main device (owner) vs guest devices
+  //  - Exactly ONE main device: full PC control, file transfer to PC, OS controls,
+  //    and can shoot Grokki to any guest device on the LAN.
+  //  - Any number of guests: can connect, but can't control the PC. They can only
+  //    receive Grokki (+ files) from the main device and send him back (+ a file).
+  // ---------------------------------------------------------------------------
+
+  // Back-compat: "phone" always means the main device's phone.
+  get grokkiLocation() {
+    if (this.grokkiHolder === 'pc') return 'pc';
+    return this.grokkiHolder === 'owner' ? 'phone' : 'guest';
+  }
+
+  set grokkiLocation(loc) {
+    this.grokkiHolder = loc === 'phone' ? 'owner' : 'pc';
+  }
+
+  setLocation(loc) {
+    this.grokkiLocation = loc;
+    this.syncLocations();
+  }
+
+  getOwnerPath() {
+    return path.join(path.dirname(this.getPairedDevicesPath()), 'pocket_owner.json');
+  }
+
+  loadOwner() {
+    try {
+      const p = this.getOwnerPath();
+      if (fs.existsSync(p)) {
+        const owner = JSON.parse(fs.readFileSync(p, 'utf8'));
+        if (owner && typeof owner.key === 'string' && owner.key.length >= 32) return owner;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  saveOwner(owner) {
+    try {
+      fs.writeFileSync(this.getOwnerPath(), JSON.stringify(owner, null, 2), 'utf8');
+    } catch (e) {
+      console.warn('[Pocket Grokki] Failed to save main device:', e);
+    }
+  }
+
+  // Forget the main device. The next phone that connects becomes the new main device.
+  resetOwner() {
+    try {
+      const p = this.getOwnerPath();
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    } catch (e) {}
+    for (const ws of this.activeSockets) {
+      if (ws.role === 'owner') {
+        try { ws.close(4001, 'Main device reset'); } catch (e) {}
+      }
+    }
+    if (this.grokkiHolder !== 'pc') this.grokkiHolder = 'pc';
+    return true;
+  }
+
+  isOwnerKey(candidate) {
+    const owner = this.loadOwner();
+    if (!owner || typeof candidate !== 'string' || candidate.length !== owner.key.length) return false;
+    try {
+      return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(owner.key));
+    } catch (e) {
+      return false;
+    }
+  }
+
+  isOwnerRequest(req, url) {
+    return this.isOwnerKey(req.headers['x-grokki-key'] || url.searchParams.get('key') || '');
+  }
+
+  sendTo(ws, obj) {
+    try {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+    } catch (e) {}
+  }
+
+  getOwnerSockets() {
+    return Array.from(this.activeSockets).filter(ws => ws.role === 'owner' && ws.readyState === WebSocket.OPEN);
+  }
+
+  getPeerSockets(peerId) {
+    return Array.from(this.activeSockets).filter(ws => ws.peerId === peerId && ws.readyState === WebSocket.OPEN);
+  }
+
+  sendToOwner(obj) {
+    this.getOwnerSockets().forEach(ws => this.sendTo(ws, obj));
+  }
+
+  sendToPeer(peerId, obj) {
+    this.getPeerSockets(peerId).forEach(ws => this.sendTo(ws, obj));
+  }
+
+  getGuestList() {
+    const seen = new Map();
+    for (const ws of this.activeSockets) {
+      if ((ws.role !== 'sub' && ws.role !== 'guest') || ws.readyState !== WebSocket.OPEN || seen.has(ws.peerId)) continue;
+      seen.set(ws.peerId, { id: ws.peerId, name: ws.deviceName, type: ws.deviceType });
+    }
+    return Array.from(seen.values());
+  }
+
+  getHolderName() {
+    if (this.grokkiHolder === 'pc') return os.hostname();
+    if (this.grokkiHolder === 'owner') return 'Main device';
+    const sock = this.getPeerSockets(this.grokkiHolder)[0];
+    return sock ? sock.deviceName : 'another device';
+  }
+
+  locationFor(ws) {
+    if (this.grokkiHolder === 'pc') return 'pc';
+    return this.grokkiHolder === ws.peerId ? 'phone' : 'away';
+  }
+
+  syncLocations() {
+    const holderName = this.getHolderName();
+    for (const ws of this.activeSockets) {
+      if (!ws.role || ws.role === 'pending') continue;
+      this.sendTo(ws, { type: 'grokki_location', location: this.locationFor(ws), holderName });
+    }
+  }
+
+  pushDeviceList() {
+    this.sendToOwner({ type: 'device_list', devices: this.getGuestList() });
+  }
+
+  killSubSessions() {
+    console.log('[Pocket Grokki] 🛑 Host activated Session Killer — kicking all sub-devices!');
+    let killedCount = 0;
+
+    // 1. If Grokki was currently visiting any sub-device, bring Grokki home to Host immediately
+    if (this.grokkiHolder !== 'owner' && this.grokkiHolder !== 'pc') {
+      console.log(`[Pocket Grokki] Recalling Grokki from guest holder ${this.grokkiHolder} back to Host`);
+      this.grokkiHolder = 'owner';
+      this.sendToOwner({
+        type: 'hop_land_on_phone',
+        location: 'phone',
+        fromName: 'Sub-Device (Terminated)'
+      });
+    }
+
+    // 2. Disconnect and close all sub-device sockets
+    for (const ws of Array.from(this.activeSockets)) {
+      if (ws.role === 'sub' || ws.role === 'guest') {
+        killedCount++;
+        try {
+          ws.send(JSON.stringify({
+            type: 'session_terminated',
+            message: 'Session terminated by Host'
+          }));
+        } catch (e) {}
+        try {
+          ws.close(4003, 'Terminated by Host');
+        } catch (e) {}
+        this.connectedDevices.delete(ws);
+        this.activeSockets.delete(ws);
+      }
+    }
+
+    // 3. Sync and push empty device list to Host
+    this.syncLocations();
+    this.pushDeviceList();
+
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('jarvis:pocket-device-disconnected', {
+        totalConnected: this.activeSockets.size,
+        role: 'sub_all_killed'
+      });
+    }
+
+    return killedCount;
+  }
+
+  // Issue a short-lived capability URL for a single file (no raw path exposure on the LAN).
+  registerDownload(filePath) {
+    const now = Date.now();
+    for (const [t, d] of this.downloads) {
+      if (d.expires < now) this.downloads.delete(t);
+    }
+    const token = crypto.randomBytes(18).toString('hex');
+    this.downloads.set(token, { path: filePath, expires: now + 6 * 60 * 60 * 1000 });
+    return `${this.getPocketUrl()}/download?t=${token}`;
+  }
+
+  writeSharedTempFile(fileData) {
+    if (!fileData || typeof fileData.base64 !== 'string') return null;
+    const dir = path.join(os.tmpdir(), 'grokki_share');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const safeName = path.basename(String(fileData.name || 'file.dat')).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_') || 'file.dat';
+    const target = path.join(dir, `${Date.now()}_${safeName}`);
+    fs.writeFileSync(target, Buffer.from(fileData.base64.replace(/^data:.*?base64,/, ''), 'base64'));
+    return { path: target, name: safeName, size: fs.statSync(target).size };
   }
 
   getPairedDevicesPath() {
@@ -126,8 +330,30 @@ class PocketGrokkiServer {
     return '127.0.0.1';
   }
 
-  getPocketUrl() {
-    return `http://${this.localIp}:${this.port}`;
+  getPocketUrl(withClaim = false) {
+    const base = `http://${this.localIp}:${this.port}`;
+    if (withClaim && this.qrSecret) {
+      return `${base}/?claim=${this.qrSecret}&summon=1`;
+    }
+    return base;
+  }
+
+  async regenerateQr() {
+    this.qrSecret = crypto.randomBytes(16).toString('hex');
+    const qrTargetUrl = this.getPocketUrl(true);
+    try {
+      this.qrDataUrl = await QRCode.toDataURL(qrTargetUrl, {
+        margin: 1.5,
+        width: 280,
+        color: {
+          dark: '#030712',
+          light: '#f8fafc'
+        }
+      });
+    } catch (e) {
+      this.qrDataUrl = null;
+    }
+    return this.qrDataUrl;
   }
 
   async start() {
@@ -136,10 +362,14 @@ class PocketGrokkiServer {
     }
 
     this.localIp = this.detectLocalIp();
+    if (!this.qrSecret) {
+      this.qrSecret = crypto.randomBytes(16).toString('hex');
+    }
     const pocketUrl = this.getPocketUrl();
+    const qrTargetUrl = this.getPocketUrl(true);
 
     try {
-      this.qrDataUrl = await QRCode.toDataURL(pocketUrl, {
+      this.qrDataUrl = await QRCode.toDataURL(qrTargetUrl, {
         margin: 1.5,
         width: 280,
         color: {
@@ -218,7 +448,10 @@ class PocketGrokkiServer {
       connectedCount: this.activeSockets.size,
       connectedDevices: Array.from(this.connectedDevices.values()),
       pairedDevices: this.loadPairedDevices(),
-      grokkiLocation: this.grokkiLocation
+      grokkiLocation: this.grokkiLocation,
+      hasMainDevice: !!this.loadOwner(),
+      mainDeviceOnline: this.getOwnerSockets().length > 0,
+      guestDevices: this.getGuestList()
     };
   }
 
@@ -247,8 +480,9 @@ class PocketGrokkiServer {
     }
 
     if (url.pathname === '/status') {
+      // Public discovery ping only — never leak device lists / QR / IPs to the LAN.
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(this.getStatus()));
+      res.end(JSON.stringify({ grokki: true, active: this.isRunning, pcName: os.hostname() }));
       return;
     }
 
@@ -257,13 +491,15 @@ class PocketGrokkiServer {
       return;
     }
 
-    if (url.pathname === '/screen') {
-      this.handleScreenCapture(req, res);
-      return;
-    }
-
-    if (url.pathname === '/upload' && req.method === 'POST') {
-      this.handleUpload(req, res);
+    // PC screen + PC upload are main-device only
+    if (url.pathname === '/screen' || (url.pathname === '/upload' && req.method === 'POST')) {
+      if (!this.isOwnerRequest(req, url)) {
+        res.writeHead(403);
+        res.end('Main device only');
+        return;
+      }
+      if (url.pathname === '/screen') this.handleScreenCapture(req, res);
+      else this.handleUpload(req, res);
       return;
     }
 
@@ -272,30 +508,38 @@ class PocketGrokkiServer {
   }
 
   handleFileDownload(req, res, url) {
-    const rawPath = url.searchParams.get('file');
-    if (!rawPath) {
-      res.writeHead(400);
-      res.end('Missing file parameter');
+    const token = url.searchParams.get('t');
+    const legacyFile = url.searchParams.get('file');
+
+    let filePath = null;
+    if (token) {
+      const entry = this.downloads.get(token);
+      if (!entry || entry.expires < Date.now()) {
+        res.writeHead(404);
+        res.end('Link expired');
+        return;
+      }
+      filePath = entry.path;
+    } else if (legacyFile) {
+      filePath = decodeURIComponent(legacyFile);
+    }
+
+    if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+      res.writeHead(404);
+      res.end('File not found on PC');
       return;
     }
 
     try {
-      const decodedPath = decodeURIComponent(rawPath);
-      if (!fs.existsSync(decodedPath) || !fs.statSync(decodedPath).isFile()) {
-        res.writeHead(404);
-        res.end('File not found on PC');
-        return;
-      }
-
-      const fileName = path.basename(decodedPath);
-      const stat = fs.statSync(decodedPath);
+      const fileName = path.basename(filePath);
+      const stat = fs.statSync(filePath);
       res.writeHead(200, {
         'Content-Type': 'application/octet-stream',
         'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
         'Content-Length': stat.size,
         'Access-Control-Allow-Origin': '*'
       });
-      const stream = fs.createReadStream(decodedPath);
+      const stream = fs.createReadStream(filePath);
       stream.pipe(res);
     } catch (e) {
       res.writeHead(500);
@@ -367,71 +611,18 @@ class PocketGrokkiServer {
     ws.clientIp = clientIp;
     const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
     const isAndroid = /Android/i.test(userAgent);
-    const deviceType = isIOS ? 'iPhone' : (isAndroid ? 'Android' : 'Mobile Device');
+    ws.deviceType = isIOS ? 'iPhone' : (isAndroid ? 'Android' : 'Phone');
+    // Role is decided in the handshake (main device proves itself with its secret key)
+    ws.role = 'pending';
 
-    // Check if device is previously paired
-    const pairedDevices = this.loadPairedDevices();
-    const existingPair = pairedDevices.find(d => d.ip === clientIp);
-    const isAlreadyPaired = !!existingPair;
+    console.log(`[Pocket Grokki] 📱 ${ws.deviceType} (${clientIp}) connecting…`);
 
-    const deviceId = existingPair ? existingPair.id : `phone_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    this.connectedDevices.set(ws, { id: deviceId, type: deviceType, ip: clientIp, connectedAt: new Date().toLocaleTimeString() });
-
-    console.log(`[Pocket Grokki] 📱 ${deviceType} (${clientIp}) connected. Known paired: ${isAlreadyPaired}`);
-
-    // Persist or update paired device record
-    this.savePairedDevice({
-      id: deviceId,
-      type: deviceType,
-      ip: clientIp,
-      name: `${deviceType} (${clientIp})`
-    });
-
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('jarvis:pocket-device-connected', {
-        deviceType,
-        clientIp,
-        totalConnected: this.activeSockets.size,
-        isAutoConnected: isAlreadyPaired
-      });
-    }
-
-    if (isAlreadyPaired) {
-      // AUTO-CONNECT: Keep Grokki where he currently is (PC or phone)
-      const currentLoc = this.grokkiLocation || 'pc';
-      ws.send(JSON.stringify({
-        type: 'welcome',
-        deviceType,
-        pcName: os.hostname(),
-        grokkiLocation: currentLoc,
-        isAutoConnected: true,
-        localIp: this.localIp
-      }));
-    } else {
-      // FIRST-TIME PAIRING: Celebrate with intro hop to phone!
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        this.mainWindow.webContents.send('jarvis:grokki-hopped-to-phone');
+    // Drop sockets that never identify themselves
+    ws.handshakeTimer = setTimeout(() => {
+      if (ws.role === 'pending') {
+        try { ws.close(4000, 'Handshake timeout'); } catch (e) {}
       }
-
-      ws.send(JSON.stringify({
-        type: 'welcome',
-        deviceType,
-        pcName: os.hostname(),
-        grokkiLocation: 'transitioning',
-        isAutoConnected: false,
-        localIp: this.localIp
-      }));
-
-      setTimeout(() => {
-        this.grokkiLocation = 'phone';
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            type: 'hop_land_on_phone',
-            location: 'phone'
-          }));
-        }
-      }, 1100);
-    }
+    }, 10000);
 
     ws.on('message', async (data) => {
       try {
@@ -443,29 +634,423 @@ class PocketGrokkiServer {
     });
 
     ws.on('close', () => {
+      clearTimeout(ws.handshakeTimer);
       this.activeSockets.delete(ws);
       this.connectedDevices.delete(ws);
-      console.log(`[Pocket Grokki] 📱 ${deviceType} disconnected.`);
+      console.log(`[Pocket Grokki] 📱 ${ws.deviceName || ws.deviceType} (${ws.role}) disconnected.`);
+
+      // A sub-device left while hosting Grokki -> he flies home to the host device (or PC)
+      if ((ws.role === 'sub' || ws.role === 'guest') && this.grokkiHolder === ws.peerId && this.getPeerSockets(ws.peerId).length === 0) {
+        if (this.getOwnerSockets().length > 0) {
+          this.grokkiHolder = 'owner';
+          this.sendToOwner({ type: 'hop_land_on_phone', location: 'phone', fromName: ws.deviceName });
+        } else {
+          this.grokkiHolder = 'pc';
+          if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+            this.mainWindow.webContents.send('jarvis:grokki-hopped-to-pc', { instruction: null, filePath: null, fileName: null });
+          }
+        }
+        this.syncLocations();
+      }
+      if (ws.role === 'sub' || ws.role === 'guest') this.pushDeviceList();
+
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
         this.mainWindow.webContents.send('jarvis:pocket-device-disconnected', {
-          totalConnected: this.activeSockets.size
+          totalConnected: this.activeSockets.size,
+          role: ws.role
         });
       }
     });
+  }
+
+  handleHandshake(ws, msg) {
+    if (ws.role !== 'pending') return;
+    clearTimeout(ws.handshakeTimer);
+
+    const rawId = typeof msg.deviceId === 'string' ? msg.deviceId : '';
+    const deviceId = rawId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || `phone_${crypto.randomBytes(6).toString('hex')}`;
+    if (msg.deviceType && /^(iPhone|Android|Phone)$/.test(msg.deviceType)) ws.deviceType = msg.deviceType;
+
+    let owner = this.loadOwner();
+    let issuedKey = null;
+    let shouldSummon = false;
+
+    const hasValidClaim = Boolean(msg.claim && typeof msg.claim === 'string' && this.qrSecret && msg.claim === this.qrSecret);
+    const isHostKey = this.isOwnerKey(msg.ownerKey);
+    const isHostDevice = Boolean(owner && ((owner.deviceId && owner.deviceId === deviceId) || (owner.ip && owner.ip === ws.clientIp)));
+
+    if (!owner || hasValidClaim) {
+      // 1. FIRST PERSON TO SCAN OR PHYSICAL QR SCANNER BECOMES HOST!
+      issuedKey = owner?.key || crypto.randomBytes(32).toString('hex');
+      owner = { key: issuedKey, deviceId, type: ws.deviceType, ip: ws.clientIp, claimedAt: Date.now() };
+      this.saveOwner(owner);
+
+      ws.role = 'owner';
+      ws.peerId = 'owner';
+      ws.deviceName = `${ws.deviceType} (Host)`;
+      shouldSummon = true;
+      this.regenerateQr().catch(() => {});
+      console.log(`[Pocket Grokki] 👑 Claimed permanent HOST by ${ws.deviceName}`);
+    } else if (isHostKey || isHostDevice) {
+      // 2. EXISTING HOST RECONNECTING
+      ws.role = 'owner';
+      ws.peerId = 'owner';
+      ws.deviceName = `${ws.deviceType} (Host)`;
+      issuedKey = owner.key;
+      shouldSummon = Boolean(msg.summon === true || msg.summon === '1');
+    } else {
+      // 3. ANY OTHER PHONE CONNECTING OVER LAN IS A SUB-DEVICE!
+      ws.role = 'sub';
+      ws.peerId = `g_${deviceId}`;
+      const lastOctet = (ws.clientIp || '').split('.').pop();
+      ws.deviceName = `${ws.deviceType}${lastOctet && /^\d+$/.test(lastOctet) ? ' · ' + lastOctet : ''}`;
+      shouldSummon = false;
+    }
+
+    if (ws.role === 'owner') {
+      this.savePairedDevice({ id: deviceId, type: ws.deviceType, ip: ws.clientIp, name: ws.deviceName });
+    }
+
+    this.connectedDevices.set(ws, {
+      id: ws.peerId, type: ws.deviceType, ip: ws.clientIp, role: ws.role, connectedAt: new Date().toLocaleTimeString()
+    });
+
+    console.log(`[Pocket Grokki] 📱 ${ws.deviceName} joined as ${ws.role.toUpperCase()}`);
+
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('jarvis:pocket-device-connected', {
+        deviceType: ws.deviceType,
+        clientIp: ws.clientIp,
+        role: ws.role,
+        totalConnected: this.activeSockets.size,
+        isAutoConnected: !shouldSummon
+      });
+    }
+
+    if (ws.role === 'owner') {
+      // ONLY trigger departure from PC if Grokki was summoned AND is currently on PC
+      const shouldHopFromPc = shouldSummon && (this.grokkiHolder !== 'owner');
+
+      this.sendTo(ws, {
+        type: 'welcome',
+        role: 'owner',
+        ownerKey: issuedKey || owner?.key || undefined,
+        deviceType: ws.deviceType,
+        deviceName: ws.deviceName,
+        pcName: os.hostname(),
+        grokkiLocation: shouldHopFromPc ? 'phone' : (this.grokkiHolder === 'owner' ? 'phone' : 'pc'),
+        holderName: this.getHolderName(),
+        isAutoConnected: !shouldSummon
+      });
+
+      this.pushDeviceList();
+
+      if (shouldHopFromPc) {
+        this.grokkiHolder = 'owner';
+        if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+          this.mainWindow.webContents.send('jarvis:grokki-hopped-to-phone');
+        }
+        setTimeout(() => {
+          this.sendTo(ws, { type: 'hop_land_on_phone', location: 'phone' });
+          this.syncLocations();
+          this.pushDeviceList();
+        }, 450);
+      }
+    } else {
+      const isHolder = (this.grokkiHolder === ws.peerId);
+      this.sendTo(ws, {
+        type: 'welcome',
+        role: 'sub',
+        deviceType: ws.deviceType,
+        deviceName: ws.deviceName,
+        pcName: os.hostname(),
+        grokkiLocation: isHolder ? 'phone' : 'away',
+        holderName: this.getHolderName(),
+        isAutoConnected: true
+      });
+      this.pushDeviceList();
+    }
+  }
+
+  denied(ws, action, message) {
+    this.sendTo(ws, { type: 'access_denied', action, message });
+  }
+
+  async handleSendToDevice(ws, msg) {
+    if (ws.role !== 'owner') {
+      this.denied(ws, 'send_to_device', 'Only the main device can send Grokki to other devices');
+      return;
+    }
+    const targetPeerId = msg.targetDeviceId;
+    if (!targetPeerId) return;
+
+    const guestSockets = this.getPeerSockets(targetPeerId);
+    if (guestSockets.length === 0) {
+      this.sendTo(ws, { type: 'error_toast', message: 'Target device is no longer online' });
+      return;
+    }
+    const guestWs = guestSockets[0];
+
+    let sharedFile = null;
+    let dlUrl = null;
+    if (msg.fileData) {
+      try {
+        sharedFile = this.writeSharedTempFile(msg.fileData);
+        if (sharedFile) {
+          dlUrl = this.registerDownload(sharedFile.path);
+        }
+      } catch (e) {
+        console.warn('[Pocket Grokki] Failed to write shared file:', e);
+      }
+    }
+
+    // 1. Main phone: Grokki launches
+    this.sendTo(ws, {
+      type: 'grokki_dispatched_to_guest',
+      targetName: guestWs.deviceName || 'Guest Device'
+    });
+
+    // 2. Flight duration 1100ms
+    setTimeout(() => {
+      this.grokkiHolder = targetPeerId;
+      this.syncLocations();
+      this.pushDeviceList();
+
+      // 3. Guest phone: Grokki lands!
+      this.sendToPeer(targetPeerId, {
+        type: 'hop_land_on_phone',
+        location: 'phone',
+        fromName: ws.deviceName || 'Main Device',
+        file: sharedFile ? {
+          name: sharedFile.name,
+          size: sharedFile.size,
+          downloadUrl: dlUrl
+        } : null
+      });
+    }, 1100);
+  }
+
+  async handleGuestReturn(ws, msg) {
+    if ((ws.role !== 'sub' && ws.role !== 'guest') || this.grokkiHolder !== ws.peerId) {
+      return;
+    }
+
+    let sharedFile = null;
+    let dlUrl = null;
+    if (msg.fileData) {
+      try {
+        sharedFile = this.writeSharedTempFile(msg.fileData);
+        if (sharedFile) {
+          dlUrl = this.registerDownload(sharedFile.path);
+        }
+      } catch (e) {
+        console.warn('[Pocket Grokki] Failed to write guest shared file:', e);
+      }
+    }
+
+    this.sendTo(ws, { type: 'grokki_returned_home' });
+
+    const ownerOnline = this.getOwnerSockets().length > 0;
+
+    setTimeout(() => {
+      if (ownerOnline) {
+        this.grokkiHolder = 'owner';
+        this.syncLocations();
+        this.pushDeviceList();
+        this.sendToOwner({
+          type: 'hop_land_on_phone',
+          location: 'phone',
+          fromName: ws.deviceName || 'Guest Device',
+          file: sharedFile ? {
+            name: sharedFile.name,
+            size: sharedFile.size,
+            downloadUrl: dlUrl
+          } : null
+        });
+      } else {
+        // Owner phone not connected -> fly back to PC!
+        this.grokkiHolder = 'pc';
+        this.syncLocations();
+        this.pushDeviceList();
+        if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+          this.mainWindow.webContents.send('jarvis:grokki-hopped-to-pc', {
+            instruction: null,
+            filePath: sharedFile ? sharedFile.path : null,
+            fileName: sharedFile ? sharedFile.name : null
+          });
+        }
+      }
+    }, 1100);
+  }
+
+  transferBetweenPhones(fromWs, toWs, fileData) {
+    if (!fromWs || !toWs || fromWs === toWs) return;
+
+    let sharedFile = null;
+    let dlUrl = null;
+    if (fileData) {
+      try {
+        sharedFile = this.writeSharedTempFile(fileData);
+        if (sharedFile) dlUrl = this.registerDownload(sharedFile.path);
+      } catch (e) {
+        console.warn('[Pocket Grokki] Failed to write top transfer file:', e);
+      }
+    }
+
+    console.log(`[Pocket Grokki] 💫 Top-touch transfer: Grokki passing from ${fromWs.deviceName} to ${toWs.deviceName}`);
+
+    // 1. Source phone: Grokki exits out the top edge!
+    this.sendTo(fromWs, {
+      type: 'grokki_top_exit',
+      targetName: toWs.deviceName || 'Phone'
+    });
+
+    // 2. Flight transition across touching tops (650ms)
+    setTimeout(() => {
+      this.grokkiHolder = toWs.peerId;
+      this.syncLocations();
+      this.pushDeviceList();
+
+      // 3. Destination phone: Grokki enters through the top edge!
+      this.sendTo(toWs, {
+        type: 'grokki_top_enter',
+        location: 'phone',
+        fromName: fromWs.deviceName || 'Phone',
+        file: sharedFile ? {
+          name: sharedFile.name,
+          size: sharedFile.size,
+          downloadUrl: dlUrl
+        } : null
+      });
+    }, 650);
+  }
+
+  handlePhoneBump(ws, msg) {
+    const now = Date.now();
+    ws.lastBumpTime = now;
+
+    // Check if another phone bumped within ±700ms
+    let matchedPeer = null;
+    for (const sock of this.activeSockets) {
+      if (sock !== ws && sock.readyState === WebSocket.OPEN) {
+        if (sock.lastBumpTime && (now - sock.lastBumpTime < 700)) {
+          matchedPeer = sock;
+          break;
+        }
+      }
+    }
+
+    // If no recent bump match, but there is 1 other phone connected on LAN:
+    if (!matchedPeer) {
+      const otherSockets = Array.from(this.activeSockets).filter(s => s !== ws && s.readyState === WebSocket.OPEN && (s.role === 'owner' || s.role === 'sub' || s.role === 'guest'));
+      if (otherSockets.length === 1) {
+        matchedPeer = otherSockets[0];
+      }
+    }
+
+    if (!matchedPeer) {
+      console.log(`[Pocket Grokki] 📱 Top contact registered from ${ws.deviceName}, waiting for matching phone...`);
+      return;
+    }
+
+    console.log(`[Pocket Grokki] ⚡ Top touch contact between ${ws.deviceName} and ${matchedPeer.deviceName}!`);
+
+    // The phone that currently has Grokki gives him to the other phone!
+    if (this.grokkiHolder === ws.peerId) {
+      this.transferBetweenPhones(ws, matchedPeer, msg.fileData);
+    } else if (this.grokkiHolder === matchedPeer.peerId) {
+      this.transferBetweenPhones(matchedPeer, ws, msg.fileData);
+    } else {
+      // Grokki was on PC or transitioning: Host phone gets priority
+      if (ws.role === 'owner') {
+        this.transferBetweenPhones(ws, matchedPeer, msg.fileData);
+      } else if (matchedPeer.role === 'owner') {
+        this.transferBetweenPhones(matchedPeer, ws, msg.fileData);
+      }
+    }
+  }
+
+  handleTopEdgeTransfer(ws, msg) {
+    let targetWs = null;
+    if (ws.role === 'owner') {
+      const guestSocks = Array.from(this.activeSockets).filter(s => (s.role === 'sub' || s.role === 'guest') && s.readyState === WebSocket.OPEN);
+      if (guestSocks.length > 0) targetWs = guestSocks[0];
+    } else {
+      const ownerSocks = this.getOwnerSockets();
+      if (ownerSocks.length > 0) targetWs = ownerSocks[0];
+    }
+
+    if (targetWs) {
+      this.transferBetweenPhones(ws, targetWs, msg.fileData);
+    } else {
+      this.sendTo(ws, { type: 'error_toast', message: 'No other phone connected on LAN' });
+    }
   }
 
   async processClientMessage(ws, msg) {
     if (!msg || !msg.type) return;
 
     if (msg.type === 'client_handshake') {
-      if (msg.deviceId) {
-        this.savePairedDevice({
-          id: msg.deviceId,
-          type: msg.deviceType || 'Phone',
-          ip: ws.clientIp || 'LAN',
-          name: `${msg.deviceType || 'Phone'}`
-        });
-      }
+      this.handleHandshake(ws, msg);
+      return;
+    }
+
+    if (ws.role === 'pending') return;
+
+    const isOwner = ws.role === 'owner';
+    const OWNER_ONLY = new Set([
+      'dimension_hop_to_pc', 'hop_to_pc', 'hop_to_phone',
+      'direct_os_control', 'send_to_device', 'list_devices',
+      'kill_sub_sessions'
+    ]);
+    const GUEST_ONLY = new Set(['guest_return']);
+
+    if (OWNER_ONLY.has(msg.type) && !isOwner) {
+      this.denied(ws, msg.type, 'Only the main device can do that');
+      return;
+    }
+    if (GUEST_ONLY.has(msg.type) && isOwner) return;
+
+    if (msg.type === 'kill_sub_sessions') {
+      const count = this.killSubSessions();
+      ws.send(JSON.stringify({
+        type: 'sub_sessions_killed',
+        count,
+        message: count > 0 ? `Disconnected ${count} sub-device${count === 1 ? '' : 's'}` : 'No sub-devices connected'
+      }));
+      return;
+    }
+
+    // Grokki is visiting a guest — the main device must summon him back before PC tasks
+    if (isOwner && ['mobile_chat', 'dimension_hop_to_pc', 'hop_to_pc'].includes(msg.type) &&
+        this.grokkiHolder !== 'owner' && this.grokkiHolder !== 'pc') {
+      this.denied(ws, msg.type, `Grokki is visiting ${this.getHolderName()}`);
+      return;
+    }
+
+    if (msg.type === 'list_devices') {
+      this.pushDeviceList();
+      return;
+    }
+
+    if (msg.type === 'send_to_device') {
+      await this.handleSendToDevice(ws, msg);
+      return;
+    }
+
+    if (msg.type === 'guest_return') {
+      await this.handleGuestReturn(ws, msg);
+      return;
+    }
+
+    // Top-to-top phone physical bump / contact transfer
+    if (msg.type === 'phone_bump') {
+      this.handlePhoneBump(ws, msg);
+      return;
+    }
+
+    if (msg.type === 'top_edge_transfer') {
+      this.handleTopEdgeTransfer(ws, msg);
       return;
     }
 
@@ -504,8 +1089,8 @@ class PocketGrokkiServer {
       const instruction = (msg.instruction || '').trim();
       const fileData = msg.fileData || null;
 
-      this.grokkiLocation = 'pc';
-      this.broadcast({ type: 'grokki_location', location: 'pc' });
+      this.grokkiHolder = 'pc';
+      this.syncLocations();
 
       // If no task or file was provided, simply return Grokki to PC with ZERO task execution
       if (!instruction && !fileData) {
@@ -619,7 +1204,7 @@ class PocketGrokkiServer {
 
           if (searchRes && searchRes.topMatches && searchRes.topMatches.length > 0) {
             const topMatch = searchRes.topMatches[0];
-            const downloadUrl = `${this.getPocketUrl()}/download?file=${encodeURIComponent(topMatch.path)}`;
+            const downloadUrl = this.registerDownload(topMatch.path);
 
             ws.send(JSON.stringify({
               type: 'dimension_task_complete',
@@ -668,7 +1253,7 @@ class PocketGrokkiServer {
                 outputFile = {
                   name: path.basename(possiblePath),
                   path: possiblePath,
-                  downloadUrl: `${this.getPocketUrl()}/download?file=${encodeURIComponent(possiblePath)}`
+                  downloadUrl: this.registerDownload(possiblePath)
                 };
                 break;
               }
@@ -701,8 +1286,8 @@ class PocketGrokkiServer {
 
     // 3. HOP BACK TO PC DIRECTLY (PURE RETURN, NO INSTRUCTION)
     else if (msg.type === 'hop_to_pc') {
-      this.grokkiLocation = 'pc';
-      this.broadcast({ type: 'grokki_location', location: 'pc' });
+      this.grokkiHolder = 'pc';
+      this.syncLocations();
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
         this.mainWindow.webContents.send('jarvis:grokki-hopped-to-pc', {
           instruction: null,
@@ -712,16 +1297,24 @@ class PocketGrokkiServer {
       }
     }
 
-    // 4. HOP TO PHONE (SUMMON GROKKI FROM PC BACK TO PHONE)
+    // 4. SUMMON GROKKI BACK TO THE MAIN PHONE (from PC or from a guest device)
     else if (msg.type === 'hop_to_phone') {
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        this.mainWindow.webContents.send('jarvis:grokki-hopped-to-phone');
+      const from = this.grokkiHolder;
+
+      if (from === 'pc') {
+        if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+          this.mainWindow.webContents.send('jarvis:grokki-hopped-to-phone');
+        }
+      } else if (from && from !== 'owner') {
+        // Recall from a guest: Grokki takes off from their screen first
+        this.sendToPeer(from, { type: 'grokki_recalled' });
       }
+
+      this.grokkiHolder = 'owner';
+      this.syncLocations();
       setTimeout(() => {
-        this.grokkiLocation = 'phone';
-        this.broadcast({ type: 'grokki_location', location: 'phone' });
-        this.broadcast({ type: 'hop_land_on_phone', location: 'phone' });
-      }, 1100);
+        this.sendToOwner({ type: 'hop_land_on_phone', location: 'phone' });
+      }, 450);
     }
 
     // 5. DIRECT OS CONTROL (Volume, Sleep, Sign out, Power, Media, Mic, Screenshot)
@@ -855,13 +1448,36 @@ class PocketGrokkiServer {
     }
   }
 
+  hopToPhone() {
+    this.grokkiHolder = 'owner';
+    this.syncLocations();
+    this.sendToOwner({ type: 'hop_land_on_phone', location: 'phone' });
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('jarvis:grokki-hopped-to-phone');
+    }
+    return true;
+  }
+
+  hopToPc() {
+    this.grokkiHolder = 'pc';
+    this.syncLocations();
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('jarvis:grokki-hopped-to-pc', {
+        instruction: null,
+        filePath: null,
+        fileName: null
+      });
+    }
+    return true;
+  }
+
   beamFileToPhone(filePath) {
     if (!fs.existsSync(filePath)) return false;
     const fileName = path.basename(filePath);
     const stat = fs.statSync(filePath);
-    const downloadUrl = `${this.getPocketUrl()}/download?file=${encodeURIComponent(filePath)}`;
+    const downloadUrl = this.registerDownload(filePath);
 
-    this.broadcast({
+    this.sendToOwner({
       type: 'file_beamed_to_phone',
       fileName,
       fileSize: stat.size,
@@ -981,6 +1597,21 @@ class PocketGrokkiServer {
       stroke-linejoin: round;
     }
 
+    .shoot-badge {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      background: #60a5fa;
+      color: #000;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 99px;
+      padding: 1px 5px;
+      min-width: 14px;
+      text-align: center;
+      line-height: 14px;
+    }
+
     /* Stage */
     .stage {
       position: relative;
@@ -992,6 +1623,207 @@ class PocketGrokkiServer {
       align-items: center;
       justify-content: center;
       padding: 0 24px;
+    }
+
+    /* Dimensional Top Portal - Liquid Light Horizon (Completely invisible at rest) */
+    .top-portal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 140px;
+      pointer-events: none;
+      z-index: 50;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(-20px);
+      transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .top-portal.active,
+    .top-portal.flaring {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .portal-fluid {
+      position: absolute;
+      top: -80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 140%;
+      height: 160px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at 50% 35%, rgba(255, 255, 255, 0.4) 0%, rgba(147, 197, 253, 0.22) 28%, rgba(192, 132, 252, 0.12) 55%, transparent 75%);
+      filter: blur(16px);
+    }
+    .portal-glow {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(84vw, 320px);
+      height: 2.5px;
+      border-radius: 0 0 99px 99px;
+      background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.85) 50%, transparent 100%);
+      box-shadow: 0 0 16px rgba(255, 255, 255, 0.6), 0 0 35px rgba(147, 197, 253, 0.4);
+    }
+    .top-portal.flaring .portal-fluid {
+      transform: translateX(-50%) scaleY(1.35);
+      background: radial-gradient(ellipse at 50% 35%, rgba(255, 255, 255, 0.65) 0%, rgba(147, 197, 253, 0.38) 32%, rgba(192, 132, 252, 0.2) 60%, transparent 80%);
+      filter: blur(20px);
+    }
+    .top-portal.flaring .portal-glow {
+      width: min(92vw, 360px);
+      height: 3.5px;
+      box-shadow: 0 0 24px rgba(255, 255, 255, 0.9), 0 0 45px rgba(147, 197, 253, 0.6);
+    }
+
+    /* Grokki Frosted Letter Folio (Human-crafted Envelope Animation) */
+    .envelope-pod {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 164px;
+      height: 110px;
+      transform: translate(-50%, -50%) scale(0);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 25;
+      perspective: 700px;
+      transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+    }
+    .envelope-pod.visible {
+      transform: translate(-50%, calc(-50% + 54px)) scale(1);
+      opacity: 1;
+    }
+    .env-letter {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 18px;
+    }
+    .env-sheet {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      right: 12px;
+      height: 76px;
+      background: #ffffff;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 6px 10px;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+      transition: transform 0.44s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+      z-index: 2;
+    }
+    .env-sheet.tucked {
+      transform: translateY(22px) scale(0.92);
+      opacity: 0.9;
+    }
+    .env-sheet.ejected {
+      transform: translateY(-56px) scale(1.08);
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.45), 0 0 24px rgba(96, 165, 250, 0.4);
+      opacity: 1;
+    }
+    .env-file-icon {
+      width: 24px;
+      height: 24px;
+      color: #3b82f6;
+    }
+    .env-file-icon svg {
+      width: 100%;
+      height: 100%;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.2;
+    }
+    .env-file-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 120px;
+    }
+    .env-file-name {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #0f172a;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: center;
+      width: 100%;
+    }
+    .env-file-tag {
+      font-size: 9.5px;
+      font-weight: 500;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .env-body {
+      position: absolute;
+      inset: 0;
+      border-radius: 18px;
+      overflow: hidden;
+      z-index: 3;
+      pointer-events: none;
+    }
+    .env-seam-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 18px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(96, 165, 250, 0.12);
+    }
+    .env-flap-wrap {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      transform-origin: top center;
+      transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 4;
+      pointer-events: none;
+    }
+    .env-flap-wrap.closed {
+      transform: rotateX(180deg);
+      z-index: 5;
+    }
+    .env-flap-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+    }
+    .env-stamp {
+      position: absolute;
+      top: 48px;
+      left: 50%;
+      transform: translateX(-50%) scale(0);
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 50%, #d97706 100%);
+      border: 1.5px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 4px 14px rgba(217, 119, 6, 0.55), 0 0 10px rgba(252, 211, 77, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 6;
+      transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .env-stamp.sealed {
+      transform: translateX(-50%) scale(1);
+    }
+    .env-stamp-gem {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255, 255, 255, 0.7);
     }
 
     .grokki {
@@ -1614,6 +2446,164 @@ class PocketGrokkiServer {
       100% { transform: translateY(0) scale(1); }
     }
 
+    /* Top-to-top fluid exit and enter animations */
+    .grokki.top-exit { animation: topExit 0.65s cubic-bezier(0.65, 0, 0.35, 1) forwards; }
+    @keyframes topExit {
+      0% { transform: translateY(0) scale(1); opacity: 1; }
+      40% { transform: translateY(-30px) scale(0.9, 1.15); opacity: 0.9; }
+      100% { transform: translateY(-480px) scale(0.35, 2); opacity: 0; }
+    }
+    .grokki.top-enter { animation: topEnter 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes topEnter {
+      0% { transform: translateY(-450px) scale(0.35, 2); opacity: 0; }
+      65% { transform: translateY(14px) scale(1.12, 0.88); opacity: 1; }
+      85% { transform: translateY(-5px) scale(0.97, 1.03); }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    /* Grokki Portal Leap & Arrive with Envelope */
+    .grokki.portal-leap {
+      animation: grokkiPortalLeap 0.75s cubic-bezier(0.7, 0, 0.84, 0) forwards;
+    }
+    @keyframes grokkiPortalLeap {
+      0% { transform: translateY(0) scale(1); opacity: 1; }
+      25% { transform: translateY(32px) scale(1.18, 0.82); }
+      100% { transform: translateY(-750px) scale(0.25, 2.5); opacity: 0; }
+    }
+    .grokki.portal-arrive {
+      animation: grokkiPortalArrive 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes grokkiPortalArrive {
+      0% { transform: translateY(-500px) scale(0.3, 2.2); opacity: 0; }
+      60% { transform: translateY(18px) scale(1.18, 0.84); opacity: 1; }
+      80% { transform: translateY(-8px) scale(0.95, 1.05); }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    /* File Delivery Sheet / Offer Card */
+    .delivery-sheet {
+      text-align: center;
+      gap: 16px;
+    }
+    .delivery-hero {
+      margin-top: 4px;
+    }
+    .delivery-badge {
+      font-size: 19px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.3px;
+    }
+    .delivery-sender {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 4px;
+    }
+    .delivery-file-box {
+      background: rgba(255, 255, 255, 0.08);
+      border: 0.5px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      text-align: left;
+    }
+    .delivery-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+    }
+    .delivery-icon svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+    .delivery-meta {
+      flex: 1;
+      min-width: 0;
+    }
+    .delivery-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #ffffff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .delivery-size {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 3px;
+    }
+    .delivery-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 15px 20px;
+      border-radius: 99px;
+      background: #ffffff;
+      color: #000000;
+      font-size: 15.5px;
+      font-weight: 650;
+      text-decoration: none;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 255, 255, 0.2);
+      transition: transform 0.18s ease, background 0.18s ease;
+    }
+    .delivery-btn:active {
+      transform: scale(0.97);
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    /* Host Session Killer Buttons */
+    .os-killer-btn, .os-killer-action-btn {
+      width: 100%;
+      padding: 13px 18px;
+      border-radius: 18px;
+      border: 0.5px solid rgba(255, 69, 58, 0.35);
+      background: rgba(255, 69, 58, 0.12);
+      color: #ff6961;
+      font-size: 13.5px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      cursor: pointer;
+      box-sizing: border-box;
+      transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease, border-color 0.2s ease;
+      margin-top: 8px;
+    }
+    .os-killer-btn:active, .os-killer-action-btn:active {
+      transform: scale(0.95);
+      background: rgba(255, 69, 58, 0.25);
+      border-color: rgba(255, 69, 58, 0.6);
+    }
+    .os-killer-btn svg, .os-killer-action-btn svg {
+      width: 17px;
+      height: 17px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .os-killer-row {
+      margin-top: 4px;
+      width: 100%;
+    }
+
     #filePicker { display: none; }
 
     @media (max-height: 640px) {
@@ -1627,7 +2617,11 @@ class PocketGrokkiServer {
   <div class="ambient"></div>
 
   <header class="top-bar">
-    <div class="top-spacer"></div>
+    <button class="top-btn" id="shootBtn" aria-label="Shoot Grokki" title="Shoot Grokki to LAN Device" style="display: none; position: relative;">
+      <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      <span class="shoot-badge" id="guestBadge" style="display: none;">0</span>
+    </button>
+    <div class="top-spacer" id="topSpacer"></div>
     <div class="status" id="statusPill">
       <div class="dot" id="dot"></div>
       <span id="statusText">Connecting</span>
@@ -1637,10 +2631,47 @@ class PocketGrokkiServer {
     </button>
   </header>
 
-  <main class="stage">
+  <!-- Dimensional Top Portal (Liquid Light Horizon) -->
+  <div class="top-portal" id="topPortal">
+    <div class="portal-fluid"></div>
+    <div class="portal-glow"></div>
+  </div>
+
+  <main class="stage" id="stage">
+
     <div class="grokki" id="grokki">
       <div class="orb" id="orb"></div>
       <canvas id="characterCanvas"></canvas>
+    </div>
+
+    <!-- Grokki Frosted Letter Folio (Human-crafted Envelope Animation) -->
+    <div class="envelope-pod" id="envelopePod">
+      <div class="env-letter">
+        <div class="env-sheet" id="envCard">
+          <div class="env-file-icon">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div class="env-file-meta">
+            <div class="env-file-name" id="envCardName">Document</div>
+            <div class="env-file-tag">Attached File</div>
+          </div>
+        </div>
+        <div class="env-body">
+          <svg class="env-seam-svg" viewBox="0 0 160 108" fill="none">
+            <rect width="160" height="108" rx="16" fill="rgba(20, 22, 34, 0.94)" stroke="rgba(255, 255, 255, 0.14)" stroke-width="1"/>
+            <path d="M0 108L68 54M160 108L92 54" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1.2"/>
+            <path d="M0 108L80 44L160 108" fill="rgba(28, 31, 48, 0.85)" stroke="rgba(255, 255, 255, 0.16)" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="env-flap-wrap" id="envFlap">
+          <svg class="env-flap-svg" viewBox="0 0 160 62" fill="none">
+            <path d="M2 2L80 58L158 2" fill="rgba(34, 38, 58, 0.96)" stroke="rgba(255, 255, 255, 0.18)" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="env-stamp" id="envSeal">
+          <div class="env-stamp-gem"></div>
+        </div>
+      </div>
     </div>
 
     <div class="file-pill" id="filePill">
@@ -1664,9 +2695,6 @@ class PocketGrokkiServer {
       <button class="btn" id="kbBtn" aria-label="Keyboard">
         <svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="3"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M7.5 14h9"/></svg>
       </button>
-      <button class="btn" id="micBtn" aria-label="Voice">
-        <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
-      </button>
       <button class="btn" id="fileBtn" aria-label="Attach file">
         <svg viewBox="0 0 24 24"><path d="M20 11.5l-8 8a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10 17.5a2 2 0 0 1-3-3l7.5-7.5"/></svg>
       </button>
@@ -1682,6 +2710,28 @@ class PocketGrokkiServer {
       <div class="sheet-body" id="sheetBody"></div>
       <a href="#" class="sheet-btn" id="sheetDownload" download>Download</a>
       <button class="sheet-close" id="sheetClose">Done</button>
+    </div>
+  </div>
+
+  <!-- File Delivery Sheet / Offer Card -->
+  <div class="sheet-wrap" id="fileOfferWrap">
+    <div class="sheet delivery-sheet">
+      <div class="grab"></div>
+      <div class="delivery-hero">
+        <div class="delivery-badge">Grokki Delivered a File!</div>
+        <div class="delivery-sender" id="deliverySender">From Connected Device</div>
+      </div>
+      <div class="delivery-file-box">
+        <div class="delivery-icon">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div class="delivery-meta">
+          <div class="delivery-name" id="deliveryFileName">filename.dat</div>
+          <div class="delivery-size" id="deliveryFileSize">0 KB</div>
+        </div>
+      </div>
+      <a href="#" class="delivery-btn" id="deliveryDownloadBtn" download>Download File</a>
+      <button class="sheet-close" id="deliveryCloseBtn">Done</button>
     </div>
   </div>
 
@@ -1755,6 +2805,32 @@ class PocketGrokkiServer {
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
         </button>
       </div>
+
+      <div class="os-killer-row" id="osKillerRow" style="display: none;">
+        <button class="os-killer-action-btn" id="osKillAllBtn" aria-label="Disconnect All Sub-Devices">
+          <svg viewBox="0 0 24 24"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+          <span>Disconnect All Sub-Devices</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shoot Grokki Sheet -->
+  <div class="sheet-wrap" id="shootSheetWrap">
+    <div class="sheet os-sheet">
+      <div class="grab"></div>
+      <div class="os-header">
+        <div class="os-island-pill">
+          <svg style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2;" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          <span>Shoot Grokki to LAN Device</span>
+        </div>
+        <button class="os-close-x" id="shootSheetClose" aria-label="Close">✕</button>
+      </div>
+      <div id="guestDeviceList" style="display: flex; flex-direction: column; gap: 8px; margin: 10px 0;"></div>
+      <button class="os-killer-btn" id="killAllSessionsBtn" aria-label="Disconnect All Sub-Devices" style="display: none;">
+        <svg viewBox="0 0 24 24"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+        <span>Disconnect All Sub-Devices</span>
+      </button>
     </div>
   </div>
 
@@ -2133,7 +3209,7 @@ void main() {
     let eyeScaleX = 1, eyeScaleY = 1;
     let eyeScaleVelX = 0, eyeScaleVelY = 0;
     let eyeHopY = 0, eyeHopVelY = 0;
-    let isBlinking = false, isWinking = false;
+    let isBlinking = false, isWinking = false, isHappy = false;
     let blinkProgress = 0;
     let nextBlink = Date.now() + 2000;
     let blinkStart = 0;
@@ -2263,11 +3339,28 @@ void main() {
         charCtx.restore();
       }
 
-      // Left pill
-      drawPill(-gap / 2 - pw / 2, -ph1 / 2, pw, Math.max(3, ph1));
+      if (isHappy) {
+        function drawHappyArc(px, py, width, height) {
+          charCtx.save();
+          charCtx.strokeStyle = '#ffffff';
+          charCtx.shadowColor = 'rgba(255, 255, 255, 0.95)';
+          charCtx.shadowBlur = 12 * (w / 260);
+          charCtx.lineWidth = 4.6 * sf;
+          charCtx.lineCap = 'round';
+          charCtx.beginPath();
+          charCtx.arc(px + width / 2, py + height * 0.45, width * 0.9, Math.PI * 1.15, Math.PI * 1.85, false);
+          charCtx.stroke();
+          charCtx.restore();
+        }
+        drawHappyArc(-gap / 2 - pw / 2, -ph1 / 2, pw * 1.6, ph1 * 0.8);
+        drawHappyArc(gap / 2 - pw / 2, -ph2 / 2, pw * 1.6, ph2 * 0.8);
+      } else {
+        // Left pill
+        drawPill(-gap / 2 - pw / 2, -ph1 / 2, pw, Math.max(3, ph1));
 
-      // Right pill
-      drawPill(gap / 2 - pw / 2, -ph2 / 2, pw, Math.max(3, ph2));
+        // Right pill
+        drawPill(gap / 2 - pw / 2, -ph2 / 2, pw, Math.max(3, ph2));
+      }
 
       charCtx.restore();
     }
@@ -2328,17 +3421,60 @@ void main() {
       updatePointerPos(e.clientX, e.clientY);
     });
 
+    let touchStartX = 0;
     let touchStartY = 0;
+    let isDraggingGrokki = false;
+
     creature.addEventListener('touchstart', (e) => {
-      touchStartY = e.touches[0].clientY;
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        isDraggingGrokki = true;
+      }
       if (e.touches[0]) updatePointerPos(e.touches[0].clientX, e.touches[0].clientY);
     }, { passive: true });
+
     creature.addEventListener('touchmove', (e) => {
-      if (e.touches[0]) updatePointerPos(e.touches[0].clientX, e.touches[0].clientY);
+      if (e.touches[0]) {
+        const curX = e.touches[0].clientX;
+        const curY = e.touches[0].clientY;
+        updatePointerPos(curX, curY);
+
+        if (isDraggingGrokki && grokkiLocation === 'phone') {
+          const deltaY = curY - touchStartY;
+          const deltaX = curX - touchStartX;
+
+          if (deltaY < -15) {
+            creature.style.transform = 'translate(' + (deltaX * 0.3) + 'px, ' + (deltaY * 0.3) + 'px)';
+            // If dragging near the very top edge where phones touch:
+            if (curY <= 70) {
+              activatePortal(true);
+            } else {
+              deactivatePortal();
+            }
+          }
+        }
+      }
     }, { passive: true });
+
     creature.addEventListener('touchend', (e) => {
-      if (touchStartY - e.changedTouches[0].clientY > 50) {
-        if (grokkiLocation === 'phone') sendToPc();
+      if (!isDraggingGrokki) return;
+      isDraggingGrokki = false;
+      creature.style.transform = '';
+      deactivatePortal(200);
+
+      const curY = e.changedTouches[0].clientY;
+      const deltaY = touchStartY - curY;
+
+      // 1. Dragged all the way to top edge: transfer to phone touching the top!
+      if (curY <= 70 && grokkiLocation === 'phone') {
+        triggerTopEdgeTransfer();
+        return;
+      }
+
+      // 2. Normal upward swipe / flick (towards PC): ALWAYS sends to PC!
+      if (deltaY > 50 && grokkiLocation === 'phone') {
+        sendToPc();
       }
     });
 
@@ -2376,7 +3512,6 @@ void main() {
     const inputBar = $('inputBar');
     const promptInput = $('promptInput');
     const kbBtn = $('kbBtn');
-    const micBtn = $('micBtn');
     const fileBtn = $('fileBtn');
     const pcBtn = $('pcBtn');
     const pcIcon = $('pcIcon');
@@ -2424,11 +3559,220 @@ void main() {
     const ICON_SEND = '<path d="M7 17L17 7M8 7h9v9"/>';
     const ICON_SUMMON = '<path d="M17 7L7 17M16 17H7V8"/>';
 
+    const shootBtn = $('shootBtn');
+    const shootSheetWrap = $('shootSheetWrap');
+    const shootSheetClose = $('shootSheetClose');
+    const guestBadge = $('guestBadge');
+    const topSpacer = $('topSpacer');
+    const killAllSessionsBtn = $('killAllSessionsBtn');
+    const osKillAllBtn = $('osKillAllBtn');
+    const osKillerRow = $('osKillerRow');
+
+    // Dimensional Top Portal & Envelope Elements
+    const stage = $('stage');
+    const topPortal = $('topPortal');
+    const envelopePod = $('envelopePod');
+    const envCard = $('envCard');
+    const envCardName = $('envCardName');
+    const envFlap = $('envFlap');
+    const envSeal = $('envSeal');
+    const fileOfferWrap = $('fileOfferWrap');
+    const deliverySender = $('deliverySender');
+    const deliveryFileName = $('deliveryFileName');
+    const deliveryFileSize = $('deliveryFileSize');
+    const deliveryDownloadBtn = $('deliveryDownloadBtn');
+    const deliveryCloseBtn = $('deliveryCloseBtn');
+
+
+
+    let portalTimer = null;
+    function activatePortal(flare = false) {
+      if (!topPortal) return;
+      topPortal.classList.add('active');
+      if (flare) topPortal.classList.add('flaring');
+      clearTimeout(portalTimer);
+    }
+
+    function deactivatePortal(delay = 0) {
+      clearTimeout(portalTimer);
+      if (delay > 0) {
+        portalTimer = setTimeout(() => {
+          if (topPortal) topPortal.classList.remove('active', 'flaring');
+        }, delay);
+      } else {
+        if (topPortal) topPortal.classList.remove('active', 'flaring');
+      }
+    }
+
+    function triggerPortalFlare() {
+      activatePortal(true);
+      playLaunch();
+      deactivatePortal(1100);
+    }
+
+    function packFileAndLaunch(targetCallback) {
+      if (!activeFile) {
+        triggerPortalFlare();
+        creature.classList.remove('landing', 'portal-arrive');
+        creature.classList.add('portal-leap');
+        updateLocation('away');
+        setTimeout(() => {
+          targetCallback(null);
+          hideGrokki();
+          clearInputs();
+        }, 650);
+        return;
+      }
+
+      const fileDataToSend = activeFile;
+      if (envCardName) envCardName.innerText = fileDataToSend.name || 'File';
+
+      envelopePod.classList.add('visible');
+      envFlap.classList.remove('closed');
+      envSeal.classList.remove('sealed');
+      envCard.classList.remove('tucked', 'ejected');
+
+      filePill.classList.remove('on');
+      subtitle.innerText = 'Packing ' + (fileDataToSend.name || 'file') + '…';
+      playChirp();
+
+      // Step 1: Slide card down into envelope (320ms)
+      setTimeout(() => {
+        envCard.classList.add('tucked');
+      }, 320);
+
+      // Step 2: Flap snaps shut and seal sparkles (650ms)
+      setTimeout(() => {
+        envFlap.classList.add('closed');
+        envSeal.classList.add('sealed');
+        playChirp();
+      }, 650);
+
+      // Step 3: Grokki gets super happy! ^ ^ (950ms)
+      setTimeout(() => {
+        isHappy = true;
+        eyeScaleX = 1.35;
+        eyeScaleY = 0.65;
+        eyeHopVelY = -6.5;
+        subtitle.innerText = 'Delivering file!';
+        activatePortal(true);
+      }, 950);
+
+      // Step 4: Happy jump off screen into portal! (1250ms)
+      setTimeout(() => {
+        creature.classList.remove('landing', 'portal-arrive');
+        creature.classList.add('portal-leap');
+        envelopePod.style.transform = 'translate(-50%, -750px) scale(0.25)';
+        envelopePod.style.opacity = '0';
+        updateLocation('away');
+      }, 1250);
+
+      // Step 5: Send payload (1850ms)
+      setTimeout(() => {
+        targetCallback(fileDataToSend);
+        hideGrokki();
+        clearInputs();
+        envelopePod.classList.remove('visible');
+        envelopePod.style.transform = '';
+        envelopePod.style.opacity = '';
+        envFlap.classList.remove('closed');
+        envSeal.classList.remove('sealed');
+        envCard.classList.remove('tucked');
+        isHappy = false;
+        deactivatePortal(400);
+      }, 1850);
+    }
+
+    function arriveWithEnvelope(file, fromName) {
+      updateLocation('phone');
+      creature.classList.remove('launching', 'portal-leap', 'portal-arrive', 'top-exit', 'top-enter', 'landing');
+      creature.style.transform = '';
+      void creature.offsetWidth;
+      activatePortal(true);
+      creature.classList.add('portal-arrive');
+      creature.style.opacity = '1';
+      isHappy = true;
+      playChime();
+
+      if (envCardName) envCardName.innerText = file.name || 'File';
+      envelopePod.classList.add('visible');
+      envFlap.classList.add('closed');
+      envSeal.classList.add('sealed');
+      envCard.classList.add('tucked');
+      envCard.classList.remove('ejected');
+
+      subtitle.innerText = (fromName ? fromName + ' sent a file!' : 'Grokki brought an envelope!');
+
+      // Step 1: Unseal and open flap (750ms)
+      setTimeout(() => {
+        envSeal.classList.remove('sealed');
+        envFlap.classList.remove('closed');
+        playChirp();
+      }, 750);
+
+      // Step 2: Card slides up from envelope! (1100ms)
+      setTimeout(() => {
+        envCard.classList.remove('tucked');
+        envCard.classList.add('ejected');
+        playChime();
+        try { if (navigator.vibrate) navigator.vibrate([40, 60, 40]); } catch (e) {}
+      }, 1100);
+
+      // Step 3: Present file delivery sheet (1600ms)
+      setTimeout(() => {
+        if (deliverySender) deliverySender.innerText = fromName ? 'From ' + fromName : 'From Connected Device';
+        if (deliveryFileName) deliveryFileName.innerText = file.name || 'file.dat';
+        if (deliveryFileSize) {
+          const sz = file.size ? Math.round(file.size / 1024) + ' KB' : 'Ready to download';
+          deliveryFileSize.innerText = sz;
+        }
+        if (deliveryDownloadBtn) {
+          deliveryDownloadBtn.href = file.downloadUrl || '#';
+          deliveryDownloadBtn.setAttribute('download', file.name || 'file.dat');
+        }
+
+        if (fileOfferWrap) fileOfferWrap.classList.add('open');
+        envelopePod.classList.remove('visible');
+        isHappy = false;
+        pokeCreature();
+        deactivatePortal(800);
+      }, 1600);
+    }
+
+    if (deliveryCloseBtn && fileOfferWrap) {
+      deliveryCloseBtn.addEventListener('click', () => {
+        fileOfferWrap.classList.remove('open');
+      });
+    }
+    if (fileOfferWrap) {
+      fileOfferWrap.addEventListener('click', (e) => {
+        if (e.target === fileOfferWrap) fileOfferWrap.classList.remove('open');
+      });
+    }
+
+    function triggerTopEdgeTransfer() {
+      if (grokkiLocation !== 'phone') return;
+      try { if (navigator.vibrate) navigator.vibrate([30, 50, 30]); } catch (e) {}
+
+      packFileAndLaunch((fileToSend) => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'top_edge_transfer',
+            fileData: fileToSend
+          }));
+        }
+      });
+    }
+
+
+
     let ws = null;
     let activeFile = null;
     let grokkiLocation = 'transitioning';
     let failedAttempts = 0;
     let isScanningSubnet = false;
+    let userRole = 'pending';
+    let connectedGuests = [];
 
     // Persistent Device ID across restarts & browser sessions
     let deviceId = localStorage.getItem('grokki_device_id');
@@ -2441,17 +3785,82 @@ void main() {
       localStorage.setItem('grokki_last_host', window.location.host);
     }
 
+    function applyRoleUi(role) {
+      userRole = role;
+      if (role === 'sub' || role === 'guest') {
+        if (osControlBtn) osControlBtn.style.display = 'none';
+        if (shootBtn) shootBtn.style.display = 'none';
+        if (topSpacer) topSpacer.style.display = 'block';
+        if (killAllSessionsBtn) killAllSessionsBtn.style.display = 'none';
+        if (osKillerRow) osKillerRow.style.display = 'none';
+        statusText.innerText = 'Sub-Device · ' + originalPcName;
+      } else {
+        if (osControlBtn) osControlBtn.style.display = 'flex';
+        if (osKillerRow) osKillerRow.style.display = 'block';
+        statusText.innerText = originalPcName;
+        updateShootBtnVisibility();
+      }
+      updateLocation(grokkiLocation);
+    }
+
+    function updateShootBtnVisibility() {
+      if (userRole === 'owner') {
+        const hasGuests = connectedGuests.length > 0;
+        if (killAllSessionsBtn) killAllSessionsBtn.style.display = hasGuests ? 'flex' : 'none';
+        if (hasGuests && grokkiLocation === 'phone') {
+          if (shootBtn) shootBtn.style.display = 'flex';
+          if (topSpacer) topSpacer.style.display = 'none';
+          if (guestBadge) {
+            guestBadge.style.display = 'block';
+            guestBadge.innerText = connectedGuests.length;
+          }
+        } else {
+          if (shootBtn) shootBtn.style.display = 'none';
+          if (topSpacer) topSpacer.style.display = 'block';
+        }
+      } else {
+        if (shootBtn) shootBtn.style.display = 'none';
+        if (topSpacer) topSpacer.style.display = 'block';
+        if (killAllSessionsBtn) killAllSessionsBtn.style.display = 'none';
+      }
+    }
+
     function updateLocation(loc) {
       grokkiLocation = loc;
-      const onPhone = loc === 'phone';
-      pcIcon.innerHTML = onPhone ? ICON_SEND : ICON_SUMMON;
-      pcBtn.setAttribute('aria-label', onPhone ? 'Send to PC' : 'Summon to phone');
+      const onPhone = (loc === 'phone');
+      const isOnPc = (loc === 'pc');
+      const isAway = (loc === 'away');
 
-      // If Grokki is on PC, disable all buttons except Summon to Phone
-      [kbBtn, micBtn, fileBtn].forEach(btn => {
-        if (!btn) return;
-        btn.disabled = !onPhone;
-      });
+      if (userRole === 'owner') {
+        if (isOnPc) {
+          pcIcon.innerHTML = ICON_SUMMON;
+          pcBtn.setAttribute('aria-label', 'Summon to phone');
+          pcBtn.disabled = false;
+          [kbBtn, fileBtn].forEach(b => { if (b) b.disabled = true; });
+        } else if (isAway) {
+          pcIcon.innerHTML = ICON_SUMMON;
+          pcBtn.setAttribute('aria-label', 'Recall Grokki');
+          pcBtn.disabled = false;
+          [kbBtn, fileBtn].forEach(b => { if (b) b.disabled = true; });
+        } else {
+          pcIcon.innerHTML = ICON_SEND;
+          pcBtn.setAttribute('aria-label', 'Send to PC');
+          pcBtn.disabled = false;
+          [kbBtn, fileBtn].forEach(b => { if (b) b.disabled = false; });
+        }
+      } else {
+        // Sub-connected device
+        if (onPhone) {
+          pcIcon.innerHTML = ICON_SEND;
+          pcBtn.setAttribute('aria-label', 'Send Grokki Back to Host');
+          pcBtn.disabled = false;
+          [kbBtn, fileBtn].forEach(b => { if (b) b.disabled = false; });
+        } else {
+          pcBtn.disabled = true;
+          [kbBtn, fileBtn].forEach(b => { if (b) b.disabled = true; });
+        }
+      }
+
       if (!onPhone) {
         inputBar.classList.remove('open');
         kbBtn.classList.remove('active');
@@ -2459,19 +3868,34 @@ void main() {
       }
       promptInput.disabled = !onPhone;
       goBtn.disabled = !onPhone;
+      updateShootBtnVisibility();
     }
     updateLocation('pc');
 
     function showGrokki() {
-      creature.style.opacity = '1';
-      creature.classList.remove('launching');
+      creature.classList.remove('launching', 'portal-leap', 'portal-arrive', 'top-exit', 'top-enter', 'landing');
+      creature.style.transform = '';
+      void creature.offsetWidth;
       creature.classList.add('landing');
+      creature.style.opacity = '1';
     }
 
     function hideGrokki() {
+      creature.classList.remove('landing', 'portal-arrive', 'top-enter');
       creature.style.opacity = '0';
-      creature.classList.remove('landing');
     }
+
+    creature.addEventListener('animationend', (e) => {
+      if (e.animationName === 'land' || e.animationName === 'grokkiPortalArrive' || e.animationName === 'topEnter') {
+        creature.classList.remove('landing', 'portal-arrive', 'top-enter');
+        creature.style.transform = '';
+        creature.style.opacity = '1';
+      } else if (e.animationName === 'launch' || e.animationName === 'grokkiPortalLeap' || e.animationName === 'topExit') {
+        creature.classList.remove('launching', 'portal-leap', 'top-exit');
+        creature.style.transform = '';
+        creature.style.opacity = '0';
+      }
+    });
 
     // --- WebSocket & LAN Auto-Connect ---
     function connectWs() {
@@ -2488,11 +3912,26 @@ void main() {
         failedAttempts = 0;
         isScanningSubnet = false;
         try {
+          const urlParams = new URLSearchParams(window.location.search);
+          const claimToken = urlParams.get('claim') || '';
+          const shouldSummon = urlParams.get('summon') === '1';
+          const savedOwnerKey = localStorage.getItem('grokki_owner_key') || '';
+
           ws.send(JSON.stringify({
             type: 'client_handshake',
             deviceId: deviceId,
-            deviceType: /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iPhone' : (/Android/i.test(navigator.userAgent) ? 'Android' : 'Phone')
+            deviceType: /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iPhone' : (/Android/i.test(navigator.userAgent) ? 'Android' : 'Phone'),
+            ownerKey: savedOwnerKey,
+            claim: claimToken,
+            summon: shouldSummon
           }));
+
+          // Clean URL parameters after claiming without page refresh
+          if (claimToken || shouldSummon) {
+            try {
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (e) {}
+          }
         } catch (e) {}
       };
 
@@ -2560,18 +3999,61 @@ void main() {
 
     function handleServerMessage(msg) {
       if (msg.type === 'welcome') {
-        statusText.innerText = msg.pcName || 'Connected';
+        if (msg.ownerKey) {
+          localStorage.setItem('grokki_owner_key', msg.ownerKey);
+        }
+        userRole = msg.role || 'guest';
+        statusText.innerText = (userRole === 'guest' ? 'Guest · ' : '') + (msg.pcName || 'Connected');
         originalPcName = msg.pcName || 'Connected';
         if (osSubtitleText) osSubtitleText.innerText = originalPcName;
+
+        applyRoleUi(userRole);
+
         if (msg.grokkiLocation === 'pc') {
           updateLocation('pc');
           hideGrokki();
-          subtitle.innerText = msg.isAutoConnected ? 'Auto-connected to ' + (msg.pcName || 'PC') : 'Grokki is on your PC';
+          subtitle.innerText = userRole === 'owner' ? 'Grokki is on your PC · Tap to summon' : 'Grokki is on Host PC';
         } else if (msg.grokkiLocation === 'phone') {
           updateLocation('phone');
           showGrokki();
-          subtitle.innerText = 'I’m here';
+          subtitle.innerText = userRole === 'owner' ? 'I’m here' : 'Grokki is visiting from Host!';
+        } else if (msg.grokkiLocation === 'away') {
+          updateLocation('away');
+          hideGrokki();
+          subtitle.innerText = (userRole === 'sub' || userRole === 'guest')
+            ? 'Sub-Device · Waiting for Host to send Grokki…'
+            : 'Grokki is visiting ' + (msg.holderName || 'another device');
         }
+      } else if (msg.type === 'device_list') {
+        connectedGuests = msg.devices || [];
+        renderGuestList();
+        updateShootBtnVisibility();
+      } else if (msg.type === 'grokki_dispatched_to_guest') {
+        playLaunch();
+        creature.classList.add('launching');
+        if (activeFile) filePill.classList.add('launching');
+        subtitle.innerText = 'Grokki is flying to ' + msg.targetName + '…';
+        updateLocation('away');
+        setTimeout(() => { hideGrokki(); clearInputs(); }, 850);
+        if (shootSheetWrap) shootSheetWrap.classList.remove('open');
+      } else if (msg.type === 'grokki_returned_home') {
+        playLaunch();
+        creature.classList.add('launching');
+        if (activeFile) filePill.classList.add('launching');
+        subtitle.innerText = 'Grokki is flying back home…';
+        updateLocation('away');
+        setTimeout(() => { hideGrokki(); clearInputs(); }, 850);
+      } else if (msg.type === 'grokki_recalled') {
+        playLaunch();
+        creature.classList.add('launching');
+        subtitle.innerText = 'Grokki flew back to Host Phone';
+        updateLocation('away');
+        setTimeout(() => { hideGrokki(); }, 850);
+      } else if (msg.type === 'access_denied') {
+        subtitle.innerText = msg.message || 'Access denied';
+        playChirp();
+      } else if (msg.type === 'error_toast') {
+        subtitle.innerText = msg.message || 'Error';
       } else if (msg.type === 'os_control_result') {
         playChirp();
         try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) {}
@@ -2583,16 +4065,34 @@ void main() {
         }
       } else if (msg.type === 'grokki_location') {
         updateLocation(msg.location);
-        if (msg.location === 'pc') {
+        if (msg.location === 'phone') {
+          showGrokki();
+          subtitle.innerText = userRole === 'owner' ? 'I’m here' : 'Grokki is visiting from Host!';
+        } else if (msg.location === 'pc') {
           hideGrokki();
-          subtitle.innerText = 'Grokki is on your PC';
+          subtitle.innerText = userRole === 'owner' ? 'Grokki is on your PC' : 'Grokki is on Host PC';
+        } else if (msg.location === 'away') {
+          hideGrokki();
+          subtitle.innerText = (userRole === 'sub' || userRole === 'guest')
+            ? 'Sub-Device · Waiting for Host to send Grokki…'
+            : 'Grokki is visiting ' + (msg.holderName || 'another device');
         }
       } else if (msg.type === 'hop_land_on_phone') {
-        updateLocation('phone');
-        showGrokki();
-        playChime();
-        subtitle.innerText = 'I’m here';
-        pokeCreature();
+        if (msg.file && msg.file.downloadUrl) {
+          arriveWithEnvelope(msg.file, msg.fromName);
+        } else {
+          updateLocation('phone');
+          showGrokki();
+          triggerPortalFlare();
+          playChime();
+          if (msg.fromName) {
+            subtitle.innerText = 'Grokki visited from ' + msg.fromName + '!';
+          } else {
+            subtitle.innerText = 'I’m here';
+          }
+          pokeCreature();
+          updateShootBtnVisibility();
+        }
       } else if (msg.type === 'mobile_chat_reply') {
         playChime();
         targetTilt = 0;
@@ -2616,15 +4116,52 @@ void main() {
         hideGrokki();
         subtitle.innerText = 'Grokki is on your PC';
       } else if (msg.type === 'file_beamed_to_phone') {
-        playChime();
-        sheetBody.innerText = 'Grokki brought ' + msg.fileName;
-        sheetDownload.style.display = 'flex';
-        sheetDownload.href = msg.downloadUrl;
-        sheetDownload.innerText = 'Download ' + msg.fileName;
-        sheetWrap.classList.add('open');
-        updateLocation('phone');
-        showGrokki();
-        pokeCreature();
+        if (msg.downloadUrl) {
+          arriveWithEnvelope({ name: msg.fileName, downloadUrl: msg.downloadUrl }, 'Host PC');
+        } else {
+          playChime();
+          sheetBody.innerText = 'Grokki brought ' + msg.fileName;
+          sheetWrap.classList.add('open');
+          updateLocation('phone');
+          showGrokki();
+          pokeCreature();
+        }
+      } else if (msg.type === 'grokki_top_exit') {
+        triggerPortalFlare();
+        creature.classList.remove('landing', 'portal-arrive');
+        creature.classList.add('portal-leap');
+        if (activeFile) filePill.classList.add('launching');
+        subtitle.innerText = 'Flowing to ' + (msg.targetName || 'Phone') + '…';
+        updateLocation('away');
+        setTimeout(() => { hideGrokki(); clearInputs(); }, 650);
+      } else if (msg.type === 'grokki_top_enter') {
+        if (msg.file && msg.file.downloadUrl) {
+          arriveWithEnvelope(msg.file, msg.fromName);
+        } else {
+          updateLocation('phone');
+          showGrokki();
+          triggerPortalFlare();
+          playChime();
+          try { if (navigator.vibrate) navigator.vibrate([40, 70, 40]); } catch (e) {}
+          subtitle.innerText = msg.fromName ? 'Grokki arrived from ' + msg.fromName + '!' : 'I’m here';
+          pokeCreature();
+          updateShootBtnVisibility();
+        }
+      } else if (msg.type === 'sub_sessions_killed') {
+        playChirp();
+        connectedGuests = [];
+        renderGuestList();
+        updateShootBtnVisibility();
+        subtitle.innerText = msg.message || 'Sub-devices disconnected';
+        if (osSubtitleText) setOsStatus(msg.message || 'Sessions killed');
+        try { if (navigator.vibrate) navigator.vibrate([30, 50, 30]); } catch (e) {}
+      } else if (msg.type === 'session_terminated') {
+        updateLocation('away');
+        hideGrokki();
+        subtitle.innerText = 'Session terminated by Host.';
+        statusText.innerText = 'Disconnected';
+        dot.classList.add('off');
+        try { if (ws) ws.close(); } catch (e) {}
       }
     }
 
@@ -2636,6 +4173,43 @@ void main() {
     }
 
     function sendToPc() {
+      if (userRole === 'sub' || userRole === 'guest') {
+        if (grokkiLocation === 'phone') {
+          if (!activeFile) {
+            playLaunch();
+            creature.classList.remove('landing', 'portal-arrive', 'top-enter');
+            creature.classList.add('launching');
+            updateLocation('away');
+            subtitle.innerText = 'Grokki is flying back to Host…';
+            setTimeout(() => {
+              hideGrokki();
+              clearInputs();
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'guest_return', fileData: null }));
+              }
+            }, 750);
+          } else {
+            packFileAndLaunch((fileToSend) => {
+              subtitle.innerText = 'Grokki is flying back to Host…';
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'guest_return', fileData: fileToSend }));
+              }
+            });
+          }
+        }
+        return;
+      }
+
+      // Owner device: if Grokki is visiting a sub-device, recall him!
+      if (grokkiLocation === 'away') {
+        playChirp();
+        subtitle.innerText = 'Recalling Grokki from Sub-Device…';
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'hop_to_phone' }));
+        }
+        return;
+      }
+
       const instruction = promptInput.value.trim();
 
       if (grokkiLocation !== 'phone' && !instruction && !activeFile) {
@@ -2645,33 +4219,38 @@ void main() {
         return;
       }
 
-      playLaunch();
-      reply.style.display = 'none';
-      creature.classList.remove('landing');
-      creature.classList.add('launching');
-
-      // Carry file animation: File pill flies up into the sky together with Grokki!
-      const fileDataToSend = activeFile;
-      if (fileDataToSend) {
-        filePill.classList.add('launching');
+      // If sending Grokki to PC without a file, use the clean launching animation
+      if (!activeFile) {
+        playLaunch();
+        creature.classList.remove('landing', 'portal-arrive', 'top-enter');
+        creature.classList.add('launching');
+        updateLocation('away');
+        subtitle.innerText = instruction ? 'Grokki hopped to your PC…' : 'Grokki is on your PC';
+        setTimeout(() => {
+          hideGrokki();
+          clearInputs();
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            if (!instruction) {
+              ws.send(JSON.stringify({ type: 'hop_to_pc' }));
+            } else {
+              ws.send(JSON.stringify({ type: 'dimension_hop_to_pc', instruction, fileData: null }));
+            }
+          }
+        }, 750);
+        return;
       }
 
-      updateLocation('pc');
-      subtitle.innerText = instruction || fileDataToSend ? 'Grokki hopped to your PC…' : 'Grokki is on your PC';
-
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        if (!instruction && !fileDataToSend) {
-          ws.send(JSON.stringify({ type: 'hop_to_pc' }));
-        } else {
-          ws.send(JSON.stringify({ type: 'dimension_hop_to_pc', instruction, fileData: fileDataToSend }));
+      // With file: pack into envelope and launch
+      packFileAndLaunch((fileToSend) => {
+        subtitle.innerText = instruction || fileToSend ? 'Grokki hopped to your PC…' : 'Grokki is on your PC';
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          if (!instruction && !fileToSend) {
+            ws.send(JSON.stringify({ type: 'hop_to_pc' }));
+          } else {
+            ws.send(JSON.stringify({ type: 'dimension_hop_to_pc', instruction, fileData: fileToSend }));
+          }
         }
-      }
-
-      // After launch animation finishes, Grokki and file exit screen and stay on PC!
-      setTimeout(() => {
-        hideGrokki();
-        clearInputs();
-      }, 850);
+      });
     }
 
     function handleSend() {
@@ -2762,6 +4341,98 @@ void main() {
       });
     }
 
+    // --- Shoot to LAN Device Sheet ---
+    if (shootBtn && shootSheetWrap) {
+      shootBtn.addEventListener('click', () => {
+        renderGuestList();
+        shootSheetWrap.classList.add('open');
+        playChirp();
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'list_devices' }));
+        }
+      });
+    }
+
+    if (shootSheetClose && shootSheetWrap) {
+      shootSheetClose.addEventListener('click', () => {
+        shootSheetWrap.classList.remove('open');
+      });
+    }
+
+    if (shootSheetWrap) {
+      shootSheetWrap.addEventListener('click', (e) => {
+        if (e.target === shootSheetWrap) shootSheetWrap.classList.remove('open');
+      });
+    }
+
+    function renderGuestList() {
+      const listEl = $('guestDeviceList');
+      if (!listEl) return;
+      if (connectedGuests.length === 0) {
+        listEl.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:13.5px;text-align:center;padding:24px 0;line-height:1.5;">No other phones on LAN right now.<br><span style="font-size:11.5px;opacity:0.75;">Have another device scan the QR code to join!</span></div>';
+        return;
+      }
+      let html = '';
+      for (let i = 0; i < connectedGuests.length; i++) {
+        const dev = connectedGuests[i];
+        const devName = dev.name || 'Phone';
+        const devType = dev.type || 'LAN Device';
+        html += '<div class="guest-card-item" data-dev-id="' + dev.id + '" style="background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.1);padding:14px 16px;border-radius:20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:transform 0.16s ease, background 0.16s ease;">'
+          + '<div style="display:flex;align-items:center;gap:12px;">'
+          + '<div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;">'
+          + '<svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>'
+          + '</div>'
+          + '<div>'
+          + '<div style="font-weight:600;font-size:15px;color:#fff;">' + devName + '</div>'
+          + '<div style="font-size:12px;color:rgba(255,255,255,0.45);">' + devType + '</div>'
+          + '</div>'
+          + '</div>'
+          + '<button style="border:none;background:#60a5fa;color:#000;font-weight:600;font-size:13px;padding:8px 14px;border-radius:99px;cursor:pointer;display:flex;align-items:center;gap:5px;pointer-events:none;">'
+          + '<span>Shoot</span>'
+          + '<svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.2;" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>'
+          + '</button>'
+          + '</div>';
+      }
+      listEl.innerHTML = html;
+      listEl.querySelectorAll('.guest-card-item').forEach(card => {
+        card.addEventListener('click', () => {
+          const targetId = card.getAttribute('data-dev-id');
+          if (targetId) shootGrokkiTo(targetId);
+        });
+      });
+    }
+
+    function shootGrokkiTo(targetId) {
+      if (ws && ws.readyState === WebSocket.OPEN && grokkiLocation === 'phone') {
+        const found = connectedGuests.find(d => d.id === targetId);
+        if (shootSheetWrap) shootSheetWrap.classList.remove('open');
+
+        packFileAndLaunch((fileToSend) => {
+          subtitle.innerText = 'Grokki hopped to ' + (found ? found.name : 'Sub-Device') + '…';
+          ws.send(JSON.stringify({
+            type: 'send_to_device',
+            targetDeviceId: targetId,
+            fileData: fileToSend
+          }));
+        });
+      }
+    }
+
+    function triggerSessionKiller() {
+      if (userRole !== 'owner') return;
+      playLaunch();
+      try { if (navigator.vibrate) navigator.vibrate([40, 60, 40]); } catch (e) {}
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'kill_sub_sessions' }));
+      }
+      subtitle.innerText = 'Disconnecting all sub-devices…';
+      setOsStatus('Disconnecting sub-devices…');
+      if (shootSheetWrap) shootSheetWrap.classList.remove('open');
+    }
+
+    if (killAllSessionsBtn) killAllSessionsBtn.addEventListener('click', triggerSessionKiller);
+    if (osKillAllBtn) osKillAllBtn.addEventListener('click', triggerSessionKiller);
+
     let volDebounce = null;
     if (osVolSlider) {
       osVolSlider.addEventListener('input', (e) => {
@@ -2803,25 +4474,6 @@ void main() {
       });
     });
 
-    // --- Voice ---
-    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRec) {
-      const rec = new SpeechRec();
-      rec.continuous = false;
-      rec.interimResults = false;
-      rec.onstart = () => micBtn.classList.add('listening');
-      rec.onresult = (e) => {
-        promptInput.value = e.results[0][0].transcript;
-        handleSend();
-      };
-      rec.onerror = () => micBtn.classList.remove('listening');
-      rec.onend = () => micBtn.classList.remove('listening');
-      micBtn.addEventListener('click', () => {
-        try { rec.start(); } catch (e) { rec.stop(); }
-      });
-    } else {
-      micBtn.style.display = 'none';
-    }
   </script>
 </body>
 </html>`;

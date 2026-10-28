@@ -155,6 +155,9 @@ CAPABILITIES & RULES:
    - Use send_whatsapp_file_or_message to share files, documents, or send messages to contacts.
    - If user asks to send an attached file or says "this file", pass the attached file path to file_path. If user specifies a person/contact name (e.g. "Rajbir"), pass contact_or_phone: "Rajbir". Execute immediately!
 4. UNIVERSITY & COLLEGE SUPERPOWERS:
+   - Use get_university_attendance whenever the user asks about their university or college attendance, asks "What is my attendance?", "How many classes did I miss?", "Am I short on attendance?", "Check ADBU attendance", or wants to know how many more classes they need to attend to stay above 75%.
+   - Use get_university_profile whenever the user asks for their university/college student profile, roll number, enrollment ID, or department details.
+   - Use sync_university_portal whenever the user asks to sync or refresh their university portal data.
    - Use search_research_papers whenever the user asks for research papers, academic citations (APA/IEEE/BibTeX), literature reviews, or peer-reviewed studies on a topic (powered by OpenAlex 250M+ works & arXiv).
    - Use summarize_youtube_lecture whenever the user shares a YouTube URL (e.g. youtu.be, youtube.com) or asks what a video is about / asks to summarize a YouTube video, lecture, or tutorial.
    - Use viva_voice_quiz whenever the user asks to be quizzed out loud, wants a "Viva" or "Oral Exam", or wants to generate/export Anki flashcards (.csv). Use action: "start" to begin, "answer" to grade their response, or "export_anki" to save the Anki deck.

@@ -365,6 +365,63 @@
               </div>
             </div>
           </div>
+
+          <!-- University Portal -->
+          <div class="gs-section">
+            <div class="gs-section-label">University Portal</div>
+            <div class="gs-group">
+              <div class="gs-row">
+                <div class="gs-copy">
+                  <div class="gs-title">
+                    <span>Link University</span>
+                    <span id="universityStatusBadge" class="gs-badge">Not Linked</span>
+                  </div>
+                  <div class="gs-sub">Auto-sync attendance and profile details</div>
+                </div>
+                <div class="gs-select">
+                  <select id="universitySelect" aria-label="Select University">
+                    <option value="none">Select University...</option>
+                    <option value="adbu" data-tag="ADBU">Assam Don Bosco University</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- University Credentials Fields -->
+              <div id="universityFields" class="gs-fields hidden">
+                <div class="gs-field-head">
+                  <span>Student ID / Username</span>
+                  <span class="gs-sub text-xs">Used for ERP login</span>
+                </div>
+                <label class="gs-input">
+                  <input type="text" id="uniUsernameInput" class="gs-mono" placeholder="Student ID or Email" spellcheck="false" autocomplete="off" />
+                </label>
+
+                <div class="gs-field-head" style="margin-top: 8px;">
+                  <span>Password</span>
+                  <span class="gs-sub text-xs">Stored locally on your device</span>
+                </div>
+                <label class="gs-input" style="position: relative;">
+                  <input type="password" id="uniPasswordInput" class="gs-mono" placeholder="ERP Password" autocomplete="new-password" style="padding-right: 36px;" />
+                  <button type="button" id="toggleUniPasswordBtn" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; padding: 4px;" title="Show/Hide Password">
+                    <i class="fa-solid fa-eye" id="uniEyeIcon"></i>
+                  </button>
+                </label>
+
+                <div style="display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
+                  <button type="button" id="syncUniversityBtn" class="gs-btn gs-sm gs-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-arrows-rotate" id="uniSyncSpinner"></i>
+                    <span id="uniSyncText">Link & Sync</span>
+                  </button>
+                  <button type="button" id="unlinkUniversityBtn" class="gs-btn gs-sm" style="display: none; align-items: center; gap: 6px; color: #f87171; border-color: rgba(239, 68, 68, 0.3);">
+                    <i class="fa-solid fa-link-slash"></i>
+                    <span>Unlink</span>
+                  </button>
+                  <span id="uniSyncResult" style="font-size: 11px; opacity: 0.85; margin-left: auto;"></span>
+                </div>
+              </div>
+            </div>
+            <div class="gs-footnote">Ask Grokki: "What's my attendance?", "Check ADBU attendance", or "Show my student profile".</div>
+          </div>
         </div>
 
         <!-- Footer -->

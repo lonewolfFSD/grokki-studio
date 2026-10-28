@@ -688,6 +688,26 @@ class AgentBrain {
             parameters: { type: 'OBJECT', properties: {} },
           },
           {
+            name: 'get_university_attendance',
+            description: 'Fetches your official university course attendance breakdown (held, attended, %, shortage warnings, and classes needed for 75%) from the linked ERP portal (e.g. ADBU)',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                force_sync: { type: 'BOOLEAN', description: 'Whether to force live login and scrape latest data from the portal' },
+              },
+            },
+          },
+          {
+            name: 'get_university_profile',
+            description: 'Fetches student profile details (name, student ID, program, semester) from the linked university ERP portal',
+            parameters: { type: 'OBJECT', properties: {} },
+          },
+          {
+            name: 'sync_university_portal',
+            description: 'Logs into the university ERP portal and syncs fresh attendance and profile records into Grokki',
+            parameters: { type: 'OBJECT', properties: {} },
+          },
+          {
             name: 'youtube_data_search',
             description: 'Searches YouTube using official YouTube Data API v3 to get exact video titles, channels, and video links',
             parameters: {
@@ -2905,6 +2925,92 @@ Rules:
         }
         const res = await googleWorkspace.listClassroomCourses();
         return { success: res.success, message: res.message };
+      }
+
+      case 'get_university_attendance': {
+        const academicPortal = require('./academic_portal');
+        const status = academicPortal.getStatus();
+        if (!status.linked) {
+          return {
+            success: false,
+            message: 'University portal is not linked yet. Please open Grokki Settings -> Personalization -> Academic Portal, choose Assam Don Bosco University, and enter your Student ID & password.'
+          };
+        }
+        try {
+          if (args.force_sync) {
+            await academicPortal.sync(true);
+          } else {
+            // Auto-sync fresh data if cache is older than 15 mins or session expired
+            await academicPortal.ensureFreshData(15 * 60 * 1000);
+          }
+          const summary = academicPortal.getSummaryForAI();
+          return {
+            success: true,
+            message: summary,
+            summary: summary,
+            data: academicPortal.getCachedData()
+          };
+        } catch (e) {
+          const cached = academicPortal.getCachedData();
+          if (cached) {
+            const summary = academicPortal.getSummaryForAI() + `\n\n*(Note: Live sync failed with "${e.message}", showing cached records from ${new Date(cached.lastSynced).toLocaleString()})*`;
+            return {
+              success: true,
+              message: summary,
+              summary: summary,
+              data: cached
+            };
+          }
+          return { success: false, message: `Failed to fetch attendance from university portal: ${e.message}` };
+        }
+      }
+
+      case 'get_university_profile': {
+        const academicPortal = require('./academic_portal');
+        const status = academicPortal.getStatus();
+        if (!status.linked) {
+          return {
+            success: false,
+            message: 'University portal is not linked yet. Please open Grokki Settings -> Personalization -> Academic Portal to link your student account.'
+          };
+        }
+        try {
+          let cached = academicPortal.getCachedData();
+          if (!cached || !cached.profile || !cached.lastSynced || (Date.now() - cached.lastSynced > 30 * 60 * 1000)) {
+            await academicPortal.sync();
+            cached = academicPortal.getCachedData();
+          }
+          const profileSummary = academicPortal.getProfileSummary();
+          return {
+            success: true,
+            message: profileSummary,
+            profile: cached?.profile || {},
+            university: status.universityName
+          };
+        } catch (e) {
+          return { success: false, message: `Failed to fetch university profile: ${e.message}` };
+        }
+      }
+
+      case 'sync_university_portal': {
+        const academicPortal = require('./academic_portal');
+        const status = academicPortal.getStatus();
+        if (!status.linked) {
+          return {
+            success: false,
+            message: 'University portal is not linked yet. Please enter your credentials in Settings first.'
+          };
+        }
+        try {
+          const syncRes = await academicPortal.sync();
+          return {
+            success: true,
+            message: `Synced ${syncRes.totalSubjects} courses for ${syncRes.studentName} from ${status.universityName}!`,
+            summary: academicPortal.getSummaryForAI()
+          };
+        } catch (e) {
+          return { success: false, message: `University sync failed: ${e.message}` };
+        }
       }
 
       case 'youtube_data_search': {

@@ -1,0 +1,127 @@
+{
+  "university": "adbu",
+  "universityName": "Assam Don Bosco University",
+  "lastSynced": 1793204750229,
+  "profile": {
+    "username": "DC2025BCA0020",
+    "name": "Arijit Chakraborty",
+    "studentId": "DC2025BCA0020",
+    "program": "Bachelor of Computer Applications",
+    "semester": "3",
+    "academicYear": "2026-27",
+    "email": "itsarijit01@gmail.com",
+    "phone": "9101377970",
+    "campus": "DC"
+  },
+  "attendance": [
+    {
+      "code": "CACE109T",
+      "course": "Service Learning Theory",
+      "attended": 5,
+      "held": 6,
+      "absent": 1,
+      "percentage": "83.3%",
+      "percentageNum": 83.3,
+      "status": "Average",
+      "isShort": false,
+      "neededFor75": 0
+    },
+    {
+      "code": "CADM202T",
+      "course": "Database Management System",
+      "attended": 24,
+      "held": 33,
+      "absent": 9,
+      "percentage": "72.7%",
+      "percentageNum": 72.7,
+      "status": "Low",
+      "isShort": true,
+      "neededFor75": 3
+    },
+    {
+      "code": "CADM203P",
+      "course": "Database Management System Lab",
+      "attended": 14,
+      "held": 20,
+      "absent": 6,
+      "percentage": "75%",
+      "percentageNum": 75,
+      "status": "Average",
+      "isShort": false,
+      "neededFor75": 0
+    },
+    {
+      "code": "CAHA207T",
+      "course": "Health and Wellness, Yoga Education, and Sports and Fitness",
+      "attended": 0,
+      "held": 0,
+      "absent": 0,
+      "percentage": "53.1%",
+      "percentageNum": 53.1,
+      "status": "Low",
+      "isShort": true,
+      "neededFor75": 0
+    },
+    {
+      "code": "CAPP205T",
+      "course": "Python Programming",
+      "attended": 9,
+      "held": 11,
+      "absent": 2,
+      "percentage": "81.8%",
+      "percentageNum": 81.8,
+      "status": "Average",
+      "isShort": false,
+      "neededFor75": 0
+    },
+    {
+      "code": "CAPP206P",
+      "course": "Python Programming Lab",
+      "attended": 10,
+      "held": 18,
+      "absent": 8,
+      "percentage": "55.6%",
+      "percentageNum": 55.6,
+      "status": "Low",
+      "isShort": true,
+      "neededFor75": 14
+    },
+    {
+      "code": "CASE204T",
+      "course": "Software Engineering",
+      "attended": 22,
+      "held": 29,
+      "absent": 7,
+      "percentage": "75.9%",
+      "percentageNum": 75.9,
+      "status": "Average",
+      "isShort": false,
+      "neededFor75": 0
+    },
+    {
+      "code": "CABO210T",
+      "course": "Basics of Data Analytics Using Spreadsheet",
+      "attended": 5,
+      "held": 7,
+      "absent": 2,
+      "percentage": "71.4%",
+      "percentageNum": 71.4,
+      "status": "Low",
+      "isShort": true,
+      "neededFor75": 1
+    },
+    {
+      "code": "CABO211P",
+      "course": "Basics of Data Analytics Using Spreadsheet Lab",
+      "attended": 10,
+      "held": 17,
+      "absent": 7,
+      "percentage": "58.8%",
+      "percentageNum": 58.8,
+      "status": "Low",
+      "isShort": true,
+      "neededFor75": 11
+    }
+  ],
+  "summary": {}
+}

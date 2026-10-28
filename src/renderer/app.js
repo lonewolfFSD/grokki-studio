@@ -1803,6 +1803,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   const googleStatusBadge = document.getElementById('googleStatusBadge');
   const connectGoogleBtn = document.getElementById('connectGoogleBtn');
 
+  // University Portal Elements
+  const universitySelect = document.getElementById('universitySelect');
+  const universityStatusBadge = document.getElementById('universityStatusBadge');
+  const universityFields = document.getElementById('universityFields');
+  const uniUsernameInput = document.getElementById('uniUsernameInput');
+  const uniPasswordInput = document.getElementById('uniPasswordInput');
+  const toggleUniPasswordBtn = document.getElementById('toggleUniPasswordBtn');
+  const uniEyeIcon = document.getElementById('uniEyeIcon');
+  const syncUniversityBtn = document.getElementById('syncUniversityBtn');
+  const unlinkUniversityBtn = document.getElementById('unlinkUniversityBtn');
+  const uniSyncSpinner = document.getElementById('uniSyncSpinner');
+  const uniSyncText = document.getElementById('uniSyncText');
+  const uniSyncResult = document.getElementById('uniSyncResult');
+
   async function updateGoogleStatus() {
     if (!window.jarvisAPI || !window.jarvisAPI.getGoogleStatus) return;
     try {
@@ -1821,6 +1835,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) {}
   }
 
+  async function updateUniversityStatus() {
+    if (!window.jarvisAPI || !window.jarvisAPI.getAcademicStatus) return;
+    try {
+      const status = await window.jarvisAPI.getAcademicStatus();
+      if (status && status.linked) {
+        if (universitySelect) universitySelect.value = status.university || 'adbu';
+        if (universityFields) universityFields.classList.remove('hidden');
+        if (universityStatusBadge) {
+          universityStatusBadge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Linked';
+          universityStatusBadge.className = 'gs-badge inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+        }
+        if (uniUsernameInput && status.username) uniUsernameInput.value = status.username;
+        if (uniPasswordInput) {
+          uniPasswordInput.placeholder = status.hasPassword ? '•••••••••••• (Saved)' : 'Enter ERP Password';
+        }
+        if (unlinkUniversityBtn) unlinkUniversityBtn.style.display = 'inline-flex';
+        if (uniSyncText) uniSyncText.innerText = status.hasData ? 'Sync Now' : 'Link & Sync';
+        if (uniSyncResult && status.lastSynced) {
+          const syncTime = new Date(status.lastSynced);
+          uniSyncResult.innerHTML = `<span style="color:#10b981;">✓ Synced</span> ${syncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        }
+      } else {
+        if (universitySelect) universitySelect.value = 'none';
+        if (universityFields) universityFields.classList.add('hidden');
+        if (uniPasswordInput) {
+          uniPasswordInput.placeholder = 'Enter ERP Password';
+        }
+        if (universityStatusBadge) {
+          universityStatusBadge.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Not Linked';
+          universityStatusBadge.className = 'gs-badge inline-flex items-center gap-1';
+        }
+        if (unlinkUniversityBtn) unlinkUniversityBtn.style.display = 'none';
+        if (uniSyncText) uniSyncText.innerText = 'Link & Sync';
+        if (uniSyncResult) uniSyncResult.innerText = '';
+      }
+    } catch (e) {
+      console.warn('[University Status Error]', e);
+    }
+  }
+
   const openSettings = () => {
     savedPillTheme = activePillTheme;
     islandDrawer.classList.remove('open');
@@ -1828,6 +1882,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     islandContainer.classList.add('has-settings-open');
     settingsSheet.classList.add('open');
     updateGoogleStatus();
+    updateUniversityStatus();
   };
 
   const closeSettings = (revert = false) => {
@@ -1858,6 +1913,106 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('[Google Auth Error]', err);
       }
       await updateGoogleStatus();
+    });
+  }
+
+  if (universitySelect) {
+    universitySelect.addEventListener('change', () => {
+      const val = universitySelect.value;
+      if (val === 'adbu') {
+        if (universityFields) universityFields.classList.remove('hidden');
+        if (uniUsernameInput) uniUsernameInput.focus();
+      } else {
+        if (universityFields) universityFields.classList.add('hidden');
+      }
+    });
+  }
+
+  if (toggleUniPasswordBtn && uniPasswordInput && uniEyeIcon) {
+    toggleUniPasswordBtn.addEventListener('click', () => {
+      if (uniPasswordInput.type === 'password') {
+        uniPasswordInput.type = 'text';
+        uniEyeIcon.classList.remove('fa-eye');
+        uniEyeIcon.classList.add('fa-eye-slash');
+      } else {
+        uniPasswordInput.type = 'password';
+        uniEyeIcon.classList.remove('fa-eye-slash');
+        uniEyeIcon.classList.add('fa-eye');
+      }
+    });
+  }
+
+  if (syncUniversityBtn) {
+    syncUniversityBtn.addEventListener('click', async () => {
+      const uni = universitySelect ? universitySelect.value : 'adbu';
+      if (uni === 'none') {
+        if (uniSyncResult) uniSyncResult.innerHTML = '<span style="color:#ef4444;">Please select a university</span>';
+        return;
+      }
+      const uName = uniUsernameInput ? uniUsernameInput.value.trim() : '';
+      const uPass = uniPasswordInput ? uniPasswordInput.value.trim() : '';
+
+      const currentStatus = (window.jarvisAPI && window.jarvisAPI.getAcademicStatus)
+        ? await window.jarvisAPI.getAcademicStatus()
+        : null;
+      const hasSavedPass = Boolean(currentStatus && currentStatus.hasPassword);
+
+      if (!uName) {
+        if (uniSyncResult) uniSyncResult.innerHTML = '<span style="color:#ef4444;">Enter Student ID / Username</span>';
+        return;
+      }
+      if (!hasSavedPass && !uPass) {
+        if (uniSyncResult) uniSyncResult.innerHTML = '<span style="color:#ef4444;">Enter ERP password to link</span>';
+        return;
+      }
+
+      if (uniSyncSpinner) uniSyncSpinner.classList.add('fa-spin');
+      if (uniSyncText) uniSyncText.innerText = 'Connecting...';
+      if (uniSyncResult) uniSyncResult.innerText = '';
+      syncUniversityBtn.disabled = true;
+
+      try {
+        if (uPass || uName !== (currentStatus && currentStatus.username)) {
+          await window.jarvisAPI.saveAcademicCredentials({ university: uni, username: uName, password: uPass });
+        }
+        const res = await window.jarvisAPI.syncAcademicPortal();
+        if (res && res.success) {
+          sound.playSuccess();
+          if (uniPasswordInput) {
+            uniPasswordInput.value = '';
+            uniPasswordInput.placeholder = '•••••••••••• (Saved)';
+          }
+          if (uniSyncResult) {
+            uniSyncResult.innerHTML = `<span style="color:#10b981;">✓ Synced ${res.totalSubjects} courses for ${res.studentName}</span>`;
+          }
+          await updateUniversityStatus();
+        } else {
+          sound.playAlert();
+          if (uniSyncResult) {
+            uniSyncResult.innerHTML = `<span style="color:#ef4444;">⚠️ ${res.error || 'Login failed'}</span>`;
+          }
+        }
+      } catch (err) {
+        sound.playAlert();
+        if (uniSyncResult) {
+          uniSyncResult.innerHTML = `<span style="color:#ef4444;">⚠️ ${err.message || 'Connection error'}</span>`;
+        }
+      } finally {
+        if (uniSyncSpinner) uniSyncSpinner.classList.remove('fa-spin');
+        syncUniversityBtn.disabled = false;
+        if (uniSyncText) uniSyncText.innerText = 'Sync Now';
+      }
+    });
+  }
+
+  if (unlinkUniversityBtn) {
+    unlinkUniversityBtn.addEventListener('click', async () => {
+      if (confirm('Unlink this university portal and clear cached attendance data?')) {
+        await window.jarvisAPI.disconnectAcademicPortal();
+        if (uniUsernameInput) uniUsernameInput.value = '';
+        if (uniPasswordInput) uniPasswordInput.value = '';
+        await updateUniversityStatus();
+      }
     });
   }
 
@@ -2282,6 +2437,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Auto-login & verify Google Workspace connection on startup
   updateGoogleStatus();
+  updateUniversityStatus();
 
   // Play cute Grokki launch animation on initial startup
   playLaunchAnimation();

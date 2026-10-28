@@ -58,6 +58,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const inputUserBio = document.getElementById('inputUserBio');
   const toneCards = document.querySelectorAll('.tone-card');
 
+  // University Dashboard Elements
+  const dashUniSelect = document.getElementById('dashUniSelect');
+  const dashUniBadge = document.getElementById('dashUniBadge');
+  const dashUniFields = document.getElementById('dashUniFields');
+  const dashUniUsername = document.getElementById('dashUniUsername');
+  const dashUniPassword = document.getElementById('dashUniPassword');
+  const dashSyncUniBtn = document.getElementById('dashSyncUniBtn');
+  const dashUnlinkUniBtn = document.getElementById('dashUnlinkUniBtn');
+  const dashUniResult = document.getElementById('dashUniResult');
+
   // AI Elements
   const providerBtns = document.querySelectorAll('.provider-btn');
   const providerFields = document.querySelectorAll('.provider-fields');
@@ -379,6 +389,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     inputUserBio.value = cfg.userBio || '';
 
     updateUserInfoUI();
+    refreshDashUniStatus();
 
     selectedTone = cfg.userTone || 'companion';
     toneCards.forEach((c) => {
@@ -505,6 +516,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       statGoogleStatus.innerText = 'Offline';
     }
     updateUserInfoUI();
+    refreshDashUniStatus();
   }
 
   if (btnConnectGoogle) {
@@ -615,6 +627,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       currentConfig = updated;
 
       updateUserInfoUI();
+    refreshDashUniStatus();
       sidebarHotkeyBadge.innerText = updated.hotkey;
 
       hideUnsavedBar();
@@ -660,6 +673,92 @@ document.addEventListener('DOMContentLoaded', async () => {
   [toggleTts, toggleWakeWord].forEach((toggle) => {
     if (toggle) toggle.addEventListener('change', markUnsaved);
   });
+
+  async function refreshDashUniStatus() {
+    if (!window.jarvisAPI || !window.jarvisAPI.getAcademicStatus) return;
+    try {
+      const status = await window.jarvisAPI.getAcademicStatus();
+      if (status && status.linked) {
+        if (dashUniSelect) dashUniSelect.value = status.university || 'adbu';
+        if (dashUniFields) dashUniFields.classList.remove('hidden');
+        if (dashUniBadge) {
+          dashUniBadge.innerText = 'Linked ✓';
+          dashUniBadge.className = 'tag-badge text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-500 border border-emerald-500/30';
+        }
+        if (dashUniUsername && status.username) dashUniUsername.value = status.username;
+        if (dashUnlinkUniBtn) dashUnlinkUniBtn.classList.remove('hidden');
+        if (dashSyncUniBtn) dashSyncUniBtn.innerText = 'Sync Now';
+        if (dashUniResult && status.lastSynced) {
+          dashUniResult.innerText = 'Synced ' + new Date(status.lastSynced).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+      } else {
+        if (dashUniSelect) dashUniSelect.value = 'none';
+        if (dashUniFields) dashUniFields.classList.add('hidden');
+        if (dashUniBadge) {
+          dashUniBadge.innerText = 'Not Linked';
+          dashUniBadge.className = 'tag-badge text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-100 dark:bg-[#1a1c24] text-gray-500 border border-gray-200 dark:border-[#1e2029]';
+        }
+        if (dashUnlinkUniBtn) dashUnlinkUniBtn.classList.add('hidden');
+        if (dashSyncUniBtn) dashSyncUniBtn.innerText = 'Link & Sync';
+        if (dashUniResult) dashUniResult.innerText = '';
+      }
+    } catch (e) {}
+  }
+
+  if (dashUniSelect) {
+    dashUniSelect.addEventListener('change', () => {
+      if (dashUniSelect.value === 'adbu') {
+        if (dashUniFields) dashUniFields.classList.remove('hidden');
+        if (dashUniUsername) dashUniUsername.focus();
+      } else {
+        if (dashUniFields) dashUniFields.classList.add('hidden');
+      }
+    });
+  }
+
+  if (dashSyncUniBtn) {
+    dashSyncUniBtn.addEventListener('click', async () => {
+      const uni = dashUniSelect ? dashUniSelect.value : 'adbu';
+      if (uni === 'none') {
+        if (dashUniResult) dashUniResult.innerText = 'Select a university';
+        return;
+      }
+      const u = dashUniUsername ? dashUniUsername.value.trim() : '';
+      const p = dashUniPassword ? dashUniPassword.value : '';
+      if (!u || !p) {
+        if (dashUniResult) dashUniResult.innerText = 'Enter Student ID & password';
+        return;
+      }
+      dashSyncUniBtn.disabled = true;
+      dashSyncUniBtn.innerText = 'Connecting...';
+      try {
+        await window.jarvisAPI.saveAcademicCredentials({ university: uni, username: u, password: p });
+        const res = await window.jarvisAPI.syncAcademicPortal();
+        if (res && res.success) {
+          if (dashUniResult) dashUniResult.innerText = `✓ Synced ${res.totalSubjects} courses`;
+          await refreshDashUniStatus();
+        } else {
+          if (dashUniResult) dashUniResult.innerText = `⚠️ ${res?.error || 'Failed'}`;
+        }
+      } catch (err) {
+        if (dashUniResult) dashUniResult.innerText = `⚠️ ${err.message || 'Error'}`;
+      } finally {
+        dashSyncUniBtn.disabled = false;
+        dashSyncUniBtn.innerText = 'Sync Now';
+      }
+    });
+  }
+
+  if (dashUnlinkUniBtn) {
+    dashUnlinkUniBtn.addEventListener('click', async () => {
+      if (confirm('Unlink university portal?')) {
+        await window.jarvisAPI.disconnectAcademicPortal();
+        if (dashUniUsername) dashUniUsername.value = '';
+        if (dashUniPassword) dashUniPassword.value = '';
+        await refreshDashUniStatus();
+      }
+    });
+  }
 
   // Helpers
   function capitalize(str) {
