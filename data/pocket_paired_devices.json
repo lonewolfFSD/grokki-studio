@@ -5,15 +5,15 @@
     "ip": "192.168.31.69",
     "name": "Android (Host)",
     "pairedAt": 1793115097186,
-    "lastSeen": 1793212977674
+    "lastSeen": 1793730813853
   },
   {
     "id": "phone_1793163834239_hhud40",
     "type": "Android",
     "ip": "10.134.235.156",
-    "name": "Android (Host)",
+    "name": "Android (Main)",
     "pairedAt": 1793163833728,
-    "lastSeen": 1793171869042
+    "lastSeen": 1793247228675
   },
   {
     "id": "phone_1793163834239_hhud40",
@@ -29,7 +29,7 @@
     "ip": "10.134.235.194",
     "name": "Android (Main)",
     "pairedAt": 1793166940373,
-    "lastSeen": 1793171634998
+    "lastSeen": 1793247227853
   },
   {
     "id": "known_owner",

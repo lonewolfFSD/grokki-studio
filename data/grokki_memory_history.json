@@ -1,0 +1,50 @@
+[
+  {
+    "role": "user",
+    "parts": [
+      {
+        "text": "hi"
+      }
+    ]
+  },
+  {
+    "role": "model",
+    "parts": [
+      {
+        "text": "Hey Ajx! What's on your mind?"
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "parts": [
+      {
+        "text": "hi"
+      }
+    ]
+  },
+  {
+    "role": "model",
+    "parts": [
+      {
+        "text": "Heh, still right here... what do you need, Ajx?"
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "parts": [
+      {
+        "text": "Hi"
+      }
+    ]
+  },
+  {
+    "role": "model",
+    "parts": [
+      {
+        "text": "Okay, three hi's in a row... something's up. What's going on, Ajx?"
+      }
+    ]
+  }
+]

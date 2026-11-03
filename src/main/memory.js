@@ -8,9 +8,31 @@ class MemoryManager {
 
     this.profilePath = path.join(this.storageDir, 'grokki_profile.json');
     this.profile = this.loadProfile();
-    this.conversationHistory = [];
-    // Strict limit to keep token usage minimal (only last 4 turns)
-    this.maxHistoryLength = 4;
+    this.historyPath = path.join(this.storageDir, 'grokki_memory_history.json');
+    this.maxHistoryLength = 26;
+    this.conversationHistory = this.loadHistory();
+  }
+
+  loadHistory() {
+    try {
+      if (fs.existsSync(this.historyPath)) {
+        const raw = fs.readFileSync(this.historyPath, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.slice(-this.maxHistoryLength);
+        }
+      }
+    } catch (e) {}
+    return [];
+  }
+
+  saveHistory() {
+    try {
+      fs.writeFileSync(this.historyPath, JSON.stringify(this.conversationHistory, null, 2), 'utf8');
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   loadProfile() {
@@ -70,6 +92,27 @@ class MemoryManager {
     if (this.conversationHistory.length > this.maxHistoryLength) {
       this.conversationHistory = this.conversationHistory.slice(-this.maxHistoryLength);
     }
+    this.saveHistory();
+  }
+
+  syncFromExternalHistory(externalHistory) {
+    if (!Array.isArray(externalHistory) || externalHistory.length === 0) return;
+    const formatted = [];
+    for (const item of externalHistory) {
+      if (!item) continue;
+      const role = (item.role === 'assistant' || item.role === 'model') ? 'model' : 'user';
+      const text = typeof item.content === 'string' ? item.content.trim() : (item.text || '').trim();
+      if (text) {
+        formatted.push({
+          role,
+          parts: [{ text }],
+        });
+      }
+    }
+    if (formatted.length > 0) {
+      this.conversationHistory = formatted.slice(-this.maxHistoryLength);
+      this.saveHistory();
+    }
   }
 
   getHistory() {
@@ -94,6 +137,7 @@ class MemoryManager {
 
   clearHistory() {
     this.conversationHistory = [];
+    this.saveHistory();
   }
 
   buildSystemPrompt(config = {}) {
@@ -207,7 +251,13 @@ CAPABILITIES & RULES:
      * Greet them warmly in 1-2 brief sentences and ask what they want to do: e.g. "I've got your App.tsx open! What are we tweaking today—adding a navbar, fixing styling, or working on logic?"
    - WHEN SUGGESTING CODE EDITS OR ADDING FEATURES:
      * Focus ONLY on the targeted, bite-sized snippet (e.g. just the 8-line Navbar component, or just the specific CSS style block, or just the small function).
-     * NEVER reprint the entire file. Suggest code incrementally ("lil code then lil code") so the user can easily copy and drop it in without getting overwhelmed by a wall of text.`;
+     * NEVER reprint the entire file. Suggest code incrementally ("lil code then lil code") so the user can easily copy and drop it in without getting overwhelmed by a wall of text.
+13. SMART CLARIFICATION & CONTEXT-SEEKING (CRITICAL):
+   - When the user sends an ambiguous query, an entity or university name without specific instructions (for example: "Assam Don Bosco University" / "ADBU", or an organization/topic without context):
+     * DO NOT HALLUCINATE OR GUESS BLINDLY!
+     * DO NOT dump a generic Wikipedia essay.
+     * Be intelligently inquisitive like a sharp peer: Provide a crisp 1-sentence grounded acknowledgement, noting the distinct campuses or areas (e.g. for ADBU: Azara Campus in Guwahati, Tapesia Campus in Sonapur, Kharguli Campus, or student ERP attendance & portal), and smartly question back asking which specific area, campus, or service they are looking for!
+     * Ask concise, high-value questions when context is missing to guide the conversation effectively.`;
   }
 }
 

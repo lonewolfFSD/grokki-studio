@@ -30,9 +30,6 @@
   <link rel="stylesheet" href="settings-ui.css">
 </head>
 <body>
-  <!-- Atmospheric Light Rays (Behind the Pill) -->
-  <div class="light-rays-backdrop" id="lightRaysBackdrop"></div>
-
   <!-- Dynamic Island Floating Pill -->
   <div class="island-container hidden-state" id="islandContainer">
       <div class="pill-backdrop" id="pillBackdrop"></div>
@@ -58,6 +55,15 @@
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
+          <!-- Hitodama Powerpack: Circled Screen Region Chip -->
+          <div id="circledImagePill" class="attachment-pill circled-pill" style="display: none;">
+            <i class="fa-regular fa-circle-dot" style="color: #38bdf8;"></i>
+            <img id="circledThumbImg" class="circled-thumb-img" alt="Circled Region" />
+            <span id="circledImageText" class="attachment-name">Circled Screen</span>
+            <button id="removeCircledBtn" class="pill-remove-btn" title="Remove selection">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
           <div class="main-input-wrapper">
             <div id="mainInputMirror" class="main-input-mirror" aria-hidden="true"></div>
             <input 
@@ -79,12 +85,12 @@
             <span id="miniTimerDisplay">25:00</span>
           </button>
 
-          <!-- Font Awesome Mode Toggle: Mic (click to speak) or Keyboard (click to type) -->
+          <!-- Mode Toggle: Mic (click to speak) or Keyboard (click to type) -->
           <button class="apple-btn" id="modeToggleBtn" title="Switch between Voice and Typing">
             <i class="fa-solid fa-microphone" id="modeIcon"></i>
           </button>
 
-          <!-- Apple Style Send Button -->
+          <!-- Send Button -->
           <button class="send-btn" id="sendBtn" title="Send (Enter)">
             <i class="fa-solid fa-arrow-up"></i>
           </button>
@@ -94,8 +100,8 @@
             <i class="fa-solid fa-mobile-screen-button"></i>
           </button>
 
-          <!-- Discreet Settings Cog on Hover -->
-          <button class="apple-btn settings-trigger" id="settingsBtn" title="Settings">
+          <!-- Settings Cog Button -->
+          <button class="apple-btn" id="settingsBtn" title="Settings">
             <i class="fa-solid fa-gear"></i>
           </button>
         </div>
@@ -165,23 +171,6 @@
 
         <!-- Body -->
         <div class="gs-body">
-
-          <!-- Appearance -->
-          <div class="gs-section">
-            <div class="gs-section-label">Appearance</div>
-            <div class="gs-group">
-              <div class="gs-row">
-                <div class="gs-copy">
-                  <div class="gs-title">Pill style</div>
-                  <div class="gs-sub">Solid black or frosted glass</div>
-                </div>
-                <div id="pillThemeToggle" class="gs-segment">
-                  <button type="button" id="themeOriginalBtn" data-theme="original" class="pref-segment">Obsidian</button>
-                  <button type="button" id="themeGlassBtn" data-theme="glass" class="pref-segment active">Glass</button>
-                </div>
-              </div>
-            </div>
-          </div>
 
           <!-- AI provider -->
           <div class="gs-section">
@@ -439,7 +428,6 @@
   <script src="grokbot.js"></script>
   <script src="voice.js"></script>
   <script src="agent.js"></script>
-  <script src="lightrays.js"></script>
   <script src="glass_surface.js"></script>
   <script src="app.js"></script>
   <script src="settings-ui.js"></script>

@@ -206,6 +206,21 @@ public class OSInputEngine {
         keybd_event(vk, 0, 2, UIntPtr.Zero); // 2 = KEYEVENTF_KEYUP
     }
 
+    public static void SendCtrlV() {
+        // Ensure Win/Alt/Shift modifiers are released before sending Ctrl+V
+        keybd_event(0x5B, 0, 2, UIntPtr.Zero); // VK_LWIN up
+        keybd_event(0x12, 0, 2, UIntPtr.Zero); // VK_MENU up
+        keybd_event(0x10, 0, 2, UIntPtr.Zero); // VK_SHIFT up
+        Thread.Sleep(15);
+        keybd_event(0x11, 0, 0, UIntPtr.Zero); // VK_CONTROL down
+        Thread.Sleep(20);
+        keybd_event(0x56, 0, 0, UIntPtr.Zero); // 'V' down
+        Thread.Sleep(25);
+        keybd_event(0x56, 0, 2, UIntPtr.Zero); // 'V' up
+        Thread.Sleep(15);
+        keybd_event(0x11, 0, 2, UIntPtr.Zero); // VK_CONTROL up
+    }
+
     public static void AltTab() {
         keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
         Thread.Sleep(20);
@@ -752,15 +767,24 @@ switch ($action.ToLower()) {
             Write-Output ""
         }
     }
-    "paste-selection" {
-        Add-Type -AssemblyName System.Windows.Forms
+    "paste" {
         $activeTitle = [OSInputEngine]::GetActiveTitle()
-        if ($activeTitle -match "Grokki" -or [string]::IsNullOrWhiteSpace($activeTitle)) {
-            [System.Windows.Forms.SendKeys]::SendWait("%{TAB}")
-            Start-Sleep -Milliseconds 240
+        if ($activeTitle -match "Grokki|Top Notch|Speech to Text|Control Centre") {
+            [OSInputEngine]::AltTab()
+            Start-Sleep -Milliseconds 180
         }
-        [System.Windows.Forms.SendKeys]::SendWait("^v")
-        Start-Sleep -Milliseconds 120
+        [OSInputEngine]::SendCtrlV()
+        Start-Sleep -Milliseconds 80
+        Write-Output "PASTED"
+    }
+    "paste-selection" {
+        $activeTitle = [OSInputEngine]::GetActiveTitle()
+        if ($activeTitle -match "Grokki|Top Notch|Speech to Text|Control Centre" -or [string]::IsNullOrWhiteSpace($activeTitle)) {
+            [OSInputEngine]::AltTab()
+            Start-Sleep -Milliseconds 180
+        }
+        [OSInputEngine]::SendCtrlV()
+        Start-Sleep -Milliseconds 80
         Write-Output "PASTED"
     }
     default {

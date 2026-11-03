@@ -404,25 +404,15 @@ class VoiceEngine {
 
       if (preferredVoice) utterance.voice = preferredVoice;
 
-      const raysBackdrop = document.getElementById('lightRaysBackdrop');
-      if (raysBackdrop) raysBackdrop.classList.add('active');
-
       let active = true;
       const pulseLoop = () => {
         if (!active || !window.speechSynthesis.speaking) {
           this.grokbot.setAudioLevel(0);
-          if (window.grokkiLightRays && typeof window.grokkiLightRays.resetAudioReaction === 'function') {
-            window.grokkiLightRays.resetAudioReaction();
-          }
           return;
         }
         const t = Date.now() / 95;
         const vol = 0.35 + 0.35 * Math.abs(Math.sin(t) * Math.cos(t * 0.65));
-        const pitch = 0.4 + 0.3 * Math.sin(t * 0.8);
         this.grokbot.setAudioLevel(vol);
-        if (window.grokkiLightRays && typeof window.grokkiLightRays.reactToAudio === 'function') {
-          window.grokkiLightRays.reactToAudio(vol, pitch);
-        }
         this.synthAnimFrame = requestAnimationFrame(pulseLoop);
       };
 
@@ -435,9 +425,6 @@ class VoiceEngine {
         }
         this.grokbot.setAudioLevel(0);
         this.grokbot.setState('idle');
-        if (window.grokkiLightRays && typeof window.grokkiLightRays.resetAudioReaction === 'function') {
-          window.grokkiLightRays.resetAudioReaction();
-        }
         if (onComplete) onComplete();
       };
 
@@ -546,9 +533,6 @@ class VoiceEngine {
       const mime = res.mimeType || 'audio/wav';
       const audio = new Audio(`data:${mime};base64,${res.base64Audio}`);
       this.currentAudio = audio;
-
-      const raysBackdrop = document.getElementById('lightRaysBackdrop');
-      if (raysBackdrop) raysBackdrop.classList.add('active');
 
       let audioCtx = null;
       let analyser = null;

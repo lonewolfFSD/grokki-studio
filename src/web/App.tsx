@@ -49,7 +49,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
   elevenlabsModel: 'eleven_v3',
   ttsEnabled: true,
   wakeWordEnabled: true,
-  pillTheme: 'glass',
+  pillTheme: 'grokki-blue',
   musicProvider: 'spotify',
   hotkey: 'Alt+Q',
   hotkeys: DEFAULT_HOTKEYS,
@@ -103,6 +103,7 @@ export const App: React.FC = () => {
     createConversation,
     deleteConversation,
     renameConversation,
+    togglePinConversation,
     updateActiveMessages,
   } = useConversations();
 
@@ -110,21 +111,48 @@ export const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize theme from config
-  const theme = config.dashboardTheme || 'light';
+  const VALID_PALETTES = ['grokki-blue', 'cream', 'jungle', 'sakura', 'cyber', 'sunset', 'arctic', 'crimson'];
+  const THEME_NAMES: Record<string, string> = {
+    none: 'None (Default)',
+    'grokki-blue': 'Grokki Blue',
+    cream: 'Cream',
+    jungle: 'Jungle',
+    sakura: 'Sakura',
+    cyber: 'Cyber',
+    sunset: 'Sunset',
+    arctic: 'Arctic',
+    crimson: 'Crimson',
+  };
+
+  const currentPillTheme = config.pillTheme || 'none';
+  const isCustomThemeActive = Boolean(currentPillTheme && currentPillTheme !== 'none' && currentPillTheme !== 'default');
+  const effectivePalette = isCustomThemeActive && VALID_PALETTES.includes(currentPillTheme) ? currentPillTheme : 'none';
+  const theme = isCustomThemeActive ? 'dark' : (config.dashboardTheme || 'light');
 
   useEffect(() => {
-    if (theme === 'dark') {
+    if (isCustomThemeActive) {
+      document.documentElement.setAttribute('data-theme', effectivePalette);
+      document.body.setAttribute('data-theme', effectivePalette);
       document.documentElement.classList.add('dark');
       document.documentElement.classList.remove('light');
       document.body.classList.add('dark');
       document.body.classList.remove('light');
     } else {
-      document.documentElement.classList.add('light');
-      document.documentElement.classList.remove('dark');
-      document.body.classList.add('light');
-      document.body.classList.remove('dark');
+      document.documentElement.removeAttribute('data-theme');
+      document.body.removeAttribute('data-theme');
+      if (config.dashboardTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+        document.body.classList.add('dark');
+        document.body.classList.remove('light');
+      } else {
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+        document.body.classList.add('light');
+        document.body.classList.remove('dark');
+      }
     }
-  }, [theme]);
+  }, [effectivePalette, isCustomThemeActive, config.dashboardTheme]);
 
   // Global capture listener: open any <a> link in the user's external system browser
   useEffect(() => {
@@ -161,17 +189,23 @@ export const App: React.FC = () => {
         const merged = { ...DEFAULT_CONFIG, ...cfg };
         setConfig(merged);
         setOriginalConfig(merged);
-        const initialTheme = merged.dashboardTheme || 'light';
-        if (initialTheme === 'dark') {
+        const initPillTheme = merged.pillTheme || 'none';
+        const initCustomActive = Boolean(initPillTheme && initPillTheme !== 'none' && initPillTheme !== 'default');
+        if (initCustomActive && VALID_PALETTES.includes(initPillTheme)) {
+          document.documentElement.setAttribute('data-theme', initPillTheme);
+          document.body.setAttribute('data-theme', initPillTheme);
           document.documentElement.classList.add('dark');
           document.documentElement.classList.remove('light');
           document.body.classList.add('dark');
           document.body.classList.remove('light');
         } else {
-          document.documentElement.classList.add('light');
-          document.documentElement.classList.remove('dark');
-          document.body.classList.add('light');
-          document.body.classList.remove('dark');
+          document.documentElement.removeAttribute('data-theme');
+          document.body.removeAttribute('data-theme');
+          const isDark = merged.dashboardTheme === 'dark';
+          document.documentElement.classList.toggle('dark', isDark);
+          document.documentElement.classList.toggle('light', !isDark);
+          document.body.classList.toggle('dark', isDark);
+          document.body.classList.toggle('light', !isDark);
         }
       }
     });
@@ -318,6 +352,8 @@ export const App: React.FC = () => {
   }, []);
 
   const handleToggleTheme = useCallback(() => {
+    // When custom theme from theme list is active, theme is managed by custom palette
+    if (isCustomThemeActive) return;
     setConfig((prev) => {
       const nextTheme = (prev.dashboardTheme || 'light') === 'dark' ? 'light' : 'dark';
       if (nextTheme === 'dark') {
@@ -337,7 +373,7 @@ export const App: React.FC = () => {
       }
       return { ...prev, dashboardTheme: nextTheme };
     });
-  }, []);
+  }, [isCustomThemeActive]);
 
   const handleReset = useCallback(() => {
     setConfig(originalConfig);
@@ -384,13 +420,13 @@ export const App: React.FC = () => {
     if (window.jarvisAPI?.minimizeDashboard) {
       window.jarvisAPI.minimizeDashboard();
     }
-  }, []);
+  }, [isCustomThemeActive]);
 
   const handleMaximize = useCallback(() => {
     if (window.jarvisAPI?.maximizeDashboard) {
       window.jarvisAPI.maximizeDashboard();
     }
-  }, []);
+  }, [isCustomThemeActive]);
 
   // Voice Sample Preview
   const handlePreviewVoice = useCallback(async (
@@ -561,7 +597,9 @@ export const App: React.FC = () => {
         window.dispatchEvent(new CustomEvent('grokki:toggle-sidebar'));
       } else if (matchesHotkey(e, effectiveHotkeys.toggleTheme)) {
         e.preventDefault();
-        handleToggleTheme();
+        if (!isCustomThemeActive) {
+          handleToggleTheme();
+        }
       } else if (matchesHotkey(e, effectiveHotkeys.openSettings)) {
         e.preventDefault();
         setActiveTab('settings');
@@ -635,6 +673,7 @@ export const App: React.FC = () => {
         onCreateConversation={createConversation}
         onDeleteConversation={deleteConversation}
         onRenameConversation={renameConversation}
+        onTogglePinConversation={togglePinConversation}
         onSwitchGoogle={handleSwitchGoogle}
         onDisconnectGoogle={handleDisconnectGoogle}
         hotkeys={effectiveHotkeys}
@@ -644,9 +683,11 @@ export const App: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-[#f7f7fa] dark:bg-[#0c0d12]">
         <Header
           title={tabTitles[activeTab]}
-          theme={theme}
+          theme={theme as 'light' | 'dark'}
           onToggleTheme={handleToggleTheme}
           toggleThemeShortcut={effectiveHotkeys.toggleTheme}
+          isCustomThemeActive={isCustomThemeActive}
+          themeName={THEME_NAMES[effectivePalette] || effectivePalette}
           onMinimize={handleMinimize}
           onMaximize={handleMaximize}
           isMaximized={isMaximized}

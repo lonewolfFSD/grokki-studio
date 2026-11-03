@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="grokki-blue">
+<head>
+  <meta charset="UTF-8">
+  <title>Circle to Ask - Grokki</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+
+    /* =========================================================
+       DYNAMIC THEME ENGINE (Matches Grokki Studio & Top Notch)
+       ========================================================= */
+    :root, [data-theme="grokki-blue"] {
+      --notch-bg: #08080a;
+      --card-bg: #121318;
+      --card-hover: #181a22;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --cream: #5b9bf8;
+      --cream-soft: rgba(91, 155, 248, 0.16);
+      --cream-text: #08080a;
+      --text-main: #f4f4f6;
+      --text-sub: #94949e;
+    }
+
+    [data-theme="cream"] {
+      --notch-bg: #08080a;
+      --card-bg: #131315;
+      --card-hover: #1a1a1d;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --cream: #efeac6;
+      --cream-soft: rgba(239, 234, 198, 0.16);
+      --cream-text: #101012;
+      --text-main: #f4f4f6;
+      --text-sub: #94949e;
+    }
+
+    [data-theme="jungle"] {
+      --notch-bg: #060b09;
+      --card-bg: #0e1713;
+      --card-hover: #14211b;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --cream: #34d399;
+      --cream-soft: rgba(52, 211, 153, 0.16);
+      --cream-text: #05130e;
+      --text-main: #f4f4f6;
+      --text-sub: #94949e;
+    }
+
+    [data-theme="sakura"] {
+      --notch-bg: #0b070a;
+      --card-bg: #171015;
+      --card-hover: #21161e;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --cream: #f472b6;
+      --cream-soft: rgba(244, 114, 182, 0.16);
+      --cream-text: #160710;
+      --text-main: #f4f4f6;
+      --text-sub: #94949e;
+    }
+
+    [data-theme="cyber"] {
+      --notch-bg: #09070d;
+      --card-bg: #14101c;
+      --card-hover: #1d1729;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --cream: #a855f7;
+      --cream-soft: rgba(168, 85, 247, 0.16);
+      --cream-text: #ffffff;
+      --text-main: #f4f4f6;
+      --text-sub: #94949e;
+    }
+
+    [data-theme="sunset"] {
+      --notch-bg: #0b0806;
+      --card-bg: #17120e;
+      --card-hover: #211a14;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --cream: #fb923c;
+      --cream-soft: rgba(251, 146, 60, 0.16);
+      --cream-text: #160b04;
+      --text-main: #f4f4f6;
+      --text-sub: #94949e;
+    }
+
+    [data-theme="arctic"] {
+      --notch-bg: #060a0c;
+      --card-bg: #0e161a;
+      --card-hover: #142026;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --cream: #22d3ee;
+      --cream-soft: rgba(34, 211, 238, 0.16);
+      --cream-text: #051317;
+      --text-main: #f4f4f6;
+      --text-sub: #94949e;
+    }
+
+    [data-theme="crimson"] {
+      --notch-bg: #0b0606;
+      --card-bg: #180f10;
+      --card-hover: #221517;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --cream: #f87171;
+      --cream-soft: rgba(248, 113, 113, 0.16);
+      --cream-text: #180606;
+      --text-main: #f4f4f6;
+      --text-sub: #94949e;
+    }
+
+    [data-theme="none"] {
+      --notch-bg: #09090b;
+      --card-bg: #141417;
+      --card-hover: #1a1a1f;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --cream: #e4e4e7;
+      --cream-soft: rgba(228, 228, 231, 0.15);
+      --cream-text: #09090b;
+      --text-main: #f4f4f6;
+      --text-sub: #a1a1aa;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: transparent;
+      cursor: crosshair;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    #screenCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    #drawCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+    }
+
+    /* =========================================================
+       FLUSH TOP-BEZEL NOTCH BAR (STRICT ZERO SHADOW)
+       ========================================================= */
+    .circle-notch-bar {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 18px 0 16px;
+      height: 48px;
+      background: var(--notch-bg);
+      border-radius: 0 0 22px 22px;
+      border: 1px solid var(--card-border);
+      border-top: none;
+      box-shadow: none !important;
+      filter: none !important;
+      -webkit-box-shadow: none !important;
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      animation: notchSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Seamless Radial-Gradient Concave Hardware Ears */
+    .circle-notch-bar::before,
+    .circle-notch-bar::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      width: 22px;
+      height: 22px;
+      pointer-events: none;
+    }
+
+    .circle-notch-bar::before {
+      left: -22px;
+      background: radial-gradient(circle at 0 100%, transparent 22px, var(--notch-bg) 22.5px);
+    }
+
+    .circle-notch-bar::after {
+      right: -22px;
+      background: radial-gradient(circle at 100% 100%, transparent 22px, var(--notch-bg) 22.5px);
+    }
+
+    @keyframes notchSlideIn {
+      from { opacity: 0; transform: translate(-50%, -100%); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    .notch-icon-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--cream-soft);
+      color: var(--cream);
+      border: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      flex-shrink: 0;
+      box-shadow: none !important;
+    }
+
+    .notch-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .notch-title-group strong {
+      color: var(--text-main);
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: -0.01em;
+    }
+
+    .notch-title-sub {
+      color: var(--text-sub);
+      font-weight: 500;
+      font-size: 12px;
+    }
+
+    .notch-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--card-border);
+      margin: 0 2px;
+      flex-shrink: 0;
+    }
+
+    .mode-pills {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: var(--card-bg);
+      padding: 3px;
+      border-radius: 999px;
+      border: 1px solid var(--card-border);
+      box-shadow: none !important;
+    }
+
+    .mode-pill-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-sub);
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s ease, color 0.15s ease;
+      box-shadow: none !important;
+    }
+
+    .mode-pill-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .mode-pill-btn.active {
+      background: var(--cream);
+      color: var(--cream-text);
+      font-weight: 700;
+      box-shadow: none !important;
+    }
+
+    .hud-kbd {
+      padding: 4px 10px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+      box-shadow: none !important;
+      line-height: 1;
+    }
+
+    .hud-kbd:hover {
+      background: var(--card-hover);
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="screenCanvas"></canvas>
+  <canvas id="drawCanvas"></canvas>
+
+  <div class="circle-notch-bar" id="hudHeader">
+    <div class="notch-icon-circle"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+    <div class="notch-title-group">
+      <strong>Circle to Ask</strong>
+      <span class="notch-title-sub">Select any region on screen</span>
+    </div>
+    <div class="notch-divider"></div>
+    <div class="mode-pills">
+      <button class="mode-pill-btn active" id="modeLassoBtn"><i class="fa-solid fa-draw-polygon"></i><span>Lasso</span></button>
+      <button class="mode-pill-btn" id="modeRectBtn"><i class="fa-solid fa-vector-square"></i><span>Rectangle</span></button>
+    </div>
+    <button class="hud-kbd" id="escCancelBtn">Esc</button>
+  </div>
+
+  <script>
+    const screenCanvas = document.getElementById('screenCanvas');
+    const drawCanvas = document.getElementById('drawCanvas');
+    const screenCtx = screenCanvas.getContext('2d');
+    const drawCtx = drawCanvas.getContext('2d');
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    screenCanvas.width = width;
+    screenCanvas.height = height;
+    drawCanvas.width = width;
+    drawCanvas.height = height;
+
+    let points = [];
+    let isDrawing = false;
+    let screenImage = null;
+    let drawMode = 'lasso'; // 'lasso' | 'rect'
+
+    const modeLassoBtn = document.getElementById('modeLassoBtn');
+    const modeRectBtn = document.getElementById('modeRectBtn');
+
+    function applyTheme(themeName) {
+      const valid = ['grokki-blue', 'cream', 'jungle', 'sakura', 'cyber', 'sunset', 'arctic', 'crimson', 'none'];
+      const t = valid.includes(themeName) ? themeName : 'grokki-blue';
+      document.documentElement.setAttribute('data-theme', t);
+    }
+
+    function getThemeAccent() {
+      const col = getComputedStyle(document.documentElement).getPropertyValue('--cream').trim();
+      return col || '#5b9bf8';
+    }
+
+    if (window.jarvisAPI && window.jarvisAPI.getConfig) {
+      window.jarvisAPI.getConfig().then((cfg) => {
+        if (cfg && cfg.pillTheme) applyTheme(cfg.pillTheme);
+      }).catch(() => {});
+    }
+
+    modeLassoBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      drawMode = 'lasso';
+      modeLassoBtn.classList.add('active');
+      modeRectBtn.classList.remove('active');
+    });
+
+    modeRectBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      drawMode = 'rect';
+      modeRectBtn.classList.add('active');
+      modeLassoBtn.classList.remove('active');
+    });
+
+    document.getElementById('escCancelBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      cancelCrop();
+    });
+
+    function cancelCrop() {
+      if (window.jarvisAPI && window.jarvisAPI.cancelCircleCrop) {
+        window.jarvisAPI.cancelCircleCrop();
+      } else {
+        window.close();
+      }
+    }
+
+    // Load desktop screenshot passed via IPC
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      if (data && data.theme) applyTheme(data.theme);
+      if (data && data.type === 'SET_SCREENSHOT' && data.dataUrl) {
+        loadScreenshot(data.dataUrl);
+      }
+    });
+
+    if (window.jarvisAPI && window.jarvisAPI.onCircleOverlayData) {
+      window.jarvisAPI.onCircleOverlayData((data) => {
+        if (data && data.theme) applyTheme(data.theme);
+        if (data && data.dataUrl) loadScreenshot(data.dataUrl);
+      });
+    }
+
+    function loadScreenshot(dataUrl) {
+      const img = new Image();
+      img.onload = () => {
+        screenImage = img;
+        screenCtx.drawImage(img, 0, 0, width, height);
+        renderIdleDim();
+      };
+      img.src = dataUrl;
+    }
+
+    function renderIdleDim() {
+      drawCtx.clearRect(0, 0, width, height);
+      drawCtx.fillStyle = 'rgba(8, 8, 10, 0.46)';
+      drawCtx.fillRect(0, 0, width, height);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') cancelCrop();
+    });
+
+    window.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest('#hudHeader')) return;
+      isDrawing = true;
+      points = [{ x: e.clientX, y: e.clientY }];
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDrawing) return;
+      points.push({ x: e.clientX, y: e.clientY });
+      renderSelection();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!isDrawing) return;
+      isDrawing = false;
+      finishSelection();
+    });
+
+    function renderSelection() {
+      drawCtx.clearRect(0, 0, width, height);
+      drawCtx.fillStyle = 'rgba(8, 8, 10, 0.52)';
+      drawCtx.fillRect(0, 0, width, height);
+
+      if (points.length < 2) return;
+
+      const themeAccent = getThemeAccent();
+
+      if (drawMode === 'rect') {
+        const p0 = points[0];
+        const p1 = points[points.length - 1];
+        const rx = Math.min(p0.x, p1.x);
+        const ry = Math.min(p0.y, p1.y);
+        const rw = Math.abs(p1.x - p0.x);
+        const rh = Math.abs(p1.y - p0.y);
+
+        // Spotlight cutout inside rectangle
+        drawCtx.clearRect(rx, ry, rw, rh);
+
+        // Crisp border and corner brackets in theme color
+        drawCtx.save();
+        drawCtx.strokeStyle = themeAccent;
+        drawCtx.lineWidth = 2;
+        drawCtx.strokeRect(rx, ry, rw, rh);
+        drawCornerBrackets(rx, ry, rw, rh, themeAccent);
+        drawCtx.restore();
+      } else {
+        // Freehand Lasso with spotlight cutout
+        drawCtx.save();
+        drawCtx.beginPath();
+        drawCtx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+          drawCtx.lineTo(points[i].x, points[i].y);
+        }
+        drawCtx.save();
+        drawCtx.clip();
+        drawCtx.clearRect(0, 0, width, height);
+        drawCtx.restore();
+
+        drawCtx.strokeStyle = themeAccent;
+        drawCtx.lineWidth = 2.5;
+        drawCtx.lineCap = 'round';
+        drawCtx.lineJoin = 'round';
+        drawCtx.shadowColor = 'transparent';
+        drawCtx.shadowBlur = 0;
+        drawCtx.stroke();
+        drawCtx.restore();
+      }
+    }
+
+    function drawCornerBrackets(x, y, w, h, color) {
+      const len = Math.min(18, w / 3, h / 3);
+      drawCtx.strokeStyle = color || getThemeAccent();
+      drawCtx.lineWidth = 3;
+      drawCtx.lineCap = 'round';
+
+      // Top-left
+      drawCtx.beginPath();
+      drawCtx.moveTo(x, y + len);
+      drawCtx.lineTo(x, y);
+      drawCtx.lineTo(x + len, y);
+      drawCtx.stroke();
+
+      // Top-right
+      drawCtx.beginPath();
+      drawCtx.moveTo(x + w - len, y);
+      drawCtx.lineTo(x + w, y);
+      drawCtx.lineTo(x + w, y + len);
+      drawCtx.stroke();
+
+      // Bottom-left
+      drawCtx.beginPath();
+      drawCtx.moveTo(x, y + h - len);
+      drawCtx.lineTo(x, y + h);
+      drawCtx.lineTo(x + len, y + h);
+      drawCtx.stroke();
+
+      // Bottom-right
+      drawCtx.beginPath();
+      drawCtx.moveTo(x + w - len, y + h);
+      drawCtx.lineTo(x + w, y + h);
+      drawCtx.lineTo(x + w, y + h - len);
+      drawCtx.stroke();
+    }
+
+    function finishSelection() {
+      if (points.length < 2) {
+        renderIdleDim();
+        return;
+      }
+
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const p of points) {
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
+      }
+
+      const rectW = maxX - minX;
+      const rectH = maxY - minY;
+
+      if (rectW < 24 || rectH < 24) {
+        renderIdleDim();
+        return;
+      }
+
+      const pad = drawMode === 'rect' ? 4 : 12;
+      const cropX = Math.max(0, Math.floor(minX - pad));
+      const cropY = Math.max(0, Math.floor(minY - pad));
+      const cropW = Math.min(width - cropX, Math.ceil(rectW + pad * 2));
+      const cropH = Math.min(height - cropY, Math.ceil(rectH + pad * 2));
+
+      const themeAccent = getThemeAccent();
+
+      // Spotlight final crop region with sleek corner brackets
+      drawCtx.clearRect(0, 0, width, height);
+      drawCtx.fillStyle = 'rgba(8, 8, 10, 0.58)';
+      drawCtx.fillRect(0, 0, width, height);
+      drawCtx.clearRect(cropX, cropY, cropW, cropH);
+      drawCtx.save();
+      drawCtx.strokeStyle = themeAccent;
+      drawCtx.lineWidth = 1.5;
+      drawCtx.strokeRect(cropX, cropY, cropW, cropH);
+      drawCornerBrackets(cropX, cropY, cropW, cropH, themeAccent);
+      drawCtx.restore();
+
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = cropW;
+      cropCanvas.height = cropH;
+      const cropCtx = cropCanvas.getContext('2d');
+
+      if (screenImage) {
+        cropCtx.drawImage(screenImage, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+      } else {
+        cropCtx.drawImage(screenCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+      }
+
+      const croppedDataUrl = cropCanvas.toDataURL('image/png');
+
+      setTimeout(() => {
+        if (window.jarvisAPI && window.jarvisAPI.submitCircleCrop) {
+          window.jarvisAPI.submitCircleCrop(croppedDataUrl, { width: cropW, height: cropH });
+        }
+      }, 110);
+    }
+  </script>
+</body>
+</html>

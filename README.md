@@ -5,7 +5,7 @@
     <source media="(prefers-color-scheme: light)" srcset="assets/grokki_wordmark_light.png">
     <img src="assets/grokki_wordmark.png" alt="Grokki Studio" width="440">
   </picture>
-    <p>
+  <p>
     <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-27272a?style=flat&logo=windows&logoColor=white&labelColor=18181b">
     <img alt="Electron" src="https://img.shields.io/badge/Electron-44.7-27272a?style=flat&logo=electron&logoColor=white&labelColor=18181b">
     <img alt="React" src="https://img.shields.io/badge/React-19-27272a?style=flat&logo=react&logoColor=61DAFB&labelColor=18181b">
@@ -13,8 +13,8 @@
     <img alt="License" src="https://img.shields.io/badge/License-Non--Commercial-27272a?style=flat&labelColor=18181b">
   </p>
 
-  <h3>Autonomous AI desktop companion living in an Apple-style Dynamic Island.</h3>
-  <p>Real-time desktop vision, physical OS mouse and keyboard automation, 65+ native Windows tools, and hybrid local/cloud intelligence.<br />Summoned instantly anywhere with Alt+Q.</p>
+  <h3>Autonomous AI desktop companion living in an Apple-style Dynamic Island & Top Notch.</h3>
+  <p>Real-time desktop vision, physical OS mouse and keyboard automation, 70+ native Windows tools, and hybrid local/cloud intelligence.<br />Summoned instantly anywhere with Alt+Q or top-edge hover.</p>
 
   <p>
     <a href="#features"><strong>Features</strong></a> ·
@@ -35,83 +35,93 @@
 
 ## Overview
 
-Grokki is an autonomous Windows desktop agent designed to live directly at the top of your screen inside a glass Dynamic Island. Rather than existing as an isolated browser chatbot, Grokki has direct physical agency over your operating system: he sees your displays with low-token vision, executes multi-step plans across native applications, and physically drives your mouse and keyboard.
+Grokki is an autonomous Windows desktop agent designed to live directly at the top of your screen inside a glass Dynamic Island and Top Notch. Rather than existing as an isolated browser chatbot, Grokki has direct physical agency over your operating system: he sees your displays with low-token vision, executes multi-step plans across native applications, and physically drives your mouse and keyboard.
 
 | Capability | Scope | What it does |
 | :--- | ---: | :--- |
-| **System & Desktop Agency** | 18 tools | Mouse tracking, keyboard injection, audio, window management, screen capture |
+| **System & Desktop Agency** | 20+ tools | Mouse tracking, keyboard injection, audio, window management, screen capture, hardware power |
+| **Hitodama Control Center** | Top Notch & Mobile | Zero-shadow capsule tabs: Volume bar, Studio (Now-Playing Art), Stats, and Power tiles |
 | **P2P Pocket Grokki Mobile** | Local LAN | Zero-cloud QR pairing, summon hopping, cross-device envelope beam, attendance sync |
 | **Workspace Integrations** | 22 tools | Google Workspace, Notion databases, local Obsidian vaults, GitHub CLI |
 | **Productivity & Code** | 15 tools | Artifact sandbox canvas, VS Code bug diagnosis, file parsing, document authoring |
 | **Media & Audio** | 10 tools | Spotify, YouTube Music, Apple Music controls, playlist search, lecture synthesis |
+| **Games Hub** | Local Scan | Auto-discovers installed Steam/Epic/Xbox games with free cover art fetching |
 | **Multi-Brain & Grounding** | 9 engines | Dual-battle comparative runs, consensus synthesis, live web grounding |
 
 ---
 
 ## Features
 
+### Hitodama Top Notch Control Center
+Access essential operating system controls instantly by hovering near the top notch or tapping the island:
+* **Zero-Shadow Capsule Architecture**: Engineered with a strict zero-shadow, high-contrast frosted glass design system that dynamically follows your active theme palette.
+* **4-Tab Unified Control Hub**:
+  * **Controls**: Live OS volume bar capsule with percentage thumb, preset buttons (`25%`, `50%`, `75%`, `MAX`), and quick tiles (`Lock PC`, `Sleep`, `Screenshot`, `Mute Mic`).
+  * **Studio**: Live Windows Media playback detection displaying album art covers, track title, artist, playback status badge, and transport controls.
+  * **Stats**: Real-time hardware telemetry: CPU load %, processor model, RAM usage (`used / total GB`), and host system uptime.
+  * **Power**: Clean OS action cards for Lock Screen, Sleep Mode, Sign Out, Restart PC, Shut Down, and Cancel Power.
+
 ### Peer-to-Peer Pocket Grokki Mobile (LAN Companion)
 Bring your autonomous desktop assistant directly to your mobile phone over your local Wi-Fi without third-party servers, cloud relays, or exposed ports:
+* **Hitodama Mobile Overhaul**: Pocket Grokki now renders the full Hitodama Control Center right on your phone (`http://<LAN_IP>:8765`), equipped with `Plus Jakarta Sans`, `JetBrains Mono`, and FontAwesome 6 vector icons.
 * **Zero-Cloud P2P LAN Pairing**: Pair your smartphone with your Windows PC in seconds using a dynamic cryptographic QR code or single-click local discovery. All communication is strictly local to your private network.
 * **Cross-Device Summon Hopping**: Teleport Grokki seamlessly between your desktop screen and your mobile device. Summon Grokki directly onto your phone screen or shoot him back onto your Windows desktop Dynamic Island with fluid portal physics.
 * **Animated Envelope File Transfer**: Drag and drop documents, images, or code on desktop into Grokki to package them into an animated envelope and beam them directly to your phone (and vice-versa) for instant offline download and opening.
 * **Live Academic & ERP Attendance Tracking**: Auto-sync and view live university ERP records, course attendance percentages, and shortage warnings (`+N classes needed for 75%`) directly on mobile with session auto-recovery and zero credential exposure.
-* **Remote Pocket Agency**: Ask questions, trigger desktop tools, manage playback, and access clipboard sync on the move.
+* **Remote Pocket Agency**: Ask questions, trigger desktop tools, manage playback, adjust master volume, and access clipboard sync on the move.
 
-### Genuine desktop blur
+### Dynamic Theme Engine & Carousel
+Personalize Grokki Studio, the Dynamic Island, Top Notch, and Pocket Grokki with synchronized theme palettes:
+* **8 Curated Palettes**: `sunset`, `grokki-blue`, `cream`, `jungle`, `sakura`, `cyber`, `arctic`, and `crimson`.
+* **Horizontal Theme Carousel**: Smooth horizontal drag-and-scroll selector in the Appearance settings.
+* **Independent Light / Dark Mode**: Dedicated "None" option allows standard Light and Dark modes without color saturation locks.
+* **Instant Broadcast**: Switching themes in Grokki Studio broadcasts real-time color updates across the desktop overlay and connected mobile companions.
+
+### Installed Games Hub & Poster Fetcher
+* **Automatic Game Detection**: Automatically scans your Windows PC for installed games across Steam libraries, Epic Games Launcher, Xbox / Microsoft Store apps, and custom game directories.
+* **Live Cover Artwork**: Fetches game posters and capsule art automatically from free game metadata APIs and caches them locally for fast, offline display.
+* **1-Click Launch**: Launch any installed game directly from the Grokki Studio interface.
+
+### Genuine Desktop Blur & Dynamic Island
 Windows cannot natively blur third-party desktop windows behind transparent frameless Electron surfaces. Grokki implements a dedicated GPU-accelerated capture pipeline:
 * On summon (`Alt + Q`), the system snaps your desktop background in the background.
 * Applies a hardware-accelerated Apple-spec Gaussian blur layer (`blur(38px) brightness(0.55) saturate(190%)`).
 * Your wallpaper, active code editor, terminal, and browser blur dynamically behind the island in real time.
 * Dismiss by clicking anywhere outside the interface.
 
-### Physical mouse and keyboard automation
+### Physical Mouse and Keyboard Automation
 * Moves the actual Windows OS mouse cursor with smooth easing trajectories.
 * Executes left-clicks, double-clicks, right-clicks, and keystrokes directly into active applications (Notepad, Word, File Explorer, Terminal).
 * Includes safe boundaries and emergency abort shortcut (`Esc`).
 
-### Ultra-low token screen vision
+### Ultra-Low Token Screen Vision
 * Captures active displays and downscales frames for multimodal models.
 * Cost per screen scan: ~250 tokens via Gemini Flash Vision.
 * Diagnoses compile errors in VS Code, inspects software installation wizards, and reads documents on screen without manual uploads.
 
-### Interactive artifacts and code canvas
+### Interactive Artifacts & Code Canvas
 * Sandboxed preview drawer (`w-[48%]` split pane) for live rendering of HTML, CSS, SVG, JavaScript, and Markdown.
 * Integrated syntax-highlighted code editor with line numbers, 1-click clipboard copy, and direct save to workspace files.
 * Adaptive layout that toggles between split view and full workspace mode.
 
-### Multi-brain dual battle and consensus
+### Multi-Brain Dual Battle & Consensus
 * Dispatches any prompt concurrently to two separate AI brains (e.g. Gemini Flash vs. Groq Qwen/Llama or local Ollama).
 * Comparative side-by-side card grid showing model name, individual latency in milliseconds, copy buttons, and winner selection.
 * Interactive consensus engine cross-examines both model outputs, filters hallucinations, and synthesizes a unified verdict.
 
-### Deep workspace project context (`@file` & `@folder`)
+### Deep Workspace Project Context (`@file` & `@folder`)
 * Cursor-style inline context suggestion triggered by typing `@` anywhere in the chat input.
 * Indexes local project files with fuzzy matching, file size indicators, and file type icons.
 * Mentioning `@folder` recursively parses directories (filtering `node_modules`, `.git`, and build caches) to bundle source code directly into model context.
 
-### Live web grounding and citations
+### Live Web Grounding & Citations
 * One-click deep search toggle formulated for real-time web retrieval.
 * Queries live search engines and injects relevant source snippets before model generation.
 * Displays an expandable Perplexity-style source accordion with domain badges, favicon previews, and hoverable inline citation tooltips (`[1]`, `[2]`).
 
-### Autonomous goal execution and dynamic pivoting
-* Zero hardcoded branching: Grokki formulates multi-step action plans dynamically.
-* Example: Ask Grokki to *"Play The Weeknd on Spotify"*. Grokki checks if Spotify Desktop is running. If absent, he pivots to Spotify Web. If logged out, he halts, inspects your screen, and asks:
-  > *"Spotify is not logged in on your browser. Would you like to log in now, or should I switch to YouTube Music instead?"*
-
-### Highlight to action
-* Highlight any text or code in your browser, PDF, or editor, and press **`Alt + Q`**.
-* Ask Grokki to *"Rewrite this"*, *"Fix bugs in this selection"*, or *"Summarize this"*.
-* Grokki ingests the selection, transforms it with your active AI engine, and copies the clean result directly to your clipboard.
-
-### Dynamic island desktop companion
-* Interactive physics: click and interact with Grokki's obsidian sphere face to trigger dynamic squash, jump, and state reactions.
-* Procedural audio feedback generated via Web Audio API.
-
 ---
 
-## AI Brain engines
+## AI Brain Engines
 
 Grokki features a built-in provider switcher supporting both paid frontier flagships and free open-source engines:
 
@@ -129,10 +139,17 @@ Grokki features a built-in provider switcher supporting both paid frontier flags
 
 ---
 
-## Desktop tool arsenal
+## Desktop Tool Arsenal
 
 ```
 Grokki Agent Runtime
+├── Hitodama Control Center (Desktop Notch & Pocket Companion)
+│   ├── Zero-shadow capsule tabs (Controls, Studio, Stats, Power)
+│   ├── Real-time volume slider capsule with preset levels
+│   ├── Live Windows Media now-playing album art & playback transport
+│   ├── System performance telemetry (CPU load, RAM used/total, Host uptime)
+│   └── Safe Windows power controls (Lock, Sleep, Sign out, Restart, Shutdown)
+│
 ├── Peer-to-Peer Mobile Ecosystem (Pocket Grokki)
 │   ├── Dynamic QR-code device pairing & local encrypted LAN discovery
 │   ├── Bidirectional device-to-device summon hopping (PC ⟷ Mobile)
@@ -143,7 +160,6 @@ Grokki Agent Runtime
 │   ├── Mouse tracking, double-clicks, right-clicks, and cursor easing
 │   ├── Window management (focus, minimize, maximize, snap, close)
 │   ├── Native audio volume, mute, and display brightness control
-│   ├── Power management (lock, sleep, restart, shutdown, cancel)
 │   └── 1-Click Downloads and Desktop auto-organization
 │
 ├── Developer & Productivity Tools
@@ -152,6 +168,11 @@ Grokki Agent Runtime
 │   ├── VS Code Bug Doctor: Live problem and syntax diagnosis with direct fixes
 │   ├── Git CLI & GitHub GUI: status, commit, push, pull, branch, clone
 │   └── Multi-format document parser: PDF, DOCX, TXT, Markdown, CSV, JSON
+│
+├── Games Hub
+│   ├── Auto-discovery for Steam, Epic Games, Xbox, and local installs
+│   ├── Free poster and cover artwork fetching & caching
+│   └── 1-Click direct launcher
 │
 ├── Workspace Ecosystem
 │   ├── Google Workspace: Gmail, Calendar, Drive, Docs, Sheets, Tasks
@@ -178,33 +199,41 @@ Grokki Agent Runtime
 <div align="center">
   <table>
     <tr>
-      <td colspan="2" align="center">
+      <td width="50%" align="center">
         <img src="assets/screenshots/Pocket Grokki Mobile.png" alt="Peer-to-Peer Pocket Grokki Mobile Companion" width="100%"/>
-        <br/><sub><b>Peer-to-Peer Pocket Grokki Mobile (Zero-Cloud LAN Pairing, Summon Hopping & Envelope File Beam)</b></sub>
+        <br/><sub><b>Pocket Grokki Mobile (Hitodama Control Center, Now Playing & P2P Hop)</b></sub>
+      </td>
+      <td width="50%" align="center">
+        <img src="assets/screenshots/Hitodama Control Center.png" alt="Hitodama Top Notch Control Center" width="100%"/>
+        <br/><sub><b>Hitodama Top Notch Control Center (Controls, Studio, Stats & Power)</b></sub>
       </td>
     </tr>
     <tr>
       <td width="50%" align="center">
-        <img src="assets/screenshots/Vision.png" alt="Dynamic Island with Real GPU Desktop Blur" width="100%"/>
-        <br/><sub><b>Dynamic Island with Real GPU Desktop Blur (<code>Alt+Q</code>)</b></sub>
+        <img src="assets/screenshots/Grokki Studio.png" alt="Central Studio Workspace" width="100%"/>
+        <br/><sub><b>Grokki Studio Central Workspace & Games Hub</b></sub>
       </td>
       <td width="50%" align="center">
-        <img src="assets/screenshots/Split.png" alt="Central Studio Workspace" width="100%"/>
-        <br/><sub><b>Central Studio Workspace & Chat Canvas</b></sub>
+        <img src="assets/screenshots/Grokki Studio Themes.png" alt="Theme Carousel & Appearance Engine" width="100%"/>
+        <br/><sub><b>Theme Carousel & Color Palette Engine</b></sub>
       </td>
     </tr>
     <tr>
+      <td width="50%" align="center">
+        <img src="assets/screenshots/Dynamic Island.png" alt="Dynamic Island Desktop Companion" width="100%"/>
+        <br/><sub><b>Obsidian Dynamic Island Capsule (<code>Alt+Q</code>)</b></sub>
+      </td>
       <td width="50%" align="center">
         <img src="assets/screenshots/Dual Brain.png" alt="Multi-Brain Dual Battle & Consensus" width="100%"/>
         <br/><sub><b>Multi-Brain Dual-Battle Mode with Latency Tracking & Consensus</b></sub>
       </td>
+    </tr>
+    <tr>
       <td width="50%" align="center">
         <img src="assets/screenshots/Brain Switcher.png" alt="AI Brain Provider Switcher" width="100%"/>
         <br/><sub><b>AI Brain Multi-Provider Switcher (Paid Flagships & Free Engines)</b></sub>
       </td>
-    </tr>
-    <tr>
-      <td colspan="2" align="center">
+      <td width="50%" align="center">
         <img src="assets/screenshots/Workspace.png" alt="Workspace Ecosystem Hub" width="100%"/>
         <br/><sub><b>Workspace Ecosystem Hub (Google, Notion, Obsidian, GitHub)</b></sub>
       </td>
@@ -237,7 +266,9 @@ npm run dev
 
 ### Summoning Grokki
 - Press **`Alt + Q`** from any application to open the Dynamic Island.
+- Hover your mouse at the top-center edge of your screen to drop down the **Hitodama Notch**.
 - Say **`"Hey Grokki"`** to trigger the background wake word detector.
+- Open **`http://<LAN_IP>:8765`** from your smartphone to launch **Pocket Grokki Mobile**.
 
 ---
 
@@ -257,7 +288,7 @@ release/Grokki Studio-Setup-2.5.0.exe
 
 ---
 
-## Security & privacy
+## Security & Privacy
 
 - **Local credentials**: All API keys, tokens, and workspace preferences are stored locally in `%APPDATA%\data\jarvis-config.json`. Keys are never bundled into executables or sent to telemetry servers.
 - **Zero remote telemetry**: Execution runs strictly between your local machine and your configured AI endpoints.

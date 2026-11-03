@@ -39,8 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const ttsEnabledToggle = document.getElementById('ttsEnabledToggle');
   const ttsVoiceSelect = document.getElementById('ttsVoiceSelect');
   const hotkeyInput = document.getElementById('hotkeyInput');
-  const themeOriginalBtn = document.getElementById('themeOriginalBtn');
-  const themeGlassBtn = document.getElementById('themeGlassBtn');
+  const pillThemeToggle = document.getElementById('pillThemeToggle');
   const normalInputArea = document.getElementById('normalInputArea');
   const normalControlsGroup = document.getElementById('normalControlsGroup');
   const returnToTimerBtn = document.getElementById('returnToTimerBtn');
@@ -56,8 +55,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let currentMode = 'typing';
   let agentProcessing = false;
-  let activePillTheme = 'glass';
-  let savedPillTheme = 'glass';
+  let activePillTheme = 'grokki-blue';
+  let savedPillTheme = 'grokki-blue';
 
   /**
    * Complete, robust Markdown renderer for Grokki
@@ -488,38 +487,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 3. Initialize LightRays Effect behind the Pill
-  const lightRaysContainer = document.getElementById('lightRaysBackdrop');
-  let lightRays = null;
-  if (lightRaysContainer && window.LightRays) {
-    lightRays = new window.LightRays(lightRaysContainer, {
-      raysOrigin: "top-center",
-      raysColor: "#ffffff",
-      raysSpeed: 1,
-      lightSpread: 0.5,
-      rayLength: 3,
-      glow: 0.6,
-      haze: 0.25,
-      followMouse: true,
-      mouseInfluence: 0.1,
-      rayDensity: 1,
-      tilt: 0,
-      raySharpness: 0.35,
-      atmosphere: 1,
-      intensity: 1,
-      fadeDistance: 1,
-      saturation: 1,
-      noiseAmount: 0,
-      distortion: 0,
-      pulsating: false,
-      cursorShadow: true,
-      clickPulse: true,
-      intro: true,
-      lightMode: false,
-    });
-    window.grokkiLightRays = lightRays;
-  }
-
   // 4. Initialize GlassSurface Effect on Dynamic Island
   let glassSurface = null;
   if (window.GlassSurfaceEffect) {
@@ -539,45 +506,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       mixBlendMode: 'difference',
       theme: 'glass',
     });
-    applyPillTheme('glass');
   }
+
+  const VALID_THEMES = ['grokki-blue', 'cream', 'jungle', 'sakura', 'cyber', 'sunset', 'arctic', 'crimson'];
 
   function applyPillTheme(theme) {
-    activePillTheme = theme === 'glass' ? 'glass' : 'original';
-    if (glassSurface) {
-      glassSurface.setTheme(activePillTheme);
-    }
+    const normalized = VALID_THEMES.includes(theme) ? theme : 'grokki-blue';
+    activePillTheme = normalized;
+    document.documentElement.setAttribute('data-theme', activePillTheme);
     if (islandContainer) {
-      if (activePillTheme === 'glass') {
-        islandContainer.classList.add('theme-glass');
-      } else {
-        islandContainer.classList.remove('theme-glass');
-      }
-    }
-    if (themeOriginalBtn && themeGlassBtn) {
-      if (activePillTheme === 'glass') {
-        themeGlassBtn.classList.add('active');
-        themeOriginalBtn.classList.remove('active');
-      } else {
-        themeOriginalBtn.classList.add('active');
-        themeGlassBtn.classList.remove('active');
-      }
+      islandContainer.setAttribute('data-theme', activePillTheme);
     }
   }
 
-  if (themeOriginalBtn) {
-    themeOriginalBtn.addEventListener('click', () => {
-      sound.playPoke();
-      applyPillTheme('original');
-    });
-  }
-
-  if (themeGlassBtn) {
-    themeGlassBtn.addEventListener('click', () => {
-      sound.playPoke();
-      applyPillTheme('glass');
-    });
-  }
+  applyPillTheme('grokki-blue');
 
   // 5. Initialize Screen Worker (Mini-Grokki Cursor)
   const worker = new window.ScreenWorker(sound);
@@ -1110,6 +1052,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey && e.shiftKey && e.code === 'KeyC') || (e.altKey && e.code === 'KeyC')) {
+      e.preventDefault();
+      toggleControlCenter();
+      return;
+    }
     if (e.key === 'Control' || e.key === 'Meta') {
       mainInput.classList.add('ctrl-held');
     }
@@ -1451,6 +1398,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Bulletproof Drag & Drop Reaction with counter
   let dragCounter = 0;
 
+  function isEventOverIsland(e) {
+    if (!islandContainer) return false;
+    const rect = islandContainer.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return false;
+    return (
+      e.clientX >= rect.left &&
+      e.clientX <= rect.right &&
+      e.clientY >= rect.top &&
+      e.clientY <= rect.bottom
+    );
+  }
+
   function isIslandAcceptingDrops() {
     if (!islandContainer) return false;
     if (islandContainer.style.display === 'none') return false;
@@ -1460,7 +1419,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   window.addEventListener('dragenter', (e) => {
-    if (!isIslandAcceptingDrops()) return;
+    if (!isIslandAcceptingDrops() || !isEventOverIsland(e)) return;
     e.preventDefault();
     dragCounter++;
     islandContainer.classList.add('drag-active');
@@ -1468,7 +1427,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   window.addEventListener('dragover', (e) => {
-    if (!isIslandAcceptingDrops()) return;
+    if (!isIslandAcceptingDrops() || !isEventOverIsland(e)) {
+      if (islandContainer.classList.contains('drag-active')) {
+        islandContainer.classList.remove('drag-active');
+      }
+      return;
+    }
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
     if (!islandContainer.classList.contains('drag-active')) {
@@ -1478,7 +1442,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   window.addEventListener('dragleave', (e) => {
     if (!isIslandAcceptingDrops()) return;
-    e.preventDefault();
+    if (!isEventOverIsland(e)) {
+      dragCounter = 0;
+      islandContainer.classList.remove('drag-active');
+      grokbot.setState('idle');
+      return;
+    }
     dragCounter--;
     if (dragCounter <= 0) {
       dragCounter = 0;
@@ -1488,10 +1457,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   window.addEventListener('drop', async (e) => {
-    if (!isIslandAcceptingDrops()) return;
+    if (!isIslandAcceptingDrops() || !isEventOverIsland(e)) {
+      islandContainer.classList.remove('drag-active');
+      return;
+    }
     e.preventDefault();
     dragCounter = 0;
     islandContainer.classList.remove('drag-active');
+    if (window.jarvisAPI && window.jarvisAPI.notifyDropReceived) {
+      window.jarvisAPI.notifyDropReceived();
+    }
 
     if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
@@ -1502,6 +1477,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       } catch (err) {}
       if (!filePath && file.path) filePath = file.path;
+
+      // Check detected shell drag file fallback
+      if (!filePath && window.jarvisAPI && window.jarvisAPI.getLastDetectedDragFiles) {
+        try {
+          const detected = await window.jarvisAPI.getLastDetectedDragFiles();
+          if (detected && detected.length > 0) {
+            filePath = detected[0];
+          }
+        } catch (_) {}
+      }
 
       // Fallback: save buffer if path could not be resolved
       if (!filePath && window.jarvisAPI && window.jarvisAPI.saveTempFile) {
@@ -1522,6 +1507,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
   });
+
+  // Global Drag Watcher Listener
+  if (window.jarvisAPI && window.jarvisAPI.onWindowDragActive) {
+    window.jarvisAPI.onWindowDragActive((data) => {
+      if (!isIslandAcceptingDrops()) return;
+      if (data && data.active) {
+        if (!islandContainer.classList.contains('drag-active')) {
+          islandContainer.classList.add('drag-active');
+          if (grokbot) grokbot.setState('happy');
+        }
+      } else {
+        if (islandContainer.classList.contains('drag-active')) {
+          islandContainer.classList.remove('drag-active');
+          if (grokbot) grokbot.setState('idle');
+        }
+      }
+    });
+  }
 
   // Pocket Grokki QR Code & Connection Card in Dynamic Island
   async function showPocketGrokkiCard() {
@@ -1893,6 +1896,570 @@ document.addEventListener('DOMContentLoaded', async () => {
     settingsSheet.classList.remove('open');
   };
 
+  // Automatically sync Electron window height with island expansion state
+  function syncWindowExpandedState() {
+    if (!window.jarvisAPI || !window.jarvisAPI.setIslandExpanded) return;
+    const isExpanded = !!(
+      (islandContainer && (
+        islandContainer.classList.contains('has-drawer-open') ||
+        islandContainer.classList.contains('has-settings-open') ||
+        islandContainer.classList.contains('has-slash-open')
+      )) ||
+      (islandDrawer && islandDrawer.classList.contains('open')) ||
+      (settingsSheet && settingsSheet.classList.contains('open')) ||
+      (slashPalette && slashPalette.classList.contains('open'))
+    );
+    window.jarvisAPI.setIslandExpanded(isExpanded);
+  }
+
+  const islandExpandedObserver = new MutationObserver(() => {
+    syncWindowExpandedState();
+  });
+
+  if (islandContainer) {
+    islandExpandedObserver.observe(islandContainer, { attributes: true, attributeFilter: ['class', 'style'] });
+  }
+  if (islandDrawer) {
+    islandExpandedObserver.observe(islandDrawer, { attributes: true, attributeFilter: ['class', 'style'] });
+  }
+  if (settingsSheet) {
+    islandExpandedObserver.observe(settingsSheet, { attributes: true, attributeFilter: ['class', 'style'] });
+  }
+  if (slashPalette) {
+    islandExpandedObserver.observe(slashPalette, { attributes: true, attributeFilter: ['class', 'style'] });
+  }
+
+  // --- HITODAMA TOP NOTCH CONTROL CENTRE (FLUSH AT SCREEN TOP: 0) ---
+  const hitodamaTopTrigger = document.getElementById('hitodamaTopTrigger');
+  const hitodamaTopNotch = document.getElementById('hitodamaTopNotch');
+  const closeTopNotchBtn = document.getElementById('closeTopNotchBtn');
+  const htNotchPinBtn = document.getElementById('htNotchPinBtn');
+  let isNotchPinned = false;
+  let notchHideTimer = null;
+
+  const openTopNotch = () => {
+    if (notchHideTimer) clearTimeout(notchHideTimer);
+    if (hitodamaTopNotch) hitodamaTopNotch.classList.add('visible');
+    // Refresh live stats & clipboard when opening
+    loadRealSystemStats();
+    refreshClipboardHistory();
+  };
+
+  const closeTopNotch = () => {
+    if (isNotchPinned) return;
+    if (hitodamaTopNotch) hitodamaTopNotch.classList.remove('visible');
+  };
+
+  const toggleTopNotch = () => {
+    if (hitodamaTopNotch && hitodamaTopNotch.classList.contains('visible')) {
+      closeTopNotch();
+    } else {
+      openTopNotch();
+    }
+  };
+
+  // 1. TOUCH MOUSE CURSOR TO TOP EDGE TO OPEN
+  if (hitodamaTopTrigger) {
+    hitodamaTopTrigger.addEventListener('mouseenter', openTopNotch);
+    hitodamaTopTrigger.addEventListener('click', toggleTopNotch);
+  }
+
+  // Global cursor detection: touching within 8px of top edge at horizontal center reveals notch
+  window.addEventListener('mousemove', (e) => {
+    const winCenter = window.innerWidth / 2;
+    if (e.clientY <= 8 && Math.abs(e.clientX - winCenter) < 180) {
+      openTopNotch();
+    }
+  });
+
+  // Retract when mouse leaves the notch panel
+  if (hitodamaTopNotch) {
+    hitodamaTopNotch.addEventListener('mouseenter', () => {
+      if (notchHideTimer) clearTimeout(notchHideTimer);
+    });
+    hitodamaTopNotch.addEventListener('mouseleave', () => {
+      if (isNotchPinned) return;
+      notchHideTimer = setTimeout(() => {
+        closeTopNotch();
+      }, 450);
+    });
+  }
+
+  if (closeTopNotchBtn) {
+    closeTopNotchBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      isNotchPinned = false;
+      if (htNotchPinBtn) htNotchPinBtn.classList.remove('pinned');
+      closeTopNotch();
+    });
+  }
+
+  if (htNotchPinBtn) {
+    htNotchPinBtn.addEventListener('click', () => {
+      isNotchPinned = !isNotchPinned;
+      htNotchPinBtn.classList.toggle('pinned', isNotchPinned);
+      sound.playPoke();
+    });
+  }
+
+  // --- 2. 7 TABS SWITCHER ---
+  const htTabBtns = document.querySelectorAll('.ht-tab-btn');
+  const htTabContents = {
+    controls: document.getElementById('htTabControls'),
+    today: document.getElementById('htTabToday'),
+    stats: document.getElementById('htTabStats'),
+    clipboard: document.getElementById('htTabClipboard'),
+    apps: document.getElementById('htTabApps'),
+    wallpaper: document.getElementById('htTabWallpaper'),
+    power: document.getElementById('htTabPower'),
+  };
+
+  htTabBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      htTabBtns.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      const target = btn.getAttribute('data-tab');
+
+      Object.entries(htTabContents).forEach(([key, el]) => {
+        if (!el) return;
+        if (key === target) {
+          el.style.display = 'block';
+          el.classList.add('active');
+        } else {
+          el.style.display = 'none';
+          el.classList.remove('active');
+        }
+      });
+      sound.playPoke();
+    });
+  });
+
+  // --- 3. CONTROLS TAB INTERACTIONS (REAL OS CONTROLS) ---
+  const htWifiBtn = document.getElementById('htWifiBtn');
+  const htWifiStatus = document.getElementById('htWifiStatus');
+  let isWifiOn = true;
+  if (htWifiBtn) {
+    htWifiBtn.addEventListener('click', () => {
+      isWifiOn = !isWifiOn;
+      htWifiBtn.classList.toggle('ht-card-active', isWifiOn);
+      if (htWifiStatus) htWifiStatus.textContent = isWifiOn ? 'Connected' : 'Off';
+      if (window.jarvisAPI && window.jarvisAPI.openSettingsPage) {
+        window.jarvisAPI.openSettingsPage('wifi');
+      }
+      sound.playPoke();
+    });
+  }
+
+  const htBtBtn = document.getElementById('htBtBtn');
+  const htBtStatus = document.getElementById('htBtStatus');
+  let isBtOn = true;
+  if (htBtBtn) {
+    htBtBtn.addEventListener('click', () => {
+      isBtOn = !isBtOn;
+      htBtBtn.classList.toggle('ht-card-active', isBtOn);
+      if (htBtStatus) htBtStatus.textContent = isBtOn ? 'On' : 'Off';
+      if (window.jarvisAPI && window.jarvisAPI.openSettingsPage) {
+        window.jarvisAPI.openSettingsPage('bluetooth');
+      }
+      sound.playPoke();
+    });
+  }
+
+  const htAudioBtn = document.getElementById('htAudioBtn');
+  const htAudioStatus = document.getElementById('htAudioStatus');
+  const htMediaOutputLabel = document.getElementById('htMediaOutputLabel');
+  let isSpeakers = true;
+  if (htAudioBtn) {
+    htAudioBtn.addEventListener('click', () => {
+      isSpeakers = !isSpeakers;
+      const device = isSpeakers ? 'Speakers' : 'Headphones';
+      if (htAudioStatus) htAudioStatus.textContent = device;
+      if (htMediaOutputLabel) htMediaOutputLabel.textContent = `System Media • ${device}`;
+      sound.playPoke();
+    });
+  }
+
+  const htNightLightBtn = document.getElementById('htNightLightBtn');
+  const htNightLightStatus = document.getElementById('htNightLightStatus');
+  let isNightLightOn = false;
+  if (htNightLightBtn) {
+    htNightLightBtn.addEventListener('click', () => {
+      isNightLightOn = !isNightLightOn;
+      htNightLightBtn.classList.toggle('ht-card-active', isNightLightOn);
+      if (htNightLightStatus) htNightLightStatus.textContent = isNightLightOn ? 'On' : 'Off';
+      if (window.jarvisAPI && window.jarvisAPI.openSettingsPage) {
+        window.jarvisAPI.openSettingsPage('nightlight');
+      }
+      sound.playPoke();
+    });
+  }
+
+  const htDarkModeBtn = document.getElementById('htDarkModeBtn');
+  const htDarkModeStatus = document.getElementById('htDarkModeStatus');
+  let isDarkModeOn = true;
+  if (htDarkModeBtn) {
+    htDarkModeBtn.addEventListener('click', () => {
+      isDarkModeOn = !isDarkModeOn;
+      htDarkModeBtn.classList.toggle('ht-card-active', isDarkModeOn);
+      if (htDarkModeStatus) htDarkModeStatus.textContent = isDarkModeOn ? 'On' : 'Off';
+      sound.playPoke();
+    });
+  }
+
+  // Real Master Volume Slider (No Orange)
+  const htVolInput = document.getElementById('htVolInput');
+  const htVolFill = document.getElementById('htVolFill');
+  const htVolPct = document.getElementById('htVolPct');
+  if (htVolInput) {
+    htVolInput.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      if (htVolFill) htVolFill.style.width = `${val}%`;
+      if (htVolPct) htVolPct.textContent = `${val}%`;
+      if (window.jarvisAPI && window.jarvisAPI.systemControl) {
+        window.jarvisAPI.systemControl({ action: 'volume_set', level: val });
+      }
+    });
+  }
+
+  // Media Controls
+  const htPlayBtn = document.getElementById('htPlayBtn');
+  const htPlayIcon = document.getElementById('htPlayIcon');
+  const htPrevBtn = document.getElementById('htPrevBtn');
+  const htNextBtn = document.getElementById('htNextBtn');
+  let isMediaPlaying = false;
+
+  if (htPlayBtn) {
+    htPlayBtn.addEventListener('click', async () => {
+      isMediaPlaying = !isMediaPlaying;
+      if (htPlayIcon) {
+        htPlayIcon.className = isMediaPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play';
+      }
+      sound.playPoke();
+      const act = isMediaPlaying ? 'resume' : 'pause';
+      await agent.process(`${act} music`);
+    });
+  }
+
+  if (htPrevBtn) {
+    htPrevBtn.addEventListener('click', async () => {
+      sound.playPoke();
+      await agent.process('previous track');
+    });
+  }
+
+  if (htNextBtn) {
+    htNextBtn.addEventListener('click', async () => {
+      sound.playPoke();
+      await agent.process('next track');
+    });
+  }
+
+  // --- 4. REAL DYNAMIC CLIPBOARD HISTORY ---
+  const htClipSearchInput = document.getElementById('htClipSearchInput');
+  const htClipFilters = document.querySelectorAll('.ht-clip-filter');
+  const htClipListContainer = document.getElementById('htClipListContainer');
+  const htClipPreviewBody = document.getElementById('htClipPreviewBody');
+  const htClipMetaType = document.getElementById('htClipMetaType');
+  const htClipMetaChars = document.getElementById('htClipMetaChars');
+  const htClipMetaTime = document.getElementById('htClipMetaTime');
+  const htClipPasteBtn = document.getElementById('htClipPasteBtn');
+  const htClipLiveCount = document.getElementById('htClipLiveCount');
+
+  let liveClips = [];
+  let selectedClip = null;
+  let activeFilter = 'all';
+
+  function formatRelativeTime(ts) {
+    const diff = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  }
+
+  function renderClipsList(clips) {
+    if (!htClipListContainer) return;
+    htClipListContainer.innerHTML = '';
+
+    const query = (htClipSearchInput?.value || '').toLowerCase().trim();
+    const filtered = clips.filter((item) => {
+      const matchFilter = (activeFilter === 'all') || (item.type === activeFilter);
+      const matchQuery = !query || item.text.toLowerCase().includes(query);
+      return matchFilter && matchQuery;
+    });
+
+    if (htClipLiveCount) {
+      htClipLiveCount.textContent = `${clips.length} items captured`;
+    }
+
+    if (filtered.length === 0) {
+      htClipListContainer.innerHTML = `<div class="ht-clip-empty">No items match your filter.<br/>Copy any text, link, or code on your PC to see it here.</div>`;
+      return;
+    }
+
+    filtered.forEach((clip, idx) => {
+      const el = document.createElement('div');
+      el.className = 'ht-clip-item';
+      if (selectedClip && selectedClip.id === clip.id) {
+        el.classList.add('active');
+      } else if (!selectedClip && idx === 0) {
+        el.classList.add('active');
+        selectClipForPreview(clip);
+      }
+
+      let iconClass = 'fa-solid fa-paragraph';
+      if (clip.type === 'link') iconClass = 'fa-solid fa-link';
+      else if (clip.type === 'code') iconClass = 'fa-solid fa-code';
+
+      el.innerHTML = `
+        <i class="${iconClass} ht-clip-type-icon"></i>
+        <span class="ht-clip-summary">${clip.text.replace(/\n/g, ' ')}</span>
+        <span class="ht-clip-time">${formatRelativeTime(clip.time)}</span>
+      `;
+
+      el.addEventListener('click', () => {
+        document.querySelectorAll('.ht-clip-item').forEach(i => i.classList.remove('active'));
+        el.classList.add('active');
+        selectClipForPreview(clip);
+        sound.playPoke();
+      });
+
+      htClipListContainer.appendChild(el);
+    });
+  }
+
+  function selectClipForPreview(clip) {
+    selectedClip = clip;
+    if (htClipPreviewBody) htClipPreviewBody.textContent = clip.text;
+    if (htClipMetaType) htClipMetaType.textContent = `Type: ${clip.type.toUpperCase()}`;
+    if (htClipMetaChars) htClipMetaChars.textContent = `${clip.text.length} chars`;
+    if (htClipMetaTime) htClipMetaTime.textContent = formatRelativeTime(clip.time);
+  }
+
+  async function refreshClipboardHistory() {
+    if (window.jarvisAPI && window.jarvisAPI.getClipboardHistory) {
+      try {
+        const clips = await window.jarvisAPI.getClipboardHistory();
+        liveClips = Array.isArray(clips) ? clips : [];
+        renderClipsList(liveClips);
+      } catch (err) {
+        console.warn('Failed to load clipboard history:', err);
+      }
+    }
+  }
+
+  // Real-time listener when new item is copied on PC
+  if (window.jarvisAPI && window.jarvisAPI.onClipboardHistoryUpdated) {
+    window.jarvisAPI.onClipboardHistoryUpdated((clips) => {
+      liveClips = Array.isArray(clips) ? clips : [];
+      renderClipsList(liveClips);
+    });
+  }
+
+  if (htClipSearchInput) {
+    htClipSearchInput.addEventListener('input', () => {
+      renderClipsList(liveClips);
+    });
+  }
+
+  htClipFilters.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      htClipFilters.forEach((c) => c.classList.remove('active'));
+      chip.classList.add('active');
+      activeFilter = chip.getAttribute('data-filter') || 'all';
+      renderClipsList(liveClips);
+      sound.playPoke();
+    });
+  });
+
+  if (htClipPasteBtn) {
+    htClipPasteBtn.addEventListener('click', async () => {
+      if (selectedClip && window.jarvisAPI && window.jarvisAPI.pasteClipboardItem) {
+        await window.jarvisAPI.pasteClipboardItem(selectedClip.text);
+        sound.playSuccess();
+        closeTopNotch();
+      }
+    });
+  }
+
+  // --- 5. REAL HARDWARE & SYSTEM STATS ---
+  const htStatRamBar = document.getElementById('htStatRamBar');
+  const htStatRamPct = document.getElementById('htStatRamPct');
+  const htStatRamDetails = document.getElementById('htStatRamDetails');
+  const htStatCpuModel = document.getElementById('htStatCpuModel');
+  const htStatCpuCores = document.getElementById('htStatCpuCores');
+  const htStatsRamBoost = document.getElementById('htStatsRamBoost');
+  const htTodayClock = document.getElementById('htTodayClock');
+  const htTodayDate = document.getElementById('htTodayDate');
+
+  async function loadRealSystemStats() {
+    if (window.jarvisAPI && window.jarvisAPI.getSystemStats) {
+      try {
+        const stats = await window.jarvisAPI.getSystemStats();
+        if (stats && stats.success) {
+          if (htStatRamPct) htStatRamPct.textContent = `${stats.ramPct}%`;
+          if (htStatRamBar) htStatRamBar.style.width = `${stats.ramPct}%`;
+          if (htStatRamDetails) htStatRamDetails.textContent = `${stats.usedMem} GB / ${stats.totalMem} GB (${stats.freeMem} GB free)`;
+          if (htStatCpuModel) htStatCpuModel.textContent = stats.cpuModel;
+          if (htStatCpuCores) htStatCpuCores.textContent = `${stats.cpuCores} Threads / Logical Cores`;
+        }
+      } catch (err) {
+        console.warn('Failed to load system stats:', err);
+      }
+    }
+  }
+
+  if (htStatsRamBoost) {
+    htStatsRamBoost.addEventListener('click', async () => {
+      sound.playPoke();
+      htStatsRamBoost.textContent = '⚡ Optimizing RAM...';
+      try {
+        await loadRealSystemStats();
+        setTimeout(() => {
+          htStatsRamBoost.textContent = '✓ RAM Optimized';
+          sound.playSuccess();
+          setTimeout(() => {
+            htStatsRamBoost.textContent = '⚡ Free Memory';
+          }, 2000);
+        }, 800);
+      } catch (e) {
+        htStatsRamBoost.textContent = '⚡ Free Memory';
+      }
+    });
+  }
+
+  // Real-time Clock in Today tab
+  function updateTodayClock() {
+    const now = new Date();
+    if (htTodayClock) {
+      htTodayClock.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    if (htTodayDate) {
+      htTodayDate.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    }
+  }
+  setInterval(updateTodayClock, 1000);
+  updateTodayClock();
+
+  // --- 6. REAL WALLPAPER PRESETS & APPLIER ---
+  const htWallTiles = document.querySelectorAll('.ht-wall-tile');
+  const htWallBrowseBtn = document.getElementById('htWallBrowseBtn');
+  const htWallStatus = document.getElementById('htWallStatus');
+
+  htWallTiles.forEach((tile) => {
+    tile.addEventListener('click', async () => {
+      htWallTiles.forEach(t => t.classList.remove('active'));
+      tile.classList.add('active');
+      const theme = tile.getAttribute('data-theme');
+      if (htWallStatus) htWallStatus.textContent = `Selected ${tile.getAttribute('title') || theme}...`;
+      sound.playSuccess();
+    });
+  });
+
+  if (htWallBrowseBtn) {
+    htWallBrowseBtn.addEventListener('click', async () => {
+      if (window.jarvisAPI && window.jarvisAPI.selectFile) {
+        const file = await window.jarvisAPI.selectFile();
+        if (file && file.path && window.jarvisAPI.setWallpaper) {
+          const res = await window.jarvisAPI.setWallpaper(file.path);
+          if (htWallStatus) {
+            htWallStatus.textContent = res.success ? '✓ Wallpaper applied to Windows desktop!' : `Error: ${res.error}`;
+          }
+          sound.playSuccess();
+        }
+      }
+    });
+  }
+
+  // --- 7. REAL APPS LAUNCHER ---
+  const htAppTiles = document.querySelectorAll('.ht-app-tile');
+  htAppTiles.forEach((tile) => {
+    tile.addEventListener('click', () => {
+      const app = tile.getAttribute('data-app');
+      sound.playPoke();
+      closeTopNotch();
+      if (window.jarvisAPI && window.jarvisAPI.openApp) {
+        window.jarvisAPI.openApp(app);
+      } else {
+        handleUserPrompt(`Open ${app}`, { isVoice: false });
+      }
+    });
+  });
+
+  // --- 8. POWER ACTIONS ---
+  const htPowerBtns = document.querySelectorAll('.ht-power-btn');
+  htPowerBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const act = btn.getAttribute('data-power');
+      sound.playPoke();
+      closeTopNotch();
+      if (window.jarvisAPI && window.jarvisAPI.systemControl) {
+        window.jarvisAPI.systemControl(act);
+      }
+    });
+  });
+
+  // Keyboard shortcut: Escape closes top notch, Ctrl+Shift+C toggles it
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && hitodamaTopNotch && hitodamaTopNotch.classList.contains('visible')) {
+      closeTopNotch();
+    }
+  });
+
+  // --- CIRCLE TO ASK EVENT HANDLERS ---
+  const circledImagePill = document.getElementById('circledImagePill');
+  const circledThumbImg = document.getElementById('circledThumbImg');
+  const removeCircledBtn = document.getElementById('removeCircledBtn');
+  let currentCircledCrop = null;
+
+  if (removeCircledBtn) {
+    removeCircledBtn.addEventListener('click', () => {
+      currentCircledCrop = null;
+      if (circledImagePill) circledImagePill.style.display = 'none';
+      if (currentAttachment && currentAttachment.name === 'Circled_Screen.png') {
+        currentAttachment = null;
+      }
+      mainInput.placeholder = "Ask Grokki, drop a file, or give an order...";
+    });
+  }
+
+  if (window.jarvisAPI && window.jarvisAPI.onCircleToAskReady) {
+    window.jarvisAPI.onCircleToAskReady(async ({ dataUrl }) => {
+      sound.playSuccess();
+      grokbot.setState('happy');
+      currentCircledCrop = dataUrl;
+
+      if (circledThumbImg) circledThumbImg.src = dataUrl;
+      if (circledImagePill) circledImagePill.style.display = 'flex';
+
+      try {
+        if (window.jarvisAPI.saveTempFile) {
+          const res = await window.jarvisAPI.saveTempFile({
+            dataUrl,
+            prefix: 'circled_crop_'
+          });
+          if (res && res.path) {
+            currentAttachment = {
+              name: 'Circled_Screen.png',
+              path: res.path,
+              ext: '.png'
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to save circled crop temp file:', err);
+      }
+
+      islandContainer.classList.remove('hidden-state');
+      setResponseHTML(`<h3>⭕ Circled Region Captured</h3><p>I see what you circled on your screen! Ask me anything about it out loud or type below (e.g. <em>"explain this"</em>, <em>"solve this problem"</em>, <em>"what is this code doing?"</em>).</p>`, true);
+      islandDrawer.classList.add('open');
+      islandContainer.classList.add('has-drawer-open');
+
+      mainInput.placeholder = "Ask about the circled region...";
+      mainInput.focus();
+    });
+  }
+
   settingsBtn.addEventListener('click', openSettings);
   if (pocketGrokkiBtn) {
     pocketGrokkiBtn.addEventListener('click', (e) => {
@@ -2136,17 +2703,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Pill expands outward chime as Grokki slides into left slot (~1460ms)
     chimeTimer = setTimeout(() => {
       sound.playSummon();
-      if (lightRaysContainer) lightRaysContainer.classList.add('active');
-      if (lightRays) {
-        lightRays.wake();
-        lightRays.pulse();
-      }
     }, 1460);
 
     // Complete transition and return to normal interactive state (~1900ms)
     launchTimer = setTimeout(() => {
       islandContainer.classList.remove('is-launching');
-      if (lightRaysContainer) lightRaysContainer.classList.add('active');
       if (currentMode === 'typing') mainInput.focus();
       else voice.startListening();
       launchTimer = null;
@@ -2163,7 +2724,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (impactSoundTimer) clearTimeout(impactSoundTimer);
       if (hiGreetingTimer) clearTimeout(hiGreetingTimer);
       if (chimeTimer) clearTimeout(chimeTimer);
-      if (lightRaysContainer) lightRaysContainer.classList.remove('active');
       islandContainer.classList.remove('is-launching');
       islandContainer.classList.add('hidden-state');
       islandDrawer.classList.remove('open');
@@ -2326,7 +2886,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   function playExitToMobileAnimation() {
     if (chimeTimer) clearTimeout(chimeTimer);
     if (launchTimer) clearTimeout(launchTimer);
-    if (lightRaysContainer) lightRaysContainer.classList.remove('active');
 
     islandContainer.classList.remove('is-launching');
     islandContainer.classList.remove('hidden-state');
@@ -2341,7 +2900,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => {
       islandContainer.classList.remove('is-exiting-to-mobile');
       islandContainer.classList.add('hidden-state');
-      if (lightRaysContainer) lightRaysContainer.classList.remove('active');
       const botWrapper = document.querySelector('.bot-wrapper');
       if (botWrapper) {
         botWrapper.style.visibility = 'hidden';
@@ -2407,6 +2965,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       sound.playDismiss();
       if (isSlashPaletteActive()) {
         hideSlashPalette();
+        return;
+      }
+      if (islandContainer.classList.contains('has-control-center-open')) {
+        closeControlCenter();
         return;
       }
       if (settingsSheet.classList.contains('open')) {

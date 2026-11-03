@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="grokki-blue">
+<head>
+  <meta charset="UTF-8" />
+  <title>Speech to Text</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    :root,
+    [data-theme="grokki-blue"] {
+      --bg-shell: rgba(15, 16, 22, 0.96);
+      --card-bg: rgba(255, 255, 255, 0.05);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --cream: #5b9bf8;
+      --cream-soft: rgba(91, 155, 248, 0.16);
+      --cream-glow: rgba(91, 155, 248, 0.45);
+      --cream-text: #081120;
+      --text-main: #f4f4f6;
+      --text-sub: #8e8e99;
+    }
+
+    [data-theme="cream"] {
+      --cream: #efeac6;
+      --cream-soft: rgba(239, 234, 198, 0.16);
+      --cream-glow: rgba(239, 234, 198, 0.45);
+      --cream-text: #111113;
+    }
+
+    [data-theme="jungle"] {
+      --cream: #34d399;
+      --cream-soft: rgba(52, 211, 153, 0.16);
+      --cream-glow: rgba(52, 211, 153, 0.45);
+      --cream-text: #061811;
+    }
+
+    [data-theme="sakura"] {
+      --cream: #f472b6;
+      --cream-soft: rgba(244, 114, 182, 0.16);
+      --cream-glow: rgba(244, 114, 182, 0.45);
+      --cream-text: #1f0814;
+    }
+
+    [data-theme="cyber"] {
+      --cream: #a855f7;
+      --cream-soft: rgba(168, 85, 247, 0.16);
+      --cream-glow: rgba(168, 85, 247, 0.45);
+      --cream-text: #160726;
+    }
+
+    [data-theme="sunset"] {
+      --cream: #fb923c;
+      --cream-soft: rgba(251, 146, 60, 0.16);
+      --cream-glow: rgba(251, 146, 60, 0.45);
+      --cream-text: #210d04;
+    }
+
+    [data-theme="arctic"] {
+      --cream: #22d3ee;
+      --cream-soft: rgba(34, 211, 238, 0.16);
+      --cream-glow: rgba(34, 211, 238, 0.45);
+      --cream-text: #05191f;
+    }
+
+    [data-theme="crimson"] {
+      --cream: #f87171;
+      --cream-soft: rgba(248, 113, 113, 0.16);
+      --cream-glow: rgba(248, 113, 113, 0.45);
+      --cream-text: #210707;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .stt-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      width: 610px;
+      animation: sttFloatIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes sttFloatIn {
+      0% {
+        opacity: 0;
+        transform: translateY(14px) scale(0.95);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Main Floating Card Following Active Theme */
+    .stt-card {
+      width: 100%;
+      min-height: 160px;
+      background: var(--bg-shell);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid var(--card-border);
+      border-radius: 28px;
+      padding: 20px 24px 24px 26px;
+      box-shadow:
+        0 26px 64px rgba(0, 0, 0, 0.65),
+        0 0 0 1px var(--cream-soft),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle Theme Radial Glow */
+    .stt-card::before {
+      content: '';
+      position: absolute;
+      top: -60px;
+      right: -60px;
+      width: 180px;
+      height: 180px;
+      background: radial-gradient(circle, var(--cream-soft) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* Top Row: Keycap Badges + Subtle Status */
+    .stt-top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      z-index: 1;
+    }
+
+    .stt-keycaps {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .keycap {
+      background: var(--cream);
+      color: var(--cream-text);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      padding: 5px 11px;
+      border-radius: 9px;
+      box-shadow:
+        0 4px 12px var(--cream-soft),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+
+    .keycap-plus {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-sub);
+      padding: 0 1px;
+    }
+
+    .stt-hint {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-sub);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stt-cancel-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-sub);
+      cursor: pointer;
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      border-radius: 8px;
+      transition: all 0.15s ease;
+    }
+
+    .stt-cancel-btn:hover {
+      color: #f87171;
+      border-color: rgba(248, 113, 113, 0.4);
+      background: rgba(248, 113, 113, 0.12);
+    }
+
+    /* Body Row: Streaming Transcript + Right Circular Mic Button */
+    .stt-body-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      min-height: 76px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .stt-transcript {
+      flex: 1;
+      font-size: 19px;
+      line-height: 1.48;
+      font-weight: 500;
+      color: var(--text-main);
+      letter-spacing: -0.015em;
+      word-break: break-word;
+      max-height: 120px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .stt-transcript::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
+
+    .stt-placeholder {
+      color: var(--text-sub);
+      font-weight: 500;
+      animation: placeholderPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes placeholderPulse {
+      0%, 100% { opacity: 0.55; }
+      50% { opacity: 0.95; }
+    }
+
+    .stt-word {
+      display: inline;
+      color: var(--text-main);
+    }
+
+    /* Trailing word soft motion-blur effect with theme accent */
+    .stt-word-trailing {
+      display: inline-block;
+      color: var(--cream);
+      filter: blur(0.95px);
+      opacity: 0.9;
+      animation: wordBlurIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes wordBlurIn {
+      0% {
+        filter: blur(4.5px);
+        opacity: 0.28;
+        transform: translateX(4px);
+      }
+      100% {
+        filter: blur(0.65px);
+        opacity: 0.92;
+        transform: translateX(0);
+      }
+    }
+
+    /* Right Circular Microphone Button */
+    .stt-mic-btn {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: var(--cream);
+      border: none;
+      box-shadow:
+        0 8px 24px var(--cream-soft),
+        0 0 0 4px var(--cream-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--cream-text);
+      font-size: 18px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: transform 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .stt-mic-btn:hover {
+      transform: scale(1.06);
+      box-shadow:
+        0 10px 28px var(--cream-glow),
+        0 0 0 6px var(--cream-soft);
+    }
+
+    .stt-mic-btn:active {
+      transform: scale(0.96);
+    }
+
+    /* Detached Bottom Dark Pill with 4 Theme-Colored Audio Dots */
+    .stt-bottom-pill {
+      width: 92px;
+      height: 36px;
+      border-radius: 999px;
+      background: var(--bg-shell);
+      border: 1px solid var(--card-border);
+      box-shadow:
+        0 12px 28px rgba(0, 0, 0, 0.55),
+        0 0 0 1px var(--cream-soft),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+    }
+
+    .stt-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--cream);
+      box-shadow: 0 0 10px var(--cream);
+      transition: transform 0.07s ease-out, opacity 0.07s ease-out;
+    }
+  </style>
+</head>
+<body>
+  <div class="stt-stage" id="sttStage">
+    <div class="stt-card">
+      <div class="stt-top-bar">
+        <div class="stt-keycaps">
+          <span class="keycap">Ctrl</span>
+          <span class="keycap-plus">+</span>
+          <span class="keycap">Space</span>
+        </div>
+        <div class="stt-hint">
+          <span id="sttStatusLabel">Listening live...</span>
+          <button class="stt-cancel-btn" id="cancelBtn" title="Cancel Dictation">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="stt-body-row">
+        <div class="stt-transcript" id="transcriptBox">
+          <span class="stt-placeholder">Speak now to write in your selected input...</span>
+        </div>
+        <button class="stt-mic-btn" id="finishMicBtn" title="Finish &amp; Write Now">
+          <i class="fa-solid fa-microphone" id="micIcon"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bottom Pill with 4 Theme-Colored Voice Dots -->
+    <div class="stt-bottom-pill">
+      <div class="stt-dot" id="dot0"></div>
+      <div class="stt-dot" id="dot1"></div>
+      <div class="stt-dot" id="dot2"></div>
+      <div class="stt-dot" id="dot3"></div>
+    </div>
+  </div>
+
+  <script>
+    const api = window.jarvisAPI || {};
+    const VALID_THEMES = ['grokki-blue', 'cream', 'jungle', 'sakura', 'cyber', 'sunset', 'arctic', 'crimson'];
+
+    function applyTheme(themeId) {
+      const t = VALID_THEMES.includes(themeId) ? themeId : 'grokki-blue';
+      document.documentElement.setAttribute('data-theme', t);
+    }
+
+    if (api.getConfig) {
+      api.getConfig().then((cfg) => {
+        if (cfg && cfg.pillTheme) applyTheme(cfg.pillTheme);
+      }).catch(() => {});
+    }
+    if (api.onConfigUpdated) {
+      api.onConfigUpdated((cfg) => {
+        if (cfg && cfg.pillTheme) applyTheme(cfg.pillTheme);
+      });
+    }
+
+    const transcriptBox = document.getElementById('transcriptBox');
+    const sttStatusLabel = document.getElementById('sttStatusLabel');
+    const finishMicBtn = document.getElementById('finishMicBtn');
+    const micIcon = document.getElementById('micIcon');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const dots = [
+      document.getElementById('dot0'),
+      document.getElementById('dot1'),
+      document.getElementById('dot2'),
+      document.getElementById('dot3'),
+    ];
+
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let audioContext = null;
+    let analyser = null;
+    let micStream = null;
+    let animFrame = null;
+    let previewTimer = null;
+    let speechRec = null;
+
+    let isFinishing = false;
+    let hasSpoken = false;
+    let silenceStart = null;
+    let lastSpeechActivityTime = 0;
+    let lastWordChangeTime = 0;
+    let liveTranscriptText = '';
+    let liveNormText = '';
+    let previewInFlight = false;
+    let noiseFloor = 0.012;
+    let calibrationSamples = 0;
+
+    // Auto-close & write ~1.35s after user finishes talking
+    const SILENCE_AFTER_SPEECH_MS = 1350;
+    const UNCHANGED_TRANSCRIPT_AUTO_FINISH_MS = 1950;
+    const IDLE_NO_SPEECH_TIMEOUT_MS = 9000;
+    const MAX_DURATION_MS = 40000;
+    const startTime = Date.now();
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function normalizeWords(str) {
+      return String(str || '').toLowerCase().replace(/[^a-z0-9\u00C0-\u024F]+/g, '');
+    }
+
+    function updateTranscriptDisplay(text) {
+      const clean = (text || '').trim();
+      if (!clean) return;
+      const norm = normalizeWords(clean);
+      if (!norm) return;
+
+      if (norm !== liveNormText) {
+        liveNormText = norm;
+        liveTranscriptText = clean;
+        hasSpoken = true;
+        lastWordChangeTime = Date.now();
+        lastSpeechActivityTime = Date.now();
+        silenceStart = null;
+      } else {
+        liveTranscriptText = clean;
+      }
+
+      const words = clean.split(/\s+/);
+      if (words.length === 1) {
+        transcriptBox.innerHTML = `<span class="stt-word-trailing">${escapeHtml(words[0])}</span>`;
+      } else {
+        const leading = words.slice(0, -1).map(escapeHtml).join(' ');
+        const last = escapeHtml(words[words.length - 1]);
+        transcriptBox.innerHTML = `<span class="stt-word">${leading} </span><span class="stt-word-trailing">${last}</span>`;
+      }
+      transcriptBox.scrollTop = transcriptBox.scrollHeight;
+    }
+
+    function startWebSpeechLive() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+      try {
+        speechRec = new SpeechRecognition();
+        speechRec.continuous = true;
+        speechRec.interimResults = true;
+        speechRec.lang = navigator.language || 'en-US';
+
+        let finalizedText = '';
+        speechRec.onresult = (event) => {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const piece = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalizedText += piece + ' ';
+            } else {
+              interim += piece;
+            }
+          }
+          const combined = (finalizedText + interim).trim();
+          if (combined) {
+            updateTranscriptDisplay(combined);
+          }
+        };
+        speechRec.onerror = () => {};
+        speechRec.start();
+      } catch (_) {}
+    }
+
+    async function pollLiveWhisperPreview() {
+      if (isFinishing || previewInFlight || audioChunks.length === 0) return;
+      if (Date.now() - startTime < 750) return;
+      previewInFlight = true;
+      try {
+        const mimeType = (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm';
+        const blob = new Blob(audioChunks, { type: mimeType });
+        if (blob.size > 900 && api.previewDictationAudio) {
+          const base64Audio = await blobToBase64(blob);
+          const res = await api.previewDictationAudio({ base64Audio, mimeType });
+          if (res && res.text && res.text.trim()) {
+            updateTranscriptDisplay(res.text.trim());
+          }
+        }
+      } catch (_) {
+      } finally {
+        previewInFlight = false;
+      }
+    }
+
+    function blobToBase64(blob) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = (reader.result || '').toString().split(',')[1] || '';
+          resolve(base64);
+        };
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function initDictation() {
+      startWebSpeechLive();
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume().catch(() => {});
+        }
+        const source = audioContext.createMediaStreamSource(micStream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.65;
+        source.connect(analyser);
+
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm';
+        mediaRecorder = new MediaRecorder(micStream, { mimeType });
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          cleanupAudio();
+          const blob = new Blob(audioChunks, { type: mimeType });
+          if (blob.size < 500 && !liveTranscriptText) {
+            if (api.cancelDictation) api.cancelDictation();
+            return;
+          }
+          const base64Audio = await blobToBase64(blob);
+          if (api.finishDictationAudio) {
+            api.finishDictationAudio({
+              base64Audio,
+              mimeType,
+              fallbackText: liveTranscriptText,
+            });
+          }
+        };
+
+        mediaRecorder.start(160);
+        previewTimer = setInterval(pollLiveWhisperPreview, 950);
+        monitorAudioDots();
+      } catch (err) {
+        sttStatusLabel.textContent = 'Mic unavailable';
+        setTimeout(() => {
+          if (api.cancelDictation) api.cancelDictation();
+        }, 1000);
+      }
+    }
+
+    function monitorAudioDots() {
+      if (!analyser || isFinishing) return;
+
+      const timeData = new Uint8Array(analyser.fftSize);
+      analyser.getByteTimeDomainData(timeData);
+
+      // Compute true waveform RMS (0.0 = silence, 1.0 = max amplitude)
+      let sumSquares = 0;
+      for (let i = 0; i < timeData.length; i++) {
+        const normalized = (timeData[i] - 128) / 128;
+        sumSquares += normalized * normalized;
+      }
+      const rms = Math.sqrt(sumSquares / timeData.length);
+
+      // Calibrate baseline ambient noise floor during initial frames or quiet moments
+      if (calibrationSamples < 18) {
+        noiseFloor = noiseFloor * 0.75 + rms * 0.25;
+        calibrationSamples++;
+      } else if (!hasSpoken && rms < noiseFloor * 1.4) {
+        noiseFloor = noiseFloor * 0.95 + rms * 0.05;
+      }
+
+      const speechThreshold = Math.max(0.026, Math.min(0.085, noiseFloor * 2.35));
+      const isVoiceActive = rms > speechThreshold;
+
+      // Animate the 4 theme-colored dots using frequency bands
+      const freqData = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(freqData);
+      const bandIndices = [3, 7, 12, 18];
+      for (let i = 0; i < 4; i++) {
+        const val = freqData[bandIndices[i]] || 0;
+        const boost = isVoiceActive ? (val / 255) * 1.15 : (val / 255) * 0.35;
+        const scale = 1 + Math.min(0.95, boost);
+        const opacity = 0.5 + Math.min(0.5, boost * 0.8);
+        dots[i].style.transform = `scale(${scale.toFixed(2)})`;
+        dots[i].style.opacity = opacity.toFixed(2);
+      }
+
+      const now = Date.now();
+
+      if (isVoiceActive) {
+        hasSpoken = true;
+        lastSpeechActivityTime = now;
+        silenceStart = null;
+        sttStatusLabel.textContent = 'Listening live...';
+      } else if (hasSpoken) {
+        if (!silenceStart) {
+          silenceStart = now;
+        }
+        const quietDuration = now - silenceStart;
+        const sinceLastWord = lastWordChangeTime ? now - lastWordChangeTime : quietDuration;
+        if (quietDuration >= SILENCE_AFTER_SPEECH_MS && sinceLastWord >= 950) {
+          finishRecording();
+          return;
+        }
+      }
+
+      // Fallback auto-finish: if words were already transcribed and no new words arrived for ~1.95s
+      if (hasSpoken && lastWordChangeTime > 0 && (now - lastWordChangeTime) >= UNCHANGED_TRANSCRIPT_AUTO_FINISH_MS) {
+        finishRecording();
+        return;
+      }
+
+      if (!hasSpoken && (now - startTime) > IDLE_NO_SPEECH_TIMEOUT_MS) {
+        // User opened dictation but never spoke for 9 seconds -> close cleanly
+        isFinishing = true;
+        cleanupAudio();
+        if (api.cancelDictation) api.cancelDictation();
+        return;
+      }
+
+      if (now - startTime > MAX_DURATION_MS) {
+        finishRecording();
+        return;
+      }
+
+      animFrame = requestAnimationFrame(monitorAudioDots);
+    }
+
+    function finishRecording() {
+      if (isFinishing) return;
+      isFinishing = true;
+      if (previewTimer) clearInterval(previewTimer);
+      if (speechRec) {
+        try { speechRec.stop(); } catch (_) {}
+      }
+      sttStatusLabel.textContent = 'Writing...';
+      micIcon.className = 'fa-solid fa-check';
+
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        try {
+          mediaRecorder.stop();
+        } catch (_) {
+          cleanupAudio();
+          if (liveTranscriptText && api.typeDictatedText) {
+            api.typeDictatedText(liveTranscriptText);
+          } else if (api.cancelDictation) {
+            api.cancelDictation();
+          }
+        }
+      } else if (liveTranscriptText && api.typeDictatedText) {
+        cleanupAudio();
+        api.typeDictatedText(liveTranscriptText);
+      } else {
+        cleanupAudio();
+        if (api.cancelDictation) api.cancelDictation();
+      }
+    }
+
+    function cleanupAudio() {
+      if (animFrame) cancelAnimationFrame(animFrame);
+      if (previewTimer) clearInterval(previewTimer);
+      if (speechRec) {
+        try { speechRec.stop(); } catch (_) {}
+      }
+      if (micStream) {
+        micStream.getTracks().forEach((t) => t.stop());
+      }
+      if (audioContext) {
+        audioContext.close().catch(() => {});
+      }
+    }
+
+    finishMicBtn.addEventListener('click', () => {
+      finishRecording();
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      isFinishing = true;
+      cleanupAudio();
+      if (api.cancelDictation) api.cancelDictation();
+    });
+
+    if (api.onDictationCommand) {
+      api.onDictationCommand((cmd) => {
+        if (cmd && cmd.action === 'finish') {
+          finishRecording();
+        } else if (cmd && cmd.action === 'cancel') {
+          isFinishing = true;
+          cleanupAudio();
+          if (api.cancelDictation) api.cancelDictation();
+        }
+      });
+    }
+
+    initDictation();
+  </script>
+</body>
+</html>

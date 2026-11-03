@@ -41,6 +41,7 @@ class GrokkiAgent {
         return {
           reply: aiRes.reply || 'Done.',
           actionsExecuted: aiRes.actionsExecuted || [],
+          grounding: aiRes.grounding || null,
         };
       }
       if (aiRes && aiRes.error) {

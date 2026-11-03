@@ -821,3 +821,333 @@ html.lenis, html.lenis body { height: auto; }
 .grokki-file-chip-name {
   white-space: nowrap;
 }
+
+/* =========================================================
+   GROKKI STUDIO THEME SYSTEM (Shared with Island & Top Notch)
+   ========================================================= */
+:root,
+[data-theme="grokki-blue"] {
+  --studio-bg: #08080a;
+  --studio-content-bg: #0c0d12;
+  --studio-sidebar-bg: #08090d;
+  --studio-header-bg: #08090d;
+  --studio-card: #121318;
+  --studio-card-soft: #14161f;
+  --studio-card-hover: #181a22;
+  --studio-item-active: #1a1c24;
+  --studio-border: rgba(255, 255, 255, 0.08);
+  --studio-border-accent: rgba(91, 155, 248, 0.35);
+  --studio-accent: #5b9bf8;
+  --studio-accent-deep: #2563eb;
+  --studio-accent-soft: rgba(91, 155, 248, 0.16);
+  --studio-accent-glow: rgba(91, 155, 248, 0.32);
+  --studio-accent-contrast: #08080a;
+}
+
+[data-theme="cream"] {
+  --studio-bg: #08080a;
+  --studio-content-bg: #101013;
+  --studio-sidebar-bg: #0a0a0d;
+  --studio-header-bg: #0a0a0d;
+  --studio-card: #131315;
+  --studio-card-soft: #18181c;
+  --studio-card-hover: #1c1c22;
+  --studio-item-active: #202028;
+  --studio-border: rgba(255, 255, 255, 0.08);
+  --studio-border-accent: rgba(239, 234, 198, 0.35);
+  --studio-accent: #efeac6;
+  --studio-accent-deep: #cbbd82;
+  --studio-accent-soft: rgba(239, 234, 198, 0.15);
+  --studio-accent-glow: rgba(239, 234, 198, 0.3);
+  --studio-accent-contrast: #101012;
+}
+
+[data-theme="jungle"] {
+  --studio-bg: #050907;
+  --studio-content-bg: #08100c;
+  --studio-sidebar-bg: #050a08;
+  --studio-header-bg: #050a08;
+  --studio-card: #0e1713;
+  --studio-card-soft: #121e19;
+  --studio-card-hover: #162620;
+  --studio-item-active: #1a2e26;
+  --studio-border: rgba(255, 255, 255, 0.08);
+  --studio-border-accent: rgba(52, 211, 153, 0.35);
+  --studio-accent: #34d399;
+  --studio-accent-deep: #059669;
+  --studio-accent-soft: rgba(52, 211, 153, 0.16);
+  --studio-accent-glow: rgba(52, 211, 153, 0.32);
+  --studio-accent-contrast: #05130e;
+}
+
+[data-theme="sakura"] {
+  --studio-bg: #090608;
+  --studio-content-bg: #110b0f;
+  --studio-sidebar-bg: #0b070a;
+  --studio-header-bg: #0b070a;
+  --studio-card: #171015;
+  --studio-card-soft: #1e141b;
+  --studio-card-hover: #261923;
+  --studio-item-active: #2e1e2a;
+  --studio-border: rgba(255, 255, 255, 0.08);
+  --studio-border-accent: rgba(244, 114, 182, 0.35);
+  --studio-accent: #f472b6;
+  --studio-accent-deep: #db2777;
+  --studio-accent-soft: rgba(244, 114, 182, 0.16);
+  --studio-accent-glow: rgba(244, 114, 182, 0.32);
+  --studio-accent-contrast: #160710;
+}
+
+[data-theme="cyber"] {
+  --studio-bg: #07050b;
+  --studio-content-bg: #0f0a17;
+  --studio-sidebar-bg: #09070e;
+  --studio-header-bg: #09070e;
+  --studio-card: #14101c;
+  --studio-card-soft: #1b1527;
+  --studio-card-hover: #221a31;
+  --studio-item-active: #2a203c;
+  --studio-border: rgba(255, 255, 255, 0.08);
+  --studio-border-accent: rgba(168, 85, 247, 0.35);
+  --studio-accent: #a855f7;
+  --studio-accent-deep: #7e22ce;
+  --studio-accent-soft: rgba(168, 85, 247, 0.16);
+  --studio-accent-glow: rgba(168, 85, 247, 0.32);
+  --studio-accent-contrast: #ffffff;
+}
+
+[data-theme="sunset"] {
+  --studio-bg: #090604;
+  --studio-content-bg: #120d09;
+  --studio-sidebar-bg: #0b0805;
+  --studio-header-bg: #0b0805;
+  --studio-card: #17120e;
+  --studio-card-soft: #1f1813;
+  --studio-card-hover: #271f18;
+  --studio-item-active: #30261e;
+  --studio-border: rgba(255, 255, 255, 0.08);
+  --studio-border-accent: rgba(251, 146, 60, 0.35);
+  --studio-accent: #fb923c;
+  --studio-accent-deep: #ea580c;
+  --studio-accent-soft: rgba(251, 146, 60, 0.16);
+  --studio-accent-glow: rgba(251, 146, 60, 0.32);
+  --studio-accent-contrast: #160b04;
+}
+
+[data-theme="arctic"] {
+  --studio-bg: #05080a;
+  --studio-content-bg: #080e12;
+  --studio-sidebar-bg: #05090c;
+  --studio-header-bg: #05090c;
+  --studio-card: #0e161a;
+  --studio-card-soft: #121c22;
+  --studio-card-hover: #16242b;
+  --studio-item-active: #1b2c35;
+  --studio-border: rgba(255, 255, 255, 0.08);
+  --studio-border-accent: rgba(34, 211, 238, 0.35);
+  --studio-accent: #22d3ee;
+  --studio-accent-deep: #0891b2;
+  --studio-accent-soft: rgba(34, 211, 238, 0.16);
+  --studio-accent-glow: rgba(34, 211, 238, 0.32);
+  --studio-accent-contrast: #051317;
+}
+
+[data-theme="crimson"] {
+  --studio-bg: #090505;
+  --studio-content-bg: #120909;
+  --studio-sidebar-bg: #0b0606;
+  --studio-header-bg: #0b0606;
+  --studio-card: #180f10;
+  --studio-card-soft: #201416;
+  --studio-card-hover: #28191c;
+  --studio-item-active: #311f22;
+  --studio-border: rgba(255, 255, 255, 0.08);
+  --studio-border-accent: rgba(248, 113, 113, 0.35);
+  --studio-accent: #f87171;
+  --studio-accent-deep: #dc2626;
+  --studio-accent-soft: rgba(248, 113, 113, 0.16);
+  --studio-accent-glow: rgba(248, 113, 113, 0.32);
+  --studio-accent-contrast: #180606;
+}
+
+/* Comprehensive Grokki Studio Structural Theme Styling */
+html[data-theme] body {
+  background-color: var(--studio-bg) !important;
+}
+
+html[data-theme] .dark\:bg-\[\#08090d\] {
+  background-color: var(--studio-sidebar-bg) !important;
+}
+
+html[data-theme] .dark\:bg-\[\#0c0d12\],
+html[data-theme] .dark\:bg-\[\#0b0c10\] {
+  background-color: var(--studio-content-bg) !important;
+}
+
+html[data-theme] .dark\:bg-\[\#13141a\] {
+  background-color: var(--studio-card) !important;
+}
+
+html[data-theme] .dark\:bg-\[\#14161f\] {
+  background-color: var(--studio-card-soft) !important;
+}
+
+html[data-theme] .dark\:bg-\[\#181a22\] {
+  background-color: var(--studio-card-hover) !important;
+}
+
+html[data-theme] .dark\:bg-\[\#1a1c24\] {
+  background-color: var(--studio-item-active) !important;
+}
+
+html[data-theme] .dark\:border-\[\#1e2029\],
+html[data-theme] .dark\:border-\[\#202330\] {
+  border-color: var(--studio-border) !important;
+}
+
+/* Studio Brand Accents, Badges, Tabs, Highlights */
+html[data-theme] .text-blue-500,
+html[data-theme] .text-blue-600,
+html[data-theme] .dark\:text-blue-400,
+html[data-theme] .dark\:text-blue-500 {
+  color: var(--studio-accent) !important;
+}
+
+html[data-theme] .border-blue-500,
+html[data-theme] .border-blue-600,
+html[data-theme] .dark\:border-blue-500\/40,
+html[data-theme] .dark\:border-blue-500\/30,
+html[data-theme] .dark\:border-blue-500\/20 {
+  border-color: var(--studio-accent) !important;
+}
+
+html[data-theme] .bg-blue-500,
+html[data-theme] .bg-blue-600 {
+  background-color: var(--studio-accent) !important;
+}
+
+html[data-theme] .hover\:border-blue-500:hover,
+html[data-theme] .hover\:border-blue-600:hover {
+  border-color: var(--studio-accent) !important;
+}
+
+html[data-theme] .bg-blue-500\/10,
+html[data-theme] .bg-blue-600\/10,
+html[data-theme] .dark\:bg-blue-500\/10,
+html[data-theme] .dark\:bg-blue-600\/10 {
+  background-color: var(--studio-accent-soft) !important;
+}
+
+html[data-theme] ::selection {
+  background-color: var(--studio-accent-soft) !important;
+  color: var(--studio-accent) !important;
+}
+
+/* =========================================================
+   SKEWED PARALLELOGRAM THEMES CAROUSEL (APPEARANCE TAB)
+   ========================================================= */
+.studio-carousel-stage {
+  position: relative;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 10px 0;
+  user-select: none;
+}
+
+.studio-theme-slot {
+  position: absolute;
+  width: 152px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition:
+    transform 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.36s ease;
+}
+
+.studio-theme-slot[data-slot="-2"] {
+  transform: translateX(-290px) scale(0.76);
+  opacity: 0.38;
+  z-index: 1;
+}
+.studio-theme-slot[data-slot="-1"] {
+  transform: translateX(-150px) scale(0.89);
+  opacity: 0.72;
+  z-index: 2;
+}
+.studio-theme-slot[data-slot="0"] {
+  transform: translateX(0) scale(1.04);
+  opacity: 1;
+  z-index: 5;
+}
+.studio-theme-slot[data-slot="1"] {
+  transform: translateX(150px) scale(0.89);
+  opacity: 0.72;
+  z-index: 2;
+}
+.studio-theme-slot[data-slot="2"] {
+  transform: translateX(290px) scale(0.76);
+  opacity: 0.38;
+  z-index: 1;
+}
+.studio-theme-slot[data-slot="hidden"] {
+  transform: translateX(0) scale(0.5);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.studio-theme-square {
+  position: relative;
+  width: 144px;
+  height: 138px;
+  border-radius: 22px;
+  transform: skewX(-9deg);
+  overflow: hidden;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+  transition: border-color 0.25s ease, box-shadow 0.35s ease, transform 0.25s ease;
+}
+
+.studio-theme-slot[data-slot="0"] .studio-theme-square {
+  border: 2px solid #ffffff;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.82), 0 0 26px var(--studio-accent-glow, rgba(91, 155, 248, 0.4)), inset 0 1px 2px rgba(255, 255, 255, 0.55);
+}
+
+.studio-theme-grain {
+  position: absolute;
+  inset: -15%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.88' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)' opacity='0.52'/%3E%3C/svg%3E");
+  background-size: 130px 130px;
+  mix-blend-mode: overlay;
+  opacity: 0.78;
+  pointer-events: none;
+}
+
+.studio-theme-sheen {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.34) 0%, transparent 58%),
+              linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(0, 0, 0, 0.28) 100%);
+  pointer-events: none;
+}
+
+.studio-theme-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #94949e;
+  letter-spacing: -0.01em;
+  text-align: center;
+  white-space: nowrap;
+  transition: color 0.2s ease, font-weight 0.2s ease;
+}
+
+.studio-theme-slot[data-slot="0"] .studio-theme-name {
+  color: #f4f4f6;
+  font-weight: 800;
+}

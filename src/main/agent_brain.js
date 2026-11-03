@@ -23,16 +23,28 @@ const studyEngine = require('./study_engine');
 const powerTools = require('./power_tools');
 function shouldAutoSearchWeb(prompt = '') {
   if (!prompt || typeof prompt !== 'string') return false;
-  const p = prompt.toLowerCase().trim();
+  const raw = prompt.trim();
+  const p = raw.toLowerCase();
 
   // Never auto search web for desktop actions, Google Workspace, WhatsApp, local tools, or file operations
   if (/\b(google\s+(drive|doc|docs|sheet|sheets|slides|calendar|task|tasks|contacts?|workspace|account|mail)|drive|gmail|whatsapp|spotify|word|excel|powerpoint|calculator|notepad|screenshot|snip|volume|brightness|pc\s+health|folder|file|upload|download|save|create|delete|open|close|lock|sleep|shutdown|mute|unmute)\b/i.test(p)) {
     return false;
   }
 
+  // Never auto search for simple conversational greetings or social acknowledgments
+  if (/^(hi|hello|hey|yo|sup|greetings|good\s+(morning|afternoon|evening|night)|thanks|thank\s+you|ok|okay|bye|cool|nice|who\s+are\s+you|what\s+is\s+your\s+name|how\s+are\s+you)\b/i.test(p) && p.split(/\s+/).length <= 4) {
+    return false;
+  }
+
   // Explicit web search keywords
   if (/\b(search\s+(the\s+)?web|deep\s+search|web\s+search|live\s+search|browse\s+web)\b/i.test(p)) return true;
   if (/^google\s+(.+)/i.test(p)) return true;
+
+  // University / College / Institution / Campus queries (e.g. Assam Don Bosco University, ADBU, IIT, etc.)
+  if (/\b(university|college|institute|campus|adbu|assam\s+don\s+bosco|don\s+bosco|iit|nit|bits|aiims|iim|oxford|harvard|stanford|cambridge|mit)\b/i.test(p)) {
+    return true;
+  }
+
   // Current events, protests, conflicts, happenings
   if (/\b(what('?s|\s+is)\s+(the\s+)?(protest|protests|strike|war|conflict|situation|news|happening|going\s+on))\b/i.test(p)) return true;
   if (/\b(going\s+on\s+in|happening\s+in|protests?\s+in)\b/i.test(p)) return true;
@@ -41,10 +53,37 @@ function shouldAutoSearchWeb(prompt = '') {
   if (/\b(202[4-9]|203\d)\b/.test(p)) return true;
   // High-frequency factual questions: who won, who is the current, winner of, stock price of, etc.
   if (/\b(exchange\s*rate|currency|forex|fx\s*rate|who\s+won|who\s+is\s+the\s+current|winner\s+of|champions?\s+of|score\s+of|release\s+date\s+of|when\s+is\s+the\s+next|price\s+of|stock\s+price|crypto\s+price|weather\s*(in|for)?|nobel\s+prize|election|president\s+of|ceo\s+of)\b/i.test(p)) return true;
+
+  // Low-context / standalone topic or entity prompts (1 to 6 words) that lack a full predicate or verb
+  const words = raw.split(/\s+/);
+  if (words.length >= 1 && words.length <= 6) {
+    const isQuestionVerb = /^(can you|could you|how do i|how to|why is|why are|what is the time|calculate|solve|set|change)\b/i.test(p);
+    if (!isQuestionVerb) {
+      return true;
+    }
+  }
+
   return false;
 }
 
 const { searchWeb, buildGroundingPrompt } = require('./web_search');
+
+function extractJsonBlock(text) {
+  if (!text || typeof text !== 'string') return null;
+  const startIdx = text.search(/\{/);
+  if (startIdx === -1) return null;
+  let depth = 0;
+  for (let i = startIdx; i < text.length; i++) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}') {
+      depth--;
+      if (depth === 0) {
+        return text.slice(startIdx, i + 1);
+      }
+    }
+  }
+  return null;
+}
 
 function resolveOpenAIEndpointAndKey(provider, config = {}) {
   let endpoint = 'https://api.groq.com/openai/v1';
@@ -1141,6 +1180,12 @@ class AgentBrain {
         const isDesktop = /desktop/i.test(rest);
         return { tool: 'organize_folder', args: { target_folder: isDesktop ? 'desktop' : 'downloads' } };
       }
+      if (cmd === 'circle' || cmd === 'circletoask') {
+        return { tool: 'circle_to_ask', args: {} };
+      }
+      if (cmd === 'dictate' || cmd === 'dictation') {
+        return { tool: 'voice_dictation', args: {} };
+      }
     }
 
     // If Viva / Oral Exam is active, handle stop/export or route answers directly
@@ -1167,6 +1212,16 @@ class AgentBrain {
     // Fast Snap & Solve trigger
     if (/^(snap\s*(&|and)\s*solve|solve\s+(what'?s\s+on\s+)?my\s+screen|solve\s+this\s+screen|snap\s+solve)/i.test(p)) {
       return { tool: 'snap_and_solve_screen', args: { question_or_focus: prompt } };
+    }
+
+    // Hitodama Circle to Ask fast intent
+    if (/\b(circle\s+(to\s+)?ask|circle\s+(my\s+)?screen|screen\s+lasso)\b/i.test(p) || p === 'circle') {
+      return { tool: 'circle_to_ask', args: {} };
+    }
+
+    // Hitodama Voice Dictation fast intent
+    if (/\b(voice\s+dictation|dictate\s+(text|speech)?|type\s+with\s+(my\s+)?voice)\b/i.test(p)) {
+      return { tool: 'voice_dictation', args: {} };
     }
 
     // Fast Folder Auto-Organizer (Downloads / Desktop)
@@ -1472,6 +1527,34 @@ class AgentBrain {
       return { tool: 'system_power', args: { action: 'cancel' } };
     }
 
+    // --- 13. Music & Media Playback Fast Intents ---
+    // Matches "play some music", "plau some music" (common typo!), "play music", "play songs", "play [song name]", "pause/resume/next/stop music"
+    if (/^(?:pla[yu]|pleay)\s+(?:some\s+)?music(?:\s+(?:for\s+me|please))?$/i.test(p) ||
+        /^(?:pla[yu]|pleay)\s+songs?(?:\s+(?:for\s+me|please))?$/i.test(p) ||
+        p === 'play music' || p === 'plau some music') {
+      return { tool: 'play_music', args: { song: 'lofi chill mix' } };
+    }
+    const playSongMatch = p.match(/^(?:pla[yu]|pleay)\s+(?:the\s+song\s+|track\s+)?(.+?)(?:\s+(?:on|in)\s+(?:youtube\s*music|spotify|browser|youtube))?$/i);
+    if (playSongMatch) {
+      const songQuery = playSongMatch[1].trim();
+      const nonMusicTerms = ['game', 'games', 'around', 'with', 'store', 'it', 'video', 'rule', 'role', 'file'];
+      if (!nonMusicTerms.includes(songQuery.toLowerCase())) {
+        return { tool: 'play_music', args: { song: songQuery } };
+      }
+    }
+    if (/^(?:pause|stop)\s+(?:the\s+)?(?:music|song|playback|audio)$/i.test(p) || p === 'pause music' || p === 'stop music') {
+      return { tool: 'control_music', args: { action: 'pause' } };
+    }
+    if (/^(?:resume|unpause)\s+(?:the\s+)?(?:music|song|playback|audio)$/i.test(p) || p === 'resume music' || p === 'unpause music') {
+      return { tool: 'control_music', args: { action: 'resume' } };
+    }
+    if (/^(?:next|skip)\s+(?:the\s+)?(?:song|track|music)$/i.test(p) || p === 'next track' || p === 'skip track' || p === 'next song') {
+      return { tool: 'control_music', args: { action: 'next' } };
+    }
+    if (/^(?:previous|prev)\s+(?:the\s+)?(?:song|track|music)$/i.test(p) || p === 'previous track' || p === 'prev track') {
+      return { tool: 'control_music', args: { action: 'prev' } };
+    }
+
     return null;
   }
 
@@ -1588,19 +1671,24 @@ class AgentBrain {
       }
     }
 
+    if (context && Array.isArray(context.conversationHistory) && context.conversationHistory.length > 0) {
+      memory.syncFromExternalHistory(context.conversationHistory);
+    }
+
     memory.addTurn('user', fullPrompt);
 
     const rawHistory = memory.getHistory();
     let systemContent = memory.buildSystemPrompt(config);
-    let historyToUse = rawHistory;
+    let historyToUse = rawHistory.slice(-18);
 
     // Groq Free Tier optimization: keep prompt lean (<3500 tokens) to guarantee zero 413 ITPM errors
     if (provider === 'groq') {
-      systemContent = `You are Grokki, a fast, highly concise AI assistant for Windows${isWebSearchActive ? ' with active real-time web search capabilities' : ''}.
+      systemContent = `You are Grokki, a fast, highly intelligent AI assistant for Windows${isWebSearchActive ? ' with active real-time web search capabilities' : ''}.
 User: ${config.userNickname || config.userName || 'Friend'}.
 Tone: ${config.userTone || 'warm, friendly, direct'}.
-Respond concisely, naturally, and directly without robotic disclaimers. ${isWebSearchActive ? 'When live web search grounding is provided, answer directly with the real-time facts and numbers without robotic disclaimers. ' : ''}Use clean Markdown formatting.`;
-      historyToUse = rawHistory.slice(-2);
+Respond concisely, naturally, and directly without robotic disclaimers. ${isWebSearchActive ? 'When live web search grounding is provided, answer directly with the real-time facts and numbers without robotic disclaimers. ' : ''}Use clean Markdown formatting.
+SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just an entity/university name (such as "Assam Don Bosco University" or "ADBU"), DO NOT HALLUCINATE OR GUESS. Accurately acknowledge the entity, note that it has multiple distinct campuses or areas (e.g. for ADBU: Tapesia Campus in Sonapur, Azara Campus in Guwahati, Kharguli Campus, or student ERP attendance), and smartly question back asking which specific area, campus, or detail they need.`;
+      historyToUse = rawHistory.slice(-6);
     }
 
     const messages = [
@@ -1670,8 +1758,52 @@ Respond concisely, naturally, and directly without robotic disclaimers. ${isWebS
 
       const msg = choice.message;
       let replyText = (msg.content || '').trim();
-      const toolCalls = msg.tool_calls || [];
+      const toolCalls = Array.isArray(msg.tool_calls) ? [...msg.tool_calls] : [];
       const executed = [];
+
+      // Intercept pseudo-tool calls from OpenRouter / Groq / Open-source models
+      // that output tool calls in the message text body (e.g. call>{"name": "playmusic", ...} or <tool_call>...</tool_call>)
+      if (replyText) {
+        const hasPseudoCall = /(?:call>|<tool_call>|\[TOOL_CALL\]|\bcall:\s*|\bAction:\s*)\s*\{/i.test(replyText) ||
+                              (replyText.startsWith('{') && (replyText.includes('"name"') || replyText.includes('"function"')));
+        if (hasPseudoCall) {
+          const jsonStr = extractJsonBlock(replyText);
+          if (jsonStr) {
+            try {
+              const parsed = JSON.parse(jsonStr);
+              let toolName = (parsed.name || parsed.function?.name || parsed.action || '').trim();
+              let toolArgs = parsed.arguments || parsed.args || parsed.parameters || parsed.function?.arguments || {};
+              if (typeof toolArgs === 'string') {
+                try { toolArgs = JSON.parse(toolArgs); } catch (e) {}
+              }
+              if (toolName) {
+                // Normalize names & aliases
+                toolName = toolName.toLowerCase().replace(/-/g, '_');
+                if (toolName === 'playmusic') toolName = 'play_music';
+                if (toolName === 'controlmusic') toolName = 'control_music';
+                if (toolName === 'play_music' || toolName === 'play_youtube_music') {
+                  if (toolArgs.query && !toolArgs.song) toolArgs.song = toolArgs.query;
+                }
+                toolCalls.push({
+                  id: `pseudo_${Date.now()}`,
+                  type: 'function',
+                  function: {
+                    name: toolName,
+                    arguments: toolArgs,
+                  },
+                });
+                // Remove raw pseudo call syntax from user-facing replyText
+                replyText = replyText.replace(/(?:call>|<tool_call>|\[TOOL_CALL\]|\bcall:\s*|\bAction:\s*)?[\s\S]*?\}<\/tool_call>|call>[\s\S]*\}|```(?:json)?\s*\{[\s\S]*?\}\s*```/i, '').trim();
+                if (replyText.startsWith('{') && replyText.endsWith('}')) {
+                  replyText = '';
+                }
+              }
+            } catch (err) {
+              console.warn('[AgentBrain] Failed to parse pseudo-tool call JSON:', err.message);
+            }
+          }
+        }
+      }
 
       for (const call of toolCalls) {
         if (signal.aborted) {
@@ -2412,7 +2544,7 @@ Rules:
 
       case 'play_music':
       case 'play_youtube_music': {
-        const song = (args.song || 'trending songs').trim();
+        const song = (args.song || args.query || args.name || 'trending songs').trim();
         const configuredPlatform = (this.activeConfig && this.activeConfig.musicProvider) || 'ytmusic';
         const platform = (args.platform || configuredPlatform || 'ytmusic').toLowerCase();
 
@@ -2435,13 +2567,14 @@ Rules:
           platformName = 'Amazon Music';
           playUrl = `https://music.amazon.com/search/${encodeURIComponent(song)}`;
         } else {
-          // Default: YouTube Music
-          platformName = 'YouTube Music';
+          // Default: Universal browser playback on YouTube with autoplay
           const videoId = await resolveYouTubeVideoId(song);
           if (videoId) {
-            playUrl = `https://music.youtube.com/watch?v=${videoId}`;
+            playUrl = `https://www.youtube.com/watch?v=${videoId}&autoplay=1`;
+            platformName = 'YouTube';
           } else {
-            playUrl = `https://music.youtube.com/search?q=${encodeURIComponent(song)}`;
+            playUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(song)}`;
+            platformName = 'YouTube';
           }
         }
 
@@ -3128,6 +3261,20 @@ Rules:
 
       case 'snap_and_solve_screen': {
         return await this.handleSnapAndSolveScreen(args);
+      }
+
+      case 'circle_to_ask': {
+        if (typeof this.openCircleOverlay === 'function') {
+          this.openCircleOverlay();
+        }
+        return { success: true, message: 'Opening Circle to Ask screen overlay (Ctrl+Shift+S) ⭕' };
+      }
+
+      case 'voice_dictation': {
+        if (typeof this.startVoiceDictation === 'function') {
+          this.startVoiceDictation();
+        }
+        return { success: true, message: 'Activated voice dictation anywhere in Windows (Ctrl+Alt+D) 🎙️' };
       }
 
       case 'math_and_knowledge_solver': {

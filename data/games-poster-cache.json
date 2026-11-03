@@ -1,0 +1,50 @@
+{
+  "chainedtogether": {
+    "appId": "2567870",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2567870/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2567870/header.jpg",
+    "extraFallback": "https://cdn.cloudflare.steamstatic.com/steam/apps/2567870/header.jpg"
+  },
+  "crabgame": {
+    "appId": "1782210",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1782210/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1782210/header.jpg",
+    "extraFallback": "https://cdn.cloudflare.steamstatic.com/steam/apps/1782210/header.jpg"
+  },
+  "forzahorizon4": {
+    "appId": "1293830",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1293830/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1293830/header.jpg",
+    "extraFallback": "https://cdn.cloudflare.steamstatic.com/steam/apps/1293830/header.jpg"
+  },
+  "needforspeedheat": {
+    "appId": "1222680",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1222680/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1222680/header.jpg",
+    "extraFallback": "https://cdn.cloudflare.steamstatic.com/steam/apps/1222680/header.jpg"
+  },
+  "picopark": {
+    "appId": "1509960",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1509960/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1509960/header.jpg",
+    "extraFallback": "https://cdn.cloudflare.steamstatic.com/steam/apps/1509960/header.jpg"
+  },
+  "reddeadredemption2": {
+    "appId": "1174180",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1174180/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1174180/header.jpg",
+    "extraFallback": "https://cdn.cloudflare.steamstatic.com/steam/apps/1174180/header.jpg"
+  },
+  "sleepingdogsdefinitiveedition": {
+    "appId": "307690",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/307690/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/307690/header.jpg",
+    "extraFallback": "https://cdn.cloudflare.steamstatic.com/steam/apps/307690/header.jpg"
+  },
+  "thewitcher3wildhunt": {
+    "appId": "292030",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/292030/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/292030/header.jpg",
+    "extraFallback": "https://cdn.cloudflare.steamstatic.com/steam/apps/292030/header.jpg"
+  }
+}

@@ -70,6 +70,39 @@ try {
     selectFile: () => ipcRenderer.invoke('jarvis:select-file'),
     searchWeb: (query, maxResults) => ipcRenderer.invoke('jarvis:search-web', query, maxResults),
 
+    // Hitodama Control Centre APIs
+    setTopNotchInteractive: (interactive) => ipcRenderer.send('top-notch:set-interactive', interactive),
+    setTopNotchFocusable: (focusable) => ipcRenderer.send('top-notch:set-focusable', focusable),
+    onTopNotchTrigger: (callback) => {
+      ipcRenderer.on('top-notch:trigger', (event, shouldOpen) => callback(shouldOpen));
+    },
+    getClipboardHistory: () => ipcRenderer.invoke('jarvis:get-clipboard-history'),
+    copyClipboardItem: (text) => ipcRenderer.invoke('jarvis:copy-clipboard-item', text),
+    pasteClipboardItem: (text) => ipcRenderer.invoke('jarvis:paste-clipboard-item', text),
+    pinClipboardItem: (id) => ipcRenderer.invoke('jarvis:pin-clipboard-item', id),
+    deleteClipboardItem: (id) => ipcRenderer.invoke('jarvis:delete-clipboard-item', id),
+    clearClipboardHistory: () => ipcRenderer.invoke('jarvis:clear-clipboard-history'),
+    onClipboardHistoryUpdated: (callback) => {
+      ipcRenderer.on('clipboard:history-updated', (event, data) => callback(data));
+    },
+    getSystemStats: () => ipcRenderer.invoke('jarvis:get-system-stats'),
+    osControl: (action, target = '', value = 0) => ipcRenderer.invoke('jarvis:os-control', { action, target, value }),
+    getVolume: () => ipcRenderer.invoke('jarvis:get-volume'),
+    setVolume: (val) => ipcRenderer.invoke('jarvis:set-volume', val),
+    toggleVolumeMute: () => ipcRenderer.invoke('jarvis:toggle-volume-mute'),
+    getInstalledApps: () => ipcRenderer.invoke('jarvis:get-installed-apps'),
+    launchInstalledApp: (appPath) => ipcRenderer.invoke('jarvis:launch-installed-app', appPath),
+    getInstalledGames: (forceRefresh = false) => ipcRenderer.invoke('jarvis:get-installed-games', forceRefresh),
+    launchInstalledGame: (game) => ipcRenderer.invoke('jarvis:launch-installed-game', game),
+    getLiveMedia: () => ipcRenderer.invoke('jarvis:get-live-media'),
+    getTodayData: () => ipcRenderer.invoke('jarvis:get-today-data'),
+    openSettingsPage: (page) => ipcRenderer.invoke('jarvis:open-settings-page', page),
+    getWallpapers: () => ipcRenderer.invoke('jarvis:get-wallpapers'),
+    browseWallpaper: () => ipcRenderer.invoke('jarvis:browse-wallpaper'),
+    browseWallpaperFolder: () => ipcRenderer.invoke('jarvis:browse-wallpaper-folder'),
+    setWallpaper: (wallpaperPath) => ipcRenderer.invoke('jarvis:set-wallpaper', wallpaperPath),
+    mediaKey: (key) => ipcRenderer.invoke('jarvis:media-key', key),
+
     // Presentation Slide Changer (Gesture + Voice)
     slideControl: (action) => ipcRenderer.invoke('jarvis:slide-control', action),
     onPresentationModeToggled: (callback) => {
@@ -224,6 +257,41 @@ try {
     syncAcademicPortal: () => ipcRenderer.invoke('jarvis:sync-academic-portal'),
     disconnectAcademicPortal: () => ipcRenderer.invoke('jarvis:disconnect-academic-portal'),
     getAcademicData: () => ipcRenderer.invoke('jarvis:get-academic-data'),
+
+    // Hitodama Powerpack: Circle to Ask & Voice Dictation
+    startCircleToAsk: () => ipcRenderer.invoke('jarvis:start-circle-to-ask'),
+    submitCircleCrop: (dataUrl, bounds) => ipcRenderer.send('jarvis:submit-circle-crop', dataUrl, bounds),
+    cancelCircleCrop: () => ipcRenderer.send('jarvis:cancel-circle-crop'),
+    onCircleOverlayData: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('circle:overlay-data', handler);
+      return () => ipcRenderer.removeListener('circle:overlay-data', handler);
+    },
+    onCircleToAskReady: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('jarvis:circle-to-ask-ready', handler);
+      return () => ipcRenderer.removeListener('jarvis:circle-to-ask-ready', handler);
+    },
+    startVoiceDictation: () => ipcRenderer.invoke('jarvis:start-voice-dictation'),
+    previewDictationAudio: (data) => ipcRenderer.invoke('jarvis:preview-dictation-audio', data),
+    finishDictationAudio: (data) => ipcRenderer.send('jarvis:finish-dictation-audio', data),
+    typeDictatedText: (text) => ipcRenderer.send('jarvis:type-dictated-text', text),
+    cancelDictation: () => ipcRenderer.send('jarvis:cancel-dictation'),
+    onDictationCommand: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('dictation:command', handler);
+      return () => ipcRenderer.removeListener('dictation:command', handler);
+    },
+
+    // Hitodama: Global File Drag & Drop
+    notifyDropReceived: () => ipcRenderer.send('jarvis:drop-received'),
+    setIslandExpanded: (expanded) => ipcRenderer.send('jarvis:set-island-expanded', expanded),
+    onWindowDragActive: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('window:drag-active', handler);
+      return () => ipcRenderer.removeListener('window:drag-active', handler);
+    },
+    getLastDetectedDragFiles: () => ipcRenderer.invoke('jarvis:get-drag-files'),
   });
   console.log('Preload: jarvisAPI successfully exposed in main world.');
 } catch (err) {

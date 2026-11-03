@@ -65,7 +65,7 @@ export interface JarvisConfig {
   hotkeys?: StudioHotkeys;
   voiceEnabled?: boolean;
   ttsEnabled?: boolean;
-  pillTheme?: 'glass' | 'original';
+  pillTheme?: 'grokki-blue' | 'cream' | 'jungle' | 'sakura' | 'cyber' | 'sunset' | 'arctic' | 'crimson' | 'glass' | 'original' | string;
   wakeWordEnabled?: boolean;
   musicProvider?: string;
   ttsVoice?: string;
@@ -283,6 +283,7 @@ export interface Conversation {
   title: string;
   updatedAt: number;
   messages: ChatMessage[];
+  isPinned?: boolean;
 }
 
 export interface JarvisAPI {
@@ -381,6 +382,14 @@ export interface JarvisAPI {
   }>;
   restartAndInstallUpdate?: (data?: any) => void;
   openConfigFolder?: () => Promise<{ success: boolean; path?: string }>;
+  startCircleToAsk?: () => Promise<{ success: boolean }>;
+  submitCircleCrop?: (dataUrl: string, bounds?: any) => void;
+  cancelCircleCrop?: () => void;
+  onCircleOverlayData?: (callback: (data: { dataUrl: string }) => void) => () => void;
+  onCircleToAskReady?: (callback: (data: { dataUrl: string; bounds?: any }) => void) => () => void;
+  startVoiceDictation?: () => Promise<{ success: boolean }>;
+  finishDictationAudio?: (data: { base64Audio: string; mimeType: string }) => void;
+  cancelDictation?: () => void;
 }
 
 declare global {

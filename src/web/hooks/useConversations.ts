@@ -218,6 +218,12 @@ export function useConversations() {
     );
   }, []);
 
+  const togglePinConversation = useCallback((id: string) => {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, isPinned: !c.isPinned } : c))
+    );
+  }, []);
+
   const updateActiveMessages = useCallback((updater: (prevMessages: ChatMessage[]) => ChatMessage[]) => {
     setConversations((prev) =>
       prev.map((convo) => {
@@ -261,6 +267,7 @@ export function useConversations() {
     createConversation,
     deleteConversation,
     renameConversation,
+    togglePinConversation,
     updateActiveMessages,
   };
 }

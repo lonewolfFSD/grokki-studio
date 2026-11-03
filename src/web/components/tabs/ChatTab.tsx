@@ -2231,6 +2231,12 @@ export const ChatTab = React.memo<ChatTabProps>(({
           context.webSearch = true;
           context.webSearchEnabled = true;
         }
+        if (Array.isArray(messages) && messages.length > 0) {
+          context.conversationHistory = messages.slice(-16).map((m) => ({
+            role: m.role,
+            content: m.content,
+          }));
+        }
         const res = await window.jarvisAPI.executeAI(text, context);
         let replyContent = res.reply || res.message;
         if (!replyContent) {

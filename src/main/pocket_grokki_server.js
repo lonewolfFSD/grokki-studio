@@ -759,10 +759,12 @@ class PocketGrokkiServer {
     if (ws.role === 'owner') {
       // ONLY trigger departure from PC if Grokki was summoned AND is currently on PC
       const shouldHopFromPc = shouldSummon && (this.grokkiHolder !== 'owner');
+      const activeTheme = (typeof this.loadConfig === 'function' ? this.loadConfig()?.pillTheme : null) || 'grokki-blue';
 
       this.sendTo(ws, {
         type: 'welcome',
         role: 'owner',
+        theme: activeTheme,
         ownerKey: issuedKey || owner?.key || undefined,
         deviceType: ws.deviceType,
         deviceName: ws.deviceName,
@@ -787,9 +789,11 @@ class PocketGrokkiServer {
       }
     } else {
       const isHolder = (this.grokkiHolder === ws.peerId);
+      const activeTheme = (typeof this.loadConfig === 'function' ? this.loadConfig()?.pillTheme : null) || 'grokki-blue';
       this.sendTo(ws, {
         type: 'welcome',
         role: 'sub',
+        theme: activeTheme,
         deviceType: ws.deviceType,
         deviceName: ws.deviceName,
         pcName: os.hostname(),
@@ -1504,6 +1508,61 @@ class PocketGrokkiServer {
         }
         return { success: false, message: 'Screenshot capture failed' };
       }
+      case 'get_stats': {
+        const totalMem = Math.round((os.totalmem() / (1024 * 1024 * 1024)) * 10) / 10;
+        const freeMem = Math.round((os.freemem() / (1024 * 1024 * 1024)) * 10) / 10;
+        const usedMem = Math.round((totalMem - freeMem) * 10) / 10;
+        const ramPct = Math.round((usedMem / totalMem) * 100);
+        const cpus = os.cpus();
+        const cpuModel = (cpus && cpus[0] ? cpus[0].model.replace(/\s+/g, ' ').trim() : 'Processor');
+        let totalIdle = 0, totalTick = 0;
+        if (cpus && cpus.length) {
+          cpus.forEach(cpu => {
+            for (let type in cpu.times) totalTick += cpu.times[type];
+            totalIdle += cpu.times.idle;
+          });
+        }
+        const cpuLoad = totalTick > 0 ? Math.min(100, Math.max(5, Math.round((1 - totalIdle / totalTick) * 100))) : 25;
+        return {
+          success: true,
+          cpuLoad,
+          cpuModel,
+          ramPct,
+          ramUsedGB: usedMem,
+          ramTotalGB: totalMem,
+          hostname: os.hostname(),
+          uptimeHours: Math.floor(os.uptime() / 3600)
+        };
+      }
+      case 'get_media': {
+        const mediaScript = path.join(__dirname, 'get_media_status.ps1').replace('app.asar', 'app.asar.unpacked');
+        if (fs.existsSync(mediaScript)) {
+          const res = await new Promise((resolve) => {
+            exec(`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${mediaScript}"`, { timeout: 3500 }, (err, stdout) => {
+              if (err || !stdout) return resolve({ hasMedia: false });
+              try {
+                const parsed = JSON.parse(stdout.trim());
+                const media = parsed.media || parsed || {};
+                const title = (media.title || parsed.title || '').trim();
+                const artist = (media.artist || parsed.artist || '').trim();
+                const status = media.status || parsed.status || 'Paused';
+                resolve({
+                  hasMedia: title.length > 0,
+                  title,
+                  artist,
+                  status,
+                  isPlaying: status === 'Playing',
+                  thumbnail: parsed.thumbnail || media.thumbnail || ''
+                });
+              } catch (_) {
+                resolve({ hasMedia: false });
+              }
+            });
+          });
+          return { success: true, ...res };
+        }
+        return { success: true, hasMedia: false };
+      }
       default:
         return { success: false, message: `Unknown OS action: ${action}` };
     }
@@ -1548,27 +1607,130 @@ class PocketGrokkiServer {
   }
 
   renderMobileAppHtml() {
+    const config = typeof this.loadConfig === 'function' ? this.loadConfig() : {};
+    const initialTheme = config?.pillTheme || 'grokki-blue';
     return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="${initialTheme}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#08080a">
   <title>Grokki</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
+    :root,
+    [data-theme="grokki-blue"] {
+      --notch-bg: #08080a;
+      --card-bg: #121318;
+      --card-hover: #181a22;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --cream: #5b9bf8;
+      --cream-soft: rgba(91, 155, 248, 0.16);
+      --cream-glow: rgba(91, 155, 248, 0.28);
+      --cream-text: #08080a;
+      --text-main: #f4f4f6;
+      --text-sub: #94949e;
+      --text-muted: #5e5e68;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    [data-theme="cream"] {
+      --notch-bg: #0d0c0a;
+      --card-bg: #171511;
+      --card-hover: #211e18;
+      --card-border: rgba(239, 234, 198, 0.12);
+      --cream: #efeac6;
+      --cream-soft: rgba(239, 234, 198, 0.15);
+      --cream-glow: rgba(239, 234, 198, 0.26);
+      --cream-text: #101012;
+    }
+
+    [data-theme="jungle"] {
+      --notch-bg: #060b09;
+      --card-bg: #0e1713;
+      --card-hover: #15221c;
+      --card-border: rgba(52, 211, 153, 0.12);
+      --cream: #34d399;
+      --cream-soft: rgba(52, 211, 153, 0.16);
+      --cream-glow: rgba(52, 211, 153, 0.28);
+      --cream-text: #05130e;
+    }
+
+    [data-theme="sakura"] {
+      --notch-bg: #0b070a;
+      --card-bg: #171015;
+      --card-hover: #22171f;
+      --card-border: rgba(244, 114, 182, 0.12);
+      --cream: #f472b6;
+      --cream-soft: rgba(244, 114, 182, 0.16);
+      --cream-glow: rgba(244, 114, 182, 0.28);
+      --cream-text: #160710;
+    }
+
+    [data-theme="cyber"] {
+      --notch-bg: #09070d;
+      --card-bg: #14101c;
+      --card-hover: #1e1829;
+      --card-border: rgba(168, 85, 247, 0.12);
+      --cream: #a855f7;
+      --cream-soft: rgba(168, 85, 247, 0.16);
+      --cream-glow: rgba(168, 85, 247, 0.28);
+      --cream-text: #ffffff;
+    }
+
+    [data-theme="sunset"] {
+      --notch-bg: #0b0806;
+      --card-bg: #17120e;
+      --card-hover: #221b14;
+      --card-border: rgba(251, 146, 60, 0.12);
+      --cream: #fb923c;
+      --cream-soft: rgba(251, 146, 60, 0.16);
+      --cream-glow: rgba(251, 146, 60, 0.28);
+      --cream-text: #160b04;
+    }
+
+    [data-theme="arctic"] {
+      --notch-bg: #060a0c;
+      --card-bg: #0e161a;
+      --card-hover: #152026;
+      --card-border: rgba(34, 211, 238, 0.12);
+      --cream: #22d3ee;
+      --cream-soft: rgba(34, 211, 238, 0.16);
+      --cream-glow: rgba(34, 211, 238, 0.28);
+      --cream-text: #051317;
+    }
+
+    [data-theme="crimson"] {
+      --notch-bg: #0b0606;
+      --card-bg: #180f10;
+      --card-hover: #231618;
+      --card-border: rgba(248, 113, 113, 0.12);
+      --cream: #f87171;
+      --cream-soft: rgba(248, 113, 113, 0.16);
+      --cream-glow: rgba(248, 113, 113, 0.28);
+      --cream-text: #180606;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
       -webkit-tap-highlight-color: transparent;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      font-family: var(--font-sans);
+      box-shadow: none !important;
+      -webkit-box-shadow: none !important;
+      filter: none !important;
     }
 
     html, body {
-      background: #000;
-      color: #fff;
+      background: var(--notch-bg, #08080a);
+      color: var(--text-main, #f4f4f6);
       height: 100%;
       width: 100%;
       overflow: hidden;
@@ -1587,7 +1749,8 @@ class PocketGrokkiServer {
       position: fixed;
       inset: 0;
       pointer-events: none;
-      background: radial-gradient(circle at 50% 42%, rgba(156, 67, 254, 0.20) 0%, rgba(76, 194, 233, 0.07) 38%, rgba(0, 0, 0, 0) 68%);
+      background: radial-gradient(circle at 50% 35%, var(--cream-soft) 0%, rgba(0, 0, 0, 0) 65%);
+      transition: background 0.4s ease;
     }
 
     /* Top Bar & Status */
@@ -1603,50 +1766,59 @@ class PocketGrokkiServer {
       margin: 0 auto;
     }
     .top-spacer {
-      width: 38px;
-      height: 38px;
+      width: 40px;
+      height: 40px;
       visibility: hidden;
       flex-shrink: 0;
     }
     .status {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 7px;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: 999px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
       font-size: 13px;
-      font-weight: 500;
-      color: rgba(255, 255, 255, 0.55);
-      letter-spacing: -0.1px;
+      font-weight: 600;
+      color: var(--text-main);
+      letter-spacing: -0.01em;
+      transition: all 0.25s ease;
     }
     .dot {
-      width: 6px;
-      height: 6px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
-      background: #30d158;
+      background: #34d399;
+      box-shadow: none !important;
       transition: background 0.3s ease;
     }
-    .dot.off { background: #ff453a; }
+    .dot.off {
+      background: #f87171;
+      box-shadow: none !important;
+    }
 
     .top-btn {
       flex-shrink: 0;
-      width: 38px;
-      height: 38px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
-      border: 0.5px solid rgba(255, 255, 255, 0.16);
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(25px) saturate(160%);
-      -webkit-backdrop-filter: blur(25px) saturate(160%);
-      color: rgba(255, 255, 255, 0.88);
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+      color: var(--text-main);
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: transform 0.16s ease, background 0.2s ease;
+      transition: transform 0.16s ease, background 0.2s ease, color 0.2s ease;
+      font-size: 15px;
+      box-shadow: none !important;
     }
     .top-btn:active {
       transform: scale(0.92);
-      background: rgba(255, 255, 255, 0.2);
-      color: #fff;
+      background: var(--cream-soft);
+      color: var(--cream);
     }
     .top-btn svg {
       width: 19px;
@@ -1656,6 +1828,9 @@ class PocketGrokkiServer {
       stroke-width: 2;
       stroke-linecap: round;
       stroke-linejoin: round;
+    }
+    .top-btn i {
+      font-size: 15px;
     }
 
     .shoot-badge {
@@ -1725,17 +1900,17 @@ class PocketGrokkiServer {
       height: 2.5px;
       border-radius: 0 0 99px 99px;
       background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.85) 50%, transparent 100%);
-      box-shadow: 0 0 16px rgba(255, 255, 255, 0.6), 0 0 35px rgba(147, 197, 253, 0.4);
+      box-shadow: none !important;
     }
     .top-portal.flaring .portal-fluid {
       transform: translateX(-50%) scaleY(1.35);
       background: radial-gradient(ellipse at 50% 35%, rgba(255, 255, 255, 0.65) 0%, rgba(147, 197, 253, 0.38) 32%, rgba(192, 132, 252, 0.2) 60%, transparent 80%);
-      filter: blur(20px);
+      filter: none !important;
     }
     .top-portal.flaring .portal-glow {
       width: min(92vw, 360px);
       height: 3.5px;
-      box-shadow: 0 0 24px rgba(255, 255, 255, 0.9), 0 0 45px rgba(147, 197, 253, 0.6);
+      box-shadow: none !important;
     }
 
     /* Grokki Frosted Letter Folio (Human-crafted Envelope Animation) */
@@ -1776,7 +1951,7 @@ class PocketGrokkiServer {
       justify-content: center;
       gap: 3px;
       padding: 6px 10px;
-      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+      box-shadow: none !important;
       transition: transform 0.44s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
       z-index: 2;
     }
@@ -1786,7 +1961,7 @@ class PocketGrokkiServer {
     }
     .env-sheet.ejected {
       transform: translateY(-56px) scale(1.08);
-      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.45), 0 0 24px rgba(96, 165, 250, 0.4);
+      box-shadow: none !important;
       opacity: 1;
     }
     .env-file-icon {
@@ -1837,7 +2012,7 @@ class PocketGrokkiServer {
       height: 100%;
       display: block;
       border-radius: 18px;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(96, 165, 250, 0.12);
+      box-shadow: none !important;
     }
     .env-flap-wrap {
       position: absolute;
@@ -1858,7 +2033,7 @@ class PocketGrokkiServer {
       width: 100%;
       height: 100%;
       display: block;
-      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+      filter: none !important;
     }
     .env-stamp {
       position: absolute;
@@ -1870,7 +2045,7 @@ class PocketGrokkiServer {
       border-radius: 50%;
       background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 50%, #d97706 100%);
       border: 1.5px solid rgba(255, 255, 255, 0.85);
-      box-shadow: 0 4px 14px rgba(217, 119, 6, 0.55), 0 0 10px rgba(252, 211, 77, 0.4);
+      box-shadow: none !important;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -2176,50 +2351,52 @@ class PocketGrokkiServer {
       cursor: pointer;
     }
 
-    /* Control Center — Pure Apple Fluid Motion & Matte Dark Glass */
+    /* =========================================================
+       HITODAMA CONTROL CENTRE — MOBILE DESIGN SYSTEM
+       ========================================================= */
     .os-sheet {
-      background: rgba(22, 22, 24, 0.92);
+      background: var(--notch-bg, #08080a) !important;
       backdrop-filter: blur(50px) saturate(200%);
       -webkit-backdrop-filter: blur(50px) saturate(200%);
-      border-top: 0.5px solid rgba(255, 255, 255, 0.14);
+      border-top: 1px solid var(--card-border, rgba(255, 255, 255, 0.12));
       border-radius: 34px 34px 0 0;
-      padding: 12px 18px max(env(safe-area-inset-bottom), 22px);
+      padding: 14px 18px max(env(safe-area-inset-bottom), 24px);
       max-height: 88vh;
       width: 100%;
-      max-width: 440px;
+      max-width: 480px;
       margin: 0 auto;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 14px;
       scrollbar-width: none;
       transform-origin: bottom center;
+      box-shadow: none !important;
+      filter: none !important;
     }
     .os-sheet::-webkit-scrollbar { display: none; }
 
     /* Fluid Spring Sheet Entrance */
     .sheet-wrap.open .os-sheet {
       transform: translateY(0);
-      animation: appleSheetSpring 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: htSheetSpring 0.42s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    @keyframes appleSheetSpring {
+    @keyframes htSheetSpring {
       from { transform: translateY(100%); }
       to { transform: translateY(0); }
     }
 
-    /* Staggered Apple Cascade for Sheet Elements */
+    /* Staggered Cascade */
     .sheet-wrap.open .os-sheet > * {
-      animation: appleCascadeIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation: htCascadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
-    .sheet-wrap.open .os-sheet > *:nth-child(1) { animation-delay: 0.03s; }
-    .sheet-wrap.open .os-sheet > *:nth-child(2) { animation-delay: 0.06s; }
-    .sheet-wrap.open .os-sheet > *:nth-child(3) { animation-delay: 0.09s; }
-    .sheet-wrap.open .os-sheet > *:nth-child(4) { animation-delay: 0.12s; }
-    .sheet-wrap.open .os-sheet > *:nth-child(5) { animation-delay: 0.15s; }
-    .sheet-wrap.open .os-sheet > *:nth-child(6) { animation-delay: 0.18s; }
-    @keyframes appleCascadeIn {
-      0% { opacity: 0; transform: translateY(14px); }
+    .sheet-wrap.open .os-sheet > *:nth-child(1) { animation-delay: 0.02s; }
+    .sheet-wrap.open .os-sheet > *:nth-child(2) { animation-delay: 0.05s; }
+    .sheet-wrap.open .os-sheet > *:nth-child(3) { animation-delay: 0.08s; }
+    .sheet-wrap.open .os-sheet > *:nth-child(4) { animation-delay: 0.11s; }
+    @keyframes htCascadeIn {
+      0% { opacity: 0; transform: translateY(12px); }
       100% { opacity: 1; transform: translateY(0); }
     }
 
@@ -2233,258 +2410,452 @@ class PocketGrokkiServer {
     .os-island-pill {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      padding: 5px 12px 5px 9px;
-      border-radius: 99px;
-      background: rgba(255, 255, 255, 0.08);
-      border: 0.5px solid rgba(255, 255, 255, 0.1);
-      font-size: 12.5px;
-      font-weight: 500;
-      color: rgba(255, 255, 255, 0.85);
-      letter-spacing: -0.2px;
-      transition: transform 0.36s cubic-bezier(0.34, 1.56, 0.64, 1),
-                  background 0.25s ease,
-                  border-color 0.25s ease,
-                  color 0.2s ease;
-      will-change: transform;
-    }
-    .os-island-pill.pulse {
-      transform: scale(1.06);
-      background: rgba(255, 255, 255, 0.16);
-      border-color: rgba(255, 255, 255, 0.3);
-      color: #ffffff;
+      gap: 8px;
+      padding: 6px 14px 6px 10px;
+      border-radius: 999px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      letter-spacing: -0.01em;
+      transition: all 0.25s ease;
     }
     .os-island-dot {
-      width: 6px;
-      height: 6px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
-      background: #30d158;
-      box-shadow: 0 0 8px rgba(48, 209, 88, 0.7);
-      transition: transform 0.25s ease;
-    }
-    .os-island-pill.pulse .os-island-dot {
-      transform: scale(1.35);
+      background: #34d399;
+      box-shadow: none !important;
     }
     .os-close-x {
-      width: 30px;
-      height: 30px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
-      border: none;
-      background: rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.7);
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+      color: var(--text-sub);
       font-size: 13px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease;
+      transition: all 0.2s ease;
     }
     .os-close-x:active {
-      transform: scale(0.86);
-      background: rgba(255, 255, 255, 0.22);
-      color: #ffffff;
-    }
-
-    /* Chunky iOS Volume Slider Capsule with Spring Scrub */
-    .os-vol-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .os-mute {
-      flex-shrink: 0;
-      width: 54px;
-      height: 54px;
-      border-radius: 50%;
-      border: 0.5px solid rgba(255, 255, 255, 0.1);
-      background: rgba(255, 255, 255, 0.08);
+      transform: scale(0.88);
+      background: rgba(255, 255, 255, 0.15);
       color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease;
-    }
-    .os-mute:active {
-      transform: scale(0.88);
-      background: rgba(255, 255, 255, 0.2);
-    }
-    .os-mute svg {
-      width: 22px;
-      height: 22px;
-      stroke: currentColor;
-      fill: none;
-      stroke-width: 1.9;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-    .os-vol-capsule {
-      position: relative;
-      flex: 1;
-      height: 54px;
-      border-radius: 27px;
-      background: rgba(255, 255, 255, 0.08);
-      border: 0.5px solid rgba(255, 255, 255, 0.1);
-      overflow: hidden;
-      user-select: none;
-      -webkit-user-select: none;
-      transition: transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    .os-vol-capsule:active {
-      transform: scale(1.02);
-    }
-    .os-vol-fill {
-      position: absolute;
-      inset: 0 auto 0 0;
-      background: #ffffff;
-      border-radius: 27px;
-      transition: width 0.35s cubic-bezier(0.34, 1.25, 0.64, 1);
-      pointer-events: none;
-    }
-    .os-vol-capsule:active .os-vol-fill {
-      transition: none;
-    }
-    .os-vol-val {
-      position: absolute;
-      right: 18px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 14.5px;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-      color: #ffffff;
-      mix-blend-mode: difference;
-      pointer-events: none;
-      letter-spacing: -0.2px;
-    }
-    .os-vol-slider {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      cursor: pointer;
-      margin: 0;
-      -webkit-appearance: none;
     }
 
-    /* Subdued Segmented Level Presets */
-    .os-preset-row {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
+    /* Hitodama Horizontal Navigation Bar */
+    .hitodama-tabs-nav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      border-radius: 999px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .hitodama-tabs-nav::-webkit-scrollbar { display: none; }
+
+    .ht-tab-btn {
+      display: inline-flex;
+      align-items: center;
       gap: 7px;
-    }
-    .os-preset-btn {
-      padding: 8px 0;
-      border-radius: 12px;
-      border: 0.5px solid rgba(255, 255, 255, 0.07);
-      background: rgba(255, 255, 255, 0.05);
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 12px;
-      font-weight: 500;
+      height: 36px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-sub);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
-      text-align: center;
-      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-                  background 0.2s ease,
-                  color 0.15s ease;
+      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+      white-space: nowrap;
+      flex-shrink: 0;
     }
-    .os-preset-btn:active {
-      transform: scale(0.91);
-      background: rgba(255, 255, 255, 0.16);
-      color: #ffffff;
+    .ht-tab-btn i { font-size: 13px; }
+    .ht-tab-btn .tab-label { display: none; }
+    .ht-tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .ht-tab-btn.active {
+      background: var(--cream) !important;
+      color: var(--cream-text) !important;
+      padding: 0 18px;
+      font-weight: 700;
+    }
+    .ht-tab-btn.active .tab-label { display: inline; }
+
+    /* Views */
+    .ht-view {
+      display: none;
+      flex-direction: column;
+      gap: 13px;
+      animation: htFadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .ht-view.active {
+      display: flex;
+    }
+    @keyframes htFadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Native iOS Media Capsule */
-    .os-media-capsule {
-      height: 48px;
-      border-radius: 24px;
-      background: rgba(255, 255, 255, 0.08);
-      border: 0.5px solid rgba(255, 255, 255, 0.1);
+    /* Hitodama Master Volume Bar */
+    .ht-vol-bar {
       display: flex;
       align-items: center;
-      justify-content: space-around;
-      padding: 0 12px;
+      gap: 12px;
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      box-shadow: none !important;
     }
-    .os-media-btn {
-      flex: 1;
-      height: 100%;
-      border: none;
-      background: transparent;
-      color: rgba(255, 255, 255, 0.88);
+    .ht-vol-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1px solid var(--card-border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-main);
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.18s ease;
+      font-size: 14px;
+      flex-shrink: 0;
+      transition: all 0.16s ease;
     }
-    .os-media-btn:active {
-      transform: scale(0.82);
-      opacity: 0.5;
+    .ht-vol-btn.muted {
+      color: #ff5c5c;
+      background: rgba(255, 92, 92, 0.12);
+      border-color: rgba(255, 92, 92, 0.25);
     }
-    .os-media-btn svg {
-      width: 20px;
-      height: 20px;
-      stroke: currentColor;
-      fill: currentColor;
-      stroke-width: 1.5;
-      stroke-linejoin: round;
-      stroke-linecap: round;
+    .ht-vol-slider-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+    .ht-vol-slider {
+      width: 100%;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 999px;
+      outline: none;
+      cursor: pointer;
+    }
+    .ht-vol-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--cream);
+      border: none;
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+    .ht-vol-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+    .ht-vol-val {
+      font-size: 13px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+      min-width: 42px;
+      text-align: right;
     }
 
-    /* Native Apple 4-Wide Squircle Action Grid */
-    .os-grid {
+    /* Hitodama Volume Level Presets */
+    .ht-preset-row {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .ht-preset-btn {
+      padding: 9px 0;
+      border-radius: 14px;
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+      color: var(--text-main);
+      font-size: 12.5px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+    .ht-preset-btn:active {
+      background: var(--cream-soft);
+      border-color: var(--cream);
+      color: var(--cream);
+      transform: scale(0.95);
+    }
+
+    /* Hitodama Quick Action Grid */
+    .ht-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
       gap: 10px;
     }
-    .os-tile {
-      aspect-ratio: 1;
+    .ht-tile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
       border-radius: 20px;
-      border: 0.5px solid rgba(255, 255, 255, 0.08);
-      background: rgba(255, 255, 255, 0.07);
-      color: #ffffff;
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+      color: var(--text-main);
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      text-align: left;
+    }
+    .ht-tile i {
+      font-size: 16px;
+      color: var(--cream);
+      width: 24px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .ht-tile:active {
+      transform: scale(0.97);
+      background: var(--cream-soft);
+      border-color: var(--cream);
+    }
+
+    /* Hitodama Studio Music Card */
+    .ht-studio-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .ht-studio-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .ht-studio-art,
+    .ht-studio-art-placeholder {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      object-fit: cover;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
-      position: relative;
+      color: var(--cream);
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+    .ht-studio-meta {
+      min-width: 0;
+      flex: 1;
+    }
+    .ht-studio-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
       overflow: hidden;
-      transition: transform 0.36s cubic-bezier(0.34, 1.56, 0.64, 1),
-                  background 0.2s ease,
-                  box-shadow 0.25s ease;
-      will-change: transform;
+      text-overflow: ellipsis;
     }
-    .os-tile:active {
-      transform: scale(0.88);
-      background: rgba(255, 255, 255, 0.18);
+    .ht-studio-artist {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-sub);
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .os-tile svg {
-      width: 23px;
-      height: 23px;
-      stroke: currentColor;
-      fill: none;
-      stroke-width: 1.8;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    .ht-studio-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--cream);
+      background: var(--cream-soft);
+      padding: 2px 8px;
+      border-radius: 99px;
     }
-    .os-tile:active svg {
-      transform: scale(0.92);
+    .ht-studio-ctrls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
     }
-    .os-tile.warm {
-      color: rgba(255, 255, 255, 0.9);
+    .ht-media-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid var(--card-border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.16s ease;
     }
-    .os-tile.danger {
-      color: rgba(255, 255, 255, 0.9);
+    .ht-media-btn:active {
+      transform: scale(0.9);
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .ht-media-btn.primary {
+      width: 52px;
+      height: 52px;
+      background: var(--cream);
+      color: var(--cream-text);
+      font-size: 18px;
+      border: none;
     }
 
-    /* Spring Flash Gleam on Action */
-    @keyframes appleGleam {
-      0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.45); }
-      100% { box-shadow: 0 0 0 18px rgba(255, 255, 255, 0); }
+    /* Hitodama Stats Cards */
+    .ht-stats-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
-    .os-tile.gleam, .os-mute.gleam {
-      animation: appleGleam 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+    .ht-stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ht-stat-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-sub);
+    }
+    .ht-stat-head i { color: var(--cream); }
+    .ht-stat-val {
+      font-size: 20px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+    }
+    .ht-stat-sub {
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-sub);
+    }
+    .ht-stat-track {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .ht-stat-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--cream);
+      transition: width 0.35s ease;
+    }
+
+    /* Hitodama Power Actions */
+    .ht-power-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .ht-power-btn {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      border-radius: 18px;
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.16s ease;
+      text-align: left;
+    }
+    .ht-power-btn:active {
+      transform: scale(0.98);
+      background: var(--card-hover);
+    }
+    .ht-power-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--cream);
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .ht-power-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .ht-power-text strong {
+      font-size: 13.5px;
+      font-weight: 700;
+    }
+    .ht-power-text span {
+      font-size: 11px;
+      color: var(--text-sub);
+    }
+    .ht-power-btn.warm .ht-power-icon {
+      color: #fb923c;
+      background: rgba(251, 146, 60, 0.12);
+      border-color: rgba(251, 146, 60, 0.25);
+    }
+    .ht-power-btn.danger .ht-power-icon {
+      color: #f87171;
+      background: rgba(248, 113, 113, 0.12);
+      border-color: rgba(248, 113, 113, 0.25);
+    }
+    .ht-power-btn.cancel .ht-power-icon {
+      color: #34d399;
+      background: rgba(52, 211, 153, 0.12);
+      border-color: rgba(52, 211, 153, 0.25);
+    }
+
+    /* Spring Flash Gleam on Action (Zero Shadows) */
+    @keyframes htGleam {
+      0% { opacity: 0.55; transform: scale(0.96); }
+      50% { opacity: 1; transform: scale(1.02); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .ht-tile.gleam, .ht-preset-btn.gleam, .ht-power-btn.gleam, .ht-vol-btn.gleam {
+      animation: htGleam 0.32s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     /* Hop animations */
@@ -2580,7 +2951,7 @@ class PocketGrokkiServer {
       justify-content: center;
       color: #fff;
       flex-shrink: 0;
-      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+      box-shadow: none !important;
     }
     .delivery-icon svg {
       width: 24px;
@@ -2618,7 +2989,7 @@ class PocketGrokkiServer {
       font-size: 15.5px;
       font-weight: 650;
       text-decoration: none;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 255, 255, 0.2);
+      box-shadow: none !important;
       transition: transform 0.18s ease, background 0.18s ease;
     }
     .delivery-btn:active {
@@ -2679,7 +3050,7 @@ class PocketGrokkiServer {
 
   <header class="top-bar">
     <button class="top-btn" id="shootBtn" aria-label="Shoot Grokki" title="Shoot Grokki to LAN Device" style="display: none; position: relative;">
-      <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      <i class="fa-solid fa-paper-plane"></i>
       <span class="shoot-badge" id="guestBadge" style="display: none;">0</span>
     </button>
     <div class="top-spacer" id="topSpacer"></div>
@@ -2688,7 +3059,7 @@ class PocketGrokkiServer {
       <span id="statusText">Connecting</span>
     </div>
     <button class="top-btn" id="osControlBtn" aria-label="PC OS Controls" title="Direct PC OS Controls">
-      <svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+      <i class="fa-solid fa-sliders"></i>
     </button>
   </header>
 
@@ -2748,22 +3119,22 @@ class PocketGrokkiServer {
     <div class="input-bar" id="inputBar">
       <input type="text" id="promptInput" placeholder="Message Grokki" enterkeyhint="send" autocomplete="off" />
       <button class="go" id="goBtn" aria-label="Send">
-        <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        <i class="fa-solid fa-arrow-up"></i>
       </button>
     </div>
 
     <div class="row">
       <button class="btn" id="kbBtn" aria-label="Keyboard">
-        <svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="3"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M7.5 14h9"/></svg>
+        <i class="fa-solid fa-keyboard"></i>
       </button>
       <button class="btn" id="fileBtn" aria-label="Attach file">
-        <svg viewBox="0 0 24 24"><path d="M20 11.5l-8 8a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10 17.5a2 2 0 0 1-3-3l7.5-7.5"/></svg>
+        <i class="fa-solid fa-paperclip"></i>
       </button>
       <button class="btn" id="micBtn" aria-label="Talk with Grokki" title="Talk with Grokki" style="display: none;">
-        <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        <i class="fa-solid fa-microphone"></i>
       </button>
       <button class="btn primary" id="pcBtn" aria-label="Send to PC">
-        <svg id="pcIcon" viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg>
+        <span id="pcIcon"><i class="fa-solid fa-arrow-up-right-from-square"></i></span>
       </button>
     </div>
   </footer>
@@ -2799,11 +3170,12 @@ class PocketGrokkiServer {
     </div>
   </div>
 
-  <!-- Control Center -->
+  <!-- Hitodama Control Center Sheet -->
   <div class="sheet-wrap" id="osSheetWrap">
     <div class="sheet os-sheet">
       <div class="grab"></div>
 
+      <!-- Hitodama Header Island -->
       <div class="os-header">
         <div class="os-island-pill" id="osStatusPill">
           <span class="os-island-dot"></span>
@@ -2812,67 +3184,189 @@ class PocketGrokkiServer {
         <button class="os-close-x" id="osSheetClose" aria-label="Close">✕</button>
       </div>
 
-      <div class="os-vol-row">
-        <button class="os-mute" data-action="volume_mute" id="osMuteBtn" aria-label="Mute">
-          <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      <!-- Hitodama Tab Capsule Navigation -->
+      <nav class="hitodama-tabs-nav" id="htTabsNav">
+        <button class="ht-tab-btn active" data-tab="controls">
+          <i class="fa-solid fa-sliders"></i>
+          <span class="tab-label">Controls</span>
         </button>
-        <div class="os-vol-capsule">
-          <div class="os-vol-fill" id="osVolFill" style="width: 50%;"></div>
-          <span class="os-vol-val" id="osVolVal">50%</span>
-          <input type="range" class="os-vol-slider" id="osVolSlider" min="0" max="100" value="50" step="2" />
+        <button class="ht-tab-btn" data-tab="studio">
+          <i class="fa-solid fa-music"></i>
+          <span class="tab-label">Studio</span>
+        </button>
+        <button class="ht-tab-btn" data-tab="stats">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span class="tab-label">Stats</span>
+        </button>
+        <button class="ht-tab-btn" data-tab="power">
+          <i class="fa-solid fa-power-off"></i>
+          <span class="tab-label">Power</span>
+        </button>
+      </nav>
+
+      <!-- VIEW 1: Controls -->
+      <div class="ht-view active" id="view-controls">
+        <div class="ht-vol-bar">
+          <button class="ht-vol-btn" data-action="volume_mute" id="osMuteBtn" aria-label="Mute">
+            <i class="fa-solid fa-volume-high" id="osMuteIcon"></i>
+          </button>
+          <div class="ht-vol-slider-wrap">
+            <input type="range" class="ht-vol-slider" id="osVolSlider" min="0" max="100" value="50" step="2" />
+          </div>
+          <span class="ht-vol-val" id="osVolVal">50%</span>
+        </div>
+
+        <div class="ht-preset-row">
+          <button class="ht-preset-btn" data-action="volume_set" data-val="25">25%</button>
+          <button class="ht-preset-btn" data-action="volume_set" data-val="50">50%</button>
+          <button class="ht-preset-btn" data-action="volume_set" data-val="75">75%</button>
+          <button class="ht-preset-btn" data-action="volume_set" data-val="100">MAX</button>
+        </div>
+
+        <div class="ht-grid">
+          <button class="ht-tile" data-action="lock" aria-label="Lock PC">
+            <i class="fa-solid fa-lock"></i>
+            <span>Lock PC</span>
+          </button>
+          <button class="ht-tile" data-action="sleep" aria-label="Sleep Mode">
+            <i class="fa-solid fa-moon"></i>
+            <span>Sleep</span>
+          </button>
+          <button class="ht-tile" data-action="screenshot" aria-label="Screenshot">
+            <i class="fa-solid fa-camera"></i>
+            <span>Screenshot</span>
+          </button>
+          <button class="ht-tile" data-action="mic_mute" aria-label="Mute Mic">
+            <i class="fa-solid fa-microphone-slash"></i>
+            <span>Mute Mic</span>
+          </button>
         </div>
       </div>
 
-      <div class="os-preset-row">
-        <button class="os-preset-btn" data-action="volume_set" data-val="25">25</button>
-        <button class="os-preset-btn" data-action="volume_set" data-val="50">50</button>
-        <button class="os-preset-btn" data-action="volume_set" data-val="75">75</button>
-        <button class="os-preset-btn" data-action="volume_set" data-val="100">MAX</button>
+      <!-- VIEW 2: Studio / Music -->
+      <div class="ht-view" id="view-studio">
+        <div class="ht-studio-card">
+          <div class="ht-studio-top">
+            <div class="ht-studio-thumb" id="htArtThumb" style="position: relative; width: 64px; height: 64px; flex-shrink: 0;">
+              <div class="ht-studio-art-placeholder" id="htArtFallback" style="width: 100%; height: 100%;">
+                <i class="fa-solid fa-compact-disc"></i>
+              </div>
+              <img class="ht-studio-art" id="htArtImg" src="" alt="Album Art" style="position: absolute; top:0; left:0; width:100%; height:100%; display:none; border-radius:16px;" />
+            </div>
+            <div class="ht-studio-meta">
+              <div class="ht-studio-title" id="htTrackTitle">No Media Playing</div>
+              <div class="ht-studio-artist" id="htTrackArtist">Ready for music</div>
+              <div class="ht-studio-badge" id="htTrackStatus"><i class="fa-solid fa-circle" style="font-size: 6px;"></i> <span>IDLE</span></div>
+            </div>
+          </div>
+          <div class="ht-studio-ctrls">
+            <button class="ht-media-btn" data-action="media_prev" aria-label="Previous">
+              <i class="fa-solid fa-backward-step"></i>
+            </button>
+            <button class="ht-media-btn primary" data-action="media_play" id="htPlayBtn" aria-label="Play / Pause">
+              <i class="fa-solid fa-play" id="htPlayIcon"></i>
+            </button>
+            <button class="ht-media-btn" data-action="media_next" aria-label="Next">
+              <i class="fa-solid fa-forward-step"></i>
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div class="os-media-capsule">
-        <button class="os-media-btn" data-action="media_prev" aria-label="Previous">
-          <svg viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5" fill="none"/></svg>
-        </button>
-        <button class="os-media-btn" data-action="media_play" aria-label="Play / Pause">
-          <svg viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-        </button>
-        <button class="os-media-btn" data-action="media_next" aria-label="Next">
-          <svg viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" fill="none"/></svg>
-        </button>
+      <!-- VIEW 3: Stats -->
+      <div class="ht-view" id="view-stats">
+        <div class="ht-stats-grid">
+          <div class="ht-stat-card">
+            <div class="ht-stat-head">
+              <span>CPU LOAD</span>
+              <i class="fa-solid fa-microchip"></i>
+            </div>
+            <div class="ht-stat-val" id="htCpuVal">0%</div>
+            <div class="ht-stat-sub" id="htCpuSub">Host Processor</div>
+            <div class="ht-stat-track">
+              <div class="ht-stat-fill" id="htCpuFill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="ht-stat-card">
+            <div class="ht-stat-head">
+              <span>MEMORY USAGE</span>
+              <i class="fa-solid fa-memory"></i>
+            </div>
+            <div class="ht-stat-val" id="htRamVal">0.0 / 0.0 GB</div>
+            <div class="ht-stat-sub" id="htRamSub">0% used</div>
+            <div class="ht-stat-track">
+              <div class="ht-stat-fill" id="htRamFill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="ht-stat-card">
+            <div class="ht-stat-head">
+              <span>HOST SYSTEM</span>
+              <i class="fa-solid fa-desktop"></i>
+            </div>
+            <div class="ht-stat-val" id="htHostVal" style="font-size: 16px; font-family: var(--font-main);">Host PC</div>
+            <div class="ht-stat-sub" id="htUptimeSub">Uptime: --</div>
+          </div>
+        </div>
       </div>
 
-      <div class="os-grid">
-        <button class="os-tile" data-action="lock" aria-label="Lock PC">
-          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        </button>
-        <button class="os-tile" data-action="sleep" aria-label="Sleep Mode">
-          <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        </button>
-        <button class="os-tile" data-action="screenshot" aria-label="Screenshot">
-          <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        </button>
-        <button class="os-tile" data-action="mic_mute" aria-label="Mute Mic">
-          <svg viewBox="0 0 24 24"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
-        </button>
+      <!-- VIEW 4: Power -->
+      <div class="ht-view" id="view-power">
+        <div class="ht-power-list">
+          <button class="ht-power-btn" data-action="lock" aria-label="Lock PC">
+            <div class="ht-power-icon"><i class="fa-solid fa-lock"></i></div>
+            <div class="ht-power-text">
+              <strong>Lock Screen</strong>
+              <span>Secure PC immediately</span>
+            </div>
+          </button>
 
-        <button class="os-tile" data-action="signout" aria-label="Sign Out">
-          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        </button>
-        <button class="os-tile warm" data-action="restart" aria-label="Restart">
-          <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        </button>
-        <button class="os-tile danger" data-action="shutdown" aria-label="Shutdown">
-          <svg viewBox="0 0 24 24"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
-        </button>
-        <button class="os-tile" data-action="cancel_power" aria-label="Cancel">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-        </button>
+          <button class="ht-power-btn" data-action="sleep" aria-label="Sleep Mode">
+            <div class="ht-power-icon"><i class="fa-solid fa-moon"></i></div>
+            <div class="ht-power-text">
+              <strong>Sleep Mode</strong>
+              <span>Low-power standby state</span>
+            </div>
+          </button>
+
+          <button class="ht-power-btn" data-action="signout" aria-label="Sign Out">
+            <div class="ht-power-icon"><i class="fa-solid fa-arrow-right-from-bracket"></i></div>
+            <div class="ht-power-text">
+              <strong>Sign Out</strong>
+              <span>End current user session</span>
+            </div>
+          </button>
+
+          <button class="ht-power-btn warm" data-action="restart" aria-label="Restart PC">
+            <div class="ht-power-icon"><i class="fa-solid fa-rotate-right"></i></div>
+            <div class="ht-power-text">
+              <strong>Restart PC</strong>
+              <span>Reboot Windows system</span>
+            </div>
+          </button>
+
+          <button class="ht-power-btn danger" data-action="shutdown" aria-label="Shut Down">
+            <div class="ht-power-icon"><i class="fa-solid fa-power-off"></i></div>
+            <div class="ht-power-text">
+              <strong>Shut Down</strong>
+              <span>Turn off computer completely</span>
+            </div>
+          </button>
+
+          <button class="ht-power-btn cancel" data-action="cancel_power" aria-label="Cancel Power">
+            <div class="ht-power-icon"><i class="fa-solid fa-xmark"></i></div>
+            <div class="ht-power-text">
+              <strong>Cancel Power Action</strong>
+              <span>Abort scheduled restart or shutdown</span>
+            </div>
+          </button>
+        </div>
       </div>
 
-      <div class="os-killer-row" id="osKillerRow" style="display: none;">
+      <div class="os-killer-row" id="osKillerRow" style="display: none; margin-top: 10px;">
         <button class="os-killer-action-btn" id="osKillAllBtn" aria-label="Disconnect All Sub-Devices">
-          <svg viewBox="0 0 24 24"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+          <i class="fa-solid fa-link-slash"></i>
           <span>Disconnect All Sub-Devices</span>
         </button>
       </div>
@@ -3616,13 +4110,98 @@ void main() {
 
     function setVolumeDisplay(vol) {
       const v = Math.max(0, Math.min(100, Math.round(vol)));
-      if (osVolSlider) osVolSlider.value = v;
-      if (osVolFill) osVolFill.style.width = v + '%';
+      if (osVolSlider) {
+        osVolSlider.value = v;
+        osVolSlider.style.background = 'linear-gradient(to right, var(--cream) 0%, var(--cream) ' + v + '%, rgba(255,255,255,0.14) ' + v + '%, rgba(255,255,255,0.14) 100%)';
+      }
       if (osVolVal) osVolVal.innerText = v + '%';
     }
 
-    const ICON_SEND = '<path d="M7 17L17 7M8 7h9v9"/>';
-    const ICON_SUMMON = '<path d="M17 7L7 17M16 17H7V8"/>';
+    function setMuteDisplay(muted) {
+      const muteBtn = $('osMuteBtn');
+      const muteIcon = $('osMuteIcon');
+      if (muteBtn) muteBtn.classList.toggle('muted', !!muted);
+      if (muteIcon) {
+        muteIcon.className = muted ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-volume-high';
+      }
+    }
+
+    function updateStudioUI(media) {
+      const titleEl = $('htTrackTitle');
+      const artistEl = $('htTrackArtist');
+      const statusEl = $('htTrackStatus');
+      const playIcon = $('htPlayIcon');
+      const artImg = $('htArtImg');
+      const artFallback = $('htArtFallback');
+      if (!titleEl) return;
+      if (!media || (!media.hasMedia && !media.isPlaying && !media.title)) {
+        titleEl.innerText = 'No Media Playing';
+        if (artistEl) artistEl.innerText = 'Ready for music';
+        if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-circle" style="font-size: 6px;"></i> <span>IDLE</span>';
+        if (playIcon) playIcon.className = 'fa-solid fa-play';
+        if (artImg) artImg.style.display = 'none';
+        if (artFallback) artFallback.style.display = 'flex';
+        return;
+      }
+      titleEl.innerText = media.title || 'Playing Track';
+      if (artistEl) artistEl.innerText = media.artist || 'Media Player';
+      if (statusEl) {
+        statusEl.innerHTML = media.isPlaying
+          ? '<i class="fa-solid fa-circle" style="font-size: 6px; color:#34d399;"></i> <span>PLAYING</span>'
+          : '<i class="fa-solid fa-circle" style="font-size: 6px; color:#fbbf24;"></i> <span>PAUSED</span>';
+      }
+      if (playIcon) {
+        playIcon.className = media.isPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play';
+      }
+      const thumb = media.thumbnail;
+      if (thumb && thumb.length > 50) {
+        const src = thumb.startsWith('data:') ? thumb : ('data:image/jpeg;base64,' + thumb);
+        if (artImg) {
+          artImg.src = src;
+          artImg.style.display = 'block';
+        }
+        if (artFallback) artFallback.style.display = 'none';
+      } else {
+        if (artImg) artImg.style.display = 'none';
+        if (artFallback) artFallback.style.display = 'flex';
+      }
+    }
+
+    function updateStatsUI(stats) {
+      if (!stats) return;
+      const cpuVal = $('htCpuVal');
+      const cpuSub = $('htCpuSub');
+      const cpuFill = $('htCpuFill');
+      const ramVal = $('htRamVal');
+      const ramSub = $('htRamSub');
+      const ramFill = $('htRamFill');
+      const hostVal = $('htHostVal');
+      const uptimeSub = $('htUptimeSub');
+
+      if (stats.cpuLoad !== undefined) {
+        if (cpuVal) cpuVal.innerText = stats.cpuLoad + '%';
+        if (cpuFill) cpuFill.style.width = Math.min(100, Math.max(0, stats.cpuLoad)) + '%';
+      }
+      if (stats.cpuModel && cpuSub) {
+        cpuSub.innerText = stats.cpuModel;
+      }
+      if (stats.ramUsedGB !== undefined && stats.ramTotalGB !== undefined) {
+        if (ramVal) ramVal.innerText = stats.ramUsedGB + ' / ' + stats.ramTotalGB + ' GB';
+      }
+      if (stats.ramPct !== undefined) {
+        if (ramSub) ramSub.innerText = stats.ramPct + '% used';
+        if (ramFill) ramFill.style.width = Math.min(100, Math.max(0, stats.ramPct)) + '%';
+      }
+      if (stats.hostname && hostVal) {
+        hostVal.innerText = stats.hostname;
+      }
+      if (stats.uptimeHours !== undefined && uptimeSub) {
+        uptimeSub.innerText = 'Uptime: ~' + stats.uptimeHours + ' hours';
+      }
+    }
+
+    const ICON_SEND = '<i class="fa-solid fa-arrow-up-right-from-square"></i>';
+    const ICON_SUMMON = '<i class="fa-solid fa-arrow-down"></i>';
 
     const shootBtn = $('shootBtn');
     const shootSheetWrap = $('shootSheetWrap');
@@ -4073,6 +4652,9 @@ void main() {
         if (msg.ownerKey) {
           localStorage.setItem('grokki_owner_key', msg.ownerKey);
         }
+        if (msg.theme) {
+          document.documentElement.setAttribute('data-theme', msg.theme);
+        }
         userRole = msg.role || 'guest';
         statusText.innerText = (userRole === 'guest' ? 'Guest · ' : '') + (msg.pcName || 'Connected');
         originalPcName = msg.pcName || 'Connected';
@@ -4094,6 +4676,10 @@ void main() {
           subtitle.innerText = (userRole === 'sub' || userRole === 'guest')
             ? 'Sub-Device · Waiting for Host to send Grokki…'
             : 'Grokki is visiting ' + (msg.holderName || 'another device');
+        }
+      } else if (msg.type === 'theme_changed') {
+        if (msg.theme) {
+          document.documentElement.setAttribute('data-theme', msg.theme);
         }
       } else if (msg.type === 'device_list') {
         connectedGuests = msg.devices || [];
@@ -4128,8 +4714,16 @@ void main() {
       } else if (msg.type === 'os_control_result') {
         playChirp();
         try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) {}
+        if (msg.action === 'get_media') {
+          updateStudioUI(msg);
+        } else if (msg.action === 'get_stats') {
+          updateStatsUI(msg);
+        }
         if (msg.volume !== undefined) {
           setVolumeDisplay(msg.volume);
+        }
+        if (msg.muted !== undefined) {
+          setMuteDisplay(msg.muted);
         }
         if (msg.message) {
           setOsStatus(msg.message);
@@ -4628,27 +5222,83 @@ void main() {
 
     $('sheetClose').addEventListener('click', () => sheetWrap.classList.remove('open'));
 
-    // --- Direct OS Controls ---
+    // --- Direct OS Controls (Hitodama) ---
+    let sheetPollTimer = null;
+    function startSheetPolling() {
+      stopSheetPolling();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'direct_os_control', action: 'volume_get' }));
+        ws.send(JSON.stringify({ type: 'direct_os_control', action: 'get_media' }));
+        ws.send(JSON.stringify({ type: 'direct_os_control', action: 'get_stats' }));
+      }
+      sheetPollTimer = setInterval(() => {
+        if (osSheetWrap && osSheetWrap.classList.contains('open') && ws && ws.readyState === WebSocket.OPEN) {
+          const activeView = document.querySelector('.ht-view.active');
+          const activeId = activeView ? activeView.id : 'view-controls';
+          if (activeId === 'view-studio') {
+            ws.send(JSON.stringify({ type: 'direct_os_control', action: 'get_media' }));
+          } else if (activeId === 'view-stats') {
+            ws.send(JSON.stringify({ type: 'direct_os_control', action: 'get_stats' }));
+          } else {
+            ws.send(JSON.stringify({ type: 'direct_os_control', action: 'volume_get' }));
+          }
+        } else {
+          stopSheetPolling();
+        }
+      }, 2500);
+    }
+    function stopSheetPolling() {
+      if (sheetPollTimer) {
+        clearInterval(sheetPollTimer);
+        sheetPollTimer = null;
+      }
+    }
+
+    // Hitodama Tabs Navigation
+    const htTabsNav = $('htTabsNav');
+    if (htTabsNav) {
+      htTabsNav.querySelectorAll('.ht-tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const targetTab = btn.getAttribute('data-tab');
+          if (!targetTab) return;
+          htTabsNav.querySelectorAll('.ht-tab-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          document.querySelectorAll('.ht-view').forEach(view => {
+            view.classList.toggle('active', view.id === ('view-' + targetTab));
+          });
+          playChirp();
+          if (targetTab === 'studio' && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'direct_os_control', action: 'get_media' }));
+          } else if (targetTab === 'stats' && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'direct_os_control', action: 'get_stats' }));
+          }
+        });
+      });
+    }
+
     if (osControlBtn && osSheetWrap) {
       osControlBtn.addEventListener('click', () => {
         osSheetWrap.classList.add('open');
         playChirp();
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'direct_os_control', action: 'volume_get' }));
-        }
+        startSheetPolling();
       });
     }
 
     if (osSheetClose && osSheetWrap) {
       osSheetClose.addEventListener('click', () => {
         osSheetWrap.classList.remove('open');
+        stopSheetPolling();
       });
     }
 
     // Close sheets on backdrop click outside .sheet
     if (osSheetWrap) {
       osSheetWrap.addEventListener('click', (e) => {
-        if (e.target === osSheetWrap) osSheetWrap.classList.remove('open');
+        if (e.target === osSheetWrap) {
+          osSheetWrap.classList.remove('open');
+          stopSheetPolling();
+        }
       });
     }
     if (sheetWrap) {
@@ -4784,6 +5434,13 @@ void main() {
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'direct_os_control', action: act, value: val }));
           setOsStatus(act.replace(/_/g, ' ') + '…');
+          if (act.startsWith('media_')) {
+            setTimeout(() => {
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'direct_os_control', action: 'get_media' }));
+              }
+            }, 350);
+          }
         } else {
           setOsStatus('Disconnected');
         }

@@ -12,6 +12,9 @@ import { InfoIcon } from '@animateicons/react/lucide/info-icon';
 import { PlusIcon } from '@animateicons/react/lucide/plus-icon';
 import { PencilIcon } from '@animateicons/react/lucide/pencil-icon';
 import { Trash2Icon } from '@animateicons/react/lucide/trash-2-icon';
+import { PinIcon } from '@animateicons/react/lucide/pin-icon';
+import { PinOffIcon } from '@animateicons/react/lucide/pin-off-icon';
+import { Pin } from 'lucide-react';
 import { RefreshCwIcon } from '@animateicons/react/lucide/refresh-cw-icon';
 import { LogOutIcon } from '@animateicons/react/lucide/log-out-icon';
 import { CheckIcon } from '@animateicons/react/lucide/check-icon';
@@ -155,6 +158,7 @@ interface SidebarProps {
   onCreateConversation?: () => void;
   onDeleteConversation?: (id: string) => void;
   onRenameConversation?: (id: string, newTitle: string) => void;
+  onTogglePinConversation?: (id: string) => void;
   onSwitchGoogle?: () => Promise<void> | void;
   onDisconnectGoogle?: () => Promise<void> | void;
 }
@@ -173,6 +177,7 @@ export const Sidebar = React.memo<SidebarProps>(({
   onCreateConversation,
   onDeleteConversation,
   onRenameConversation,
+  onTogglePinConversation,
   onSwitchGoogle,
   onDisconnectGoogle,
 }) => {
@@ -323,8 +328,8 @@ export const Sidebar = React.memo<SidebarProps>(({
   const primaryNavItems: { id: TabId; label: string; Icon: AnimatedIconComponent }[] = [
     { id: 'chat', label: 'Chat', Icon: MessageSquareIcon },
     { id: 'overview', label: 'Home', Icon: HouseIcon },
-    { id: 'voice', label: 'Voices', Icon: MicIcon },
-    { id: 'ai', label: 'AI Brain', Icon: CpuIcon },
+    { id: 'voice', label: 'Voice Models', Icon: MicIcon },
+    { id: 'ai', label: 'AI Models', Icon: CpuIcon },
     { id: 'google', label: 'Workspace', Icon: GlobeIcon },
   ];
 
@@ -338,6 +343,13 @@ export const Sidebar = React.memo<SidebarProps>(({
   const isDark = theme === 'dark' || (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
 
   const isChatActive = activeTab === 'chat';
+
+  const sortedConversations = useMemo(() => {
+    if (!conversations || conversations.length === 0) return [];
+    const pinned = conversations.filter((c) => Boolean(c.isPinned));
+    const unpinned = conversations.filter((c) => !c.isPinned);
+    return [...pinned, ...unpinned];
+  }, [conversations]);
 
   const chatBranchedItems: BranchedMenuItem[] = useMemo(() => [
     {
@@ -370,12 +382,29 @@ export const Sidebar = React.memo<SidebarProps>(({
           className="p-1 rounded-md text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#252836] transition-all cursor-pointer border-none bg-transparent"
         />
       ),
-      children: conversations.length > 0 ? conversations.map((convo) => ({
+      children: sortedConversations.length > 0 ? sortedConversations.map((convo) => ({
         value: convo.id,
         label: convo.title || 'New Chat',
+        icon: convo.isPinned ? (
+          <Pin
+            size={12}
+            fill="currentColor"
+            className="rotate-45 text-gray-700 dark:text-white flex-shrink-0"
+          />
+        ) : undefined,
         onDoubleClick: (e: React.MouseEvent) => handleStartRename(e, convo),
         actions: (
           <>
+            <AnimatedIconButton
+              Icon={convo.isPinned ? PinOffIcon : PinIcon}
+              iconSize={12}
+              onClick={(e) => {
+                e.stopPropagation();
+                onTogglePinConversation?.(convo.id);
+              }}
+              title={convo.isPinned ? "Unpin conversation" : "Pin conversation"}
+              className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent transition-colors"
+            />
             <AnimatedIconButton
               Icon={PencilIcon}
               iconSize={12}
@@ -405,7 +434,7 @@ export const Sidebar = React.memo<SidebarProps>(({
         }
       ],
     },
-  ], [isChatActive, activeTab, conversations, onSelectTab, onCreateConversation, onDeleteConversation, effectiveHotkeys.newChat]);
+  ], [isChatActive, activeTab, sortedConversations, onSelectTab, onCreateConversation, onDeleteConversation, onTogglePinConversation, effectiveHotkeys.newChat]);
 
   const effectiveWidth = isCollapsed ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth;
 

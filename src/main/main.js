@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, shell, Tray, Menu, screen, nativeImage, desktopCapturer, session } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, shell, Tray, Menu, screen, nativeImage, desktopCapturer, session, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -13,6 +13,7 @@ process.on('unhandledRejection', (reason) => {
 const { GoogleGenAI } = require('@google/genai');
 const agentBrain = require('./agent_brain');
 const { searchWeb } = require('./web_search');
+const { transcribeWithGroqWhisper } = require('./ai_providers');
 const kokoroTTS = require('./kokoro_tts');
 const elevenlabsTTS = require('./elevenlabs_tts');
 const PocketGrokkiServer = require('./pocket_grokki_server');
@@ -163,7 +164,8 @@ function loadConfig() {
       if (!data.omnirouterApiKey && envOmniRouterKey) data.omnirouterApiKey = envOmniRouterKey;
       if (!data.omnirouterModel) data.omnirouterModel = 'omnirouter/auto';
       if (!data.omnirouterEndpoint) data.omnirouterEndpoint = 'https://api.omnirouter.ai/v1';
-      if (!data.pillTheme) data.pillTheme = 'original';
+      if (data.pillTheme === 'original' || data.pillTheme === 'glass') data.pillTheme = 'grokki-blue';
+      if (data.pillTheme === undefined) data.pillTheme = 'grokki-blue';
       if (!data.wakeWord) data.wakeWord = 'Hey Grokki';
       if (data.wakeWordEnabled === undefined) data.wakeWordEnabled = true;
       if (!data.musicProvider) data.musicProvider = 'ytmusic';
@@ -238,7 +240,7 @@ function loadConfig() {
     elevenlabsVoiceId: 'JBFqnCBsd6RMkjVDRZzb',
     elevenlabsVoiceName: 'George',
     elevenlabsModel: 'eleven_v3',
-    pillTheme: 'original',
+    pillTheme: 'grokki-blue',
     wakeWordEnabled: true,
     musicProvider: 'ytmusic',
     userName: '',
@@ -349,8 +351,8 @@ function createWindow(showOnReady = false) {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth } = primaryDisplay.workAreaSize;
 
-  const winWidth = 660;
-  const winHeight = 580;
+  const winWidth = 716;
+  const winHeight = 100;
   const x = Math.round((screenWidth - winWidth) / 2);
   const y = 0;
 
@@ -366,8 +368,6 @@ function createWindow(showOnReady = false) {
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
-    vibrancy: 'appearance-based',
-    visualEffectState: 'followWindow',
     hasShadow: false,
     thickFrame: false,
     roundedCorners: false,
@@ -446,6 +446,41 @@ function createWindow(showOnReady = false) {
   });
 }
 
+let isIslandExpanded = false;
+let islandCollapseTimeout = null;
+
+function resizeMainWindowToState(expanded) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  try {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width: screenWidth } = primaryDisplay.workAreaSize;
+    const winWidth = 716;
+    const targetHeight = expanded ? 580 : 100;
+    const x = Math.round((screenWidth - winWidth) / 2);
+    mainWindow.setBounds({ x, y: 0, width: winWidth, height: targetHeight });
+  } catch (e) {}
+}
+
+ipcMain.on('jarvis:set-island-expanded', (event, expanded) => {
+  isIslandExpanded = !!expanded;
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (islandCollapseTimeout) {
+    clearTimeout(islandCollapseTimeout);
+    islandCollapseTimeout = null;
+  }
+  if (isIslandExpanded) {
+    resizeMainWindowToState(true);
+  } else {
+    // Delay shrinking slightly so CSS closing transition completes smoothly
+    islandCollapseTimeout = setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed() && !isIslandExpanded) {
+        resizeMainWindowToState(false);
+      }
+      islandCollapseTimeout = null;
+    }, 320);
+  }
+});
+
 function showWindow() {
   if (!mainWindow) return;
   if (hideTimeout) {
@@ -453,6 +488,12 @@ function showWindow() {
     hideTimeout = null;
   }
   isVisible = true;
+  if (topNotchWindow && !topNotchWindow.isDestroyed()) {
+    topNotchIsInteractive = false;
+    topNotchWindow.setIgnoreMouseEvents(true, { forward: true });
+    topNotchWindow.webContents.send('top-notch:trigger', false);
+  }
+  resizeMainWindowToState(isIslandExpanded);
   mainWindow.setAlwaysOnTop(true);
   mainWindow.show();
   mainWindow.restore();
@@ -466,6 +507,11 @@ function hideWindow() {
     clearTimeout(hideTimeout);
   }
   isVisible = false;
+  isIslandExpanded = false;
+  if (islandCollapseTimeout) {
+    clearTimeout(islandCollapseTimeout);
+    islandCollapseTimeout = null;
+  }
   if (wakeWordService) {
     wakeWordService.resume();
   }
@@ -474,6 +520,7 @@ function hideWindow() {
   hideTimeout = setTimeout(() => {
     if (mainWindow && !mainWindow.isDestroyed() && !isVisible) {
       mainWindow.hide();
+      resizeMainWindowToState(false);
     }
     hideTimeout = null;
   }, 280);
@@ -485,14 +532,7 @@ function handleGlobalHotkey() {
     return;
   }
 
-  // Restore full 660x580 window bounds when summoning island
-  try {
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const { width: screenWidth } = primaryDisplay.workAreaSize;
-    const winWidth = 660;
-    const x = Math.round((screenWidth - winWidth) / 2);
-    mainWindow.setBounds({ x, y: 0, width: winWidth, height: 580 });
-  } catch (e) {}
+  resizeMainWindowToState(isIslandExpanded);
 
   // If window is currently hidden, ALWAYS show it and summon in typing mode
   if (!isVisible || !mainWindow.isVisible()) {
@@ -512,6 +552,116 @@ function handleGlobalHotkey() {
 function toggleWindow() {
   handleGlobalHotkey();
 }
+
+// --- HITODAMA: GLOBAL FILE DRAG & DROP DETECTION ---
+const dragWatcherScript = path.join(__dirname, 'drag_watcher.ps1');
+let dragWatcherProcess = null;
+let autoSpawnedByDrag = false;
+let dragHideTimer = null;
+let lastDetectedDragFiles = [];
+
+function startDragWatcher() {
+  if (dragWatcherProcess && !dragWatcherProcess.killed) return;
+  try {
+    dragWatcherProcess = spawn('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy', 'Bypass',
+      '-File', dragWatcherScript
+    ], {
+      stdio: ['pipe', 'pipe', 'ignore'],
+      windowsHide: true,
+    });
+
+    let buffer = '';
+    dragWatcherProcess.stdout.on('data', (chunk) => {
+      buffer += chunk.toString();
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'READY') continue;
+
+        if (trimmed.startsWith('DRAG_START')) {
+          const filesStr = trimmed.substring('DRAG_START'.length).trim();
+          lastDetectedDragFiles = filesStr ? filesStr.split('|||').filter(Boolean) : [];
+          handleGlobalDragStart(lastDetectedDragFiles);
+        } else if (trimmed === 'DRAG_END') {
+          handleGlobalDragEnd();
+        }
+      }
+    });
+
+    dragWatcherProcess.on('exit', () => {
+      dragWatcherProcess = null;
+      setTimeout(() => startDragWatcher(), 2000);
+    });
+
+    dragWatcherProcess.on('error', () => {
+      dragWatcherProcess = null;
+    });
+  } catch (_) {
+    dragWatcherProcess = null;
+  }
+}
+
+function stopDragWatcher() {
+  if (dragWatcherProcess) {
+    try { dragWatcherProcess.kill(); } catch (_) {}
+    dragWatcherProcess = null;
+  }
+}
+
+function handleGlobalDragStart(files = []) {
+  if (dragHideTimer) {
+    clearTimeout(dragHideTimer);
+    dragHideTimer = null;
+  }
+
+  // If island is currently hidden, spawn it to catch the file!
+  if (!isVisible) {
+    autoSpawnedByDrag = true;
+    showWindow();
+  }
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('window:drag-active', { active: true, files });
+  }
+}
+
+function handleGlobalDragEnd() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('window:drag-active', { active: false });
+  }
+
+  // If island was auto-spawned by drag and user dropped elsewhere:
+  if (autoSpawnedByDrag) {
+    if (dragHideTimer) clearTimeout(dragHideTimer);
+    dragHideTimer = setTimeout(() => {
+      if (autoSpawnedByDrag && isVisible) {
+        autoSpawnedByDrag = false;
+        hideWindow();
+      }
+      dragHideTimer = null;
+    }, 240);
+  }
+}
+
+ipcMain.on('jarvis:drop-received', () => {
+  autoSpawnedByDrag = false;
+  if (dragHideTimer) {
+    clearTimeout(dragHideTimer);
+    dragHideTimer = null;
+  }
+});
+
+ipcMain.handle('jarvis:get-drag-files', () => {
+  return lastDetectedDragFiles;
+});
+
+// Auto-start drag watcher after app initialization
+setTimeout(() => startDragWatcher(), 1600);
 
 function createSplashWindow(onFinish) {
   if (splashWindow && !splashWindow.isDestroyed()) {
@@ -779,6 +929,26 @@ function registerShortcuts() {
     } catch (e) {}
   }
 
+  // Hitodama Powerpack: Circle to Ask shortcut (Default: Ctrl+Shift+S)
+  try {
+    globalShortcut.register('CommandOrControl+Shift+S', () => {
+      console.log('[Main] Circle to Ask shortcut (Ctrl+Shift+S) triggered');
+      openCircleOverlay();
+    });
+  } catch (e) {
+    console.warn('[Main] Failed to register Circle to Ask shortcut:', e.message);
+  }
+
+  // Hitodama Powerpack: System-wide Voice Dictation shortcut (Ctrl+Space only)
+  try {
+    globalShortcut.register('CommandOrControl+Space', () => {
+      console.log('[Main] Voice Dictation shortcut (Ctrl+Space) triggered');
+      startVoiceDictation();
+    });
+  } catch (e) {
+    console.warn('[Main] Failed to register Voice Dictation shortcut (Ctrl+Space):', e.message);
+  }
+
   console.log(`[Main] Global hotkey [${shortcut}] active: ${registered}`);
 }
 
@@ -1008,6 +1178,395 @@ ipcMain.handle('jarvis:check-app', async (event, appName) => {
   });
 });
 
+// --- HITODAMA POWERPACK: CIRCLE TO ASK ---
+let circleOverlayWindow = null;
+
+async function openCircleOverlay() {
+  if (circleOverlayWindow && !circleOverlayWindow.isDestroyed()) {
+    circleOverlayWindow.focus();
+    return;
+  }
+  try {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const bounds = primaryDisplay.bounds;
+
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: bounds.width, height: bounds.height },
+    });
+    const screenshotDataUrl = sources && sources.length > 0 ? sources[0].thumbnail.toDataURL() : null;
+
+    circleOverlayWindow = new BrowserWindow({
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      frame: false,
+      transparent: true,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      resizable: false,
+      fullscreen: true,
+      webPreferences: {
+        preload: path.join(__dirname, '../preload/preload.js'),
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+
+    circleOverlayWindow.loadFile(path.join(__dirname, '../renderer/circle_overlay.html'));
+
+    circleOverlayWindow.webContents.once('did-finish-load', () => {
+      if (circleOverlayWindow && !circleOverlayWindow.isDestroyed() && screenshotDataUrl) {
+        const config = loadConfig();
+        const activeTheme = config.pillTheme || 'grokki-blue';
+        circleOverlayWindow.webContents.send('circle:overlay-data', {
+          dataUrl: screenshotDataUrl,
+          theme: activeTheme,
+        });
+      }
+    });
+
+    circleOverlayWindow.on('closed', () => {
+      circleOverlayWindow = null;
+    });
+  } catch (err) {
+    console.warn('[Main] Failed to open circle overlay:', err.message);
+  }
+}
+
+ipcMain.handle('jarvis:start-circle-to-ask', async () => {
+  await openCircleOverlay();
+  return { success: true };
+});
+
+ipcMain.on('jarvis:submit-circle-crop', (event, dataUrl, bounds) => {
+  if (circleOverlayWindow && !circleOverlayWindow.isDestroyed()) {
+    circleOverlayWindow.close();
+    circleOverlayWindow = null;
+  }
+  showWindow();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('jarvis:circle-to-ask-ready', { dataUrl, bounds });
+  }
+});
+
+ipcMain.on('jarvis:cancel-circle-crop', () => {
+  if (circleOverlayWindow && !circleOverlayWindow.isDestroyed()) {
+    circleOverlayWindow.close();
+    circleOverlayWindow = null;
+  }
+});
+
+// --- HITODAMA POWERPACK: SYSTEM-WIDE VOICE DICTATION (FLOATING MIDDLE-OF-SCREEN UI) ---
+let dictationWindow = null;
+let fastPasteDaemon = null;
+
+function ensureFastPasteDaemon() {
+  if (fastPasteDaemon && !fastPasteDaemon.killed && fastPasteDaemon.stdin && !fastPasteDaemon.stdin.destroyed) {
+    return fastPasteDaemon;
+  }
+  try {
+    const selfPid = process.pid;
+    const psScript = [
+      'Add-Type -TypeDefinition @"',
+      'using System;',
+      'using System.Diagnostics;',
+      'using System.Runtime.InteropServices;',
+      'using System.Threading;',
+      'public class FastPasteEngine {',
+      '    [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);',
+      '    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();',
+      '    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);',
+      '    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);',
+      '    public static IntPtr lastTargetHwnd = IntPtr.Zero;',
+      `    public static uint selfPid = ${selfPid};`,
+      '    public static bool IsExternalWindow(IntPtr hWnd) {',
+      '        if (hWnd == IntPtr.Zero) return false;',
+      '        uint pid = 0;',
+      '        GetWindowThreadProcessId(hWnd, out pid);',
+      '        if (pid == 0 || pid == selfPid) return false;',
+      '        try {',
+      '            string pname = Process.GetProcessById((int)pid).ProcessName.ToLower();',
+      '            if (pname == "electron" || pname.Contains("grokki")) return false;',
+      '        } catch {}',
+      '        return true;',
+      '    }',
+      '    public static void TrackTarget() {',
+      '        IntPtr fg = GetForegroundWindow();',
+      '        if (IsExternalWindow(fg)) {',
+      '            lastTargetHwnd = fg;',
+      '        }',
+      '    }',
+      '    public static void PasteNow() {',
+      '        IntPtr fg = GetForegroundWindow();',
+      '        if (!IsExternalWindow(fg) && lastTargetHwnd != IntPtr.Zero) {',
+      '            SetForegroundWindow(lastTargetHwnd);',
+      '            Thread.Sleep(35);',
+      '        }',
+      '        // Release any held modifiers (Win, Alt, Shift, Space)',
+      '        keybd_event(0x5B, 0, 2, UIntPtr.Zero);',
+      '        keybd_event(0x12, 0, 2, UIntPtr.Zero);',
+      '        keybd_event(0x10, 0, 2, UIntPtr.Zero);',
+      '        keybd_event(0x20, 0, 2, UIntPtr.Zero);',
+      '        Thread.Sleep(12);',
+      '        // Hardware Ctrl+V',
+      '        keybd_event(0x11, 0, 0, UIntPtr.Zero);',
+      '        Thread.Sleep(16);',
+      '        keybd_event(0x56, 0, 0, UIntPtr.Zero);',
+      '        Thread.Sleep(20);',
+      '        keybd_event(0x56, 0, 2, UIntPtr.Zero);',
+      '        Thread.Sleep(12);',
+      '        keybd_event(0x11, 0, 2, UIntPtr.Zero);',
+      '    }',
+      '}',
+      '"@',
+      'while ($true) {',
+      '    $line = [Console]::In.ReadLine()',
+      '    if ($null -eq $line) { break }',
+      '    $cmd = $line.Trim().ToUpper()',
+      '    if ($cmd -eq "TRACK") { [FastPasteEngine]::TrackTarget() }',
+      '    elseif ($cmd -eq "PASTE") { [FastPasteEngine]::PasteNow() }',
+      '}',
+    ].join('\n');
+
+    fastPasteDaemon = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psScript], {
+      stdio: ['pipe', 'ignore', 'ignore'],
+      windowsHide: true,
+    });
+    fastPasteDaemon.on('exit', () => { fastPasteDaemon = null; });
+    fastPasteDaemon.on('error', () => { fastPasteDaemon = null; });
+  } catch (e) {
+    fastPasteDaemon = null;
+  }
+  return fastPasteDaemon;
+}
+
+function trackExternalWindow() {
+  const daemon = ensureFastPasteDaemon();
+  if (daemon && daemon.stdin && !daemon.stdin.destroyed) {
+    try {
+      daemon.stdin.write('TRACK\n');
+    } catch (_) {}
+  }
+}
+
+function triggerFastPaste(fallbackText = '') {
+  const daemon = ensureFastPasteDaemon();
+  if (daemon && daemon.stdin && !daemon.stdin.destroyed) {
+    try {
+      daemon.stdin.write('PASTE\n');
+      return;
+    } catch (_) {}
+  }
+  exec(`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${osInputScript}" -action paste`, (err) => {
+    if (err && fallbackText) {
+      const safeText = fallbackText.replace(/'/g, "''");
+      exec(`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${osInputScript}" -action type-fast -text '${safeText}'`);
+    }
+  });
+}
+
+// Pre-warm fast paste daemon and track active external window periodically
+setTimeout(() => ensureFastPasteDaemon(), 800);
+setInterval(() => trackExternalWindow(), 700);
+
+function pasteTextIntoActiveApp(text) {
+  const clean = (text || '').trim();
+  if (!clean) return;
+  try {
+    lastClipText = clean;
+    clipboard.writeText(clean);
+
+    if (dictationWindow && !dictationWindow.isDestroyed()) {
+      try {
+        dictationWindow.close();
+      } catch (_) {}
+      dictationWindow = null;
+    }
+
+    if (topNotchWindow && !topNotchWindow.isDestroyed()) {
+      topNotchIsInteractive = false;
+      topNotchWindow.setFocusable(false);
+      topNotchWindow.setIgnoreMouseEvents(true, { forward: true });
+      topNotchWindow.webContents.send('top-notch:trigger', false);
+    }
+
+    setTimeout(() => {
+      triggerFastPaste(clean);
+    }, 45);
+  } catch (e) {
+    console.warn('[Main] Failed to paste dictated text:', e.message);
+  }
+}
+
+function cleanTranscriptionOutput(raw) {
+  const t = (raw || '').trim();
+  if (!t) return '';
+  if (/^(\.+|thank you\.?|thanks for watching\.?|subtitles by.*|you\.?)$/i.test(t)) {
+    return '';
+  }
+  return t;
+}
+
+async function transcribeAudioBuffer({ base64Audio, mimeType }) {
+  if (!base64Audio) return '';
+  try {
+    const config = loadConfig();
+    const groqKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
+    const geminiKey = (config.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
+
+    if (groqKey) {
+      const text = await transcribeWithGroqWhisper({
+        apiKey: groqKey,
+        base64Audio,
+        mimeType: mimeType || 'audio/webm',
+      });
+      const cleaned = cleanTranscriptionOutput(text);
+      if (cleaned) return cleaned;
+    }
+    if (geminiKey) {
+      const ai = new GoogleGenAI({ apiKey: geminiKey });
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                inlineData: {
+                  mimeType: mimeType || 'audio/webm',
+                  data: base64Audio,
+                },
+              },
+              {
+                text: 'Transcribe this spoken speech accurately. Output ONLY the clean transcribed words with proper punctuation and capitalization. If there is only silence or background noise, output an empty string. Do not include quotes, timestamps, explanations, or any other text.',
+              },
+            ],
+          },
+        ],
+      });
+      return cleanTranscriptionOutput(response && response.text);
+    }
+  } catch (err) {
+    console.warn('[Main] Audio transcription error:', err.message);
+  }
+  return '';
+}
+
+async function startVoiceDictation() {
+  if (dictationWindow && !dictationWindow.isDestroyed()) {
+    try {
+      dictationWindow.webContents.send('dictation:command', { action: 'finish' });
+    } catch (e) {
+      try {
+        dictationWindow.close();
+      } catch (_) {}
+      dictationWindow = null;
+    }
+    return;
+  }
+
+  trackExternalWindow();
+
+  // Collapse Top Notch without disturbing the user's focused input field
+  if (topNotchWindow && !topNotchWindow.isDestroyed()) {
+    topNotchIsInteractive = false;
+    topNotchWindow.setFocusable(false);
+    topNotchWindow.setIgnoreMouseEvents(true, { forward: true });
+    topNotchWindow.webContents.send('top-notch:trigger', false);
+  }
+
+  try {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const bounds = primaryDisplay.bounds;
+    const width = 680;
+    const height = 320;
+    const x = Math.round(bounds.x + (bounds.width - width) / 2);
+    const y = Math.round(bounds.y + (bounds.height - height) / 2);
+
+    dictationWindow = new BrowserWindow({
+      x,
+      y,
+      width,
+      height,
+      frame: false,
+      transparent: true,
+      backgroundColor: '#00000000',
+      hasShadow: false,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      resizable: false,
+      focusable: false,
+      webPreferences: {
+        preload: path.join(__dirname, '../preload/preload.js'),
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+
+    dictationWindow.setAlwaysOnTop(true, 'screen-saver');
+    dictationWindow.loadFile(path.join(__dirname, '../renderer/dictation_pill.html'));
+
+    dictationWindow.on('closed', () => {
+      dictationWindow = null;
+    });
+  } catch (err) {
+    console.warn('[Main] Failed to start voice dictation:', err.message);
+  }
+}
+
+ipcMain.handle('jarvis:start-voice-dictation', async () => {
+  await startVoiceDictation();
+  return { success: true };
+});
+
+ipcMain.on('jarvis:cancel-dictation', () => {
+  if (dictationWindow && !dictationWindow.isDestroyed()) {
+    dictationWindow.close();
+    dictationWindow = null;
+  }
+});
+
+ipcMain.handle('jarvis:preview-dictation-audio', async (event, { base64Audio, mimeType }) => {
+  const text = await transcribeAudioBuffer({ base64Audio, mimeType });
+  return { success: true, text };
+});
+
+ipcMain.on('jarvis:type-dictated-text', (event, text) => {
+  if (dictationWindow && !dictationWindow.isDestroyed()) {
+    dictationWindow.close();
+    dictationWindow = null;
+  }
+  if (text && text.trim()) {
+    setTimeout(() => {
+      pasteTextIntoActiveApp(text.trim());
+    }, 100);
+  }
+});
+
+ipcMain.on('jarvis:finish-dictation-audio', async (event, { base64Audio, mimeType, fallbackText }) => {
+  let transcribedText = '';
+  if (base64Audio) {
+    transcribedText = await transcribeAudioBuffer({ base64Audio, mimeType });
+  }
+  if (!transcribedText && fallbackText) {
+    transcribedText = fallbackText.trim();
+  }
+
+  if (dictationWindow && !dictationWindow.isDestroyed()) {
+    try {
+      dictationWindow.close();
+    } catch (_) {}
+    dictationWindow = null;
+  }
+
+  if (transcribedText) {
+    console.log(`[Main] Voice dictation transcribed: "${transcribedText}"`);
+    pasteTextIntoActiveApp(transcribedText);
+  }
+});
+
 
 ipcMain.handle('jarvis:send-email', async (event, { to = '', subject = '', body = '' }) => {
   try {
@@ -1072,6 +1631,1411 @@ ipcMain.handle('jarvis:system-control', async (event, payload) => {
       }
     });
   });
+});
+
+// --- STANDALONE TOP BEZEL CONTROL CENTRE WINDOW & HANDLERS ---
+let topNotchWindow = null;
+let topNotchIsInteractive = false;
+
+function createTopNotchWindow() {
+  if (topNotchWindow && !topNotchWindow.isDestroyed()) return;
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth } = primaryDisplay.workAreaSize;
+  const winW = 900;
+  const winH = 680;
+  const winX = Math.round((screenWidth - winW) / 2);
+
+  topNotchWindow = new BrowserWindow({
+    width: winW,
+    height: winH,
+    x: winX,
+    y: 0,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    thickFrame: false,
+    roundedCorners: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    focusable: false,
+    show: true,
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: false, // Allows loading local file:/// wallpaper images smoothly
+      backgroundThrottling: false,
+    },
+  });
+
+  topNotchWindow.setAlwaysOnTop(true, 'screen-saver');
+  topNotchWindow.setIgnoreMouseEvents(true, { forward: true });
+  topNotchWindow.loadFile(path.join(__dirname, '../renderer/top_notch.html'));
+
+  // Monitor cursor touching top edge center of screen even when Grokki Island (Alt+Q) is closed
+  setInterval(() => {
+    if (!topNotchWindow || topNotchWindow.isDestroyed()) return;
+    if (isVisible && mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) return;
+    try {
+      const pt = screen.getCursorScreenPoint();
+      const centerX = Math.round(screenWidth / 2);
+      if (pt.y <= 4 && Math.abs(pt.x - centerX) <= 220) {
+        if (!topNotchIsInteractive) {
+          trackExternalWindow();
+          topNotchIsInteractive = true;
+          topNotchWindow.setIgnoreMouseEvents(false);
+          topNotchWindow.setAlwaysOnTop(true, 'screen-saver');
+          topNotchWindow.webContents.send('top-notch:trigger', true);
+        }
+      } else if (topNotchIsInteractive && (pt.y > 490 || Math.abs(pt.x - centerX) > 450)) {
+        topNotchIsInteractive = false;
+        topNotchWindow.setFocusable(false);
+        topNotchWindow.setIgnoreMouseEvents(true, { forward: true });
+        topNotchWindow.webContents.send('top-notch:trigger', false);
+      }
+    } catch (e) {}
+  }, 65);
+}
+
+ipcMain.on('top-notch:set-interactive', (event, interactive) => {
+  topNotchIsInteractive = !!interactive;
+  if (topNotchWindow && !topNotchWindow.isDestroyed()) {
+    if (topNotchIsInteractive) {
+      topNotchWindow.setIgnoreMouseEvents(false);
+      topNotchWindow.setAlwaysOnTop(true, 'screen-saver');
+    } else {
+      topNotchWindow.setFocusable(false);
+      topNotchWindow.setIgnoreMouseEvents(true, { forward: true });
+    }
+  }
+});
+
+ipcMain.on('top-notch:set-focusable', (event, focusable) => {
+  if (topNotchWindow && !topNotchWindow.isDestroyed()) {
+    try {
+      topNotchWindow.setFocusable(!!focusable);
+      if (focusable) {
+        topNotchWindow.focus();
+      }
+    } catch (_) {}
+  }
+});
+
+// --- HITODAMA REAL CLIPBOARD MONITOR & SYSTEM STATS ---
+const clipboardHistory = [];
+let lastClipText = '';
+
+function detectClipboardItemType(rawText) {
+  const trimmed = (rawText || '').trim();
+  if (/^https?:\/\//i.test(trimmed)) return 'link';
+  if (/(function|const|let|var|class|import|def|return|=>|\{|\}|;\s*$)/.test(trimmed)) return 'code';
+  return 'text';
+}
+
+function broadcastClipboardHistory() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('clipboard:history-updated', clipboardHistory);
+  }
+  if (topNotchWindow && !topNotchWindow.isDestroyed()) {
+    topNotchWindow.webContents.send('clipboard:history-updated', clipboardHistory);
+  }
+}
+
+function checkSystemClipboard() {
+  try {
+    const text = clipboard.readText();
+    if (text && text.trim() && text.trim() !== lastClipText) {
+      const clean = text.trim();
+      lastClipText = clean;
+      const type = detectClipboardItemType(clean);
+      const existingIdx = clipboardHistory.findIndex((item) => item.text === clean);
+      let wasPinned = false;
+      if (existingIdx !== -1) {
+        wasPinned = !!clipboardHistory[existingIdx].pinned;
+        clipboardHistory.splice(existingIdx, 1);
+      }
+      clipboardHistory.unshift({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        text: clean,
+        type,
+        time: Date.now(),
+        pinned: wasPinned,
+      });
+      // Keep pinned items at top
+      clipboardHistory.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+      if (clipboardHistory.length > 50) clipboardHistory.pop();
+      broadcastClipboardHistory();
+    }
+  } catch (e) {}
+}
+
+setInterval(checkSystemClipboard, 650);
+
+ipcMain.handle('jarvis:get-clipboard-history', () => {
+  checkSystemClipboard();
+  return clipboardHistory;
+});
+
+ipcMain.handle('jarvis:copy-clipboard-item', (event, text) => {
+  try {
+    const clean = (text || '').trim();
+    if (!clean) return { success: false };
+    lastClipText = clean;
+    clipboard.writeText(clean);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('jarvis:paste-clipboard-item', async (event, text) => {
+  try {
+    const clean = (text || '').trim();
+    if (!clean) return { success: false };
+    pasteTextIntoActiveApp(clean);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('jarvis:pin-clipboard-item', (event, id) => {
+  const item = clipboardHistory.find((i) => i.id === id);
+  if (item) {
+    item.pinned = !item.pinned;
+    clipboardHistory.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+    broadcastClipboardHistory();
+  }
+  return clipboardHistory;
+});
+
+ipcMain.handle('jarvis:delete-clipboard-item', (event, id) => {
+  const idx = clipboardHistory.findIndex((i) => i.id === id);
+  if (idx !== -1) {
+    clipboardHistory.splice(idx, 1);
+    broadcastClipboardHistory();
+  }
+  return clipboardHistory;
+});
+
+ipcMain.handle('jarvis:clear-clipboard-history', () => {
+  const pinnedOnly = clipboardHistory.filter((i) => i.pinned);
+  clipboardHistory.length = 0;
+  clipboardHistory.push(...pinnedOnly);
+  broadcastClipboardHistory();
+  return clipboardHistory;
+});
+
+const osControlsScript = path.join(__dirname, 'os_controls.ps1');
+const osVolumeScript = path.join(__dirname, 'os_volume.ps1');
+
+// --- FAST OS MASTER VOLUME DAEMON (0ms Real-Time Windows Scalar Volume) ---
+let volumeDaemon = null;
+let volumePendingCallbacks = [];
+let cachedVolumeState = { success: true, volume: 50, muted: false };
+
+function ensureVolumeDaemon() {
+  if (volumeDaemon && !volumeDaemon.killed && volumeDaemon.stdin && volumeDaemon.stdin.writable) {
+    return volumeDaemon;
+  }
+  try {
+    volumeDaemon = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', osVolumeScript, '-Daemon'], {
+      stdio: ['pipe', 'pipe', 'ignore'],
+      windowsHide: true,
+    });
+    let buffer = '';
+    volumeDaemon.stdout.on('data', (chunk) => {
+      buffer += chunk.toString();
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop();
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'READY') continue;
+        try {
+          const parsed = JSON.parse(trimmed);
+          cachedVolumeState = parsed;
+          const cb = volumePendingCallbacks.shift();
+          if (cb) cb(parsed);
+        } catch (_) {}
+      }
+    });
+    volumeDaemon.on('exit', () => {
+      volumeDaemon = null;
+      while (volumePendingCallbacks.length) {
+        const cb = volumePendingCallbacks.shift();
+        cb(cachedVolumeState);
+      }
+    });
+    volumeDaemon.on('error', () => {
+      volumeDaemon = null;
+    });
+  } catch (_) {
+    volumeDaemon = null;
+  }
+  return volumeDaemon;
+}
+
+function sendVolumeCommand(cmd) {
+  return new Promise((resolve) => {
+    const daemon = ensureVolumeDaemon();
+    if (!daemon || !daemon.stdin || !daemon.stdin.writable) {
+      // Fallback direct execution
+      const parts = cmd.trim().split(/\s+/);
+      const act = parts[0].toLowerCase();
+      const val = parts[1] || -1;
+      exec(`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${osVolumeScript}" -Action "${act}" -Value ${val}`, { timeout: 3500 }, (err, stdout) => {
+        try {
+          const parsed = JSON.parse(stdout.trim());
+          cachedVolumeState = parsed;
+          resolve(parsed);
+        } catch (_) {
+          resolve(cachedVolumeState);
+        }
+      });
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      resolve(cachedVolumeState);
+    }, 1200);
+
+    volumePendingCallbacks.push((res) => {
+      clearTimeout(timer);
+      resolve(res);
+    });
+
+    try {
+      daemon.stdin.write(cmd + '\n');
+    } catch (_) {
+      clearTimeout(timer);
+      resolve(cachedVolumeState);
+    }
+  });
+}
+
+async function getMasterVolume() {
+  return await sendVolumeCommand('get');
+}
+
+async function setMasterVolume(val) {
+  return await sendVolumeCommand(`set ${Math.max(0, Math.min(100, Math.round(Number(val) || 0)))}`);
+}
+
+async function toggleMasterVolumeMute() {
+  return await sendVolumeCommand('toggle-mute');
+}
+
+function stopVolumeDaemon() {
+  if (volumeDaemon) {
+    try { volumeDaemon.kill(); } catch (_) {}
+    volumeDaemon = null;
+  }
+}
+
+// Pre-warm volume daemon
+setTimeout(() => ensureVolumeDaemon(), 1200);
+
+function runOsControlScript(action, target = '', value = 0) {
+  return new Promise((resolve) => {
+    const safeTarget = String(target || '').replace(/"/g, '\\"');
+    const cmd = `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${osControlsScript}" -Action "${action}" -Target "${safeTarget}" -Value ${Number(value) || 0}`;
+    exec(cmd, { timeout: 9000 }, (err, stdout) => {
+      if (err || !stdout) {
+        return resolve({ success: false, error: err ? err.message : 'No output' });
+      }
+      try {
+        const parsed = JSON.parse(stdout.trim());
+        resolve(parsed);
+      } catch (e) {
+        resolve({ success: false, error: 'Invalid JSON output' });
+      }
+    });
+  });
+}
+
+ipcMain.handle('jarvis:os-control', async (event, payload = {}) => {
+  const { action = 'status', target = '', value = 0 } = payload;
+  if (action === 'get-volume') {
+    return await getMasterVolume();
+  }
+  if (action === 'set-volume') {
+    return await setMasterVolume(value);
+  }
+  if (action === 'toggle-mute') {
+    return await toggleMasterVolumeMute();
+  }
+  return await runOsControlScript(action, target, value);
+});
+
+ipcMain.handle('jarvis:get-volume', async () => {
+  return await getMasterVolume();
+});
+
+ipcMain.handle('jarvis:set-volume', async (event, val) => {
+  return await setMasterVolume(val);
+});
+
+ipcMain.handle('jarvis:toggle-volume-mute', async () => {
+  return await toggleMasterVolumeMute();
+});
+
+// Fast 0ms Node.js CPU tick tracker + non-blocking WMI hardware cache
+let prevCpuTicks = null;
+function getInstantCpuLoad() {
+  const cpus = os.cpus();
+  let idle = 0;
+  let total = 0;
+  for (const cpu of cpus) {
+    for (const type in cpu.times) {
+      total += cpu.times[type];
+    }
+    idle += cpu.times.idle;
+  }
+  let pct = 14;
+  if (prevCpuTicks) {
+    const idleDiff = idle - prevCpuTicks.idle;
+    const totalDiff = total - prevCpuTicks.total;
+    if (totalDiff > 0) {
+      pct = Math.max(1, Math.min(100, Math.round(100 - (100 * idleDiff) / totalDiff)));
+    }
+  }
+  prevCpuTicks = { idle, total };
+  return pct;
+}
+getInstantCpuLoad();
+
+let extStatsCache = null;
+let extStatsFetching = false;
+function refreshExtStatsInBackground() {
+  if (extStatsFetching) return;
+  extStatsFetching = true;
+  runOsControlScript('live-stats')
+    .then((res) => {
+      if (res && res.success) {
+        extStatsCache = res;
+      }
+    })
+    .catch(() => {})
+    .finally(() => {
+      extStatsFetching = false;
+    });
+}
+refreshExtStatsInBackground();
+
+ipcMain.handle('jarvis:get-system-stats', async () => {
+  refreshExtStatsInBackground();
+  try {
+    const totalMem = Math.round((os.totalmem() / (1024 * 1024 * 1024)) * 10) / 10;
+    const freeMem = Math.round((os.freemem() / (1024 * 1024 * 1024)) * 10) / 10;
+    const usedMem = Math.round((totalMem - freeMem) * 10) / 10;
+    const ramPct = Math.round((usedMem / totalMem) * 100);
+    const cpus = os.cpus();
+    const cpuModel = (cpus && cpus[0] ? cpus[0].model.replace(/\s+/g, ' ').trim() : 'Processor');
+    const cpuThreads = cpus ? cpus.length : 8;
+    const cpuCores = extStatsCache?.cpu?.cores || Math.max(1, Math.round(cpuThreads / 2));
+    const cpuGhz = cpus && cpus[0] && cpus[0].speed ? Math.round((cpus[0].speed / 1000) * 100) / 100 : (extStatsCache?.cpu?.ghz || 3.2);
+    const cpuPct = getInstantCpuLoad();
+
+    const upSec = os.uptime();
+    const upD = Math.floor(upSec / 86400);
+    const upH = Math.floor((upSec % 86400) / 3600);
+    const upM = Math.floor((upSec % 3600) / 60);
+    const uptimeStr = `${upD}d ${upH}h ${upM}m`;
+
+    // Instant local IPv4
+    let localIp = extStatsCache?.network?.ip || 'Local LAN';
+    let netAdapterName = extStatsCache?.network?.adapter || 'Wi-Fi';
+    try {
+      const nets = os.networkInterfaces();
+      for (const [ifName, addrs] of Object.entries(nets)) {
+        for (const a of addrs || []) {
+          if (a.family === 'IPv4' && !a.internal && !a.address.startsWith('169.254.')) {
+            localIp = a.address;
+            netAdapterName = ifName;
+            break;
+          }
+        }
+      }
+    } catch (e) {}
+
+    return {
+      success: true,
+      totalMem,
+      freeMem,
+      usedMem,
+      ramPct,
+      cpuModel,
+      cpuCores: cpuThreads,
+      cpu: {
+        name: cpuModel,
+        pct: cpuPct,
+        ghz: cpuGhz,
+        cores: cpuCores,
+        threads: cpuThreads,
+      },
+      ram: {
+        usedGB: usedMem,
+        freeGB: freeMem,
+        totalGB: totalMem,
+        pct: ramPct,
+      },
+      gpu: extStatsCache?.gpu || {
+        name: 'Integrated / Discrete GPU',
+        vramGB: 4,
+        display: '1920x1080 @ 144Hz',
+      },
+      uptime: uptimeStr,
+      battery: extStatsCache?.battery || {
+        pct: 100,
+        status: 'AC Power',
+        charging: true,
+      },
+      network: {
+        adapter: extStatsCache?.network?.adapter || netAdapterName,
+        speed: extStatsCache?.network?.speed || 'Connected',
+        ip: localIp,
+      },
+      disks: extStatsCache?.disks || [
+        { name: 'C:', usedGB: 120, freeGB: 40, totalGB: 160, pct: 75 },
+      ],
+      processes: extStatsCache?.processes || [],
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// Scan Real Installed User Applications (.lnk from Start Menu & Desktop) + Native High-Res Icons
+let cachedInstalledApps = null;
+function scanShortcutsInDir(dirPath, maxItems = 40) {
+  let list = [];
+  if (!dirPath || !fs.existsSync(dirPath)) return list;
+  try {
+    const entries = fs.readdirSync(dirPath);
+    for (const entry of entries) {
+      if (list.length >= maxItems) break;
+      const fullPath = path.join(dirPath, entry);
+      try {
+        const stat = fs.statSync(fullPath);
+        if (stat.isDirectory()) {
+          if (!/^(Administrative Tools|System Tools|Accessibility|Accessories|StartUp|Maintenance)$/i.test(entry)) {
+            list = list.concat(scanShortcutsInDir(fullPath, maxItems - list.length));
+          }
+        } else if (/\.lnk$/i.test(entry)) {
+          const baseName = entry.replace(/\.lnk$/i, '').trim();
+          if (/uninstall|readme|help|manual|website|documentation|update|setup|installer|license|release notes|command prompt|powershell/i.test(baseName)) {
+            continue;
+          }
+          let targetExe = fullPath;
+          try {
+            const parsedLnk = shell.readShortcutLink(fullPath);
+            if (parsedLnk && parsedLnk.target && fs.existsSync(parsedLnk.target)) {
+              if (/uninstall|unins000|setup/i.test(path.basename(parsedLnk.target))) continue;
+              targetExe = parsedLnk.target;
+            }
+          } catch (e) {}
+          list.push({
+            name: baseName,
+            path: fullPath,
+            exePath: targetExe,
+            category: path.basename(dirPath) === 'Programs' ? 'Application' : path.basename(dirPath),
+          });
+        }
+      } catch (e) {}
+    }
+  } catch (e) {}
+  return list;
+}
+
+ipcMain.handle('jarvis:get-installed-apps', async () => {
+  if (cachedInstalledApps && cachedInstalledApps.length > 0) {
+    return cachedInstalledApps;
+  }
+  const userStartMenu = path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs');
+  const commonStartMenu = 'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs';
+  const userDesktop = path.join(os.homedir(), 'Desktop');
+  const oneDriveDesktop = path.join(os.homedir(), 'OneDrive', 'Desktop');
+
+  let raw = []
+    .concat(scanShortcutsInDir(userDesktop, 12))
+    .concat(scanShortcutsInDir(oneDriveDesktop, 12))
+    .concat(scanShortcutsInDir(userStartMenu, 25))
+    .concat(scanShortcutsInDir(commonStartMenu, 30));
+
+  const seenNames = new Set();
+  const unique = [];
+  for (const item of raw) {
+    const key = item.name.toLowerCase();
+    if (seenNames.has(key)) continue;
+    seenNames.add(key);
+    unique.push(item);
+    if (unique.length >= 22) break;
+  }
+
+  const enriched = await Promise.all(unique.map(async (item) => {
+    let iconDataUrl = '';
+    try {
+      const iconImg = await app.getFileIcon(item.exePath || item.path, { size: 'large' });
+      if (iconImg && !iconImg.isEmpty()) {
+        iconDataUrl = iconImg.toDataURL();
+      }
+    } catch (e) {}
+    return {
+      ...item,
+      icon: iconDataUrl,
+    };
+  }));
+
+  cachedInstalledApps = enriched;
+  return enriched;
+});
+
+ipcMain.handle('jarvis:launch-installed-app', async (event, appPath) => {
+  if (!appPath) return { success: false };
+  try {
+    await shell.openPath(appPath);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// ============================================================================
+// INSTALLED GAMES SCANNER + FREE OFFICIAL POSTER API (Steam Store API + CheapShark)
+// ============================================================================
+const gamesPosterCachePath = path.join(grokkiDataDir, 'games-poster-cache.json');
+let gamesPosterCache = {};
+try {
+  if (fs.existsSync(gamesPosterCachePath)) {
+    gamesPosterCache = JSON.parse(fs.readFileSync(gamesPosterCachePath, 'utf8')) || {};
+  }
+} catch (e) {
+  gamesPosterCache = {};
+}
+
+function saveGamesPosterCache() {
+  try {
+    fs.writeFileSync(gamesPosterCachePath, JSON.stringify(gamesPosterCache, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+const KNOWN_GAME_TITLES = {
+  farcry5: { title: 'Far Cry 5', appId: '552520' },
+  forzahorizon4: { title: 'Forza Horizon 4', appId: '1293830' },
+  forzahorizon5: { title: 'Forza Horizon 5', appId: '1551360' },
+  sleepingdogsdefinitiveedition: { title: 'Sleeping Dogs: Definitive Edition', appId: '307690' },
+  chainedtogether: { title: 'Chained Together', appId: '2567870' },
+  picopark: { title: 'PICO PARK', appId: '1509960' },
+  pico_park: { title: 'PICO PARK', appId: '1509960' },
+  crabgame: { title: 'Crab Game', appId: '1782210' },
+  marvelsspiderman2: { title: "Marvel's Spider-Man 2", appId: '2651280' },
+  needforspeedheat: { title: 'Need for Speed Heat', appId: '1222680' },
+  thewitcher3: { title: 'The Witcher 3: Wild Hunt', appId: '292030' },
+  mafiadefinitiveedition: { title: 'Mafia: Definitive Edition', appId: '1030840' },
+  reddeadredemption2: { title: 'Red Dead Redemption 2', appId: '1174180' },
+  grandtheftautov: { title: 'Grand Theft Auto V', appId: '271590' },
+  gtav: { title: 'Grand Theft Auto V', appId: '271590' },
+  cyberpunk2077: { title: 'Cyberpunk 2077', appId: '1091500' },
+  eldenring: { title: 'Elden Ring', appId: '1245620' },
+};
+
+function normalizeGameKey(rawName = '') {
+  return String(rawName)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function prettifyGameFolderName(rawFolder = '') {
+  const norm = normalizeGameKey(rawFolder);
+  if (KNOWN_GAME_TITLES[norm]) {
+    return KNOWN_GAME_TITLES[norm].title;
+  }
+  return String(rawFolder)
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Za-z])(\d+)/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isIgnoredGameFolder(folderName = '', fullDirPath = '') {
+  const lower = String(folderName).toLowerCase().trim();
+  if (!lower) return true;
+  if (
+    /^(steamworks shared|wallpaper_engine|wallpaper engine|steam controller configs|proton.*|steamlinuxruntime.*|directx|redist|_commonredist|commonredist|installers|support|shader|shadercache|temp|logs|crash|excalibur)$/i.test(
+      lower
+    )
+  ) {
+    return true;
+  }
+  try {
+    const entries = fs.readdirSync(fullDirPath);
+    if (!entries || entries.length === 0) return true;
+  } catch (e) {
+    return true;
+  }
+  return false;
+}
+
+function findGameExecutable(installDir, maxDepth = 2, currentDepth = 0) {
+  if (!installDir || !fs.existsSync(installDir) || currentDepth > maxDepth) return '';
+  let candidates = [];
+  try {
+    const entries = fs.readdirSync(installDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(installDir, entry.name);
+      if (entry.isFile() && /\.exe$/i.test(entry.name)) {
+        if (
+          /^(unins|crash|unitycrash|crs-|dxsetup|vc_redist|vcredist|dotnet|easyanticheat|battleye|beservice|launcher_helper|steamerrorreporter|cleanup|touchup|activation|cep|qtdiag|cefprocess|webhelper)/i.test(
+            entry.name
+          )
+        ) {
+          continue;
+        }
+        let size = 0;
+        try {
+          size = fs.statSync(fullPath).size;
+        } catch (e) {}
+        candidates.push({ path: fullPath, name: entry.name, size, depth: currentDepth });
+      } else if (entry.isDirectory() && currentDepth < maxDepth) {
+        if (!/^(redist|_commonredist|directx|support|installers|easyanticheat|battleye|mono|logs|shadercache)$/i.test(entry.name)) {
+          const subExe = findGameExecutable(fullPath, maxDepth, currentDepth + 1);
+          if (subExe) {
+            let size = 0;
+            try {
+              size = fs.statSync(subExe).size;
+            } catch (e) {}
+            candidates.push({ path: subExe, name: path.basename(subExe), size, depth: currentDepth + 1 });
+          }
+        }
+      }
+    }
+  } catch (e) {}
+
+  if (!candidates.length) return '';
+  const folderNorm = normalizeGameKey(path.basename(installDir));
+  candidates.sort((a, b) => {
+    const aNorm = normalizeGameKey(a.name.replace(/\.exe$/i, ''));
+    const bNorm = normalizeGameKey(b.name.replace(/\.exe$/i, ''));
+    const aMatches = folderNorm && (aNorm.includes(folderNorm) || folderNorm.includes(aNorm)) ? 1 : 0;
+    const bMatches = folderNorm && (bNorm.includes(folderNorm) || folderNorm.includes(bNorm)) ? 1 : 0;
+    if (aMatches !== bMatches) return bMatches - aMatches;
+    return b.size - a.size;
+  });
+  return candidates[0].path;
+}
+
+function fetchJsonHttps(urlStr, timeoutMs = 4500) {
+  return new Promise((resolve) => {
+    try {
+      const https = require('https');
+      const req = https.get(
+        urlStr,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            Accept: 'application/json',
+          },
+        },
+        (res) => {
+          if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+            return resolve(fetchJsonHttps(res.headers.location, timeoutMs));
+          }
+          let body = '';
+          res.on('data', (chunk) => {
+            body += chunk;
+          });
+          res.on('end', () => {
+            try {
+              resolve(JSON.parse(body));
+            } catch (e) {
+              resolve(null);
+            }
+          });
+        }
+      );
+      req.on('error', () => resolve(null));
+      req.setTimeout(timeoutMs, () => {
+        req.destroy();
+        resolve(null);
+      });
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+async function resolveGamePosterFreeAPI(gameTitle, knownAppId = '') {
+  const normKey = normalizeGameKey(gameTitle);
+  if (gamesPosterCache[normKey] && gamesPosterCache[normKey].poster) {
+    return gamesPosterCache[normKey];
+  }
+
+  let appId = knownAppId || (KNOWN_GAME_TITLES[normKey] && KNOWN_GAME_TITLES[normKey].appId) || '';
+  let apiTinyImage = '';
+
+  if (!appId) {
+    const searchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(gameTitle)}&l=english&cc=US`;
+    const data = await fetchJsonHttps(searchUrl);
+    if (data && Array.isArray(data.items) && data.items.length > 0) {
+      const best =
+        data.items.find(
+          (item) => !/\b(soundtrack|ost|dlc|season pass|artbook|pack|upgrade|demo|trial)\b/i.test(item.name || '')
+        ) || data.items[0];
+      if (best && best.id) {
+        appId = String(best.id);
+        apiTinyImage = best.tiny_image || '';
+      }
+    }
+  }
+
+  if (appId) {
+    const result = {
+      appId,
+      poster: `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/library_600x900.jpg`,
+      fallbackPoster: `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg`,
+      extraFallback: apiTinyImage || `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`,
+    };
+    gamesPosterCache[normKey] = result;
+    return result;
+  }
+
+  // Fallback free API: CheapShark Game Deals/Database API (no key required)
+  const csUrl = `https://www.cheapshark.com/api/1.0/games?title=${encodeURIComponent(gameTitle)}&limit=3`;
+  const csData = await fetchJsonHttps(csUrl);
+  if (Array.isArray(csData) && csData.length > 0) {
+    const match = csData[0];
+    if (match.steamAppID) {
+      const sId = String(match.steamAppID);
+      const result = {
+        appId: sId,
+        poster: `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${sId}/library_600x900.jpg`,
+        fallbackPoster: `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${sId}/header.jpg`,
+        extraFallback: match.thumb || '',
+      };
+      gamesPosterCache[normKey] = result;
+      return result;
+    } else if (match.thumb) {
+      const result = {
+        appId: '',
+        poster: match.thumb,
+        fallbackPoster: match.thumb,
+        extraFallback: '',
+      };
+      gamesPosterCache[normKey] = result;
+      return result;
+    }
+  }
+
+  return { appId: '', poster: '', fallbackPoster: '', extraFallback: '' };
+}
+
+let cachedInstalledGames = null;
+
+function discoverAllInstalledGamesOnDisk() {
+  const steamAppsDirs = new Set();
+  const standaloneGameRoots = new Set();
+
+  const defaultSteamPaths = [
+    'C:\\Program Files (x86)\\Steam',
+    'C:\\Program Files\\Steam',
+  ];
+
+  for (const sp of defaultSteamPaths) {
+    const sa = path.join(sp, 'steamapps');
+    if (fs.existsSync(sa)) {
+      steamAppsDirs.add(sa);
+      const vdfPath = path.join(sa, 'libraryfolders.vdf');
+      if (fs.existsSync(vdfPath)) {
+        try {
+          const vdfContent = fs.readFileSync(vdfPath, 'utf8');
+          const pathMatches = vdfContent.matchAll(/"path"\s+"([^"]+)"/g);
+          for (const m of pathMatches) {
+            const libRoot = m[1].replace(/\\\\/g, '\\');
+            const libSteamApps = path.join(libRoot, 'steamapps');
+            if (fs.existsSync(libSteamApps)) {
+              steamAppsDirs.add(libSteamApps);
+            }
+          }
+        } catch (e) {}
+      }
+    }
+  }
+
+  // Scan drives C through G for SteamLibrary, Games, Epic Games, XboxGames
+  for (const drive of ['C:', 'D:', 'E:', 'F:', 'G:']) {
+    for (const sub of ['SteamLibrary\\steamapps', 'Steam\\steamapps', 'Games\\SteamLibrary\\steamapps']) {
+      const candidate = path.join(drive + '\\', sub);
+      if (fs.existsSync(candidate)) steamAppsDirs.add(candidate);
+    }
+    for (const rootFolder of ['Games', 'PC Games', 'Epic Games', 'XboxGames']) {
+      const candidate = path.join(drive + '\\', rootFolder);
+      if (fs.existsSync(candidate)) standaloneGameRoots.add(candidate);
+    }
+  }
+
+  const discovered = [];
+  const seenKeys = new Set();
+
+  // 1. Parse Steam appmanifest_*.acf files & common folders
+  for (const saDir of steamAppsDirs) {
+    const manifestByInstallDir = {};
+    try {
+      const files = fs.readdirSync(saDir);
+      for (const f of files) {
+        if (/^appmanifest_\d+\.acf$/i.test(f)) {
+          try {
+            const raw = fs.readFileSync(path.join(saDir, f), 'utf8');
+            const idMatch = raw.match(/"appid"\s+"(\d+)"/i);
+            const nameMatch = raw.match(/"name"\s+"([^"]+)"/i);
+            const dirMatch = raw.match(/"installdir"\s+"([^"]+)"/i);
+            if (dirMatch) {
+              manifestByInstallDir[dirMatch[1].toLowerCase()] = {
+                appId: idMatch ? idMatch[1] : '',
+                name: nameMatch ? nameMatch[1] : dirMatch[1],
+              };
+            }
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+
+    const commonDir = path.join(saDir, 'common');
+    if (fs.existsSync(commonDir)) {
+      try {
+        const folders = fs.readdirSync(commonDir, { withFileTypes: true });
+        for (const dirent of folders) {
+          if (!dirent.isDirectory()) continue;
+          const folderName = dirent.name;
+          const fullInstallDir = path.join(commonDir, folderName);
+          if (isIgnoredGameFolder(folderName, fullInstallDir)) continue;
+
+          const acfInfo = manifestByInstallDir[folderName.toLowerCase()];
+          const rawTitle = acfInfo && acfInfo.name ? acfInfo.name : prettifyGameFolderName(folderName);
+          const normKey = normalizeGameKey(rawTitle);
+          if (!normKey || seenKeys.has(normKey)) continue;
+
+          const known = KNOWN_GAME_TITLES[normKey] || KNOWN_GAME_TITLES[normalizeGameKey(folderName)];
+          const displayTitle = known ? known.title : rawTitle;
+          const appId = (acfInfo && acfInfo.appId) || (known && known.appId) || '';
+          const exePath = findGameExecutable(fullInstallDir);
+
+          seenKeys.add(normKey);
+          discovered.push({
+            id: normKey,
+            name: displayTitle,
+            folderName,
+            installDir: fullInstallDir,
+            exePath,
+            appId,
+            platform: 'Steam',
+          });
+        }
+      } catch (e) {}
+    }
+  }
+
+  // 2. Scan Epic Games manifests if present
+  const epicManifestsDir = 'C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests';
+  if (fs.existsSync(epicManifestsDir)) {
+    try {
+      const items = fs.readdirSync(epicManifestsDir);
+      for (const f of items) {
+        if (!f.endsWith('.item')) continue;
+        try {
+          const data = JSON.parse(fs.readFileSync(path.join(epicManifestsDir, f), 'utf8'));
+          if (!data || !data.DisplayName || !data.InstallLocation || !fs.existsSync(data.InstallLocation)) continue;
+          if (/unreal engine|epic online services|launcher/i.test(data.DisplayName)) continue;
+          const normKey = normalizeGameKey(data.DisplayName);
+          if (seenKeys.has(normKey)) continue;
+          seenKeys.add(normKey);
+          discovered.push({
+            id: normKey,
+            name: data.DisplayName,
+            folderName: path.basename(data.InstallLocation),
+            installDir: data.InstallLocation,
+            exePath: data.LaunchExecutable ? path.join(data.InstallLocation, data.LaunchExecutable) : findGameExecutable(data.InstallLocation),
+            appId: '',
+            platform: 'Epic',
+          });
+        } catch (e) {}
+      }
+    } catch (e) {}
+  }
+
+  // 3. Scan standalone Games folders
+  for (const rootDir of standaloneGameRoots) {
+    try {
+      const folders = fs.readdirSync(rootDir, { withFileTypes: true });
+      for (const dirent of folders) {
+        if (!dirent.isDirectory()) continue;
+        const folderName = dirent.name;
+        const fullInstallDir = path.join(rootDir, folderName);
+        if (isIgnoredGameFolder(folderName, fullInstallDir)) continue;
+
+        const displayTitle = prettifyGameFolderName(folderName);
+        const normKey = normalizeGameKey(displayTitle);
+        if (!normKey || seenKeys.has(normKey)) continue;
+
+        const exePath = findGameExecutable(fullInstallDir);
+        if (!exePath) continue;
+
+        seenKeys.add(normKey);
+        discovered.push({
+          id: normKey,
+          name: displayTitle,
+          folderName,
+          installDir: fullInstallDir,
+          exePath,
+          appId: (KNOWN_GAME_TITLES[normKey] && KNOWN_GAME_TITLES[normKey].appId) || '',
+          platform: 'PC',
+        });
+      }
+    } catch (e) {}
+  }
+
+  discovered.sort((a, b) => a.name.localeCompare(b.name));
+  return discovered;
+}
+
+ipcMain.handle('jarvis:get-installed-games', async (event, forceRefresh = false) => {
+  if (cachedInstalledGames && cachedInstalledGames.length > 0 && !forceRefresh) {
+    return cachedInstalledGames;
+  }
+
+  const rawGames = discoverAllInstalledGamesOnDisk();
+  const enriched = await Promise.all(
+    rawGames.map(async (game) => {
+      const art = await resolveGamePosterFreeAPI(game.name, game.appId);
+      return {
+        ...game,
+        appId: game.appId || art.appId || '',
+        poster: art.poster || '',
+        fallbackPoster: art.fallbackPoster || '',
+        extraFallback: art.extraFallback || '',
+      };
+    })
+  );
+
+  saveGamesPosterCache();
+  cachedInstalledGames = enriched;
+  return enriched;
+});
+
+ipcMain.handle('jarvis:launch-installed-game', async (event, game = {}) => {
+  if (!game) return { success: false };
+  try {
+    if (game.exePath && fs.existsSync(game.exePath)) {
+      await shell.openPath(game.exePath);
+      return { success: true, method: 'exe' };
+    }
+    if (game.installDir && fs.existsSync(game.installDir)) {
+      const foundExe = findGameExecutable(game.installDir, 3);
+      if (foundExe && fs.existsSync(foundExe)) {
+        await shell.openPath(foundExe);
+        return { success: true, method: 'exe-discovered' };
+      }
+    }
+    if (game.appId) {
+      await shell.openExternal(`steam://rungameid/${game.appId}`);
+      return { success: true, method: 'steam' };
+    }
+    if (game.installDir && fs.existsSync(game.installDir)) {
+      await shell.openPath(game.installDir);
+      return { success: true, method: 'folder' };
+    }
+    return { success: false, error: 'Executable not found' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// Real Windows GSMTC Media + Wi-Fi SSID + Bluetooth + Audio Output Device
+const mediaStatusScript = path.join(__dirname, 'get_media_status.ps1');
+let cachedLiveMedia = null;
+let liveMediaInProgress = false;
+
+// --- HIGH-RES ALBUM ART COVER FETCHER & CACHE (FREE ITUNES SEARCH API) ---
+const albumArtCache = new Map();
+
+function cleanMusicSearchTerm(title = '', artist = '') {
+  let t = (title || '')
+    .replace(/\s*(\(|\[)(official\s*(music\s*)?video|video|audio|lyrics|hd|4k|remastered|hq|feat\..*|ft\..*)(\)|\])/gi, '')
+    .replace(/ft\..*|feat\..*/gi, '')
+    .trim();
+  let a = (artist || '').replace(/ft\..*|feat\..*/gi, '').trim();
+  if (a && a !== 'System Media' && a.toLowerCase() !== 'unknown artist') {
+    return `${t} ${a}`.trim();
+  }
+  return t;
+}
+
+function fetchAlbumArtCover(title, artist) {
+  if (!title) return Promise.resolve('');
+  const cacheKey = `${title.toLowerCase()}:::${(artist || '').toLowerCase()}`;
+  if (albumArtCache.has(cacheKey)) {
+    return Promise.resolve(albumArtCache.get(cacheKey));
+  }
+
+  const query = cleanMusicSearchTerm(title, artist);
+  if (!query) return Promise.resolve('');
+
+  return new Promise((resolve) => {
+    const https = require('https');
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=1`;
+    const req = https.get(url, { timeout: 2200 }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.results && parsed.results.length > 0 && parsed.results[0].artworkUrl100) {
+            const highRes = parsed.results[0].artworkUrl100.replace('100x100bb', '600x600bb');
+            albumArtCache.set(cacheKey, highRes);
+            return resolve(highRes);
+          }
+        } catch (_) {}
+        albumArtCache.set(cacheKey, '');
+        resolve('');
+      });
+    });
+    req.on('error', () => {
+      albumArtCache.set(cacheKey, '');
+      resolve('');
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      albumArtCache.set(cacheKey, '');
+      resolve('');
+    });
+  });
+}
+
+ipcMain.handle('jarvis:get-live-media', async () => {
+  if (liveMediaInProgress && cachedLiveMedia) {
+    return cachedLiveMedia;
+  }
+  liveMediaInProgress = true;
+  return new Promise((resolve) => {
+    exec(`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${mediaStatusScript}"`, { timeout: 4500 }, async (err, stdout) => {
+      liveMediaInProgress = false;
+      if (err || !stdout) {
+        return resolve(cachedLiveMedia || { success: false });
+      }
+      try {
+        const parsed = JSON.parse(stdout.trim());
+        const media = parsed.media || parsed || {};
+        const title = (media.title || parsed.title || '').trim();
+        const artist = (media.artist || parsed.artist || '').trim();
+        const status = media.status || parsed.status || 'Paused';
+        const hasMedia = title.length > 0;
+        const isPlaying = status === 'Playing';
+
+        let thumbnail = media.thumbnail || parsed.thumbnail || '';
+        if (!thumbnail && hasMedia) {
+          const cacheKey = `${title.toLowerCase()}:::${artist.toLowerCase()}`;
+          if (albumArtCache.has(cacheKey)) {
+            thumbnail = albumArtCache.get(cacheKey) || '';
+          } else {
+            // Quick wait up to 550ms for cover art, background caching continues if it takes longer
+            try {
+              thumbnail = await Promise.race([
+                fetchAlbumArtCover(title, artist),
+                new Promise((r) => setTimeout(() => r(''), 550))
+              ]) || '';
+            } catch (_) {}
+            if (!thumbnail) {
+              fetchAlbumArtCover(title, artist).then((art) => {
+                if (art && cachedLiveMedia && cachedLiveMedia.title === title) {
+                  cachedLiveMedia.thumbnail = art;
+                  if (cachedLiveMedia.media) cachedLiveMedia.media.thumbnail = art;
+                }
+              }).catch(() => {});
+            }
+          }
+        }
+
+        const result = {
+          success: true,
+          ...parsed,
+          title,
+          artist,
+          status,
+          playing: isPlaying,
+          hasMedia,
+          active: hasMedia,
+          position: media.position || parsed.position || 0,
+          duration: media.duration || parsed.duration || 0,
+          thumbnail,
+          media: {
+            title,
+            artist,
+            status,
+            position: media.position || parsed.position || 0,
+            duration: media.duration || parsed.duration || 0,
+            thumbnail
+          }
+        };
+
+        cachedLiveMedia = result;
+        resolve(result);
+      } catch (e) {
+        resolve(cachedLiveMedia || { success: false });
+      }
+    });
+  });
+});
+
+// Real Weather (Open-Meteo + IP Geolocation) & Live News Headlines (Google News RSS)
+let cachedTodayData = null;
+let cachedTodayTime = 0;
+
+function decodeHtmlEntities(str = '') {
+  return str
+    .replace(/<!\[CDATA\[|\]\]>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .trim();
+}
+
+function weatherCodeToLabel(code) {
+  const map = {
+    0: { label: 'Clear Sky', icon: 'fa-cloud-sun' },
+    1: { label: 'Mostly Clear', icon: 'fa-cloud-sun' },
+    2: { label: 'Partly Cloudy', icon: 'fa-cloud-sun' },
+    3: { label: 'Overcast', icon: 'fa-cloud' },
+    45: { label: 'Foggy', icon: 'fa-smog' },
+    48: { label: 'Rime Fog', icon: 'fa-smog' },
+    51: { label: 'Light Drizzle', icon: 'fa-cloud-rain' },
+    53: { label: 'Drizzle', icon: 'fa-cloud-rain' },
+    55: { label: 'Heavy Drizzle', icon: 'fa-cloud-showers-heavy' },
+    61: { label: 'Light Rain', icon: 'fa-cloud-rain' },
+    63: { label: 'Moderate Rain', icon: 'fa-cloud-showers-heavy' },
+    65: { label: 'Heavy Rain', icon: 'fa-cloud-showers-heavy' },
+    71: { label: 'Light Snow', icon: 'fa-snowflake' },
+    80: { label: 'Rain Showers', icon: 'fa-cloud-sun-rain' },
+    81: { label: 'Heavy Showers', icon: 'fa-cloud-showers-heavy' },
+    95: { label: 'Thunderstorm', icon: 'fa-cloud-bolt' },
+  };
+  return map[code] || { label: 'Partly Cloudy', icon: 'fa-cloud-sun' };
+}
+
+ipcMain.handle('jarvis:get-today-data', async () => {
+  if (cachedTodayData && Date.now() - cachedTodayTime < 5 * 60 * 1000) {
+    return cachedTodayData;
+  }
+  const result = {
+    weather: {
+      city: 'Local',
+      temp: '--',
+      feelsLike: '--',
+      humidity: '--',
+      wind: '--',
+      high: '--',
+      low: '--',
+      condition: 'Loading...',
+      icon: 'fa-cloud-sun',
+    },
+    news: [],
+  };
+
+  try {
+    const geo = await fetch('http://ip-api.com/json/').then(r => r.json()).catch(() => ({
+      city: 'Guwahati',
+      lat: 26.1445,
+      lon: 91.7362,
+    }));
+    const lat = geo.lat || 26.1445;
+    const lon = geo.lon || 91.7362;
+    const wUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,surface_pressure&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max&timezone=auto`;
+    const wData = await fetch(wUrl).then(r => r.json());
+    if (wData && wData.current) {
+      const wInfo = weatherCodeToLabel(wData.current.weather_code);
+      const fmtSun = (isoStr) => {
+        if (!isoStr) return '--:--';
+        try {
+          const d = new Date(isoStr);
+          return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        } catch (e) {
+          return '--:--';
+        }
+      };
+      result.weather = {
+        city: geo.city || 'Guwahati',
+        temp: Math.round(wData.current.temperature_2m),
+        feelsLike: Math.round(wData.current.apparent_temperature),
+        humidity: Math.round(wData.current.relative_humidity_2m),
+        wind: Math.round(wData.current.wind_speed_10m),
+        pressure: wData.current.surface_pressure ? Math.round(wData.current.surface_pressure) : 1012,
+        high: wData.daily?.temperature_2m_max?.[0] ? Math.round(wData.daily.temperature_2m_max[0]) : '--',
+        low: wData.daily?.temperature_2m_min?.[0] ? Math.round(wData.daily.temperature_2m_min[0]) : '--',
+        uv: wData.daily?.uv_index_max?.[0] != null ? Math.round(wData.daily.uv_index_max[0]) : '--',
+        sunrise: fmtSun(wData.daily?.sunrise?.[0]),
+        sunset: fmtSun(wData.daily?.sunset?.[0]),
+        sunriseIso: wData.daily?.sunrise?.[0] || '',
+        sunsetIso: wData.daily?.sunset?.[0] || '',
+        condition: wInfo.label,
+        icon: wInfo.icon,
+      };
+    }
+  } catch (e) {}
+
+  try {
+    const rss = await fetch('https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en').then(r => r.text());
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+    while ((match = itemRegex.exec(rss)) !== null && result.news.length < 6) {
+      const block = match[1];
+      const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/);
+      const linkMatch = block.match(/<link>([\s\S]*?)<\/link>/);
+      const sourceMatch = block.match(/<source[^>]*>([\s\S]*?)<\/source>/);
+      if (titleMatch && linkMatch) {
+        let fullTitle = decodeHtmlEntities(titleMatch[1]);
+        const src = sourceMatch ? decodeHtmlEntities(sourceMatch[1]) : 'News';
+        if (fullTitle.endsWith(' - ' + src)) {
+          fullTitle = fullTitle.slice(0, -(' - ' + src).length);
+        }
+        result.news.push({
+          title: fullTitle,
+          source: src,
+          link: linkMatch[1].trim(),
+        });
+      }
+    }
+  } catch (e) {}
+
+  cachedTodayData = result;
+  cachedTodayTime = Date.now();
+  return result;
+});
+
+ipcMain.handle('jarvis:open-settings-page', (event, page) => {
+  const pageMap = {
+    wifi: 'ms-settings:network-wifi',
+    bluetooth: 'ms-settings:bluetooth',
+    nightlight: 'ms-settings:nightlight',
+    sound: 'ms-settings:sound',
+    personalization: 'ms-settings:personalization',
+    powersleep: 'ms-settings:powersleep',
+  };
+  const target = pageMap[page] || 'ms-settings:';
+  shell.openExternal(target).catch(() => {});
+  return { success: true };
+});
+
+function scanWallpapersInDirectory(dirPath, maxFiles = 25) {
+  let results = [];
+  if (!dirPath || !fs.existsSync(dirPath)) return results;
+  try {
+    const entries = fs.readdirSync(dirPath);
+    for (const entry of entries) {
+      if (results.length >= maxFiles) break;
+      if (/^(Screenshots|Feedback|Saved Pictures|Camera Roll|\.)/i.test(entry)) continue;
+      const fullPath = path.join(dirPath, entry);
+      try {
+        const stat = fs.statSync(fullPath);
+        if (stat.isDirectory()) {
+          results = results.concat(scanWallpapersInDirectory(fullPath, maxFiles - results.length));
+        } else if (/\.(jpg|jpeg|png|webp|bmp)$/i.test(entry) && !/^Screenshot/i.test(entry)) {
+          results.push({
+            name: entry,
+            path: fullPath,
+            url: 'file:///' + fullPath.replace(/\\/g, '/'),
+          });
+        }
+      } catch (e) {}
+    }
+  } catch (e) {}
+  return results;
+}
+
+ipcMain.handle('jarvis:get-wallpapers', () => {
+  let list = [];
+  const nitroDir = path.join(os.homedir(), 'OneDrive', 'Pictures', 'Nitro');
+  const oneDrivePics = path.join(os.homedir(), 'OneDrive', 'Pictures');
+  const picturesDir = path.join(os.homedir(), 'Pictures');
+  list = list.concat(scanWallpapersInDirectory(nitroDir, 10));
+  list = list.concat(scanWallpapersInDirectory(oneDrivePics, 12));
+  list = list.concat(scanWallpapersInDirectory(picturesDir, 12));
+  list = list.concat(scanWallpapersInDirectory('C:\\Windows\\Web\\Wallpaper', 25));
+  // Deduplicate by file path
+  const seen = new Set();
+  return list.filter(item => {
+    if (seen.has(item.path)) return false;
+    seen.add(item.path);
+    return true;
+  });
+});
+
+ipcMain.handle('jarvis:browse-wallpaper', async () => {
+  const res = await dialog.showOpenDialog({
+    title: 'Select Wallpaper Image',
+    properties: ['openFile'],
+    filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp'] }],
+  });
+  if (res.canceled || !res.filePaths.length) return { canceled: true };
+  const chosenPath = res.filePaths[0];
+  const dir = path.dirname(chosenPath);
+  const folderWalls = scanWallpapersInDirectory(dir, 30);
+  return {
+    canceled: false,
+    selected: chosenPath,
+    wallpapers: folderWalls.length ? folderWalls : [{
+      name: path.basename(chosenPath),
+      path: chosenPath,
+      url: 'file:///' + chosenPath.replace(/\\/g, '/'),
+    }],
+  };
+});
+
+ipcMain.handle('jarvis:browse-wallpaper-folder', async () => {
+  const res = await dialog.showOpenDialog({
+    title: 'Select Wallpaper Folder',
+    properties: ['openDirectory'],
+  });
+  if (res.canceled || !res.filePaths.length) return { canceled: true };
+  const folderWalls = scanWallpapersInDirectory(res.filePaths[0], 40);
+  return {
+    canceled: false,
+    wallpapers: folderWalls,
+  };
+});
+
+ipcMain.handle('jarvis:set-wallpaper', async (event, wallpaperPath) => {
+  if (!wallpaperPath || !fs.existsSync(wallpaperPath)) {
+    return { success: false, error: 'Wallpaper file not found' };
+  }
+  return await runOsControlScript('set-wallpaper', wallpaperPath);
+});
+
+ipcMain.handle('jarvis:media-key', (event, key) => {
+  // Windows Virtual Key codes: 0xB3 = Play/Pause, 0xB0 = Next Track, 0xB1 = Prev Track
+  let vk = 0xB3;
+  if (key === 'next') vk = 0xB0;
+  else if (key === 'prev') vk = 0xB1;
+  const psScript = `
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class NativeMediaKey {
+    [DllImport("user32.dll")]
+    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+    public static void Send(byte vk) {
+        keybd_event(vk, 0, 0, UIntPtr.Zero);
+        keybd_event(vk, 0, 2, UIntPtr.Zero);
+    }
+}
+"@ -ErrorAction SilentlyContinue
+[NativeMediaKey]::Send(${vk})
+`;
+  const encoded = Buffer.from(psScript, 'utf16le').toString('base64');
+  exec(`powershell.exe -NoProfile -EncodedCommand ${encoded}`);
+  return { success: true };
 });
 
 ipcMain.handle('jarvis:slide-control', async (event, action) => {
@@ -1272,9 +3236,9 @@ ipcMain.on('jarvis:toggle-presentation-mode', (event, active, mode = 'presentati
           const hudWidth = 360;
           const hudHeight = 130;
           const hudX = Math.round((screenWidth - hudWidth) / 2);
-          mainWindow.setBounds({ x: hudX, y: 10, width: hudWidth, height: hudHeight });
+          mainWindow.setBounds({ x: hudX, y: 0, width: hudWidth, height: hudHeight });
         } else {
-          const winWidth = 660;
+          const winWidth = 716;
           const x = Math.round((screenWidth - winWidth) / 2);
           mainWindow.setBounds({ x, y: 0, width: winWidth, height: 580 });
         }
@@ -1287,7 +3251,7 @@ ipcMain.on('jarvis:toggle-presentation-mode', (event, active, mode = 'presentati
       try {
         const primaryDisplay = screen.getPrimaryDisplay();
         const { width: screenWidth } = primaryDisplay.workAreaSize;
-        const winWidth = 660;
+        const winWidth = 716;
         const x = Math.round((screenWidth - winWidth) / 2);
         mainWindow.setBounds({ x, y: 0, width: winWidth, height: 580 });
       } catch (e) {}
@@ -1308,9 +3272,9 @@ ipcMain.on('jarvis:set-gesture-mode', (event, mode) => {
         const hudWidth = 360;
         const hudHeight = 130;
         const hudX = Math.round((screenWidth - hudWidth) / 2);
-        mainWindow.setBounds({ x: hudX, y: 10, width: hudWidth, height: hudHeight });
+        mainWindow.setBounds({ x: hudX, y: 0, width: hudWidth, height: hudHeight });
       } else {
-        const winWidth = 660;
+        const winWidth = 716;
         const x = Math.round((screenWidth - winWidth) / 2);
         mainWindow.setBounds({ x, y: 0, width: winWidth, height: 580 });
       }
@@ -1350,7 +3314,7 @@ ipcMain.handle('jarvis:reset-window-position', () => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width: screenWidth } = primaryDisplay.workAreaSize;
-    const winWidth = 660;
+    const winWidth = 716;
     const x = Math.round((screenWidth - winWidth) / 2);
     const y = 0;
     mainWindow.setPosition(x, y);
@@ -1422,16 +3386,31 @@ ipcMain.handle('jarvis:select-file', async () => {
   return { canceled: true };
 });
 
-ipcMain.handle('jarvis:save-temp-file', async (event, { name, buffer }) => {
+ipcMain.handle('jarvis:save-temp-file', async (event, payload = {}) => {
   try {
     const uploadsDir = path.join(grokkiDataDir, 'uploads');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
-    const cleanName = path.basename(name || 'file_' + Date.now());
-    const filePath = path.join(uploadsDir, cleanName);
-    fs.writeFileSync(filePath, Buffer.from(buffer));
-    return { success: true, path: filePath };
+    let fileBuf = null;
+    let fileName = '';
+
+    if (payload.dataUrl) {
+      const match = payload.dataUrl.match(/^data:image\/\w+;base64,(.+)$/);
+      const b64 = match ? match[1] : payload.dataUrl.split(',')[1];
+      fileBuf = Buffer.from(b64, 'base64');
+      fileName = `${payload.prefix || 'crop_'}${Date.now()}.png`;
+    } else if (payload.buffer) {
+      fileBuf = Buffer.from(payload.buffer);
+      fileName = path.basename(payload.name || 'file_' + Date.now());
+    }
+
+    if (fileBuf) {
+      const filePath = path.join(uploadsDir, fileName);
+      fs.writeFileSync(filePath, fileBuf);
+      return { success: true, path: filePath };
+    }
+    return { success: false, error: 'No data provided' };
   } catch (err) {
     console.error('Failed to save temp file:', err);
     return { success: false, error: err.message };
@@ -1513,6 +3492,12 @@ ipcMain.handle('jarvis:save-config', async (event, newConfig) => {
   }
   if (dashboardWindow && !dashboardWindow.isDestroyed() && dashboardWindow.webContents) {
     dashboardWindow.webContents.send('config:updated', saved);
+  }
+  if (topNotchWindow && !topNotchWindow.isDestroyed() && topNotchWindow.webContents) {
+    topNotchWindow.webContents.send('config:updated', saved);
+  }
+  if (pocketGrokkiServer && saved.pillTheme) {
+    pocketGrokkiServer.broadcast({ type: 'theme_changed', theme: saved.pillTheme });
   }
   return saved;
 });
@@ -2374,6 +4359,7 @@ app.whenReady().then(() => {
 
   const config = loadConfig();
   createWindow(!!config.showIslandOnStartup);
+  createTopNotchWindow();
   createTray();
   registerShortcuts();
 
@@ -2407,6 +4393,68 @@ app.whenReady().then(() => {
     openDashboardWindow(true);
   }
 
+  // Automated screenshot capture hook
+  if (process.env.AUTOCAPTURE_SCREENSHOTS === 'true') {
+    setTimeout(async () => {
+      try {
+        const outDir = path.join(__dirname, '../../assets/screenshots');
+        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+
+        // 1. Capture Grokki Studio
+        if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+          dashboardWindow.show();
+          dashboardWindow.focus();
+          await new Promise((r) => setTimeout(r, 1500));
+          const studioImg = await dashboardWindow.webContents.capturePage();
+          fs.writeFileSync(path.join(outDir, 'Grokki Studio.png'), studioImg.toPNG());
+          fs.writeFileSync(path.join(outDir, 'Grokki Studio BLURRED.png'), studioImg.toPNG());
+          console.log('[Autocapture] Grokki Studio.png saved!');
+
+          // Switch to Appearance tab
+          await dashboardWindow.webContents.executeJavaScript(`
+            const btns = Array.from(document.querySelectorAll('button'));
+            const appBtn = btns.find(b => b.textContent && b.textContent.includes('Appearance'));
+            if (appBtn) appBtn.click();
+          `);
+          await new Promise((r) => setTimeout(r, 1200));
+          const themesImg = await dashboardWindow.webContents.capturePage();
+          fs.writeFileSync(path.join(outDir, 'Grokki Studio Themes.png'), themesImg.toPNG());
+          console.log('[Autocapture] Grokki Studio Themes.png saved!');
+        }
+
+        // 2. Capture Hitodama Control Center Notch
+        if (topNotchWindow && !topNotchWindow.isDestroyed()) {
+          topNotchWindow.show();
+          await topNotchWindow.webContents.executeJavaScript(`
+            document.documentElement.setAttribute('data-theme', 'sunset');
+            const studioBtn = document.querySelector('[data-tab="studio"]');
+            if (studioBtn) studioBtn.click();
+          `);
+          await new Promise((r) => setTimeout(r, 800));
+          const notchImg = await topNotchWindow.webContents.capturePage();
+          fs.writeFileSync(path.join(outDir, 'Hitodama Control Center.png'), notchImg.toPNG());
+          console.log('[Autocapture] Hitodama Control Center.png saved!');
+        }
+
+        // 3. Capture Dynamic Island
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          showWindow();
+          await new Promise((r) => setTimeout(r, 1000));
+          const islandImg = await mainWindow.webContents.capturePage();
+          fs.writeFileSync(path.join(outDir, 'Dynamic Island.png'), islandImg.toPNG());
+          console.log('[Autocapture] Dynamic Island.png saved!');
+        }
+
+        console.log('[Autocapture] All screenshots successfully updated!');
+      } catch (err) {
+        console.error('[Autocapture] Error:', err);
+      } finally {
+        app.quit();
+        process.exit(0);
+      }
+    }, 4500);
+  }
+
   // Initialize free background Wake Word listener
   wakeWordService = new WakeWordService({
     apiKey: config.geminiApiKey || process.env.GEMINI_API_KEY,
@@ -2438,6 +4486,9 @@ app.whenReady().then(() => {
     }
   };
 
+  agentBrain.openCircleOverlay = openCircleOverlay;
+  agentBrain.startVoiceDictation = startVoiceDictation;
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -2448,6 +4499,8 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
+  stopDragWatcher();
+  stopVolumeDaemon();
   stopHandGestureDaemon();
   if (pocketGrokkiServer) {
     pocketGrokkiServer.stop();

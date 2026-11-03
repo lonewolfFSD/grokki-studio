@@ -252,12 +252,24 @@ Real-time web sources retrieved for: "${query}"
 
 ${sourcesFormatted}
 
-CRITICAL GROUNDING INSTRUCTIONS:
+CRITICAL GROUNDING & FORMATTING INSTRUCTIONS:
 1. You HAVE ACTIVE REAL-TIME INTERNET SEARCH ACCESS. The sources and live data above were fetched live from the web right now for this prompt.
-2. NEVER apologize, hesitate, or say "I don't have access to real-time data", "as an AI I cannot browse the internet", or "I lack current information".
-3. Directly answer the user's question with the exact live numbers, rates, dates, facts, and conclusions found in the sources above.
-4. Cite sources using bracketed citations like [1], [2] immediately following each key fact, number, or statement.
-5. Keep your response direct, concise, and helpful.`;
+2. NEVER apologize, hesitate, or say "I don't have access to real-time data", "as an AI I cannot browse the internet", or "I lack current information". State the facts directly.
+3. BEAUTIFUL FORMATTING & EMBEDDED LINKS:
+   - Structure your response cleanly using bold headers (###), bullet points, and short concise paragraphs.
+   - Use bracketed citations like [1], [2] immediately following key facts, metrics, or statements.
+   - ALWAYS include clickable Markdown links (e.g. [Portal Name](https://...)) whenever mentioning resources or websites.
+   - At the very end of your response, always include a dedicated sources list:
+     ### 🔗 Sources & References
+     - [Title of Source 1](URL)
+     - [Title of Source 2](URL)
+4. SMART CLARIFICATION & CONTEXT-SEEKING:
+   - If the user prompt is broad, underspecified, or just an entity name without a clear question (such as "Assam Don Bosco University" or "ADBU"):
+     * DO NOT HALLUCINATE OR GUESS BLINDLY!
+     * Provide a crisp 1-sentence grounded overview based on the real sources.
+     * Highlight key campuses/areas (e.g., Tapesia, Azara, Kharguli, or ERP attendance portal).
+     * Question back with a smart clarification: ask the user which specific campus, department, service, or information they need!
+5. Keep your response sharp, polished, factual, and helpful.`;
 }
 
 module.exports = {
