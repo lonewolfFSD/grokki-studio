@@ -65,7 +65,8 @@ async function callOpenAICompatible({
   tools = null,
   temperature = 0.2,
   signal = null,
-  timeout = 25000,
+  timeout = 15000,
+  max_tokens = 800,
 }) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -92,6 +93,7 @@ async function callOpenAICompatible({
     model: model || 'openai/gpt-oss-120b',
     messages,
     temperature,
+    max_tokens,
   };
 
   if (tools && tools.length > 0) {

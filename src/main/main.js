@@ -4393,68 +4393,6 @@ app.whenReady().then(() => {
     openDashboardWindow(true);
   }
 
-  // Automated screenshot capture hook
-  if (process.env.AUTOCAPTURE_SCREENSHOTS === 'true') {
-    setTimeout(async () => {
-      try {
-        const outDir = path.join(__dirname, '../../assets/screenshots');
-        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
-        // 1. Capture Grokki Studio
-        if (dashboardWindow && !dashboardWindow.isDestroyed()) {
-          dashboardWindow.show();
-          dashboardWindow.focus();
-          await new Promise((r) => setTimeout(r, 1500));
-          const studioImg = await dashboardWindow.webContents.capturePage();
-          fs.writeFileSync(path.join(outDir, 'Grokki Studio.png'), studioImg.toPNG());
-          fs.writeFileSync(path.join(outDir, 'Grokki Studio BLURRED.png'), studioImg.toPNG());
-          console.log('[Autocapture] Grokki Studio.png saved!');
-
-          // Switch to Appearance tab
-          await dashboardWindow.webContents.executeJavaScript(`
-            const btns = Array.from(document.querySelectorAll('button'));
-            const appBtn = btns.find(b => b.textContent && b.textContent.includes('Appearance'));
-            if (appBtn) appBtn.click();
-          `);
-          await new Promise((r) => setTimeout(r, 1200));
-          const themesImg = await dashboardWindow.webContents.capturePage();
-          fs.writeFileSync(path.join(outDir, 'Grokki Studio Themes.png'), themesImg.toPNG());
-          console.log('[Autocapture] Grokki Studio Themes.png saved!');
-        }
-
-        // 2. Capture Hitodama Control Center Notch
-        if (topNotchWindow && !topNotchWindow.isDestroyed()) {
-          topNotchWindow.show();
-          await topNotchWindow.webContents.executeJavaScript(`
-            document.documentElement.setAttribute('data-theme', 'sunset');
-            const studioBtn = document.querySelector('[data-tab="studio"]');
-            if (studioBtn) studioBtn.click();
-          `);
-          await new Promise((r) => setTimeout(r, 800));
-          const notchImg = await topNotchWindow.webContents.capturePage();
-          fs.writeFileSync(path.join(outDir, 'Hitodama Control Center.png'), notchImg.toPNG());
-          console.log('[Autocapture] Hitodama Control Center.png saved!');
-        }
-
-        // 3. Capture Dynamic Island
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          showWindow();
-          await new Promise((r) => setTimeout(r, 1000));
-          const islandImg = await mainWindow.webContents.capturePage();
-          fs.writeFileSync(path.join(outDir, 'Dynamic Island.png'), islandImg.toPNG());
-          console.log('[Autocapture] Dynamic Island.png saved!');
-        }
-
-        console.log('[Autocapture] All screenshots successfully updated!');
-      } catch (err) {
-        console.error('[Autocapture] Error:', err);
-      } finally {
-        app.quit();
-        process.exit(0);
-      }
-    }, 4500);
-  }
-
   // Initialize free background Wake Word listener
   wakeWordService = new WakeWordService({
     apiKey: config.geminiApiKey || process.env.GEMINI_API_KEY,

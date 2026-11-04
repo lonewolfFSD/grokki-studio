@@ -21,6 +21,7 @@ const googleWorkspace = require('./google_workspace');
 const { convertGeminiToolsToOpenAI, callOpenAICompatible, transcribeWithGroqWhisper } = require('./ai_providers');
 const studyEngine = require('./study_engine');
 const powerTools = require('./power_tools');
+const agentDesktop = require('./agent_desktop');
 function shouldAutoSearchWeb(prompt = '') {
   if (!prompt || typeof prompt !== 'string') return false;
   const raw = prompt.trim();
@@ -53,15 +54,6 @@ function shouldAutoSearchWeb(prompt = '') {
   if (/\b(202[4-9]|203\d)\b/.test(p)) return true;
   // High-frequency factual questions: who won, who is the current, winner of, stock price of, etc.
   if (/\b(exchange\s*rate|currency|forex|fx\s*rate|who\s+won|who\s+is\s+the\s+current|winner\s+of|champions?\s+of|score\s+of|release\s+date\s+of|when\s+is\s+the\s+next|price\s+of|stock\s+price|crypto\s+price|weather\s*(in|for)?|nobel\s+prize|election|president\s+of|ceo\s+of)\b/i.test(p)) return true;
-
-  // Low-context / standalone topic or entity prompts (1 to 6 words) that lack a full predicate or verb
-  const words = raw.split(/\s+/);
-  if (words.length >= 1 && words.length <= 6) {
-    const isQuestionVerb = /^(can you|could you|how do i|how to|why is|why are|what is the time|calculate|solve|set|change)\b/i.test(p);
-    if (!isQuestionVerb) {
-      return true;
-    }
-  }
 
   return false;
 }
@@ -290,10 +282,126 @@ class AgentBrain {
     this.musicPlayerControlHandler = handler;
   }
 
+  getRelevantTools(prompt = '', provider = 'gemini') {
+    const p = (prompt || '').toLowerCase().trim();
+
+    // 1. If purely conversational greeting or factual/informational query with no action verbs, omit tools
+    const isPureInformational = /^(what (is|are|was|were)|why (is|are|do|does|did)|how (does|do|did|can)|who (is|was|were)|explain|tell me about|define|summarize|translate|write (a|an)? (code|script|poem|story|function)|calculate|solve)\b/i.test(p) &&
+      !/\b(app|application|software|window|notepad|screen|volume|brightness|sound|song|music|play|click|type|drive|email|gmail|calendar|sheet|doc|classroom|attendance|save|file|folder|wifi|bluetooth)\b/i.test(p);
+
+    const isSimpleGreeting = /^(hi|hello|hey|yo|sup|good (morning|afternoon|evening)|how are you|thanks|thank you|ok|bye)\b/i.test(p) && p.split(/\s+/).length <= 4;
+
+    if (isPureInformational || isSimpleGreeting) {
+      return undefined;
+    }
+
+    const allDeclarations = this.getToolsDeclaration();
+    const allTools = allDeclarations[0]?.functionDeclarations || [];
+
+    // If provider is Groq (has strict 8000 TPM limit) or Ollama (local model), filter to relevant tools (<25 tools)
+    if (provider === 'groq' || provider === 'ollama') {
+      const isDesktop = /\b(open|launch|start|click|type|find|locate|window|software|app|desktop|notepad|spotify|chrome|calc|calculator|volume|brightness|close|minimize|maximize|snap|shutdown|restart|sleep|lock|pc|wifi|bluetooth)\b/i.test(p);
+      const isGoogle = /\b(google|drive|sheet|doc|gmail|email|mail|calendar|task|tasks|classroom|course|assignment|announcement)\b/i.test(p);
+      const isUni = /\b(attendance|university|college|portal|adbu|roll|profile|exam|viva|quiz|notes|study)\b/i.test(p);
+      const isMedia = /\b(music|song|songs|play|pause|next|youtube|video|spotify)\b/i.test(p);
+
+      const selectedNames = new Set([
+        // Always include core desktop & quick actions
+        'open_app', 'desktop_click', 'desktop_type', 'desktop_find', 'desktop_snapshot',
+        'close_active_window', 'system_volume', 'window_manager', 'system_power', 'system_brightness'
+      ]);
+
+      if (isGoogle || (!isDesktop && !isMedia)) {
+        ['get_classroom_assignments', 'get_classroom_announcements', 'check_emails', 'send_email_gmail', 'get_calendar_agenda', 'search_google_drive', 'upload_to_google_drive', 'read_google_sheet', 'append_to_google_sheet', 'create_google_doc', 'get_google_tasks'].forEach(n => selectedNames.add(n));
+      }
+
+      if (isUni || (!isDesktop && !isMedia)) {
+        ['get_university_attendance', 'get_university_profile', 'sync_university_portal', 'create_study_revision_document', 'viva_voice_quiz', 'snap_and_solve_screen', 'search_research_papers'].forEach(n => selectedNames.add(n));
+      }
+
+      if (isMedia || (!isGoogle && !isUni)) {
+        ['play_youtube_music', 'control_music', 'search_youtube'].forEach(n => selectedNames.add(n));
+      }
+
+      const filtered = allTools.filter(t => selectedNames.has(t.name));
+      return [{ functionDeclarations: filtered }];
+    }
+
+    return allDeclarations;
+  }
+
   getToolsDeclaration() {
     return [
       {
         functionDeclarations: [
+          {
+            name: 'desktop_snapshot',
+            description: 'Inspect the Windows accessibility tree of an app or desktop using native UI Automation (powered by Vercel agent-desktop). Returns a structured list of interactive UI elements with scoped @ref IDs (e.g. @s8f3k2p9:e8). Preferred over screenshots for clicking buttons, fields, tabs, and menus without taking vision tokens.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                app: { type: 'STRING', description: 'Application name or image (e.g., "Spotify", "Notepad", "Discord", "Code", "chrome")' },
+                interactiveOnly: { type: 'BOOLEAN', description: 'Filter only interactive buttons, inputs, tabs, checkboxes (default: true)' },
+                compact: { type: 'BOOLEAN', description: 'Omit empty structural containers (default: true)' },
+              },
+            },
+          },
+          {
+            name: 'desktop_click',
+            description: 'Click any UI element or button on screen by visible name/label (e.g. "Save", "File", "Close", "OK", "Play") or by scoped @ref ID in the background.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                target: { type: 'STRING', description: 'Visible label, name, or text of the button or element to click (e.g. "Save", "File", "New", "Close")' },
+                app: { type: 'STRING', description: 'Application name (e.g. "Notepad", "Spotify", "Calculator", "Chrome")' },
+                ref: { type: 'STRING', description: 'Optional element scoped ref ID (e.g. "@s8f3k2p9:e8") from desktop_snapshot or desktop_find' },
+                doubleClick: { type: 'BOOLEAN', description: 'Set true to double-click' },
+                rightClick: { type: 'BOOLEAN', description: 'Set true to right-click (open context menu)' },
+                headed: { type: 'BOOLEAN', description: 'Set true to physically move mouse cursor if semantic click is refused' },
+              },
+            },
+          },
+          {
+            name: 'desktop_type',
+            description: 'Type text or set value into an element, input field, text editor, or active app by target name, app name, or scoped @ref ID.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                text: { type: 'STRING', description: 'Text string to type or set' },
+                app: { type: 'STRING', description: 'Application name (e.g. "Notepad", "Word", "VS Code")' },
+                target: { type: 'STRING', description: 'Element role or label (e.g. "document", "editor", "Search")' },
+                ref: { type: 'STRING', description: 'Optional element ref ID (e.g. "@s8f3k2p9:e12")' },
+                headed: { type: 'BOOLEAN', description: 'Set true if target requires real keystroke synthesis' },
+              },
+              required: ['text'],
+            },
+          },
+          {
+            name: 'desktop_find',
+            description: 'Find interactive elements, buttons, text fields, or controls across an application or the screen without taking a full snapshot.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                app: { type: 'STRING', description: 'Target application name (e.g. "Notepad", "Spotify", "Calculator", "Chrome")' },
+                name: { type: 'STRING', description: 'Element label or accessible name (e.g. "Play", "Next", "Save", "File")' },
+                text: { type: 'STRING', description: 'Text contained in element' },
+                role: { type: 'STRING', description: 'Element role (e.g. "button", "textfield", "menuitem", "checkbox")' },
+              },
+            },
+          },
+          {
+            name: 'desktop_app_control',
+            description: 'Manage desktop applications and windows (launch, close, list, focus) via native OS bridge.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                action: { type: 'STRING', description: 'Action to perform: launch, close, list, or focus' },
+                app: { type: 'STRING', description: 'Application executable or name (e.g. "notepad.exe", "spotify", "discord")' },
+                windowId: { type: 'STRING', description: 'Window ID for focus action' },
+              },
+              required: ['action'],
+            },
+          },
           {
             name: 'computer_click',
             description: 'Physically glides real Windows mouse cursor across the screen and clicks on coordinates (x, y)',
@@ -793,10 +901,14 @@ class AgentBrain {
           },
           {
             name: 'open_app',
-            description: 'Launches a Windows desktop application',
+            description: 'Launches a Windows desktop application. Can optionally type text into the app or click a button immediately after opening.',
             parameters: {
               type: 'OBJECT',
-              properties: { name: { type: 'STRING', description: 'Application name' } },
+              properties: {
+                name: { type: 'STRING', description: 'Application name (e.g. notepad, calc, chrome, spotify, word)' },
+                text_to_type: { type: 'STRING', description: 'Text to immediately type into the app after opening (e.g. "Hello from Grokki")' },
+                click_target: { type: 'STRING', description: 'Button or menu item to click after opening (e.g. "File", "New", "Save")' },
+              },
               required: ['name'],
             },
           },
@@ -1493,6 +1605,48 @@ class AgentBrain {
       }
     }
 
+    // Fast App Open + Type Intent: e.g. "open notepad and type Hello from Grokki"
+    const openTypeMatch = p.match(/^(?:can\s+you\s+)?open\s+([a-zA-Z0-9_\-\s]+?)\s+and\s+(?:type|write)\s+(.+)$/i);
+    if (openTypeMatch) {
+      const app = openTypeMatch[1].trim();
+      const text = openTypeMatch[2].trim().replace(/^["']|["']$/g, '');
+      return { tool: 'open_app', args: { name: app, text_to_type: text } };
+    }
+
+    // Fast App Open + Click Intent: e.g. "open notepad and click file"
+    const openClickMatch = p.match(/^(?:can\s+you\s+)?open\s+([a-zA-Z0-9_\-\s]+?)\s+and\s+click\s+(.+)$/i);
+    if (openClickMatch) {
+      const app = openClickMatch[1].trim();
+      const target = openClickMatch[2].trim().replace(/^["']|["']$/g, '');
+      return { tool: 'open_app', args: { name: app, click_target: target } };
+    }
+
+    // Fast App Launch Intent: e.g. "open notepad", "launch spotify", "start calculator"
+    const openAppMatch = p.match(/^(?:can\s+you\s+)?(?:open|launch|start)\s+([a-zA-Z0-9_\-\s]+)$/i);
+    if (openAppMatch) {
+      const app = openAppMatch[1].trim();
+      const forbidden = ['url', 'link', 'browser', 'web', 'camera', 'settings', 'it', 'file', 'folder', 'video', 'song', 'music'];
+      if (!forbidden.includes(app.toLowerCase()) && !app.startsWith('http')) {
+        return { tool: 'open_app', args: { name: app } };
+      }
+    }
+
+    // Fast Click Intent: e.g. "click file in notepad", "click save"
+    const clickAppMatch = p.match(/^(?:can\s+you\s+)?click\s+(?:the\s+)?(.+?)\s+(?:in|on)\s+([a-zA-Z0-9_\-\s]+)$/i);
+    if (clickAppMatch) {
+      return { tool: 'desktop_click', args: { target: clickAppMatch[1].trim(), app: clickAppMatch[2].trim() } };
+    }
+    const clickSimpleMatch = p.match(/^(?:can\s+you\s+)?click\s+(?:the\s+)?(file|save|close|edit|view|help|new|run|cancel|ok|submit|play|pause|next|back)$/i);
+    if (clickSimpleMatch) {
+      return { tool: 'desktop_click', args: { target: clickSimpleMatch[1].trim() } };
+    }
+
+    // Fast Type Intent: e.g. "type hello into notepad"
+    const typeAppMatch = p.match(/^(?:can\s+you\s+)?type\s+["']?(.+?)["']?\s+(?:in|into)\s+([a-zA-Z0-9_\-\s]+)$/i);
+    if (typeAppMatch) {
+      return { tool: 'desktop_type', args: { text: typeAppMatch[1].trim(), app: typeAppMatch[2].trim() } };
+    }
+
     // Lock PC
     if (/\b(lock\s+(my\s+)?(pc|computer|system|workstation|screen))\b/i.test(p) ||
         /\block\s+it\b/i.test(p) || p === 'lock') {
@@ -1568,14 +1722,14 @@ class AgentBrain {
     const provider = powerTools.airgapForced ? 'ollama' : (config.provider || 'groq');
     let endpoint = 'https://api.groq.com/openai/v1';
     let apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
-    let model = config.groqModel || 'llama-3.3-70b-versatile';
+    let model = config.groqModel || 'qwen/qwen3.8-27b';
     let modelCandidates = [model];
 
     if (provider === 'groq') {
       endpoint = 'https://api.groq.com/openai/v1';
       apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
-      model = config.groqModel || 'llama-3.3-70b-versatile';
-      modelCandidates = Array.from(new Set([model, 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b']));
+      model = config.groqModel || 'qwen/qwen3.8-27b';
+      modelCandidates = Array.from(new Set([model, 'qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b']));
     } else if (provider === 'ollama') {
       const base = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
       endpoint = `${base}/v1`;
@@ -1709,7 +1863,8 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
     }
 
     // When Deep Search / Live Grounding is active, omit desktop tools so model synthesizes search results
-    const tools = isWebSearchActive ? undefined : convertGeminiToolsToOpenAI(this.getToolsDeclaration());
+    const toolsDecl = isWebSearchActive ? undefined : this.getRelevantTools(prompt, provider);
+    const tools = toolsDecl ? convertGeminiToolsToOpenAI(toolsDecl) : undefined;
 
     try {
       if (signal.aborted) throw new Error('TASK_CANCELLED');
@@ -1742,9 +1897,18 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
       }
 
       if (!data) {
-        // If Groq fails due to token limit / 413 / rate limit, seamlessly fallback to Gemini 3.5 Flash
+        // If OpenRouter or other provider failed and Groq API key is available, fast-failover to Groq!
+        const groqKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
+        if (groqKey && provider !== 'groq' && (!signal || !signal.aborted)) {
+          console.log('[AgentBrain] Provider failed or rate limited, fast-failing over to Groq (500ms)...');
+          try {
+            return await this.runOpenAICompatible(prompt, { ...config, provider: 'groq', groqApiKey: groqKey }, context);
+          } catch (e) {}
+        }
+
+        // If Groq fails due to token limit / 413 / rate limit, seamlessly fallback to Gemini Flash
         if (lastModelErr && (lastModelErr.message.includes('413') || lastModelErr.message.includes('Limit') || lastModelErr.message.includes('tokens per minute'))) {
-          console.log('[AgentBrain] Groq token limit hit. Seamlessly falling back to Gemini 3.5 Flash...');
+          console.log('[AgentBrain] Groq token limit hit. Seamlessly falling back to Gemini Flash...');
           const gemKey = (config.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
           if (gemKey) {
             return await this.run(prompt, { ...config, provider: 'gemini', geminiApiKey: gemKey }, context);
@@ -2066,7 +2230,7 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
 
     const ai = new GoogleGenAI({ apiKey });
     // When Deep Search / Live Grounding is active, omit desktop tools so Gemini synthesizes search results
-    const tools = isWebSearchActive ? undefined : this.getToolsDeclaration();
+    const tools = isWebSearchActive ? undefined : this.getRelevantTools(prompt, 'gemini');
     const systemInstruction = memory.buildSystemPrompt(config);
 
     memory.addTurn('user', fullPrompt);
@@ -2150,6 +2314,9 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
           'inspect_vscode_errors',
           'send_whatsapp_file_or_message',
           'open_app',
+          'desktop_click',
+          'desktop_type',
+          'desktop_app_control',
           'create_or_edit_word',
           'computer_click',
           'computer_double_click',
@@ -2435,6 +2602,104 @@ Rules:
     switch (name) {
       case 'compact_memory': {
         return { success: true, message: '✨ **Conversation Compacted**: Memory turns and session context have been optimized and refreshed.' };
+      }
+
+      // Vercel agent-desktop Native UI Automation Bridge
+      case 'desktop_snapshot': {
+        const res = await agentDesktop.snapshot(args || {});
+        if (res.ok && res.elements) {
+          const list = res.elements.slice(0, 15).map(e => `- ${e.role} "${e.name || ''}" [${e.ref}]`).join('\n');
+          return {
+            success: true,
+            message: `Inspected ${res.app || 'desktop'} (${res.elements.length} interactive elements):\n${list}`,
+            elements: res.elements,
+            snapshot_id: res.snapshot_id,
+          };
+        }
+        return { success: false, message: res.error?.message || 'Failed to capture desktop accessibility tree.' };
+      }
+
+      case 'desktop_click': {
+        const target = args.target || args.name || args.label || args.text;
+        if (args.ref) {
+          if (args.doubleClick) return await agentDesktop.doubleClick(args.ref);
+          if (args.rightClick) return await agentDesktop.rightClick(args.ref, { headed: args.headed });
+          const res = await agentDesktop.click(args.ref, { headed: args.headed !== false });
+          return { success: res.ok, message: res.ok ? `Clicked element ${args.ref}.` : (res.error?.message || 'Click failed.') };
+        }
+        if (target) {
+          const smartRes = await agentDesktop.smartClick({
+            app: args.app,
+            target,
+            doubleClick: args.doubleClick,
+            rightClick: args.rightClick,
+            headed: args.headed !== false,
+          });
+          return {
+            success: smartRes.ok,
+            message: smartRes.message || (smartRes.ok ? `Clicked "${target}".` : `Could not locate "${target}".`),
+          };
+        }
+        return { success: false, message: 'Please specify the button or element to click (e.g. target: "Save" or ref: "@...").' };
+      }
+
+      case 'desktop_type': {
+        const target = args.target || args.name || args.field || args.role;
+        if (args.ref) {
+          const res = await agentDesktop.type(args.ref, args.text, { headed: args.headed !== false });
+          return { success: res.ok, message: res.ok ? `Typed "${args.text}" into element ${args.ref}.` : (res.error?.message || 'Typing failed.') };
+        }
+        const smartRes = await agentDesktop.smartType({
+          app: args.app,
+          target,
+          text: args.text,
+          headed: args.headed !== false,
+        });
+        if (smartRes.ok) {
+          return { success: true, message: smartRes.message || `Typed "${args.text}".` };
+        }
+        // Fallback to active window physical typing via PowerShell
+        const safeText = (args.text || '').replace(/"/g, '`"');
+        const res = await runPowerShell(`-action type -text "${safeText}"`);
+        return { success: res.success, message: `Typed: "${args.text}"` };
+      }
+
+      case 'desktop_find': {
+        const res = await agentDesktop.find(args || {});
+        if (res.ok && res.matches && res.matches.length > 0) {
+          const list = res.matches.slice(0, 10).map(m => `- ${m.role} "${m.name || ''}" [${m.ref}]`).join('\n');
+          return {
+            success: true,
+            message: `Found ${res.matches.length} matching element(s):\n${list}`,
+            matches: res.matches,
+          };
+        }
+        // Fallback to snapshot search
+        const snap = await agentDesktop.snapshot({ app: args.app, interactiveOnly: true });
+        if (snap.ok && snap.elements && snap.elements.length > 0) {
+          const searchVal = (args.name || args.text || args.role || '').toLowerCase();
+          const filtered = searchVal
+            ? snap.elements.filter(e => (e.name && e.name.toLowerCase().includes(searchVal)) || (e.role && e.role.toLowerCase().includes(searchVal)))
+            : snap.elements;
+          if (filtered.length > 0) {
+            const list = filtered.slice(0, 10).map(e => `- ${e.role} "${e.name || ''}" [${e.ref}]`).join('\n');
+            return {
+              success: true,
+              message: `Found ${filtered.length} element(s) in ${args.app || 'screen'}:\n${list}`,
+              elements: filtered.slice(0, 10),
+            };
+          }
+        }
+        return { success: false, message: `No elements found matching "${args.name || args.text || args.role || ''}" in ${args.app || 'screen'}.` };
+      }
+
+      case 'desktop_app_control': {
+        const action = (args.action || '').toLowerCase();
+        if (action === 'launch') return await agentDesktop.launch(args.app);
+        if (action === 'close') return await agentDesktop.closeApp(args.app);
+        if (action === 'focus' && args.windowId) return await agentDesktop.focusWindow(args.windowId);
+        if (action === 'list') return await agentDesktop.listWindows(args.app);
+        return { ok: false, message: `Unknown desktop action: ${args.action}` };
       }
 
       case 'computer_click': {
@@ -3225,6 +3490,56 @@ Rules:
         });
 
         if (launchResult.success) {
+          // Auto-type or auto-click if requested in compound prompt (e.g. "Open Notepad and type Hello")
+          if (args.text_to_type || args.click_target) {
+            console.log(`[AgentBrain] Waiting 900ms for ${args.name} window to initialize...`);
+            await new Promise(r => setTimeout(r, 900));
+
+            let typedOk = false;
+            let clickedOk = false;
+
+            if (args.text_to_type) {
+              try {
+                const typeRes = await agentDesktop.smartType({
+                  app: target,
+                  text: args.text_to_type,
+                  headed: true,
+                });
+                typedOk = typeRes.ok;
+              } catch (e) {
+                typedOk = false;
+              }
+
+              if (!typedOk) {
+                // Physical typing fallback
+                try {
+                  const safeText = (args.text_to_type || '').replace(/"/g, '`"');
+                  await runPowerShell(`-action type -text "${safeText}"`);
+                  typedOk = true;
+                } catch (e) {}
+              }
+            }
+
+            if (args.click_target) {
+              try {
+                const clickRes = await agentDesktop.smartClick({
+                  app: target,
+                  target: args.click_target,
+                  headed: true,
+                });
+                clickedOk = clickRes.ok;
+              } catch (e) {}
+            }
+
+            if (args.text_to_type && args.click_target) {
+              return { success: true, message: `Opened ${args.name}, clicked "${args.click_target}", and typed "${args.text_to_type}".` };
+            } else if (args.text_to_type) {
+              return { success: true, message: `Opened ${args.name} and typed "${args.text_to_type}".` };
+            } else if (args.click_target) {
+              return { success: true, message: `Opened ${args.name} and clicked "${args.click_target}".` };
+            }
+          }
+
           return { success: true, message: `Opened ${args.name}.` };
         } else {
           return { success: false, message: `Could not open ${args.name}: application was not found or failed to start.` };

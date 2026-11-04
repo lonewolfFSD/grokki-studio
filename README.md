@@ -39,6 +39,7 @@ Grokki is an autonomous Windows desktop agent designed to live directly at the t
 
 | Capability | Scope | What it does |
 | :--- | ---: | :--- |
+| **Native UI Automation** | Vercel agent-desktop | Zero-token accessibility tree snapshots, background clicking & typing with stable @ref IDs |
 | **System & Desktop Agency** | 20+ tools | Mouse tracking, keyboard injection, audio, window management, screen capture, hardware power |
 | **Hitodama Control Center** | Top Notch & Mobile | Zero-shadow capsule tabs: Volume bar, Studio (Now-Playing Art), Stats, and Power tiles |
 | **P2P Pocket Grokki Mobile** | Local LAN | Zero-cloud QR pairing, summon hopping, cross-device envelope beam, attendance sync |
@@ -51,6 +52,13 @@ Grokki is an autonomous Windows desktop agent designed to live directly at the t
 ---
 
 ## Features
+
+### Vercel `agent-desktop` Native UI Automation Bridge
+Grokki natively embeds Vercel's open-source `agent-desktop` engine for deterministic, token-free computer use:
+* **Zero-Token Accessibility Snapshots**: Inspects the native Windows UI Automation (UIA) tree directly into structured JSON elements with scoped `@ref` IDs, bypassing vision models and saving hundreds of vision tokens per interaction.
+* **Headless Background Operation**: Clicks buttons, switches tabs, and inputs values programmatically in the background without stealing active window focus or moving your physical mouse cursor. You can continue working while Grokki operates background apps!
+* **Stale Reference Protection**: Real-time validation rejects outdated refs with `STALE_REF` if dialogs shift, preventing misclicks.
+* **Hybrid Autopilot**: Leverages `agent-desktop` for instant, fast, zero-token UI control, falling back to Gemini Vision only for raw canvases, videos, and game graphics.
 
 ### Hitodama Top Notch Control Center
 Access essential operating system controls instantly by hovering near the top notch or tapping the island:
@@ -143,6 +151,13 @@ Grokki features a built-in provider switcher supporting both paid frontier flags
 
 ```
 Grokki Agent Runtime
+├── Native Desktop UI Automation (vercel-labs/agent-desktop)
+│   ├── Accessibility tree snapshots (`desktop_snapshot`) with scoped @ref IDs
+│   ├── Deterministic background clicks (`desktop_click`) without mouse movement
+│   ├── Headless text and value input (`desktop_type`)
+│   ├── Instant element lookup (`desktop_find`) by role, name, or text
+│   └── App and window lifecycle control (`desktop_app_control`)
+│
 ├── Hitodama Control Center (Desktop Notch & Pocket Companion)
 │   ├── Zero-shadow capsule tabs (Controls, Studio, Stats, Power)
 │   ├── Real-time volume slider capsule with preset levels
