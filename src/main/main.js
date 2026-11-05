@@ -202,6 +202,12 @@ function loadConfig() {
       if (data.smoothScroll === undefined) data.smoothScroll = false;
       if (!data.spatialLeftHand1FingerApp) data.spatialLeftHand1FingerApp = 'grokki';
       if (!data.spatialLeftHand2FingersApp) data.spatialLeftHand2FingersApp = 'whatsapp';
+      if (!Array.isArray(data.spatialLeftHandGestures) || data.spatialLeftHandGestures.length === 0) {
+        data.spatialLeftHandGestures = [
+          { id: 'left-finger-1', fingers: 1, type: 'app', target: data.spatialLeftHand1FingerApp || 'grokki', label: 'Grokki Island', enabled: true },
+          { id: 'left-finger-2', fingers: 2, type: 'app', target: data.spatialLeftHand2FingersApp || 'whatsapp', label: 'WhatsApp', enabled: true },
+        ];
+      }
       cachedConfig = data;
       return cachedConfig;
     }
@@ -952,11 +958,189 @@ function registerShortcuts() {
   console.log(`[Main] Global hotkey [${shortcut}] active: ${registered}`);
 }
 
+async function executeOsAction(action) {
+  const act = (action || '').toLowerCase().trim();
+  switch (act) {
+    case 'lock_pc':
+    case 'lock': {
+      const { exec } = require('child_process');
+      exec('rundll32.exe user32.dll,LockWorkStation');
+      return { success: true, message: 'Workstation locked' };
+    }
+    case 'screenshot': {
+      return await agentBrain.executeTool('screen_capture_and_recorder', { action: 'screenshot' });
+    }
+    case 'volume_mute':
+    case 'mute': {
+      return await agentBrain.executeTool('system_volume', { action: 'mute' });
+    }
+    case 'volume_unmute':
+    case 'unmute': {
+      return await agentBrain.executeTool('system_volume', { action: 'unmute' });
+    }
+    case 'volume_up': {
+      return await agentBrain.executeTool('system_volume', { action: 'up' });
+    }
+    case 'volume_down': {
+      return await agentBrain.executeTool('system_volume', { action: 'down' });
+    }
+    case 'toggle_mic': {
+      return await agentBrain.executeTool('screen_capture_and_recorder', { action: 'toggle_mic' });
+    }
+    case 'show_desktop': {
+      return await agentBrain.executeTool('window_manager', { action: 'show_desktop' });
+    }
+    case 'toggle_theme': {
+      return await agentBrain.executeTool('power_and_theme_control', { action: 'toggle_theme' });
+    }
+    case 'dark_mode': {
+      return await agentBrain.executeTool('power_and_theme_control', { action: 'dark_mode' });
+    }
+    case 'light_mode': {
+      return await agentBrain.executeTool('power_and_theme_control', { action: 'light_mode' });
+    }
+    case 'open_settings': {
+      shell.openExternal('ms-settings:');
+      return { success: true, message: 'Opened Windows Settings' };
+    }
+    case 'empty_recycle_bin': {
+      return await agentBrain.executeTool('storage_and_cleanup', { action: 'empty_recycle_bin' });
+    }
+    case 'sleep_pc':
+    case 'sleep': {
+      return await agentBrain.executeTool('system_power', { action: 'sleep' });
+    }
+    case 'open_island': {
+      showWindow();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('hotkey:trigger', { action: 'show' });
+      }
+      return { success: true, message: 'Opened Grokki Island' };
+    }
+    case 'toggle_recording': {
+      return await agentBrain.executeTool('screen_capture_and_recorder', { action: 'start_recording' });
+    }
+    case 'stop_air_cursor': {
+      stopHandGestureDaemon();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('jarvis:presentation-mode', { active: false, mode: 'air_cursor' });
+      }
+      return { success: true, message: 'Turned off Air Cursor' };
+    }
+    default:
+      console.warn(`[executeOsAction] Unknown OS action: ${act}`);
+      return { success: false, error: `Unknown OS action: ${act}` };
+  }
+}
+
+async function handleLeftHandGesture(fingers, payload = {}) {
+  const config = loadConfig();
+  let gestureItem = null;
+
+  if (Array.isArray(config.spatialLeftHandGestures)) {
+    gestureItem = config.spatialLeftHandGestures.find((g) => Number(g.fingers) === Number(fingers));
+  }
+
+  // Fallback defaults if not found in array
+  if (!gestureItem) {
+    if (fingers === 1) {
+      gestureItem = {
+        fingers: 1,
+        type: 'app',
+        target: config.spatialLeftHand1FingerApp || 'grokki',
+        label: 'Grokki Island',
+        enabled: true,
+      };
+    } else if (fingers === 2) {
+      gestureItem = {
+        fingers: 2,
+        type: 'app',
+        target: config.spatialLeftHand2FingersApp || 'whatsapp',
+        label: 'WhatsApp',
+        enabled: true,
+      };
+    }
+  }
+
+  if (!gestureItem || gestureItem.enabled === false) {
+    console.log(`[Spatial Multi-Hand] Left Hand ${fingers} Fingers -> (No active action configured)`);
+    return;
+  }
+
+  const { type, target, label } = gestureItem;
+  console.log(`[Spatial Multi-Hand] Left Hand Gesture (${fingers} fingers) -> Action Type: ${type}, Target: ${target}`);
+
+  if (type === 'os') {
+    executeOsAction(target).catch((err) => console.warn('[Spatial OS Action Error]', err));
+  } else {
+    if (target === 'grokki' || target === 'island' || target === 'open_island') {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          const primaryDisplay = screen.getPrimaryDisplay();
+          const { width: screenWidth } = primaryDisplay.workAreaSize;
+          const winWidth = 660;
+          const x = Math.round((screenWidth - winWidth) / 2);
+          mainWindow.setBounds({ x, y: 0, width: winWidth, height: 580 });
+        } catch (e) {}
+      }
+      showWindow();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('hotkey:trigger', { action: 'show' });
+      }
+    } else {
+      openApp(target).catch((err) => console.warn('[Spatial App Launch Error]', err));
+    }
+  }
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('jarvis:left-hand-action', {
+      fingers,
+      type: type || 'app',
+      target: target,
+      app: type === 'app' ? target : undefined,
+      osAction: type === 'os' ? target : undefined,
+      label: label || target,
+      action: payload.action,
+    });
+  }
+}
+
 function openApp(appName) {
-  const lower = (appName || '').trim().toLowerCase();
+  const raw = (appName || '').trim();
+  const lower = raw.toLowerCase();
   
   if (!lower || lower.length < 2 || ['hi', 'hello', 'hey', 'grokki', 'grokbot', 'jarvis', 'what', 'who', 'how', 'why', 'ok', 'yes', 'no'].includes(lower)) {
     return Promise.resolve({ success: false, error: `"${appName}" is not an application.` });
+  }
+
+  // Island summon
+  if (lower === 'grokki' || lower === 'island' || lower === 'open_island') {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      showWindow();
+      mainWindow.webContents.send('hotkey:trigger', { action: 'show' });
+    }
+    return Promise.resolve({ success: true, message: 'Opened Grokki Island' });
+  }
+
+  // If path exists on disk (.lnk or .exe)
+  if (fs.existsSync(raw)) {
+    return shell.openPath(raw).then((err) => {
+      if (err) return { success: false, error: err };
+      return { success: true, message: `Opened ${path.basename(raw, path.extname(raw))}` };
+    });
+  }
+
+  // If it's a Windows Shell AppID (from Get-StartApps, e.g. Microsoft.WindowsCalculator_8wekyb3d8bbwe!App or {GUID}\cmd.exe)
+  if (raw.includes('!') || raw.startsWith('{')) {
+    return new Promise((resolve) => {
+      exec(`powershell -NoProfile -Command "Start-Process 'shell:AppsFolder\\${raw.replace(/'/g, "''")}'"`, (err) => {
+        if (!err) return resolve({ success: true, message: `Opened ${raw}` });
+        exec(`explorer.exe "shell:AppsFolder\\${raw}"`, (err2) => {
+          if (!err2) resolve({ success: true, message: `Opened ${raw}` });
+          else resolve({ success: false, error: err2.message });
+        });
+      });
+    });
   }
   
   // App mapping dictionary for Windows
@@ -2159,10 +2343,10 @@ ipcMain.handle('jarvis:get-installed-apps', async () => {
   const oneDriveDesktop = path.join(os.homedir(), 'OneDrive', 'Desktop');
 
   let raw = []
-    .concat(scanShortcutsInDir(userDesktop, 12))
-    .concat(scanShortcutsInDir(oneDriveDesktop, 12))
-    .concat(scanShortcutsInDir(userStartMenu, 25))
-    .concat(scanShortcutsInDir(commonStartMenu, 30));
+    .concat(scanShortcutsInDir(userDesktop, 50))
+    .concat(scanShortcutsInDir(oneDriveDesktop, 50))
+    .concat(scanShortcutsInDir(userStartMenu, 150))
+    .concat(scanShortcutsInDir(commonStartMenu, 150));
 
   const seenNames = new Set();
   const unique = [];
@@ -2171,17 +2355,51 @@ ipcMain.handle('jarvis:get-installed-apps', async () => {
     if (seenNames.has(key)) continue;
     seenNames.add(key);
     unique.push(item);
-    if (unique.length >= 22) break;
   }
+
+  // Also query Get-StartApps to find Windows Store & UWP apps
+  try {
+    const psCmd = `powershell -NoProfile -Command "Get-StartApps | ConvertTo-Json -Compress"`;
+    const startAppsList = await new Promise((res) => {
+      exec(psCmd, { maxBuffer: 10 * 1024 * 1024, timeout: 3000 }, (err, stdout) => {
+        if (err || !stdout) return res([]);
+        try {
+          const parsed = JSON.parse(stdout);
+          res(Array.isArray(parsed) ? parsed : [parsed]);
+        } catch (e) {
+          res([]);
+        }
+      });
+    });
+
+    for (const appItem of startAppsList) {
+      if (!appItem.Name || !appItem.AppID || String(appItem.AppID).startsWith('http')) continue;
+      const key = appItem.Name.toLowerCase();
+      if (!seenNames.has(key)) {
+        seenNames.add(key);
+        unique.push({
+          name: appItem.Name,
+          path: appItem.AppID,
+          appId: appItem.AppID,
+          category: 'Application',
+        });
+      }
+    }
+  } catch (e) {}
+
+  unique.sort((a, b) => a.name.localeCompare(b.name));
 
   const enriched = await Promise.all(unique.map(async (item) => {
     let iconDataUrl = '';
-    try {
-      const iconImg = await app.getFileIcon(item.exePath || item.path, { size: 'large' });
-      if (iconImg && !iconImg.isEmpty()) {
-        iconDataUrl = iconImg.toDataURL();
-      }
-    } catch (e) {}
+    const iconPath = item.exePath || (item.path && item.path.includes('\\') ? item.path : null);
+    if (iconPath && fs.existsSync(iconPath)) {
+      try {
+        const iconImg = await app.getFileIcon(iconPath, { size: 'normal' });
+        if (iconImg && !iconImg.isEmpty()) {
+          iconDataUrl = iconImg.toDataURL();
+        }
+      } catch (e) {}
+    }
     return {
       ...item,
       icon: iconDataUrl,
@@ -3164,39 +3382,7 @@ function startHandGestureDaemon(initialMode = 'presentation') {
             }
           }
           if (payload.type === 'left_hand_gesture' && payload.fingers) {
-            const config = loadConfig();
-            const fingers = payload.fingers;
-            const targetApp = fingers === 1
-              ? (config.spatialLeftHand1FingerApp || 'grokki')
-              : (config.spatialLeftHand2FingersApp || 'whatsapp');
-
-            if (fingers === 1 || targetApp === 'grokki' || targetApp === 'island' || payload.action === 'open_island') {
-              console.log('[Spatial Multi-Hand] Left Hand 1 Finger -> Opening Grokki Island');
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                try {
-                  const primaryDisplay = screen.getPrimaryDisplay();
-                  const { width: screenWidth } = primaryDisplay.workAreaSize;
-                  const winWidth = 660;
-                  const x = Math.round((screenWidth - winWidth) / 2);
-                  mainWindow.setBounds({ x, y: 0, width: winWidth, height: 580 });
-                } catch (e) {}
-              }
-              showWindow();
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('hotkey:trigger', { action: 'show' });
-              }
-            } else {
-              console.log(`[Spatial Multi-Hand] Left Hand Gesture (${fingers} fingers) -> Launching app: ${targetApp}`);
-              openApp(targetApp).catch((err) => console.warn('[Spatial App Launch Error]', err));
-            }
-
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('jarvis:left-hand-action', {
-                fingers,
-                app: targetApp,
-                action: payload.action,
-              });
-            }
+            handleLeftHandGesture(payload.fingers, payload);
           }
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('jarvis:presentation-gesture', payload);

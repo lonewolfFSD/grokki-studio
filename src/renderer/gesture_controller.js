@@ -748,7 +748,7 @@ class PresentationGestureController {
     if (window.jarvisAPI && window.jarvisAPI.onLeftHandAction) {
       window.jarvisAPI.onLeftHandAction((data) => {
         this.playHapticTick('next');
-        if (data.fingers === 1 || data.action === 'open_island' || data.app === 'grokki' || data.app === 'island') {
+        if (data.action === 'open_island' || data.app === 'grokki' || data.app === 'island' || data.target === 'grokki' || data.osAction === 'open_island') {
           const island = document.getElementById('islandContainer');
           if (island) {
             island.style.display = '';
@@ -756,13 +756,13 @@ class PresentationGestureController {
             const mainInput = document.getElementById('mainInput');
             if (mainInput) mainInput.focus();
           }
-          this.showFeedback('fa-solid fa-island-tropical', '☝️ Left Hand · Grokki Island Opened', '#38bdf8');
+          this.showFeedback('fa-solid fa-bolt', `Left Hand (${data.fingers || 1}F) · Grokki Island Opened`, '#38bdf8');
           return;
         }
 
-        const targetApp = (data.app || 'whatsapp').toUpperCase();
-        const label = `Left Hand (2 fingers) -> Opened ${targetApp}`;
-        this.showFeedback('fa-solid fa-bolt', label, '#38bdf8');
+        const count = data.fingers || 1;
+        const displayLabel = data.label || (data.type === 'os' ? `OS: ${data.osAction || data.target}` : `Opened ${data.app || data.target}`);
+        this.showFeedback('fa-solid fa-bolt', `Left Hand (${count}F) · ${displayLabel}`, '#38bdf8');
       });
     }
   }

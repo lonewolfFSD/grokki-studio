@@ -379,37 +379,38 @@ def main():
                     # --- PROCESS LEFT HAND (1 Finger: Island, 2 Fingers: WhatsApp, 5 Fingers: Stop) ---
                     if left_hand is not None:
                         left_fingers, _ = classify_fingers(left_hand)
-                        if left_fingers == 5 and left_hand[0].y < 0.70 and (now - last_drop_time > 4.0):
-                            left_palm_hold_frames += 1
-                            current_left_gesture = None
-                            left_gesture_hold_frames = 0
-                            if left_palm_hold_frames >= 90:  # ~1.3s deliberate Open Palm hold
-                                left_palm_hold_frames = 0
-                                if is_pinched_left and HAS_WIN32:
-                                    user32.mouse_event(0x0004, 0, 0, 0, 0)
-                                    is_pinched_left = False
-                                log_event({"type": "action", "action": "stop_air_cursor", "label": "✋ Left Palm · Air Cursor Stopped"})
-                                stop_requested = True
-                                continue
-                        elif left_fingers in (1, 2):
-                            left_palm_hold_frames = 0
+                        if left_fingers in (1, 2, 3, 4, 5):
                             if current_left_gesture == left_fingers:
                                 left_gesture_hold_frames += 1
                             else:
                                 current_left_gesture = left_fingers
                                 left_gesture_hold_frames = 1
 
+                            # Secondary check: if open palm (5 fingers) is held continuously for ~1.5s, can act as emergency stop
+                            if left_fingers == 5 and left_hand[0].y < 0.70 and (now - last_drop_time > 4.0):
+                                left_palm_hold_frames += 1
+                                if left_palm_hold_frames >= 90:
+                                    left_palm_hold_frames = 0
+                                    if is_pinched_left and HAS_WIN32:
+                                        user32.mouse_event(0x0004, 0, 0, 0, 0)
+                                        is_pinched_left = False
+                                    log_event({"type": "action", "action": "stop_air_cursor", "label": "Left Palm · Air Cursor Stopped"})
+                                    stop_requested = True
+                                    continue
+                            else:
+                                left_palm_hold_frames = 0
+
                             if left_gesture_hold_frames >= 7:  # ~230ms steady hold
                                 can_fire_left = (last_triggered_left != left_fingers) or (now - last_left_trigger_time > 1.8)
                                 if can_fire_left:
                                     last_triggered_left = left_fingers
                                     last_left_trigger_time = now
-                                    action_name = "open_island" if left_fingers == 1 else "open_whatsapp"
+                                    action_name = "open_island" if left_fingers == 1 else ("open_whatsapp" if left_fingers == 2 else f"gesture_{left_fingers}_fingers")
                                     log_event({
                                         "type": "left_hand_gesture",
                                         "fingers": left_fingers,
                                         "action": action_name,
-                                        "label": f"Left Hand: {'☝️ 1 Finger · Grokki Island' if left_fingers == 1 else '✌️ 2 Fingers · WhatsApp'}"
+                                        "label": f"Left Hand: {left_fingers} Finger{'s' if left_fingers > 1 else ''}"
                                     })
                         else:
                             left_palm_hold_frames = 0

@@ -38,6 +38,24 @@ export interface GrainientCustomSettings {
   variation?: number;
 }
 
+export interface LeftHandGestureItem {
+  id: string;
+  fingers: number;
+  type: 'app' | 'os';
+  target: string;
+  label?: string;
+  enabled?: boolean;
+}
+
+export interface InstalledAppItem {
+  name: string;
+  path: string;
+  exePath?: string;
+  appId?: string;
+  icon?: string;
+  category?: string;
+}
+
 export interface JarvisConfig {
   provider: AiProvider;
   geminiApiKey?: string;
@@ -103,6 +121,7 @@ export interface JarvisConfig {
   notionApiKey?: string;
   spatialLeftHand1FingerApp?: string;
   spatialLeftHand2FingersApp?: string;
+  spatialLeftHandGestures?: LeftHandGestureItem[];
 }
 
 export interface GoogleProfile {
@@ -390,6 +409,8 @@ export interface JarvisAPI {
   startVoiceDictation?: () => Promise<{ success: boolean }>;
   finishDictationAudio?: (data: { base64Audio: string; mimeType: string }) => void;
   cancelDictation?: () => void;
+  openApp?: (appName: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  getInstalledApps?: () => Promise<InstalledAppItem[]>;
 }
 
 declare global {

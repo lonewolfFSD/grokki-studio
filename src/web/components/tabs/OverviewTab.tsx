@@ -617,7 +617,7 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
             </div>
           </Panel>
 
-          {/* Try saying */}
+          {/* Try saying
           <Panel title="Try saying">
             <div className={`${SURFACE} rounded-2xl flex flex-col divide-y divide-[#e4e4eb] dark:divide-[#1e2029]`}>
               {prompts.map((item) => (
@@ -634,7 +634,7 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
                 </div>
               ))}
             </div>
-          </Panel>
+          </Panel> */}
         </div>
       </div>
     </div>

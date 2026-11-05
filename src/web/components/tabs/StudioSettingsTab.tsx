@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Monitor,
   Layout,
@@ -9,6 +10,26 @@ import {
   Zap,
   Keyboard,
   Volume2,
+  Volume1,
+  VolumeX,
+  Mic,
+  Camera,
+  Moon,
+  Lock,
+  Radio,
+  XOctagon,
+  Settings,
+  Folder,
+  Code,
+  Globe,
+  Compass,
+  MessageSquare,
+  Activity,
+  FileText,
+  Calculator,
+  Terminal,
+  Headphones,
+  Music,
   RefreshCw,
   FolderOpen,
   Check,
@@ -20,8 +41,47 @@ import {
   AlertCircle,
   ChevronDown,
   Pencil,
+  Plus,
+  Search,
+  AppWindow,
+  X,
 } from 'lucide-react';
-import { JarvisConfig, StudioHotkeys } from '../../types/jarvis';
+import { JarvisConfig, StudioHotkeys, LeftHandGestureItem, InstalledAppItem } from '../../types/jarvis';
+import grokkiLogo from '../../assets/grokki_icon.svg';
+import {
+  FaWhatsapp,
+  FaChrome,
+  FaEdge,
+  FaCode,
+  FaFolder,
+  FaChartLine,
+  FaFileLines,
+  FaCalculator,
+  FaTerminal,
+  FaDiscord,
+  FaSpotify,
+  FaLock,
+  FaCamera,
+  FaVolumeXmark,
+  FaVolumeHigh,
+  FaVolumeLow,
+  FaMicrophone,
+  FaDesktop,
+  FaMoon,
+  FaGear,
+  FaTrashCan,
+  FaPowerOff,
+  FaCircleDot,
+  FaHand,
+  FaPlus,
+  FaCheck,
+  FaXmark,
+  FaChevronDown,
+  FaMagnifyingGlass,
+  FaWindowMaximize,
+  FaSliders,
+  FaRotate,
+} from 'react-icons/fa6';
 import {
   DEFAULT_HOTKEYS,
   HOTKEY_DEFINITIONS,
@@ -43,6 +103,243 @@ interface StudioSettingsTabProps {
   onChangeConfig: (patch: Partial<JarvisConfig>) => void;
   onClearConversations?: () => void;
 }
+interface CustomDropdownOption {
+  id: string;
+  name: string;
+  category?: string;
+  icon?: React.ReactNode;
+  iconUrl?: string;
+  hint?: string;
+}
+
+interface CustomDropdownGroup {
+  label: string;
+  options: CustomDropdownOption[];
+}
+
+interface CustomActionSelectProps {
+  value: string;
+  groups: CustomDropdownGroup[];
+  onChange: (option: CustomDropdownOption) => void;
+  placeholder?: string;
+  isLoading?: boolean;
+}
+
+const CustomActionSelect: React.FC<CustomActionSelectProps> = ({
+  value,
+  groups,
+  onChange,
+  placeholder = 'Select action...',
+  isLoading = false,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const rootRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const allOptions = useMemo(() => groups.flatMap((g) => g.options), [groups]);
+  const currentOption = useMemo(
+    () => allOptions.find((o) => o.id === value),
+    [allOptions, value]
+  );
+
+  const filteredGroups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return groups;
+    return groups
+      .map((g) => ({
+        ...g,
+        options: g.options.filter(
+          (o) =>
+            o.name.toLowerCase().includes(q) ||
+            (o.hint && o.hint.toLowerCase().includes(q)) ||
+            (o.category && o.category.toLowerCase().includes(q))
+        ),
+      }))
+      .filter((g) => g.options.length > 0);
+  }, [groups, query]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setQuery('');
+      }
+    };
+    window.addEventListener('mousedown', handleOutsideClick, true);
+    return () => window.removeEventListener('mousedown', handleOutsideClick, true);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 60);
+    } else {
+      setQuery('');
+    }
+  }, [isOpen]);
+
+  return (
+    <div ref={rootRef} className="relative w-full">
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={`w-full h-9 px-3 rounded-lg text-xs font-medium border flex items-center justify-between gap-2 transition-all cursor-pointer select-none ${
+          isOpen ? 'border-zinc-800 dark:border-zinc-200 ring-2 ring-zinc-500/10 bg-white dark:bg-[#161822] text-zinc-900 dark:text-zinc-100 shadow-sm' : 'border-zinc-200 dark:border-[#252836] bg-white dark:bg-[#13141a] text-zinc-800 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-700'
+        }`}
+      >
+        <div className="flex items-center gap-2.5 truncate">
+          {currentOption?.iconUrl ? (
+            <img
+              src={currentOption.iconUrl}
+              alt=""
+              className="w-4 h-4 rounded-sm object-contain shrink-0"
+            />
+          ) : currentOption?.icon ? (
+            <span className="shrink-0">{currentOption.icon}</span>
+          ) : (
+            <FaWindowMaximize className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+          )}
+          <span className="truncate">{currentOption?.name || placeholder}</span>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isLoading && <FaRotate className="w-3 h-3 text-zinc-500 animate-spin" />}
+          {currentOption?.hint && (
+            <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 hidden sm:inline">
+              {currentOption.hint}
+            </span>
+          )}
+          <FaChevronDown className={`w-3 h-3 text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-zinc-800 dark:text-zinc-200' : ''}`} />
+        </div>
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute z-50 left-0 right-0 top-full mt-1.5 rounded-xl border border-zinc-200 dark:border-[#252836] bg-white/98 dark:bg-[#14161f]/98 backdrop-blur-xl shadow-2xl p-1.5 flex flex-col gap-1 max-h-72 overflow-hidden"
+          >
+            <div className="px-1.5 pt-1 pb-1.5 border-b border-zinc-100 dark:border-[#1e2029]">
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-zinc-50 dark:bg-[#1a1c26] border border-zinc-200/80 dark:border-[#252836]">
+                <FaMagnifyingGlass className="w-3 h-3 text-zinc-400 shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search application or setting..."
+                  className="w-full bg-transparent text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    className="p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                  >
+                    <FaXmark className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="overflow-y-auto max-h-56 py-1 flex flex-col gap-2">
+              {filteredGroups.length === 0 ? (
+                <div className="px-3 py-6 text-center text-xs text-zinc-400">
+                  No matching options found.
+                </div>
+              ) : (
+                filteredGroups.map((group) => (
+                  <div key={group.label} className="flex flex-col gap-0.5">
+                    <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 select-none">
+                      {group.label}
+                    </div>
+                    {group.options.map((opt) => {
+                      const isSelected = opt.id === value;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            onChange(opt);
+                            setIsOpen(false);
+                            setQuery('');
+                          }}
+                          className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center justify-between gap-2 transition-all cursor-pointer text-left ${
+                            isSelected ? 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-100 font-semibold' : 'text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100/60 dark:hover:bg-[#1c1e28]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            {opt.iconUrl ? (
+                              <img
+                                src={opt.iconUrl}
+                                alt=""
+                                className="w-4 h-4 rounded-sm object-contain shrink-0"
+                              />
+                            ) : opt.icon ? (
+                              <span className="shrink-0">{opt.icon}</span>
+                            ) : (
+                              <FaWindowMaximize className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                            )}
+                            <span className="truncate">{opt.name}</span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {opt.hint && (
+                              <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">
+                                {opt.hint}
+                              </span>
+                            )}
+                            {isSelected && (<FaCheck className="w-3 h-3 text-zinc-900 dark:text-zinc-100 shrink-0" />)}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const PRESET_APP_OPTIONS: CustomDropdownOption[] = [
+  { id: 'grokki', name: 'Grokki Island', icon: <img src={grokkiLogo} alt="" className="w-4 h-4 rounded-sm object-contain shrink-0" />, hint: 'Island' },
+  { id: 'whatsapp', name: 'WhatsApp', icon: <FaWhatsapp className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Chat' },
+  { id: 'chrome', name: 'Google Chrome', icon: <FaChrome className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Browser' },
+  { id: 'msedge', name: 'Microsoft Edge', icon: <FaEdge className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Browser' },
+  { id: 'code', name: 'Visual Studio Code', icon: <FaCode className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Editor' },
+  { id: 'explorer', name: 'File Explorer', icon: <FaFolder className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Files' },
+  { id: 'taskmgr', name: 'Task Manager', icon: <FaChartLine className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'System' },
+  { id: 'notepad', name: 'Notepad', icon: <FaFileLines className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Notes' },
+  { id: 'calc', name: 'Calculator', icon: <FaCalculator className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Tool' },
+  { id: 'wt', name: 'Windows Terminal', icon: <FaTerminal className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Dev' },
+  { id: 'discord', name: 'Discord', icon: <FaDiscord className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Social' },
+  { id: 'spotify', name: 'Spotify', icon: <FaSpotify className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Audio' },
+];
+
+const OS_SETTINGS_OPTIONS: CustomDropdownOption[] = [
+  { id: 'lock_pc', name: 'Lock Workstation', icon: <FaLock className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Win+L' },
+  { id: 'screenshot', name: 'Fullscreen Screenshot', icon: <FaCamera className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Save to Desktop' },
+  { id: 'volume_mute', name: 'Mute / Unmute Volume', icon: <FaVolumeXmark className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Toggle Sound' },
+  { id: 'volume_up', name: 'Volume Up (+10%)', icon: <FaVolumeHigh className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Audio +' },
+  { id: 'volume_down', name: 'Volume Down (-10%)', icon: <FaVolumeLow className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Audio -' },
+  { id: 'toggle_mic', name: 'Toggle Microphone Mute', icon: <FaMicrophone className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Win+Alt+K' },
+  { id: 'show_desktop', name: 'Show Desktop (Minimize All)', icon: <FaDesktop className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Win+D' },
+  { id: 'toggle_theme', name: 'Toggle Dark / Light Theme', icon: <FaMoon className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'System Theme' },
+  { id: 'open_settings', name: 'Open Windows Settings', icon: <FaGear className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'ms-settings:' },
+  { id: 'empty_recycle_bin', name: 'Empty Recycle Bin', icon: <FaTrashCan className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Clean Trash' },
+  { id: 'sleep_pc', name: 'Sleep Computer', icon: <FaPowerOff className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Low Power' },
+  { id: 'open_island', name: 'Summon Grokki Island', icon: <img src={grokkiLogo} alt="" className="w-4 h-4 rounded-sm object-contain shrink-0" />, hint: 'Top Island' },
+  { id: 'toggle_recording', name: 'Start/Stop Recording', icon: <FaCircleDot className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Game Bar' },
+  { id: 'stop_air_cursor', name: 'Turn Off Air Cursor', icon: <FaHand className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 shrink-0" />, hint: 'Stop Tracking' },
+];
 
 export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
   config,
@@ -57,6 +354,87 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
     actionId: keyof StudioHotkeys | 'globalSummon';
     message: string;
   } | null>(null);
+
+  const [installedApps, setInstalledApps] = useState<InstalledAppItem[]>([]);
+  const [isLoadingApps, setIsLoadingApps] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (window.jarvisAPI?.getInstalledApps) {
+      setIsLoadingApps(true);
+      window.jarvisAPI.getInstalledApps()
+        .then((apps) => {
+          if (active && Array.isArray(apps)) {
+            setInstalledApps(apps);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (active) setIsLoadingApps(false);
+        });
+    }
+    return () => { active = false; };
+  }, []);
+
+  const defaultGestures: LeftHandGestureItem[] = [
+    { id: 'left-finger-1', fingers: 1, type: 'app', target: config.spatialLeftHand1FingerApp || 'grokki', label: 'Grokki Island', enabled: true },
+    { id: 'left-finger-2', fingers: 2, type: 'app', target: config.spatialLeftHand2FingersApp || 'whatsapp', label: 'WhatsApp', enabled: true },
+  ];
+
+  const currentGestures: LeftHandGestureItem[] = Array.isArray(config.spatialLeftHandGestures) && config.spatialLeftHandGestures.length > 0
+    ? config.spatialLeftHandGestures
+    : defaultGestures;
+
+  const saveGestures = (newGestures: LeftHandGestureItem[]) => {
+    const patch: Partial<JarvisConfig> = { spatialLeftHandGestures: newGestures };
+    const g1 = newGestures.find((g) => Number(g.fingers) === 1);
+    if (g1) patch.spatialLeftHand1FingerApp = g1.target;
+    const g2 = newGestures.find((g) => Number(g.fingers) === 2);
+    if (g2) patch.spatialLeftHand2FingersApp = g2.target;
+    onChangeConfig(patch);
+  };
+
+  const handleAddFingerTask = () => {
+    if (currentGestures.length >= 5) return;
+    const usedFingers = new Set(currentGestures.map((g) => Number(g.fingers)));
+    let nextFinger = 1;
+    for (let i = 1; i <= 5; i++) {
+      if (!usedFingers.has(i)) {
+        nextFinger = i;
+        break;
+      }
+    }
+    const defaultTarget = nextFinger === 5 ? 'stop_air_cursor' : (nextFinger === 3 ? 'screenshot' : (nextFinger === 4 ? 'lock_pc' : 'chrome'));
+    const defaultType: 'app' | 'os' = (nextFinger === 3 || nextFinger === 4 || nextFinger === 5) ? 'os' : 'app';
+    const defaultLabel = defaultType === 'os'
+      ? (OS_SETTINGS_ACTIONS.find((a) => a.id === defaultTarget)?.name || 'System Action')
+      : 'Google Chrome';
+
+    const newItem: LeftHandGestureItem = {
+      id: `left-finger-${nextFinger}-${Date.now()}`,
+      fingers: nextFinger,
+      type: defaultType,
+      target: defaultTarget,
+      label: defaultLabel,
+      enabled: true,
+    };
+    const updated = [...currentGestures, newItem].sort((a, b) => a.fingers - b.fingers);
+    saveGestures(updated);
+  };
+
+  const handleRemoveFingerTask = (id: string) => {
+    if (currentGestures.length <= 1) return;
+    const updated = currentGestures.filter((g) => g.id !== id);
+    saveGestures(updated);
+  };
+
+  const handleUpdateFingerItem = (id: string, patch: Partial<LeftHandGestureItem>) => {
+    const updated = currentGestures.map((g) => {
+      if (g.id !== id) return g;
+      return { ...g, ...patch };
+    });
+    saveGestures(updated);
+  };
 
   const effectiveHotkeys = getEffectiveHotkeys(config);
   const globalHotkey = config.hotkey || 'Alt+Q';
@@ -210,76 +588,236 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
 
       {/* Spatial Multi-Hand Controls (Air Cursor) */}
       <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-sky-500/10 dark:bg-sky-400/10 border border-sky-500/20 flex items-center justify-center text-sky-500 dark:text-sky-400">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight">
                 Spatial Multi-Hand Controls
               </h3>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                Right Hand pinches to drag files. Left Hand gestures summon companion apps instantly without dropping files.
-              </p>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold">
+                {currentGestures.length}/5 Gestures Active
+              </span>
             </div>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+              Right Hand moves cursor and pinches to drag files. Left Hand gestures trigger applications or system settings without dropping items.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {currentGestures.length < 5 ? (
+              <button
+                type="button"
+                onClick={handleAddFingerTask}
+                className="h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1a1c24] hover:bg-zinc-50 dark:hover:bg-[#222530] text-zinc-800 dark:text-zinc-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              >
+                <FaPlus className="w-3 h-3 text-zinc-700 dark:text-zinc-300" />
+                <span>Add Finger Task ({currentGestures.length}/5)</span>
+              </button>
+            ) : (
+              <span className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-[#1a1c24] border border-zinc-200 dark:border-[#222530]">
+                All 5 Fingers Configured
+              </span>
+            )}
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-          {/* Left Hand 1 Finger */}
-          <div className="flex flex-col gap-1.5 p-3.5 rounded-xl border border-gray-100 dark:border-[#1e2029] bg-gray-50/60 dark:bg-[#181922]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-base">☝️</span>
-                <strong className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                  Left Hand: 1 Finger Up
-                </strong>
-              </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 font-semibold">
-                Auto-Launch
-              </span>
-            </div>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">
-              App to open or summon when 1 finger is raised on your left hand (default: Grokki Island).
-            </p>
-            <div className="mt-1">
-              <input
-                type="text"
-                value={config.spatialLeftHand1FingerApp || 'grokki'}
-                onChange={(e) => onChangeConfig({ spatialLeftHand1FingerApp: e.target.value.trim().toLowerCase() })}
-                placeholder="e.g. grokki, whatsapp, chrome, explorer..."
-                className="w-full h-8 px-3 rounded-lg font-mono text-xs font-medium border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#13141a] text-gray-900 dark:text-white focus:outline-none focus:border-sky-500 transition-colors"
-              />
-            </div>
-          </div>
+          {currentGestures.map((item) => {
+            const isAppMode = (item.type || 'app') === 'app';
 
-          {/* Left Hand 2 Fingers */}
-          <div className="flex flex-col gap-1.5 p-3.5 rounded-xl border border-gray-100 dark:border-[#1e2029] bg-gray-50/60 dark:bg-[#181922]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-base">✌️</span>
-                <strong className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                  Left Hand: 2 Fingers Up
-                </strong>
+            // Groups for custom app dropdown
+            const appGroups: CustomDropdownGroup[] = [
+              {
+                label: 'Presets',
+                options: PRESET_APP_OPTIONS,
+              },
+            ];
+
+            if (installedApps.length > 0) {
+              appGroups.push({
+                label: `Installed Applications (${installedApps.length})`,
+                options: installedApps.map((app) => ({
+                  id: app.path || app.appId || app.name,
+                  name: app.name,
+                  iconUrl: app.icon || undefined,
+                  hint: app.category || 'App',
+                })),
+              });
+            }
+
+            // Groups for custom OS settings dropdown
+            const osGroups: CustomDropdownGroup[] = [
+              {
+                label: 'System & Hardware Controls',
+                options: OS_SETTINGS_OPTIONS,
+              },
+            ];
+
+            return (
+              <div
+                key={item.id}
+                className="flex flex-col gap-3.5 p-4 rounded-xl border border-zinc-200/90 dark:border-[#1e2029] bg-zinc-50/80 dark:bg-[#181922] transition-all hover:border-zinc-300 dark:hover:border-zinc-700 shadow-xs"
+              >
+                {/* Header: Finger identification and finger assignment pills */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <strong className="block text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                        Finger {item.fingers}
+                      </strong>
+                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
+                        {isAppMode ? 'Launch Application' : 'System Action'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Finger Number Switcher Pills [1] [2] [3] [4] [5] */}
+                    <div className="flex items-center gap-0.5 p-1 rounded-lg bg-zinc-200/70 dark:bg-[#121319] border border-zinc-200 dark:border-[#222530]">
+                      {[1, 2, 3, 4, 5].map((num) => {
+                        const isCur = item.fingers === num;
+                        return (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => {
+                              if (isCur) return;
+                              const existing = currentGestures.find(
+                                (g) => g.id !== item.id && g.fingers === num
+                              );
+                              if (existing) {
+                                const updated = currentGestures
+                                  .map((g) => {
+                                    if (g.id === item.id) return { ...g, fingers: num };
+                                    if (g.id === existing.id) return { ...g, fingers: item.fingers };
+                                    return g;
+                                  })
+                                  .sort((a, b) => a.fingers - b.fingers);
+                                saveGestures(updated);
+                              } else {
+                                handleUpdateFingerItem(item.id, { fingers: num });
+                              }
+                            }}
+                            className={`w-5 h-5 rounded-sm text-[8px] font-mono font-bold flex items-center justify-center transition-all cursor-pointer ${
+                              isCur ? 'bg-white dark:bg-[#20222e] text-zinc-900 dark:text-zinc-100 font-bold shadow-xs border border-zinc-300 dark:border-zinc-700' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                            }`}
+                            title={`Switch to Finger ${num}`}
+                          >
+                            {num}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Delete button (if more than 1 gesture) */}
+                    {currentGestures.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFingerTask(item.id)}
+                        className="p-1 rounded-md text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer" title="Delete task"><FaTrashCan className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mode Selector Segmented Pills */}
+                <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-zinc-200/70 dark:bg-[#121319] border border-zinc-200/80 dark:border-[#222530]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isAppMode) {
+                        handleUpdateFingerItem(item.id, {
+                          type: 'app',
+                          target: 'grokki',
+                          label: 'Grokki Island',
+                        });
+                      }
+                    }}
+                    className={`py-2.5 px-2 rounded-xl text-[11px] font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      isAppMode
+                        ? 'bg-white dark:bg-[#1a1c24] text-zinc-900 dark:text-zinc-100 shadow-xs border border-zinc-200/60 dark:border-zinc-700/60 font-semibold'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    <FaWindowMaximize className="w-3 h-3" />
+                    <span>Launch Application</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isAppMode) {
+                        handleUpdateFingerItem(item.id, {
+                          type: 'os',
+                          target: 'screenshot',
+                          label: 'Fullscreen Screenshot',
+                        });
+                      }
+                    }}
+                    className={`py-2.5 px-2 rounded-xl text-[11px] font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      !isAppMode
+                        ? 'bg-white dark:bg-[#1a1c24] text-zinc-900 dark:text-zinc-100 shadow-xs border border-zinc-200/60 dark:border-zinc-700/60 font-semibold'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    <FaSliders className="w-3 h-3" />
+                    <span>System Setting</span>
+                  </button>
+                </div>
+
+                {/* Custom Animated Dropdown Selection */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                    {isAppMode ? 'Target Application' : 'Target System Action'}
+                  </span>
+                  {isAppMode ? (
+                    <CustomActionSelect
+                      value={item.target || 'grokki'}
+                      groups={appGroups}
+                      isLoading={isLoadingApps}
+                      placeholder="Select application..."
+                      onChange={(opt) => {
+                        handleUpdateFingerItem(item.id, {
+                          target: opt.id,
+                          label: opt.name,
+                        });
+                      }}
+                    />
+                  ) : (
+                    <CustomActionSelect
+                      value={item.target || 'screenshot'}
+                      groups={osGroups}
+                      placeholder="Select system setting..."
+                      onChange={(opt) => {
+                        handleUpdateFingerItem(item.id, {
+                          target: opt.id,
+                          label: opt.name,
+                        });
+                      }}
+                    />
+                  )}
+                </div>
               </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 font-semibold">
-                Auto-Launch
+            );
+          })}
+
+          {/* Clickable dashed card to add another finger */}
+          {currentGestures.length < 5 && (
+            <button
+              type="button"
+              onClick={handleAddFingerTask}
+              className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl border-2 border-dashed border-zinc-200 dark:border-[#222530] hover:border-zinc-400 dark:hover:border-zinc-600 bg-zinc-50/40 dark:bg-[#15161f]/40 hover:bg-zinc-100/40 dark:hover:bg-[#181a24]/60 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all cursor-pointer min-h-[175px]"
+            >
+              <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center">
+                <FaPlus className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-xs font-semibold">
+                Add Finger {currentGestures.length + 1} Custom Task
               </span>
-            </div>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">
-              App to open or focus when 2 fingers are raised on your left hand (default: WhatsApp).
-            </p>
-            <div className="mt-1">
-              <input
-                type="text"
-                value={config.spatialLeftHand2FingersApp || 'whatsapp'}
-                onChange={(e) => onChangeConfig({ spatialLeftHand2FingersApp: e.target.value.trim().toLowerCase() })}
-                placeholder="e.g. whatsapp, chrome, explorer, discord..."
-                className="w-full h-8 px-3 rounded-lg font-mono text-xs font-medium border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#13141a] text-gray-900 dark:text-white focus:outline-none focus:border-sky-500 transition-colors"
-              />
-            </div>
-          </div>
+              <span className="text-[10.5px] text-zinc-400 dark:text-zinc-500 font-mono">
+                Left hand combinations (up to 5 fingers)
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1114,3 +1652,4 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
     </WarmTooltipGroup>
   );
 });
+

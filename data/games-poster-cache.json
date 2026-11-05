@@ -46,5 +46,95 @@
     "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/292030/library_600x900.jpg",
     "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/292030/header.jpg",
     "extraFallback": "https://cdn.cloudflare.steamstatic.com/steam/apps/292030/header.jpg"
+  },
+  "farcry5": {
+    "appId": "552520",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/552520/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/552520/header.jpg",
+    "extraFallback": "https://cdn.cloudflare.steamstatic.com/steam/apps/552520/header.jpg"
+  },
+  "grandtheftautov": {
+    "appId": "271590",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/271590/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/271590/header.jpg",
+    "extraFallback": "https://cdn.cloudflare.steamstatic.com/steam/apps/271590/header.jpg"
+  },
+  "mafiadefinitiveedition": {
+    "appId": "1030840",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1030840/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1030840/header.jpg",
+    "extraFallback": "https://cdn.cloudflare.steamstatic.com/steam/apps/1030840/header.jpg"
+  },
+  "mirrorsedgecatalyst": {
+    "appId": "1233570",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1233570/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1233570/header.jpg",
+    "extraFallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1233570/capsule_231x87.jpg?t=1777486496"
+  },
+  "blender": {
+    "appId": "365670",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/365670/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/365670/header.jpg",
+    "extraFallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/365670/capsule_231x87.jpg?t=1784038423"
+  },
+  "residentevil2biohazardre2": {
+    "appId": "281610",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/281610/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/281610/header.jpg",
+    "extraFallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/subs/281610/capsule_231x87.jpg?t=1549063193"
+  },
+  "thelastofusparti": {
+    "appId": "1888930",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1888930/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1888930/header.jpg",
+    "extraFallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1888930/capsule_231x87.jpg?t=1750959031"
+  },
+  "escapethebackrooms": {
+    "appId": "1943950",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1943950/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1943950/header.jpg",
+    "extraFallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1943950/67f23a45ceba2451489994ef512f30dc64d64cc1/capsule_231x87_alt_assets_4.jpg?t=1793277465"
+  },
+  "godofwar": {
+    "appId": "1593500",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1593500/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1593500/header.jpg",
+    "extraFallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1593500/capsule_231x87.jpg?t=1763059412"
+  },
+  "pubg": {
+    "appId": "578080",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/578080/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/578080/header.jpg",
+    "extraFallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/578080/14f42ab797699a9c9f137fda66582d8776da4330/capsule_231x87.jpg?t=1792718193"
+  },
+  "detroitbecomehuman": {
+    "appId": "1222140",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1222140/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1222140/header.jpg",
+    "extraFallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1222140/capsule_231x87.jpg?t=1667468479"
+  },
+  "dyinglight": {
+    "appId": "239140",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/239140/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/239140/header.jpg",
+    "extraFallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/239140/2f76ff4a0212ecf8d7a2096f91cd2a0e9235e3ee/capsule_231x87.jpg?t=1793627304"
+  },
+  "unchartedlegacyofthievescollection": {
+    "appId": "1659420",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1659420/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1659420/header.jpg",
+    "extraFallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1659420/capsule_231x87.jpg?t=1779309472"
+  },
+  "readyornot": {
+    "appId": "1144200",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1144200/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1144200/header.jpg",
+    "extraFallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1144200/2f6ca7ad511531beb421122efb376141f068ebbb/capsule_231x87.jpg?t=1790846188"
+  },
+  "scpsecretlaboratory": {
+    "appId": "700330",
+    "poster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/700330/library_600x900.jpg",
+    "fallbackPoster": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/700330/header.jpg",
+    "extraFallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/700330/0a0e49bfcd537f115f609fb8041a74e77d4c0c56/capsule_231x87.jpg?t=1793732251"
   }
 }

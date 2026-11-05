@@ -1,21 +1,5 @@
 [
   {
-    "role": "model",
-    "parts": [
-      {
-        "text": "Opened \"amazon denim jeans\" and focused top result."
-      }
-    ]
-  },
-  {
-    "role": "user",
-    "parts": [
-      {
-        "text": "Which jeans on my screen looks great?"
-      }
-    ]
-  },
-  {
     "role": "user",
     "parts": [
       {
@@ -204,6 +188,22 @@
     "parts": [
       {
         "text": "Screen analysis: {\"error\":{\"code\":503,\"message\":\"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\"status\":\"UNAVAILABLE\"}}"
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "parts": [
+      {
+        "text": "Hi"
+      }
+    ]
+  },
+  {
+    "role": "model",
+    "parts": [
+      {
+        "text": "Hey! How's it going?"
       }
     ]
   }
