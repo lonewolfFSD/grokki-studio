@@ -246,7 +246,7 @@ const CustomActionSelect: React.FC<CustomActionSelectProps> = ({
               </div>
             </div>
 
-            <div className="overflow-y-auto max-h-56 py-1 flex flex-col gap-2">
+            <div data-lenis-prevent="true" onWheel={(e) => e.stopPropagation()} className="overflow-y-auto max-h-56 py-1 flex flex-col gap-2 overscroll-contain [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-zinc-300 dark:[&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-thumb]:rounded-full">
               {filteredGroups.length === 0 ? (
                 <div className="px-3 py-6 text-center text-xs text-zinc-400">
                   No matching options found.

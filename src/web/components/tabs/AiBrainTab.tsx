@@ -7,6 +7,7 @@ import {
   Loader2,
   Edit3,
   ExternalLink,
+  RefreshCw,
 } from 'lucide-react';
 import { JarvisConfig, AiProvider } from '../../types/jarvis';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
@@ -81,19 +82,22 @@ export const QwenLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-
   );
 };
 
-// OmniRouter Unified Router Nexus Logo
-export const OmniRouterLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg viewBox="0 0 24 24" className={`${className} object-contain`} fill="none">
+// OmniRoute Unified Router Nexus Logo
+export const OmniRouteLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} object-contain`} fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect width="24" height="24" rx="6" fill="#10B981" />
     <path
-      d="M13 3L4 14H12L11 21L20 10H12L13 3Z"
-      fill="white"
+      d="M6 18V15C6 13.3431 7.34315 12 9 12H15C16.6569 12 18 10.6569 18 9V6"
       stroke="white"
-      strokeWidth="0.5"
-      strokeLinejoin="round"
+      strokeWidth="2"
+      strokeLinecap="round"
     />
+    <circle cx="6" cy="18" r="2" fill="white" />
+    <circle cx="18" cy="6" r="2" fill="white" />
+    <circle cx="12" cy="12" r="1.5" fill="white" />
   </svg>
 );
+export const OmniRouterLogo = OmniRouteLogo;
 
 interface AiBrainTabProps {
   config: JarvisConfig;
@@ -140,13 +144,23 @@ export const CURATED_MODELS: Record<string, { value: string; label: string; tag?
     { value: 'openai/gpt-4o', label: 'openai/gpt-4o', tag: 'Omni Flagship' },
     { value: 'deepseek/deepseek-r1', label: 'deepseek/deepseek-r1', tag: 'Full Reasoning' },
   ],
-  omnirouter: [
-    { value: 'omnirouter/auto', label: 'omnirouter/auto', tag: 'Smart Route' },
-    { value: 'deepseek/deepseek-r1', label: 'deepseek/deepseek-r1', tag: 'Uncensored CoT' },
+  omniroute: [
+    { value: 'auto', label: 'auto (Smart Route)', tag: 'Auto' },
+    { value: 'anthropic/claude-3.7-sonnet', label: 'anthropic/claude-3.7-sonnet', tag: 'Hybrid Thinking' },
+    { value: 'anthropic/claude-3.5-sonnet', label: 'anthropic/claude-3.5-sonnet', tag: 'Coding Champ' },
+    { value: 'openai/gpt-4o', label: 'openai/gpt-4o', tag: 'Flagship' },
+    { value: 'deepseek/deepseek-r1', label: 'deepseek/deepseek-r1', tag: 'Reasoning' },
+    { value: 'deepseek/deepseek-chat', label: 'deepseek/deepseek-chat', tag: 'Fast Chat' },
     { value: 'meta-llama/llama-3.3-70b-instruct', label: 'meta-llama/llama-3.3-70b-instruct', tag: 'Meta 70B' },
-    { value: 'mistralai/mistral-large-2411', label: 'mistralai/mistral-large-2411', tag: 'Mistral 128k' },
-    { value: 'qwen/qwen-2.5-72b-instruct', label: 'qwen/qwen-2.5-72b-instruct', tag: 'Qwen Open 72B' },
-    { value: 'google/gemini-2.0-flash-exp:free', label: 'google/gemini-2.0-flash-exp:free', tag: 'Free Flash' },
+    { value: 'qwen/qwen-2.5-72b-instruct', label: 'qwen/qwen-2.5-72b-instruct', tag: 'Qwen 72B' },
+    { value: 'google/gemini-2.5-pro', label: 'google/gemini-2.5-pro', tag: '2M Context' },
+    { value: 'google/gemini-2.5-flash', label: 'google/gemini-2.5-flash', tag: 'Fast Flash' },
+  ],
+  omnirouter: [
+    { value: 'auto', label: 'auto (Smart Route)', tag: 'Auto' },
+    { value: 'anthropic/claude-3.7-sonnet', label: 'anthropic/claude-3.7-sonnet', tag: 'Hybrid Thinking' },
+    { value: 'openai/gpt-4o', label: 'openai/gpt-4o', tag: 'Flagship' },
+    { value: 'deepseek/deepseek-r1', label: 'deepseek/deepseek-r1', tag: 'Reasoning' },
   ],
   grok: [
     { value: 'grok-2-1212', label: 'grok-2-1212', tag: 'Flagship Grok 2' },
@@ -310,20 +324,40 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     defaultModel: 'openrouter/auto',
     links: [{ label: 'Explore models', url: 'https://openrouter.ai/models' }],
   },
+  omniroute: {
+    title: 'OmniRoute',
+    description: 'High-performance unified AI gateway & router (local/remote). Supports 100+ providers and 1000+ models with smart auto-fallback and token caching.',
+    endpointField: 'omnirouteEndpoint',
+    endpointLabel: 'Gateway Endpoint',
+    endpointPlaceholder: 'http://localhost:20128/v1',
+    endpointDefault: 'http://localhost:20128/v1',
+    endpointHint: 'Default local port: 20128 (http://localhost:20128/v1)',
+    keyField: 'omnirouteApiKey',
+    keyLabel: 'API key (optional for local gateway)',
+    keyPlaceholder: 'Leave empty for local OmniRoute or enter gateway token',
+    modelField: 'omnirouteModel',
+    defaultModel: 'auto',
+    links: [
+      { label: 'OmniRoute GitHub', url: 'https://github.com/cheaper-inference/OmniRoute' },
+      { label: 'Docs / Portal', url: 'https://omniroute.online' },
+    ],
+  },
   omnirouter: {
-    title: 'OmniRouter',
-    description: 'A free universal router that brings together open-source models, community nodes, and proxies.',
-    endpointField: 'omnirouterEndpoint',
-    endpointLabel: 'Endpoint',
-    endpointPlaceholder: 'https://api.omnirouter.ai/v1',
-    endpointDefault: 'https://api.omnirouter.ai/v1',
-    endpointHint: 'Default: api.omnirouter.ai/v1',
-    keyField: 'omnirouterApiKey',
-    keyLabel: 'API key (optional)',
-    keyPlaceholder: 'omni-... (leave blank for default free access)',
-    modelField: 'omnirouterModel',
-    defaultModel: 'omnirouter/auto',
-    links: [{ label: 'OmniRouter portal', url: 'https://omnirouter.ai' }],
+    title: 'OmniRoute',
+    description: 'High-performance unified AI gateway & router (local/remote).',
+    endpointField: 'omnirouteEndpoint',
+    endpointLabel: 'Gateway Endpoint',
+    endpointPlaceholder: 'http://localhost:20128/v1',
+    endpointDefault: 'http://localhost:20128/v1',
+    endpointHint: 'Default local port: 20128 (http://localhost:20128/v1)',
+    keyField: 'omnirouteApiKey',
+    keyLabel: 'API key (optional for local gateway)',
+    keyPlaceholder: 'Leave empty for local OmniRoute or enter gateway token',
+    modelField: 'omnirouteModel',
+    defaultModel: 'auto',
+    links: [
+      { label: 'OmniRoute GitHub', url: 'https://github.com/cheaper-inference/OmniRoute' },
+    ],
   },
 };
 
@@ -339,10 +373,35 @@ const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 );
 
 export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig }) => {
+  // Auto-fetch models on mount for dynamic providers if not cached yet
+  React.useEffect(() => {
+    const p = config.provider;
+    if (['omniroute', 'omnirouter', 'ollama', 'openrouter'].includes(p)) {
+      const cached = config.cachedProviderModels?.[p] || [];
+      if (cached.length === 0 && window.jarvisAPI?.fetchProviderModels) {
+        const ep = p === 'omniroute' || p === 'omnirouter'
+          ? (config.omnirouteEndpoint || 'http://localhost:20128/v1')
+          : (p === 'ollama' ? (config.ollamaEndpoint || 'http://127.0.0.1:11434') : undefined);
+        const k = p === 'omniroute' || p === 'omnirouter'
+          ? (config.omnirouteApiKey || config.omnirouterApiKey)
+          : config.openrouterApiKey;
+        window.jarvisAPI.fetchProviderModels({ provider: p, endpoint: ep, key: k })
+          .then((res) => {
+            if (res?.success && Array.isArray(res.models) && res.models.length > 0) {
+              setFetchedModels((prev) => ({ ...prev, [p]: res.models || [] }));
+              const updatedCache = { ...(config.cachedProviderModels || {}), [p]: res.models };
+              onChangeConfig({ cachedProviderModels: updatedCache });
+              window.jarvisAPI?.saveConfig?.({ cachedProviderModels: updatedCache });
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [config.provider, config.omnirouteEndpoint, config.omnirouteApiKey]);
   // Category toggle: 'paid' vs 'free'
   const [category, setCategory] = useState<Category>(() => {
     if (['grok', 'openai', 'deepseek', 'qwen'].includes(config.provider)) return 'paid';
-    if (['groq', 'ollama', 'openrouter', 'omnirouter'].includes(config.provider)) return 'free';
+    if (['groq', 'ollama', 'openrouter', 'omniroute', 'omnirouter'].includes(config.provider)) return 'free';
     if (config.provider === 'gemini') {
       return (config.geminiModel && config.geminiModel.includes('pro')) ? 'paid' : 'free';
     }
@@ -355,7 +414,7 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
   const [testResult, setTestResult] = useState<{ [key: string]: { success: boolean; message: string } }>({});
 
   const [fetchingModels, setFetchingModels] = useState<string | null>(null);
-  const [fetchedModels, setFetchedModels] = useState<{ [provider: string]: string[] }>({});
+  const [fetchedModels, setFetchedModels] = useState<{ [provider: string]: string[] }>(() => config.cachedProviderModels || {});
   const [customInputMode, setCustomInputMode] = useState<{ [provider: string]: boolean }>({});
   const [modelFilter, setModelFilter] = useState<{ [provider: string]: string }>({});
 
@@ -412,6 +471,63 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
       setTesting(null);
     }
   };
+
+  const handleFetchModels = async (providerId: string, endpoint?: string, key?: string) => {
+    if (!window.jarvisAPI?.fetchProviderModels) return;
+    setFetchingModels(providerId);
+    setTestResult((prev) => ({ ...prev, [providerId]: undefined as any }));
+
+    try {
+      const res = await window.jarvisAPI.fetchProviderModels({ provider: providerId, key, endpoint });
+      if (res && res.success && Array.isArray(res.models)) {
+        setFetchedModels((prev) => ({ ...prev, [providerId]: res.models || [] }));
+        const updatedCache = {
+          ...(config.cachedProviderModels || {}),
+          [providerId]: res.models || [],
+        };
+        onChangeConfig({ cachedProviderModels: updatedCache });
+        if (window.jarvisAPI?.saveConfig) {
+          window.jarvisAPI.saveConfig({ cachedProviderModels: updatedCache });
+        }
+        setTestResult((prev) => ({
+          ...prev,
+          [providerId]: {
+            success: true,
+            message: `Discovered ${res.models?.length || 0} models from gateway.`,
+          },
+        }));
+        const detail = PROVIDER_DETAILS[providerId];
+        if (detail?.modelField) {
+          const cur = (cfg[detail.modelField] as string) || '';
+          if ((!cur || cur === 'auto' || cur === 'omnirouter/auto') && res.models.length > 0) {
+            const hasAuto = res.models.some((m) => m === 'auto' || m.includes('/auto'));
+            if (!hasAuto) {
+              setField(detail.modelField, res.models[0]);
+            }
+          }
+        }
+      } else {
+        setTestResult((prev) => ({
+          ...prev,
+          [providerId]: {
+            success: false,
+            message: res?.error || 'Failed to fetch models from provider.',
+          },
+        }));
+      }
+    } catch (err: any) {
+      setTestResult((prev) => ({
+        ...prev,
+        [providerId]: {
+          success: false,
+          message: err.message || 'Model discovery failed',
+        },
+      }));
+    } finally {
+      setFetchingModels(null);
+    }
+  };
+
 
   const getOptionsForProvider = (providerId: string, currentValue?: string): GlideSelectOption[] => {
     const curated = CURATED_MODELS[providerId] || [];
@@ -524,12 +640,12 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
       Logo: OpenRouterLogo,
     },
     {
-      id: 'omnirouter',
-      label: 'OmniRouter',
-      subLabel: 'Unified Open Router',
-      badge: config.omnirouterModel || 'omnirouter/auto',
-      tag: 'Unified Free',
-      Logo: OmniRouterLogo,
+      id: 'omniroute',
+      label: 'OmniRoute',
+      subLabel: 'Universal AI Gateway',
+      badge: config.omnirouteModel || config.omnirouterModel || 'auto',
+      tag: 'Local / Remote Gateway',
+      Logo: OmniRouteLogo,
     },
   ];
 
@@ -551,8 +667,8 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
       patch.deepseekModel = 'deepseek-chat';
     } else if (providerId === 'qwen' && !config.qwenModel) {
       patch.qwenModel = 'qwen-max';
-    } else if (providerId === 'omnirouter' && !config.omnirouterModel) {
-      patch.omnirouterModel = 'omnirouter/auto';
+    } else if ((providerId === 'omniroute' || providerId === 'omnirouter') && !config.omnirouteModel) {
+      patch.omnirouteModel = config.omnirouterModel || 'auto';
     }
     onChangeConfig(patch);
   };
@@ -579,17 +695,35 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
               {totalCount} available
             </span>
           </label>
-          <button
-            type="button"
-            title={isCustom ? 'Switch to dropdown list' : 'Type a custom model string'}
-            onClick={() =>
-              setCustomInputMode((prev) => ({ ...prev, [providerId]: !prev[providerId] }))
-            }
-            className="text-[11px] font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition-colors"
-          >
-            <Edit3 className="w-3 h-3" />
-            <span>{isCustom ? 'Curated list' : 'Custom'}</span>
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              disabled={fetchingModels === providerId}
+              onClick={() => {
+                const detail = PROVIDER_DETAILS[providerId];
+                const ep = detail?.endpointField ? cfg[detail.endpointField] : undefined;
+                const k = detail?.keyField ? cfg[detail.keyField] : undefined;
+                handleFetchModels(providerId, ep, k);
+              }}
+              className="text-[11px] font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition-colors disabled:opacity-50"
+              title="Fetch latest models directly from gateway"
+            >
+              <RefreshCw className={`w-3 h-3 ${fetchingModels === providerId ? 'animate-spin' : ''}`} />
+              <span>{fetchingModels === providerId ? 'Fetching...' : 'Fetch models'}</span>
+            </button>
+            <span className="text-gray-300 dark:text-[#252836] select-none">|</span>
+            <button
+              type="button"
+              title={isCustom ? 'Switch to dropdown list' : 'Type a custom model string'}
+              onClick={() =>
+                setCustomInputMode((prev) => ({ ...prev, [providerId]: !prev[providerId] }))
+              }
+              className="text-[11px] font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition-colors"
+            >
+              <Edit3 className="w-3 h-3" />
+              <span>{isCustom ? 'Curated list' : 'Custom'}</span>
+            </button>
+          </div>
         </div>
 
         {isCustom ? (
@@ -776,6 +910,20 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
           >
             {testing === providerId && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             <span>Test connection</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={fetchingModels === providerId}
+            onClick={() => {
+              const ep = detail.endpointField ? cfg[detail.endpointField] : undefined;
+              const k = detail.keyField ? cfg[detail.keyField] : undefined;
+              handleFetchModels(providerId, ep, k);
+            }}
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-[#1a1c24] dark:hover:bg-[#222530] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#252836] cursor-pointer transition-all disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${fetchingModels === providerId ? 'animate-spin text-emerald-500' : ''}`} />
+            <span>Fetch all models</span>
           </button>
 
           {result && (

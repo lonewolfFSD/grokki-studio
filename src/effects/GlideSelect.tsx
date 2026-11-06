@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ArrowDown01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
+import { ArrowDown01Icon, Tick02Icon, Search01Icon } from '@hugeicons/core-free-icons';
 
 export interface GlideSelectOption {
   value: string;
@@ -98,6 +98,27 @@ const GlideSelect: React.FC<GlideSelectProps> = ({
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const scrub = useRef<{ id: number; top: number } | null>(null);
   const id = useId();
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const filteredItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((it) => {
+      const val = it.value.toLowerCase();
+      const txt = textOf(it).toLowerCase();
+      const tag = (it.tag || '').toLowerCase();
+      return val.includes(q) || txt.includes(q) || tag.includes(q);
+    });
+  }, [items, searchQuery]);
+
+  useEffect(() => {
+    if (phase !== 'open') {
+      setSearchQuery('');
+    } else if (items.length > 8) {
+      setTimeout(() => searchInputRef.current?.focus({ preventScroll: true }), 50);
+    }
+  }, [phase, items.length]);
   const S = SIZES[size] ?? SIZES.md;
   const step = S.row + GAP;
   const popOut = Math.round((popDuration * 2) / 3);
@@ -165,8 +186,7 @@ const GlideSelect: React.FC<GlideSelectProps> = ({
     setPhase('closing');
     closeTimer.current = setTimeout(() => setPhase('closed'), popOut + 20);
   };
-  const pick = (i: number, viaKey: boolean) => {
-    const it = items[i];
+  const pickItem = (it: GlideSelectOption, viaKey: boolean) => {
     if (!it) {
       close('instant');
       return;
@@ -178,6 +198,9 @@ const GlideSelect: React.FC<GlideSelectProps> = ({
     }
     close('instant');
     triggerRef.current?.focus({ preventScroll: true });
+  };
+  const pick = (i: number, viaKey: boolean) => {
+    pickItem(filteredItems[i] || items[i], viaKey);
   };
 
   const onTriggerKey = (e: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -231,13 +254,16 @@ const GlideSelect: React.FC<GlideSelectProps> = ({
   };
 
   useEffect(() => {
-    if (phase === 'open' && listRef.current && selected >= 0) {
-      const activeEl = listRef.current.querySelector<HTMLElement>(`[data-index="${selected}"]`);
-      if (activeEl) {
-        activeEl.scrollIntoView({ block: 'nearest' });
+    if (phase === 'open' && listRef.current) {
+      const targetIndex = active !== null && active >= 0 ? active : selected;
+      if (targetIndex >= 0) {
+        const activeEl = listRef.current.querySelector<HTMLElement>(`[data-index="${targetIndex}"]`);
+        if (activeEl) {
+          activeEl.scrollIntoView({ block: 'nearest' });
+        }
       }
     }
-  }, [phase, selected]);
+  }, [phase, active, selected]);
   const onListDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (scrub.current) return;
     try {
@@ -333,42 +359,71 @@ const GlideSelect: React.FC<GlideSelectProps> = ({
       {phase !== 'closed' ? (
         <div
           ref={menuRef}
+          data-lenis-prevent="true"
+          onWheel={(e) => e.stopPropagation()}
           className="absolute z-50 min-w-full scale-95 p-1 opacity-0 [width:var(--gs-menu-w)] [border-radius:var(--gs-radius)] [background:var(--gs-surface)] border border-[#2a2d3d] [box-shadow:0_8px_24px_rgba(0,0,0,0.45)] [transform-origin:var(--gs-origin)] [transition:opacity_var(--gs-pop)_cubic-bezier(0.23,1,0.32,1),transform_var(--gs-pop)_cubic-bezier(0.23,1,0.32,1)] data-[state=open]:scale-100 data-[state=open]:opacity-100 data-[state=closed]:pointer-events-none data-[state=closed]:[transition-duration:var(--gs-pop-out)] data-[side=bottom]:top-[calc(100%+6px)] data-[side=top]:bottom-[calc(100%+6px)] data-[align=left]:left-0 data-[align=right]:right-0 motion-reduce:[transform:none]! motion-reduce:[transition:opacity_var(--gs-pop)_ease] motion-reduce:data-[state=closed]:[transition-duration:var(--gs-pop-out)]"
           data-state="open"
           data-side={side}
           data-align={align}
         >
+          {items.length > 8 && (
+            <div className="px-1.5 pt-1 pb-1.5 mb-1 border-b border-white/10 dark:border-white/10">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/10 text-xs">
+                <HugeiconsIcon icon={Search01Icon} size={12} className="opacity-50 shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search models..."
+                  className="w-full bg-transparent text-xs text-[var(--gs-text)] placeholder:opacity-40 focus:outline-none"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSearchQuery('');
+                    }}
+                    className="text-xs opacity-50 hover:opacity-100 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           <div
             ref={listRef}
             id={`${id}-list`}
             role="listbox"
             aria-label={ariaLabel}
-            className="group/list relative grid gap-px max-h-72 overflow-y-auto overscroll-contain pr-1"
+            data-lenis-prevent="true"
+            onWheel={(e) => e.stopPropagation()}
+            className="group/list relative grid gap-px max-h-80 overflow-y-auto overscroll-contain pr-1 select-none [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/40 [&::-webkit-scrollbar-thumb]:rounded-full"
             data-live={active !== null ? '' : undefined}
             onPointerOver={onListOver}
             onPointerLeave={() => {
               if (!scrub.current && !rememberPosition) setActive(null);
             }}
-            onPointerDown={onListDown}
-            onPointerMove={onListMove}
-            onPointerUp={onListUp}
-            onPointerCancel={onListUp}
-            onLostPointerCapture={onListUp}
+            /* Native scrollbar and wheel allowed */
           >
             <span
               ref={pillRef}
               className="pointer-events-none absolute top-0 right-0 left-0 opacity-0 [height:var(--gs-row)] [border-radius:var(--gs-inner-radius)] [background:var(--gs-highlight)] [transition:transform_var(--gs-glide)_cubic-bezier(0.23,1,0.32,1),opacity_150ms_ease] motion-reduce:[transition:opacity_150ms_ease]"
               aria-hidden="true"
             />
-            {items.map((it, i) => (
+            {filteredItems.map((it, i) => (
               <div
                 key={it.value}
                 id={`${id}-${i}`}
                 role="option"
-                aria-selected={i === selected}
+                aria-selected={it.value === current}
                 data-index={i}
-                onClick={() => pick(i, true)}
-                className="relative z-[1] flex cursor-pointer items-center gap-2 pr-2 pl-2.5 select-none [-webkit-tap-highlight-color:transparent] [height:var(--gs-row)] [border-radius:var(--gs-inner-radius)] [color:var(--gs-text)] [font-size:var(--gs-font)] [transition:background-color_150ms_ease] aria-selected:[background:color-mix(in_srgb,var(--gs-highlight)_60%,transparent)] group-data-[live]/list:aria-selected:bg-transparent"
+                onClick={() => pickItem(it, true)}
+                className="relative z-[1] flex cursor-pointer items-center gap-2 pr-2 pl-2.5 select-none [-webkit-tap-highlight-color:transparent] [height:var(--gs-row)] [border-radius:var(--gs-inner-radius)] [color:var(--gs-text)] [font-size:var(--gs-font)] [transition:background-color_100ms_ease] hover:[background:color-mix(in_srgb,var(--gs-highlight)_60%,transparent)] aria-selected:[background:color-mix(in_srgb,var(--gs-highlight)_70%,transparent)]"
               >
                 <span className="min-w-0 flex-1 truncate font-medium">{it.label}</span>
                 {showTags && it.tag ? (
@@ -378,7 +433,7 @@ const GlideSelect: React.FC<GlideSelectProps> = ({
                 ) : null}
                 <span
                   className="inline-flex shrink-0 invisible [color:var(--gs-accent)] data-[on]:visible"
-                  data-on={i === selected ? '' : undefined}
+                  data-on={it.value === current ? '' : undefined}
                   aria-hidden="true"
                 >
                   <HugeiconsIcon icon={Tick02Icon} size={13} strokeWidth={2.5} />

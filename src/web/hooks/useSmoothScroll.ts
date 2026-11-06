@@ -34,6 +34,22 @@ export function useSmoothScroll(enabled: boolean = true, intensity: number = 5, 
         touchMultiplier: 1.5,
         infinite: false,
         autoResize: true,
+        prevent: (node) => {
+          if (!node || (node as any).nodeType !== 1) return false;
+          const el = node as HTMLElement;
+          return Boolean(
+            el.hasAttribute('data-lenis-prevent') ||
+            el.closest('[data-lenis-prevent]') ||
+            el.closest('[role="listbox"]') ||
+            el.closest('[role="menu"]') ||
+            el.closest('[role="combobox"]') ||
+            el.closest('.overflow-y-auto') ||
+            el.closest('.overflow-auto') ||
+            el.closest('.overscroll-contain') ||
+            el.closest('select') ||
+            el.closest('textarea')
+          );
+        },
       });
 
       (window as any).__lenis = lenis;

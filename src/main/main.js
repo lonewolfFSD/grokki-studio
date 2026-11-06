@@ -138,7 +138,7 @@ function loadConfig() {
   const envGrokKey = (process.env.XAI_API_KEY || '').trim();
   const envDeepSeekKey = (process.env.DEEPSEEK_API_KEY || '').trim();
   const envQwenKey = (process.env.DASHSCOPE_API_KEY || '').trim();
-  const envOmniRouterKey = (process.env.OMNIROUTER_API_KEY || '').trim();
+  const envOmniRouterKey = (process.env.OMNIROUTE_API_KEY || process.env.OMNIROUTER_API_KEY || '').trim();
 
   try {
     if (fs.existsSync(configPath)) {
@@ -161,9 +161,14 @@ function loadConfig() {
       if (!data.deepseekModel) data.deepseekModel = 'deepseek-chat';
       if (!data.qwenApiKey && envQwenKey) data.qwenApiKey = envQwenKey;
       if (!data.qwenModel) data.qwenModel = 'qwen-max';
+      if (data.provider === 'omnirouter') data.provider = 'omniroute';
+      if (!data.omnirouteApiKey && (data.omnirouterApiKey || envOmniRouterKey)) data.omnirouteApiKey = data.omnirouterApiKey || envOmniRouterKey;
+      if (!data.omnirouteModel || data.omnirouteModel === 'omnirouter/auto') data.omnirouteModel = 'auto';
+      if (!data.cachedProviderModels) data.cachedProviderModels = {};
+      if (!data.omnirouteEndpoint || data.omnirouteEndpoint.includes('omnirouter.ai')) data.omnirouteEndpoint = 'http://localhost:20128/v1';
       if (!data.omnirouterApiKey && envOmniRouterKey) data.omnirouterApiKey = envOmniRouterKey;
-      if (!data.omnirouterModel) data.omnirouterModel = 'omnirouter/auto';
-      if (!data.omnirouterEndpoint) data.omnirouterEndpoint = 'https://api.omnirouter.ai/v1';
+      if (!data.omnirouterModel) data.omnirouterModel = data.omnirouteModel || 'auto';
+      data.omnirouterEndpoint = data.omnirouteEndpoint;
       if (data.pillTheme === 'original' || data.pillTheme === 'glass') data.pillTheme = 'grokki-blue';
       if (data.pillTheme === undefined) data.pillTheme = 'grokki-blue';
       if (!data.wakeWord) data.wakeWord = 'Hey Grokki';
@@ -239,9 +244,13 @@ function loadConfig() {
     deepseekModel: 'deepseek-chat',
     qwenApiKey: envQwenKey,
     qwenModel: 'qwen-max',
+    omnirouteApiKey: envOmniRouterKey,
+    omnirouteModel: 'auto',
+    omnirouteEndpoint: 'http://localhost:20128/v1',
+    cachedProviderModels: {},
     omnirouterApiKey: envOmniRouterKey,
-    omnirouterModel: 'omnirouter/auto',
-    omnirouterEndpoint: 'https://api.omnirouter.ai/v1',
+    omnirouterModel: 'auto',
+    omnirouterEndpoint: 'http://localhost:20128/v1',
     wakeWord: 'Hey Grokki',
     hotkey: 'Alt+Q',
     voiceEnabled: true,
@@ -4355,9 +4364,9 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
       return { success: true, latencyMs, reply: data.choices?.[0]?.message?.content?.trim() || 'READY' };
     }
 
-    if (provider === 'omnirouter') {
-      const ep = (endpoint || 'https://api.omnirouter.ai/v1').replace(/\/+$/, '');
-      const apiKey = (key || 'free').trim();
+    if (provider === 'omniroute' || provider === 'omnirouter') {
+      const ep = (endpoint || 'http://localhost:20128/v1').replace(/\/+$/, '');
+      const apiKey = (key || '').trim();
       const fetch = global.fetch || require('node-fetch');
       const headers = { 'Content-Type': 'application/json' };
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
@@ -4365,14 +4374,14 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: model || 'omnirouter/auto',
+          model: model || 'auto',
           messages: [{ role: 'user', content: 'Respond with ONLY "READY".' }],
           max_tokens: 10,
         }),
       });
       if (!res.ok) {
         const errText = await res.text();
-        return { success: false, error: `OmniRouter error (${res.status}): ${errText.slice(0, 150)}` };
+        return { success: false, error: `OmniRoute error (${res.status}): ${errText.slice(0, 150)}` };
       }
       const data = await res.json();
       const latencyMs = Date.now() - startTime;
@@ -4483,15 +4492,23 @@ ipcMain.handle('dashboard:fetch-provider-models', async (event, { provider, key,
       return { success: true, models };
     }
 
-    if (provider === 'omnirouter') {
-      const ep = (endpoint || 'https://api.omnirouter.ai/v1').replace(/\/+$/, '');
-      const apiKey = (key || 'free').trim();
+    if (provider === 'omniroute' || provider === 'omnirouter') {
+      const ep = (endpoint || 'http://localhost:20128/v1').replace(/\/+$/, '');
+      const apiKey = (key || '').trim();
       const headers = {};
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
       const res = await fetch(`${ep}/models`, { headers });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const models = (data.data || []).map(m => m.id);
+      let models = [];
+      if (Array.isArray(data.data)) {
+        models = data.data.map(m => (typeof m === 'string' ? m : (m.id || m.name || m.model)));
+      } else if (Array.isArray(data.models)) {
+        models = data.models.map(m => (typeof m === 'string' ? m : (m.id || m.name || m.model)));
+      } else if (Array.isArray(data)) {
+        models = data.map(m => (typeof m === 'string' ? m : (m.id || m.name || m.model)));
+      }
+      models = models.filter(Boolean);
       return { success: true, models };
     }
 

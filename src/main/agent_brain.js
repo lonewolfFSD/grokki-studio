@@ -111,11 +111,11 @@ function resolveOpenAIEndpointAndKey(provider, config = {}) {
     endpoint = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1';
     apiKey = (config.qwenApiKey || process.env.DASHSCOPE_API_KEY || '').trim();
     model = config.qwenModel || 'qwen-max';
-  } else if (provider === 'omnirouter') {
-    const base = (config.omnirouterEndpoint || 'https://api.omnirouter.ai/v1').replace(/\/+$/, '');
+  } else if (provider === 'omniroute' || provider === 'omnirouter') {
+    const base = (config.omnirouteEndpoint || config.omnirouterEndpoint || 'http://localhost:20128/v1').replace(/\/+$/, '');
     endpoint = base;
-    apiKey = (config.omnirouterApiKey || process.env.OMNIROUTER_API_KEY || 'free').trim();
-    model = config.omnirouterModel || 'omnirouter/auto';
+    apiKey = (config.omnirouteApiKey || config.omnirouterApiKey || process.env.OMNIROUTE_API_KEY || process.env.OMNIROUTER_API_KEY || '').trim();
+    model = config.omnirouteModel || config.omnirouterModel || 'auto';
   }
 
   return { endpoint, apiKey, model };
@@ -1836,15 +1836,15 @@ class AgentBrain {
       apiKey = (config.qwenApiKey || process.env.DASHSCOPE_API_KEY || '').trim();
       model = config.qwenModel || 'qwen-max';
       modelCandidates = [model, 'qwen-plus'];
-    } else if (provider === 'omnirouter') {
-      const base = (config.omnirouterEndpoint || 'https://api.omnirouter.ai/v1').replace(/\/+$/, '');
+    } else if (provider === 'omniroute' || provider === 'omnirouter') {
+      const base = (config.omnirouteEndpoint || config.omnirouterEndpoint || 'http://localhost:20128/v1').replace(/\/+$/, '');
       endpoint = base;
-      apiKey = (config.omnirouterApiKey || process.env.OMNIROUTER_API_KEY || 'free').trim();
-      model = config.omnirouterModel || 'omnirouter/auto';
+      apiKey = (config.omnirouteApiKey || config.omnirouterApiKey || process.env.OMNIROUTE_API_KEY || process.env.OMNIROUTER_API_KEY || '').trim();
+      model = config.omnirouteModel || config.omnirouterModel || 'auto';
       modelCandidates = [model];
     }
 
-    if (provider !== 'ollama' && provider !== 'omnirouter' && !apiKey) {
+    if (provider !== 'ollama' && provider !== 'omniroute' && provider !== 'omnirouter' && !apiKey) {
       return { success: false, error: `NO_${provider.toUpperCase()}_API_KEY` };
     }
 
@@ -2239,7 +2239,7 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
 
     const provider = config.provider || 'gemini';
 
-    if (['groq', 'ollama', 'openrouter', 'omnirouter', 'openai', 'grok', 'deepseek', 'qwen'].includes(provider)) {
+    if (['groq', 'ollama', 'openrouter', 'omniroute', 'omnirouter', 'openai', 'grok', 'deepseek', 'qwen'].includes(provider)) {
       return await this.runOpenAICompatible(prompt, config, context);
     }
 

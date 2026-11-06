@@ -1104,7 +1104,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
     groq: { name: 'Groq', modelField: 'groqModel', defaultModel: 'llama-3.3-70b-versatile', Logo: GroqLogo },
     ollama: { name: 'Ollama', modelField: 'ollamaModel', defaultModel: 'llama3.2', Logo: OllamaLogo },
     openrouter: { name: 'OpenRouter', modelField: 'openrouterModel', defaultModel: 'openrouter/auto', Logo: OpenRouterLogo },
-    omnirouter: { name: 'OmniRouter', modelField: 'omnirouterModel', defaultModel: 'omnirouter/auto', Logo: OmniRouterLogo },
+    omniroute: { name: 'OmniRoute', modelField: 'omnirouteModel', defaultModel: 'auto', Logo: OmniRouterLogo },
+    omnirouter: { name: 'OmniRoute', modelField: 'omnirouteModel', defaultModel: 'auto', Logo: OmniRouterLogo },
     openai: { name: 'OpenAI', modelField: 'openaiModel', defaultModel: 'gpt-4o', Logo: OpenAILogo },
     grok: { name: 'Grok', modelField: 'grokModel', defaultModel: 'grok-2-1212', Logo: GrokLogo },
     deepseek: { name: 'DeepSeek', modelField: 'deepseekModel', defaultModel: 'deepseek-chat', Logo: DeepSeekLogo },
@@ -1113,6 +1114,37 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
   const currentBrainInfo = brainMeta[activeBrain] || brainMeta.gemini;
   const currentModelValue = (config[currentBrainInfo.modelField] as string) || currentBrainInfo.defaultModel;
+
+  // Auto-fetch provider models for ChatTab if not cached yet
+  useEffect(() => {
+    const dynamicProviders = ['omniroute', 'omnirouter', 'ollama', 'openrouter', 'groq'];
+    if (!dynamicProviders.includes(activeBrain)) return;
+
+    const alreadyCached = config.cachedProviderModels?.[activeBrain];
+    if (Array.isArray(alreadyCached) && alreadyCached.length > 0) return;
+
+    if (window.jarvisAPI?.fetchProviderModels) {
+      const ep = activeBrain === 'omniroute' || activeBrain === 'omnirouter'
+        ? (config.omnirouteEndpoint || 'http://localhost:20128/v1')
+        : (activeBrain === 'ollama' ? (config.ollamaEndpoint || 'http://127.0.0.1:11434') : undefined);
+      const key = activeBrain === 'omniroute' || activeBrain === 'omnirouter'
+        ? (config.omnirouteApiKey || config.omnirouterApiKey)
+        : (activeBrain === 'groq' ? config.groqApiKey : config.openrouterApiKey);
+
+      window.jarvisAPI.fetchProviderModels({ provider: activeBrain, endpoint: ep, key })
+        .then((res) => {
+          if (res?.success && Array.isArray(res.models) && res.models.length > 0) {
+            const updated = {
+              ...(config.cachedProviderModels || {}),
+              [activeBrain]: res.models,
+            };
+            onChangeConfig?.({ cachedProviderModels: updated });
+            window.jarvisAPI?.saveConfig?.({ cachedProviderModels: updated });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [activeBrain, config.cachedProviderModels, config.omnirouteEndpoint, config.omnirouteApiKey]);
 
   const handleSelectModel = useCallback((selectedVal: string) => {
     if (selectedVal === '__switch_brain__') {
@@ -1130,28 +1162,67 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
   const modelOptions: GlideSelectOption[] = useMemo(() => {
     const rawList = CURATED_MODELS[activeBrain] || [];
+    const cachedList =
+      config.cachedProviderModels?.[activeBrain] ||
+      (activeBrain === 'omniroute' || activeBrain === 'omnirouter'
+        ? config.cachedProviderModels?.['omniroute'] || config.cachedProviderModels?.['omnirouter']
+        : []) ||
+      [];
     const BrainLogo = currentBrainInfo.Logo;
+    const map = new Map<string, GlideSelectOption>();
 
-    const opts: GlideSelectOption[] = rawList.map((m) => {
-      const displayLabel = m.label.replace(/^openrouter\/|^omnirouter\//, '');
-      return {
+    // 1. Curated list
+    rawList.forEach((m) => {
+      const displayLabel = m.label.replace(/^openrouter\/|^omniroute\/|^omnirouter\//, '');
+      map.set(m.value, {
         value: m.value,
         label: (
-          <span className="flex items-center gap-1.5 truncate max-w-[210px] text-[11px]">
+          <span className="flex items-center gap-1.5 truncate max-w-[260px] text-[11px]">
             <BrainLogo className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">{displayLabel}</span>
           </span>
         ),
         tag: m.tag,
-      };
+      });
     });
 
-    if (currentModelValue && !opts.some((o) => o.value === currentModelValue)) {
-      const displayLabel = currentModelValue.replace(/^openrouter\/|^omnirouter\//, '');
-      opts.unshift({
+    // 2. All 480+ cached models from provider gateway
+    cachedList.forEach((m) => {
+      const modelId = typeof m === 'string' ? m : (m as any).value || (m as any).id;
+      if (!modelId || map.has(modelId)) return;
+      const displayLabel = modelId.replace(/^openrouter\/|^omniroute\/|^omnirouter\//, '');
+      let tag = 'Gateway';
+      const lower = modelId.toLowerCase();
+      if (lower.includes(':free') || lower.includes('free')) tag = 'Free';
+      else if (lower.includes('claude')) tag = 'Anthropic';
+      else if (lower.includes('gpt') || lower.includes('o1') || lower.includes('o3') || lower.includes('chatgpt')) tag = 'OpenAI';
+      else if (lower.includes('deepseek')) tag = 'DeepSeek';
+      else if (lower.includes('llama')) tag = 'Meta';
+      else if (lower.includes('qwen')) tag = 'Qwen';
+      else if (lower.includes('gemini')) tag = 'Google';
+      else if (lower.includes('mistral') || lower.includes('codestral')) tag = 'Mistral';
+      else if (lower.includes('grok')) tag = 'xAI';
+      else if (lower.includes('command') || lower.includes('cohere')) tag = 'Cohere';
+
+      map.set(modelId, {
+        value: modelId,
+        label: (
+          <span className="flex items-center gap-1.5 truncate max-w-[260px] text-[11px]">
+            <BrainLogo className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{displayLabel}</span>
+          </span>
+        ),
+        tag,
+      });
+    });
+
+    // 3. Current active value if not in list
+    if (currentModelValue && !map.has(currentModelValue)) {
+      const displayLabel = currentModelValue.replace(/^openrouter\/|^omniroute\/|^omnirouter\//, '');
+      map.set(currentModelValue, {
         value: currentModelValue,
         label: (
-          <span className="flex items-center gap-1.5 truncate max-w-[210px] text-[11px]">
+          <span className="flex items-center gap-1.5 truncate max-w-[260px] text-[11px]">
             <BrainLogo className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">{displayLabel}</span>
           </span>
@@ -1159,6 +1230,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
         tag: 'Active',
       });
     }
+
+    const opts: GlideSelectOption[] = Array.from(map.values());
 
     opts.push({
       value: '__switch_brain__',
@@ -1172,7 +1245,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     });
 
     return opts;
-  }, [activeBrain, currentBrainInfo.Logo, currentModelValue]);
+  }, [activeBrain, config.cachedProviderModels, currentBrainInfo.Logo, currentModelValue]);
 
   const renderModelSelector = (placement: 'top' | 'bottom' = 'top', align: 'left' | 'right' = 'left') => {
     const isDark =
@@ -1193,7 +1266,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           placeholder="Model"
           size="sm"
           radius={8}
-          menuWidth={290}
+          menuWidth={360}
           surfaceColor={isDark ? '#1a1c24' : '#f3f4f6'}
           highlightColor={isDark ? '#272a38' : '#e5e7eb'}
           textColor={isDark ? '#f3f4f6' : '#111827'}

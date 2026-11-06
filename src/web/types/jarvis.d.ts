@@ -11,6 +11,7 @@ export interface StudioHotkeys {
 
 export type AiProvider =
   | 'gemini'
+  | 'omniroute'
   | 'groq'
   | 'ollama'
   | 'openrouter'
@@ -75,6 +76,10 @@ export interface JarvisConfig {
   deepseekModel?: string;
   qwenApiKey?: string;
   qwenModel?: string;
+  omnirouteApiKey?: string;
+  omnirouteModel?: string;
+  omnirouteEndpoint?: string;
+  cachedProviderModels?: Record<string, string[]>;
   omnirouterApiKey?: string;
   omnirouterModel?: string;
   omnirouterEndpoint?: string;
