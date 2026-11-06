@@ -10,6 +10,7 @@ import {
   Paperclip,
   Copy,
   Check,
+  Pencil,
   Volume2,
   Square,
   Terminal,
@@ -1074,6 +1075,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const [synthesizingId, setSynthesizingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState<string>('');
 
   // Slash Commands state
   const [slashIndex, setSlashIndex] = useState(0);
@@ -2446,6 +2449,151 @@ export const ChatTab = React.memo<ChatTabProps>(({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleStartEdit = (msg: ChatMessage) => {
+    setEditingMessageId(msg.id);
+    setEditingContent(msg.content);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingContent('');
+  };
+
+  const handleSaveEditedMessage = async (targetMsgId: string) => {
+    const trimmed = editingContent.trim();
+    if (!trimmed) return;
+
+    const msgIndex = messages.findIndex((m) => m.id === targetMsgId);
+    if (msgIndex === -1) return;
+
+    const oldMsg = messages[msgIndex];
+    // Remove the old user message and any subsequent messages from the conversation history
+    const historyBefore = messages.slice(0, msgIndex);
+
+    const newUserMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: trimmed,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      attachedFile: oldMsg.attachedFile,
+      mentions: oldMsg.mentions,
+    };
+
+    onUpdateMessages(() => [...historyBefore, newUserMsg]);
+    setEditingMessageId(null);
+    setEditingContent('');
+    setLoading(true);
+
+    try {
+      if (dualBattleEnabled && window.jarvisAPI?.executeDualAI) {
+        const [providerA, ...modelAParts] = brainASelection.split(':');
+        const [providerB, ...modelBParts] = brainBSelection.split(':');
+        const modelA = modelAParts.join(':');
+        const modelB = modelBParts.join(':');
+
+        const context: any = {};
+        if (oldMsg.attachedFile) {
+          context.filePath = oldMsg.attachedFile.path;
+          context.attachedFile = oldMsg.attachedFile;
+        }
+        if (oldMsg.mentions && oldMsg.mentions.length > 0) {
+          context.projectMentions = oldMsg.mentions;
+        }
+        if (webSearchEnabled) {
+          context.webSearch = true;
+          context.webSearchEnabled = true;
+        }
+
+        const dualRes = await window.jarvisAPI.executeDualAI(
+          trimmed,
+          { provider: providerA, model: modelA },
+          { provider: providerB, model: modelB },
+          context
+        );
+
+        const dualMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `**Dual-Battle**: ${modelA || providerA} vs ${modelB || providerB}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          dualBattle: {
+            brainA: dualRes.brainA,
+            brainB: dualRes.brainB,
+          },
+        };
+
+        onUpdateMessages((prev) => [...prev, dualMsg]);
+        setLoading(false);
+        return;
+      }
+
+      if (window.jarvisAPI?.executeAI) {
+        const context: any = {};
+        if (oldMsg.attachedFile) {
+          context.filePath = oldMsg.attachedFile.path;
+          context.attachedFile = oldMsg.attachedFile;
+        }
+        if (oldMsg.mentions && oldMsg.mentions.length > 0) {
+          context.projectMentions = oldMsg.mentions;
+        }
+        if (webSearchEnabled) {
+          context.webSearch = true;
+          context.webSearchEnabled = true;
+        }
+        if (historyBefore.length > 0) {
+          context.conversationHistory = historyBefore.slice(-16).map((m) => ({
+            role: m.role,
+            content: m.content,
+          }));
+        }
+
+        const res = await window.jarvisAPI.executeAI(trimmed, context);
+        let replyContent = res.reply || res.message;
+        if (!replyContent) {
+          if (res.error) {
+            replyContent = `⚠️ **Could not generate response**: ${res.error}\n\nTip: You can switch model/provider in the dropdown below or check API keys in **AI Brain**.`;
+          } else {
+            replyContent = 'I processed your request, but received an empty response. Please try again.';
+          }
+        }
+
+        const assistantMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: replyContent,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          actionsExecuted: res.actionsExecuted,
+          grounding: res.grounding,
+          isAnimated: true,
+        };
+        onUpdateMessages((prev) => [...prev, assistantMsg]);
+        setLoading(false);
+      } else {
+        setTimeout(() => {
+          const assistantMsg: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: `I received your command: **"${trimmed}"**.\n\nGrokki Studio is connected and ready.`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isAnimated: true,
+          };
+          onUpdateMessages((prev) => [...prev, assistantMsg]);
+          setLoading(false);
+        }, 500);
+      }
+    } catch (err: any) {
+      const errorMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `⚠️ **Execution Error**: ${err.message || 'Failed to communicate with Agent Brain.'}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isAnimated: true,
+      };
+      onUpdateMessages((prev) => [...prev, errorMsg]);
+      setLoading(false);
+    }
+  };
+
   const handleSynthesizeConsensus = async (msgId: string) => {
     const msgIndex = messages.findIndex((m) => m.id === msgId);
     if (msgIndex === -1) return;
@@ -3467,34 +3615,123 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} w-full`}
                 >
                   {isUser ? (
-                    /* User Message: Clean Modern Rounded Bubble */
-                    <div className="max-w-[75%] bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-sm font-medium leading-relaxed border border-gray-300/80 dark:border-[#1e2029]">
-                      {msg.attachedFile && (
-                        isImageAttachment(msg.attachedFile) ? (
-                          <ChatImageAttachment
-                            file={msg.attachedFile}
-                            onZoom={(src, name, size, path, originRect) => openLightbox(src, name, size, path, originRect)}
+                    editingMessageId === msg.id ? (
+                      /* Inline Edit UI */
+                      <div className="w-full max-w-[75%] flex flex-col items-end gap-2 animate-in fade-in duration-200">
+                        <div className="w-full bg-white dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 p-3 rounded-2xl border border-sky-500/60 dark:border-sky-500/60 shadow-xs focus-within:ring-2 focus-within:ring-sky-500/20">
+                          <textarea
+                            value={editingContent}
+                            onChange={(e) => setEditingContent(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSaveEditedMessage(msg.id);
+                              } else if (e.key === 'Escape') {
+                                handleCancelEdit();
+                              }
+                            }}
+                            autoFocus
+                            rows={Math.min(8, Math.max(2, editingContent.split('\n').length))}
+                            className="w-full bg-transparent resize-none border-none outline-none text-sm font-medium leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-0 p-0"
+                            placeholder="Edit your message..."
                           />
-                        ) : (
-                          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#12141c] border border-gray-200/90 dark:border-white/10 mb-2 text-xs font-mono shadow-2xs">
-                            <div className="w-6 h-6 rounded-md bg-gray-900/[0.03] dark:bg-white/[0.035] border border-gray-900/[0.05] dark:border-white/[0.05] flex items-center justify-center flex-shrink-0">
-                              {getFileIcon(typeof msg.attachedFile === 'string' ? msg.attachedFile : msg.attachedFile.ext)}
-                            </div>
-                            <span className="truncate max-w-[200px] font-semibold text-gray-900 dark:text-gray-100">
-                              {typeof msg.attachedFile === 'string' ? msg.attachedFile.split('\\').pop() : msg.attachedFile.name}
-                            </span>
-                            {typeof msg.attachedFile !== 'string' && msg.attachedFile.size ? (
-                              <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                                ({formatFileSize(msg.attachedFile.size)})
-                              </span>
-                            ) : null}
-                          </div>
-                        )
-                      )}
-                      <p className="whitespace-pre-wrap m-0 leading-relaxed text-[13px]">
-                        {renderContentWithBrandLinks(msg.content)}
-                      </p>
-                    </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs font-mono">
+                          <button
+                            type="button"
+                            onClick={handleCancelEdit}
+                            className="px-3 py-1.5 rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-[#1e2029] transition-all cursor-pointer font-medium"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEditedMessage(msg.id)}
+                            disabled={!editingContent.trim() || loading}
+                            className="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 active:scale-95 text-white font-semibold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-xs flex items-center gap-1.5"
+                          >
+                            <span>Send</span>
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* User Message: Clean Modern Rounded Bubble with Action Options */
+                      <div className="flex flex-col items-end max-w-[75%] group/user-msg">
+                        <div className="w-full bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-sm font-medium leading-relaxed border border-gray-300/80 dark:border-[#1e2029]">
+                          {msg.attachedFile && (
+                            isImageAttachment(msg.attachedFile) ? (
+                              <ChatImageAttachment
+                                file={msg.attachedFile}
+                                onZoom={(src, name, size, path, originRect) => openLightbox(src, name, size, path, originRect)}
+                              />
+                            ) : (
+                              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#12141c] border border-gray-200/90 dark:border-white/10 mb-2 text-xs font-mono shadow-2xs">
+                                <div className="w-6 h-6 rounded-md bg-gray-900/[0.03] dark:bg-white/[0.035] border border-gray-900/[0.05] dark:border-white/[0.05] flex items-center justify-center flex-shrink-0">
+                                  {getFileIcon(typeof msg.attachedFile === 'string' ? msg.attachedFile : msg.attachedFile.ext)}
+                                </div>
+                                <span className="truncate max-w-[200px] font-semibold text-gray-900 dark:text-gray-100">
+                                  {typeof msg.attachedFile === 'string' ? msg.attachedFile.split('\\').pop() : msg.attachedFile.name}
+                                </span>
+                                {typeof msg.attachedFile !== 'string' && msg.attachedFile.size ? (
+                                  <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                    ({formatFileSize(msg.attachedFile.size)})
+                                  </span>
+                                ) : null}
+                              </div>
+                            )
+                          )}
+                          <p className="whitespace-pre-wrap m-0 leading-relaxed text-[13px]">
+                            {renderContentWithBrandLinks(msg.content)}
+                          </p>
+                        </div>
+
+                        {/* Options under User Message: Edit & Copy (Visible only on hover, slightly smaller icons) */}
+                        <div className="flex items-center gap-0.5 mt-1 mr-0.5 text-gray-400 dark:text-gray-500 opacity-0 group-hover/user-msg:opacity-100 pointer-events-none group-hover/user-msg:pointer-events-auto transition-opacity duration-150">
+                          <WarmTooltip
+                            content={copiedId === msg.id ? 'Copied!' : 'Copy'}
+                            side="bottom"
+                            surfaceColor="#f5f5f5"
+                            inkColor="#18181b"
+                            size="sm"
+                            radius={6}
+                            arrow
+                          >
+                            <button
+                              type="button"
+                              aria-label="Copy message"
+                              onClick={() => handleCopy(msg.id, msg.content)}
+                              className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-colors cursor-pointer border-none bg-transparent"
+                            >
+                              {copiedId === msg.id ? (
+                                <Check className="w-3 h-3 text-emerald-500" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          </WarmTooltip>
+
+                          <WarmTooltip
+                            content="Edit message"
+                            side="bottom"
+                            surfaceColor="#f5f5f5"
+                            inkColor="#18181b"
+                            size="sm"
+                            radius={6}
+                            arrow
+                          >
+                            <button
+                              type="button"
+                              aria-label="Edit message"
+                              onClick={() => handleStartEdit(msg)}
+                              className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-colors cursor-pointer border-none bg-transparent"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          </WarmTooltip>
+                        </div>
+                      </div>
+                    )
                   ) : (
                     /* Grokki Assistant Message: Natural Flow */
                     <div className="flex items-start gap-3 max-w-[92%] w-full">

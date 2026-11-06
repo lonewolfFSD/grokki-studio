@@ -3,7 +3,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "hi?"
+        "text": "What did rajbir sended me??"
       }
     ]
   },
@@ -11,15 +11,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "On screen, you have Amazon.in open behind the Grokki assistant"
-      }
-    ]
-  },
-  {
-    "role": "model",
-    "parts": [
-      {
-        "text": "Screen analysis: {\"error\":{\"code\":503,\"message\":\"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\"status\":\"UNAVAILABLE\"}}"
+        "text": "WhatsApp is currently not connected. Click **Link WhatsApp** in the Workspace tab to scan and link."
       }
     ]
   },
@@ -27,7 +19,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "Open Notepad and type Hello from Grokki"
+        "text": "What did rajbir sended me??"
       }
     ]
   },
@@ -35,7 +27,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "Opened notepad and typed \"hello from grokki\"."
+        "text": "WhatsApp is currently not connected. Click **Link WhatsApp** in the Workspace tab to scan and link."
       }
     ]
   },
@@ -43,7 +35,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "What is 2 + 2?\n\n[LIVE WEB SEARCH GROUNDING]\nReal-time web sources retrieved for: \"What is 2 + 2?\"\n\n[1] \"what is 2+2=explain - Brainly.in\" (brainly.in)\nURL: https://brainly.in/question/61007916\nSummary: Answer: 2+2=4 Explanation: Addition Operation: Addition is a basic arithmetic operation where you combine two or more numbers to get a total or sum. Numbers Involved: In this case, you are adding two instances of the number 2. Result: When you combine (add) the two numbers, you get the sum of 4.\n\n[2] \"What is 2 + 2? - mathsenior.com\" (mathsenior.com)\nURL: https://www.mathsenior.com/arithmetic/f1bc90ebd6487a99/\nSummary: The numbers 2 and 2 in the Ones place are added together, and the result is 4. Ones + 2 2 4 A more intuitive calculation method is to use a number line, where the point representing a number on the number line increases from left to right and decreases from right to left.\n\n[3] \"What is 2 + 2 + 2? - mathsenior.com\" (mathsenior.com)\nURL: https://www.mathsenior.com/arithmetic/5fdf88936ab2ce67/\nSummary: The numbers 2 and 2 in the Ones place are added together, and the result is 4. Ones + 2 2 4 A more intuitive calculation method is to use a number line, where the point representing a number on the number line increases from left to right and decreases from right to left.\n\n[4] \"What is sum of 2 and 2 | Number Line & Place Value method\" (askmathguru.com)\nURL: https://www.askmathguru.com/addition/what-is-2-plus-2\nSummary: What is sum of 2 and 2? The answer is 4. Add numbers using number line and place value method, video tutorial & instructions for each step.\n\n[5] \"What is 2 + 2? | Simple Explanation for Class 1 | AGNIRVA\" (agnirva.com)\nURL: https://www.agnirva.com/learn/what-is-2-%2B-2%3F\nSummary: Learn what 2 + 2 means with simple examples and step-by-step explanations. Perfect for Class 1 students. Understand basic addition easily!\n\nCRITICAL GROUNDING & FORMATTING INSTRUCTIONS:\n1. You HAVE ACTIVE REAL-TIME INTERNET SEARCH ACCESS. The sources and live data above were fetched live from the web right now for this prompt.\n2. NEVER apologize, hesitate, or say \"I don't have access to real-time data\", \"as an AI I cannot browse the internet\", or \"I lack current information\". State the facts directly.\n3. BEAUTIFUL FORMATTING & EMBEDDED LINKS:\n   - Structure your response cleanly using bold headers (###), bullet points, and short concise paragraphs.\n   - Use bracketed citations like [1], [2] immediately following key facts, metrics, or statements.\n   - ALWAYS include clickable Markdown links (e.g. [Portal Name](https://...)) whenever mentioning resources or websites.\n   - At the very end of your response, always include a dedicated sources list:\n     ### 🔗 Sources & References\n     - [Title of Source 1](URL)\n     - [Title of Source 2](URL)\n4. SMART CLARIFICATION & CONTEXT-SEEKING:\n   - If the user prompt is broad, underspecified, or just an entity name without a clear question (such as \"Assam Don Bosco University\" or \"ADBU\"):\n     * DO NOT HALLUCINATE OR GUESS BLINDLY!\n     * Provide a crisp 1-sentence grounded overview based on the real sources.\n     * Highlight key campuses/areas (e.g., Tapesia, Azara, Kharguli, or ERP attendance portal).\n     * Question back with a smart clarification: ask the user which specific campus, department, service, or information they need!\n5. Keep your response sharp, polished, factual, and helpful."
+        "text": "What did rajbir sended me??"
       }
     ]
   },
@@ -51,7 +43,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "### 2 + 2 = **4**\n\nBasic addition — combine two 2s and you get 4 [1][2].\n\n### 🔗 Sources & References\n- [What is 2+2=explain - Brainly.in](https://brainly.in/question/61007916)\n- [What is 2 + 2? - mathsenior.com](https://www.mathsenior.com/arithmetic/f1bc90ebd6487a99/)"
+        "text": "📱 Opening **WhatsApp Desktop** to check **rajbir**'s messages."
       }
     ]
   },
@@ -59,7 +51,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "What is 2 + 2?"
+        "text": "Check my recent WhatsApp messages"
       }
     ]
   },
@@ -67,7 +59,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "4."
+        "text": "📱 Opening **WhatsApp Desktop** to check **my recent whatsapp**'s messages."
       }
     ]
   },
@@ -75,15 +67,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "What is 2 + 2?"
-      }
-    ]
-  },
-  {
-    "role": "user",
-    "parts": [
-      {
-        "text": "What is 2 + 2?"
+        "text": "Check my recent WhatsApp messages"
       }
     ]
   },
@@ -91,7 +75,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "4!"
+        "text": "📱 Opening **WhatsApp Desktop** to check **my recent whatsapp**'s messages."
       }
     ]
   },
@@ -99,7 +83,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "Open Notepad and type Hello from Grokki"
+        "text": "Check my recent WhatsApp messages"
       }
     ]
   },
@@ -107,7 +91,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "Opened notepad and typed \"hello from grokki\"."
+        "text": "📱 **Recent WhatsApp Chats:**\n\n1. **+120363409847633237**: \"Event: SIH 2026 Internal Hackathon\nSubmit your ppts here https://forms.gle/RmAv4sqXSZCnJwWeA by 11:59 pm today.\"\n2. **+916000852503**: \"🎤 [Voice message]\"\n3. **+918473949411**: \"😂\"\n4. **+120363402892682707**: \"I will be late for the class, in the mean time solve all those question bank i have shared.\"\n5. **+120363401546620872**: \"These Students are mentees under my mentorship. All of you are requested to inform your Parents for a Parent - Teacher meet on 10th October, Saturday.\""
       }
     ]
   },
@@ -115,7 +99,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "What is 2 + 2?"
+        "text": "Check my recent WhatsApp messages"
       }
     ]
   },
@@ -123,7 +107,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "4."
+        "text": "📱 **Recent WhatsApp Chats:**\n\n1. **+91 93876 61149** *(Nov 1, 01:46 pm)*:\n   \"Bro\"\n\n2. **👥 BCA 2026 Class Chat** *(Oct 31, 10:24 am)*:\n   \"Let's bunk class ✌\"\n\n3. **+62 831-4724-1629** *(Oct 29, 04:33 pm)*:\n   \"Hooo, soo\"\n\n4. **👥 SPS buddies** *(Oct 25, 08:16 am)*:\n   \"Happy Birthday Nigga @277451011833912\"\n\n5. **👥 Team Grokki** *(Oct 18, 11:26 pm)*:\n   \"Grokki Progression\""
       }
     ]
   },
@@ -131,7 +115,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "Tell me a short joke"
+        "text": "Check messages from Rajbir"
       }
     ]
   },
@@ -139,7 +123,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "Heh... why don't scientists trust atoms? Because they make up everything."
+        "text": "🔍 I searched your recent WhatsApp history, but couldn't find any chats matching **\"rajbir\"**.\n\n**Your latest active WhatsApp chats are:**\n1. **+91 93876 61149** *(Nov 1, 01:46 pm)*\n2. **👥 BCA 2026 Class Chat** *(Oct 31, 10:24 am)*\n3. **+62 831-4724-1629** *(Oct 29, 04:33 pm)*\n\n💡 *Tip: If you have their phone number, you can ask me to search or message that number directly!*"
       }
     ]
   },
@@ -147,7 +131,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "What is the capital of France?"
+        "text": "Check messages from Rajbir"
       }
     ]
   },
@@ -155,7 +139,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "Paris."
+        "text": "🔍 I searched your recent WhatsApp history, but couldn't find any chats matching **\"rajbir\"**.\n\n**Your latest active WhatsApp chats are:**\n1. **+91 93876 61149** *(Nov 1, 01:46 pm)*\n2. **👥 BCA 2026 Class Chat** *(Oct 31, 10:24 am)*\n3. **+62 831-4724-1629** *(Oct 29, 04:33 pm)*\n\n💡 *Tip: If you have their phone number, you can ask me to search or message that number directly!*"
       }
     ]
   },
@@ -163,7 +147,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "hi"
+        "text": "Check messages from Rajbir"
       }
     ]
   },
@@ -171,7 +155,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "Hey Ajx! What's up?"
+        "text": "🔍 I searched your recent WhatsApp history, but couldn't find any chats matching **\"rajbir\"**.\n\n**Your latest active WhatsApp chats are:**\n1. **+91 93876 61149** *(Nov 1, 01:46 pm)*\n2. **👥 BCA 2026 Class Chat** *(Oct 31, 10:24 am)*\n3. **+62 831-4724-1629** *(Oct 29, 04:33 pm)*\n\n💡 *Tip: If you have their phone number, you can ask me to search or message that number directly!*"
       }
     ]
   },
@@ -179,7 +163,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "Can you see and click the best denim jeans on my screen?"
+        "text": "Check messages from Ankur"
       }
     ]
   },
@@ -187,7 +171,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "Screen analysis: {\"error\":{\"code\":503,\"message\":\"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\"status\":\"UNAVAILABLE\"}}"
+        "text": "🔍 I searched your recent WhatsApp history, but couldn't find any chats matching **\"ankur\"**.\n\n**Your latest active WhatsApp chats are:**\n1. **+91 93876 61149** *(Nov 1, 01:46 pm)*\n2. **👥 BCA 2026 Class Chat** *(Oct 31, 10:24 am)*\n3. **+62 831-4724-1629** *(Oct 29, 04:33 pm)*\n\n💡 *Tip: If you have their phone number, you can ask me to search or message that number directly!*"
       }
     ]
   },
@@ -195,7 +179,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "Hi"
+        "text": "Send WhatsApp message to Rajbir saying Hey bro, testing Grokki WhatsApp!"
       }
     ]
   },
@@ -203,7 +187,23 @@
     "role": "model",
     "parts": [
       {
-        "text": "Hey! How's it going?"
+        "text": "📱 **Recent WhatsApp Chats:**\n\n1. **+91 93876 61149** *(Nov 1, 01:46 pm)*:\n   \"Bro\"\n\n2. **👥 BCA 2026 Class Chat** *(Oct 31, 10:24 am)*:\n   \"Let's bunk class ✌\"\n\n3. **+62 831-4724-1629** *(Oct 29, 04:33 pm)*:\n   \"Hooo, soo\"\n\n4. **👥 SPS buddies** *(Oct 25, 08:16 am)*:\n   \"Happy Birthday Nigga @277451011833912\"\n\n5. **👥 Team Grokki** *(Oct 18, 11:26 pm)*:\n   \"Grokki Progression\""
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "parts": [
+      {
+        "text": "Send WhatsApp message to Rajbir saying Hey bro, testing Grokki WhatsApp!"
+      }
+    ]
+  },
+  {
+    "role": "model",
+    "parts": [
+      {
+        "text": "❓ I couldn't find a WhatsApp contact, group, or phone number for **\"rajbir\"**.\n\nPlease provide their 10-digit phone number, for example:\n> `Send WhatsApp message to +91XXXXXXXXXX saying hey bro, testing grokki whatsapp!`"
       }
     ]
   }

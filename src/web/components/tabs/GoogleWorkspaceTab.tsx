@@ -406,6 +406,17 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
     };
   }, []);
 
+  useEffect(() => {
+    if (!whatsappExpanded || openwaStatus?.connected) return;
+    if (!openwaStatus?.qrDataUrl && !refreshingQr) {
+      handleRefreshQr();
+    }
+    const interval = setInterval(() => {
+      loadOpenWAStatus(true);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [whatsappExpanded, openwaStatus?.connected]);
+
   const loadNotionStatus = async () => {
     if (!window.jarvisAPI?.getNotionStatus) return;
     try {
@@ -1149,13 +1160,19 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
                 WhatsApp Status
               </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 m-0 truncate">
-                {openwaStatus?.connected
-                  ? `Connected${openwaStatus.userName ? ` as ${openwaStatus.userName}` : openwaStatus.userPhone ? ` (${openwaStatus.userPhone})` : ''}. Direct background messaging active.`
-                  : openwaStatus?.sessionStatus === 'qr_ready'
-                  ? 'Scan QR code below with WhatsApp on your phone to link.'
-                  : 'Auto-connected. Desktop session active for chat messaging, contacts, and media sharing.'}
-              </p>
+              {(() => {
+                const waName = (openwaStatus?.userName || '').replace(/[\u200E\u200F]/g, '').trim();
+                const waPhone = openwaStatus?.userPhone ? `+${openwaStatus.userPhone}` : '';
+                return (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 m-0 truncate">
+                    {openwaStatus?.connected
+                      ? `Connected${waName ? ` as ${waName}` : waPhone ? ` (${waPhone})` : ''}. Direct background messaging active.`
+                      : openwaStatus?.sessionStatus === 'qr_ready'
+                      ? 'Scan QR code below with WhatsApp on your phone to link.'
+                      : 'Auto-connected. Desktop session active for chat messaging, contacts, and media sharing.'}
+                  </p>
+                );
+              })()}
             </div>
           </div>
 
@@ -1168,20 +1185,24 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
               Open App
             </button>
 
-            {openwaStatus?.sessionStatus === 'qr_ready' ? (
+            {openwaStatus?.connected ? (
+              <div className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl text-xs font-semibold border bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 shadow-xs select-none">
+                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Connected</span>
+              </div>
+            ) : (
               <button
                 type="button"
-                onClick={() => { setWhatsappExpanded(true); notifyAccordionToggled(); }}
+                onClick={() => {
+                  setWhatsappExpanded(true);
+                  if (!openwaStatus?.qrDataUrl) handleRefreshQr();
+                  notifyAccordionToggled();
+                }}
                 className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl text-xs font-semibold border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60 shadow-xs cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-colors"
               >
                 <QrCode className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                 <span>Link WhatsApp</span>
               </button>
-            ) : (
-              <div className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl text-xs font-semibold border bg-gray-100 dark:bg-[#161822] text-gray-900 dark:text-gray-100 border-gray-300 dark:border-[#1e2029] shadow-xs select-none">
-                <Check className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
-                <span>{openwaStatus?.connected ? 'Connected' : 'Auto-Connected'}</span>
-              </div>
             )}
 
             <button
@@ -1208,11 +1229,11 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
           <div className="overflow-hidden">
             <div className="px-5 pb-5 pt-3 border-t border-[#e4e4eb] dark:border-[#1e2029] flex flex-col gap-4">
               
-              {/* If QR code is available / needs pairing, show clean QR card */}
-              {openwaStatus?.sessionStatus === 'qr_ready' && (
+              {/* If not connected yet, show 1-click QR linking card */}
+              {!openwaStatus?.connected && (
                 <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029] flex flex-col sm:flex-row items-center gap-5">
                   <div className="w-44 h-44 rounded-xl bg-white p-2.5 border border-gray-200 dark:border-gray-700 flex items-center justify-center flex-shrink-0 shadow-sm">
-                    {openwaStatus.qrDataUrl ? (
+                    {openwaStatus?.qrDataUrl ? (
                       <img
                         src={openwaStatus.qrDataUrl}
                         alt="WhatsApp QR Code"
@@ -1268,10 +1289,16 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
                 <div className="flex items-center justify-between pt-1 text-xs text-gray-500 dark:text-gray-400 border-t border-[#e4e4eb] dark:border-[#1e2029]/60">
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span>
-                      {openwaStatus.userName ? `${openwaStatus.userName} ` : ''}
-                      {openwaStatus.userPhone ? `(${openwaStatus.userPhone})` : 'Connected'}
-                    </span>
+                    {(() => {
+                      const waName = (openwaStatus?.userName || '').replace(/[\u200E\u200F]/g, '').trim();
+                      const waPhone = openwaStatus?.userPhone ? `+${openwaStatus.userPhone}` : '';
+                      return (
+                        <span>
+                          {waName ? `${waName} ` : ''}
+                          {waPhone ? `(${waPhone})` : 'Connected'}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <button
                     type="button"

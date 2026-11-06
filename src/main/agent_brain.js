@@ -287,7 +287,7 @@ class AgentBrain {
 
     // 1. If purely conversational greeting or factual/informational query with no action verbs, omit tools
     const isPureInformational = /^(what (is|are|was|were)|why (is|are|do|does|did)|how (does|do|did|can)|who (is|was|were)|explain|tell me about|define|summarize|translate|write (a|an)? (code|script|poem|story|function)|calculate|solve)\b/i.test(p) &&
-      !/\b(app|application|software|window|notepad|screen|volume|brightness|sound|song|music|play|click|type|drive|email|gmail|calendar|sheet|doc|classroom|attendance|save|file|folder|wifi|bluetooth)\b/i.test(p);
+      !/\b(app|application|software|window|notepad|screen|volume|brightness|sound|song|music|play|click|type|drive|email|gmail|calendar|sheet|doc|classroom|attendance|save|file|folder|wifi|bluetooth|whatsapp|wa|message|messages|chat|chats|text)\b/i.test(p);
 
     const isSimpleGreeting = /^(hi|hello|hey|yo|sup|good (morning|afternoon|evening)|how are you|thanks|thank you|ok|bye)\b/i.test(p) && p.split(/\s+/).length <= 4;
 
@@ -304,12 +304,17 @@ class AgentBrain {
       const isGoogle = /\b(google|drive|sheet|doc|gmail|email|mail|calendar|task|tasks|classroom|course|assignment|announcement)\b/i.test(p);
       const isUni = /\b(attendance|university|college|portal|adbu|roll|profile|exam|viva|quiz|notes|study)\b/i.test(p);
       const isMedia = /\b(music|song|songs|play|pause|next|youtube|video|spotify)\b/i.test(p);
+      const isWhatsApp = /\b(whatsapp|wa|message|messages|chat|chats|text|texts|contact|contacts|phone)\b/i.test(p);
 
       const selectedNames = new Set([
         // Always include core desktop & quick actions
         'open_app', 'desktop_click', 'desktop_type', 'desktop_find', 'desktop_snapshot',
         'close_active_window', 'system_volume', 'window_manager', 'system_power', 'system_brightness'
       ]);
+
+      if (isWhatsApp || (!isDesktop && !isMedia && !isGoogle && !isUni)) {
+        ['send_whatsapp_file_or_message', 'get_whatsapp_recent_messages', 'get_whatsapp_status'].forEach(n => selectedNames.add(n));
+      }
 
       if (isGoogle || (!isDesktop && !isMedia)) {
         ['get_classroom_assignments', 'get_classroom_announcements', 'check_emails', 'send_email_gmail', 'get_calendar_agenda', 'search_google_drive', 'upload_to_google_drive', 'read_google_sheet', 'append_to_google_sheet', 'create_google_doc', 'get_google_tasks'].forEach(n => selectedNames.add(n));
@@ -891,10 +896,11 @@ class AgentBrain {
           },
           {
             name: 'get_whatsapp_recent_messages',
-            description: 'Fetches recent WhatsApp chats and messages via OpenWA Gateway (e.g. "Check my WhatsApp", "Who texted me on WhatsApp?", "Read latest messages")',
+            description: 'Fetches recent WhatsApp chats and messages (e.g. "What did Rajbir send me?", "Check my WhatsApp", "Who texted me on WhatsApp?", "Read latest messages")',
             parameters: {
               type: 'OBJECT',
               properties: {
+                contact_name: { type: 'STRING', description: 'Optional contact name (e.g. "Rajbir", "Mom", "Alex") to check messages from' },
                 limit: { type: 'INTEGER', description: 'Number of recent chats/messages to retrieve (default 5)' },
               },
             },
@@ -1620,6 +1626,60 @@ class AgentBrain {
       }
     }
 
+    // 1. Fast WhatsApp Send File Intent: e.g. "Send C:\path\test.png to +919387661149 on WhatsApp with message Here is the file"
+    const waFileSendMatch = p.match(/^send\s+(?:file\s+)?([a-zA-Z0-9_\-:\\\/\.]+?\.[a-zA-Z0-9]+)\s+to\s+(.+?)\s+(?:on|via)\s+(?:whatsapp|wa)(?:\s+(?:with\s+message|saying|with|:)\s+(.+))?$/i);
+    if (waFileSendMatch) {
+      return {
+        tool: 'send_whatsapp_file_or_message',
+        args: {
+          file_path: waFileSendMatch[1].trim(),
+          contact_or_phone: waFileSendMatch[2].trim(),
+          message: waFileSendMatch[3] ? waFileSendMatch[3].trim() : '',
+        },
+      };
+    }
+
+    // 2. Fast WhatsApp Send Message Intent: e.g. "Send WhatsApp message to Rajbir saying Hey bro", "Send WhatsApp to +919387661149: Hello"
+    const waSendMsgMatch = p.match(/^send\s+(?:an?\s+)?(?:whatsapp|wa)?\s*(?:messages?|texts?|chats?|msg)?\s*(?:on\s+whatsapp\s+)?(?:to\s+)(.+?)(?:\s+(?:on|via)\s+whatsapp)?(?:\s+(?:saying|that|with\s+message|message:?|:)\s*|\s*:\s*)(.+)$/i);
+    if (waSendMsgMatch) {
+      const contact = waSendMsgMatch[1].trim().replace(/^(?:the\s+)/i, '');
+      const msg = waSendMsgMatch[2].trim().replace(/^["']|["']$/g, '');
+      return {
+        tool: 'send_whatsapp_file_or_message',
+        args: {
+          contact_or_phone: contact,
+          message: msg,
+        },
+      };
+    }
+
+    // 3. Fast WhatsApp General check messages: e.g. "check my recent whatsapp messages", "who texted me on whatsapp", "read whatsapp messages"
+    if (/\b(check|read|get|show|view|fetch|see)\s+(my\s+)?(recent\s+|latest\s+)?(whatsapp|wa)\s*(messages?|chats?|texts?)?\b/i.test(p) ||
+        /\b(who\s+(texted|messaged)\s+me(\s+on\s+whatsapp)?)\b/i.test(p) ||
+        /\b(recent\s+whatsapp\s+messages?)\b/i.test(p) ||
+        /^(whatsapp|wa)\s+(messages?|chats?|texts?)$/i.test(p)) {
+      return { tool: 'get_whatsapp_recent_messages', args: { limit: 5 } };
+    }
+
+    // 4. Fast WhatsApp Status intent: e.g. "whatsapp status", "is whatsapp connected"
+    if (/\b(whatsapp|wa)\s+status\b/i.test(p) || /\bis\s+whatsapp\s+(connected|linked)\b/i.test(p)) {
+      return { tool: 'get_whatsapp_status', args: {} };
+    }
+
+    // 5. Fast Contact Specific Message Check: e.g. "what did rajbir send me", "check messages from alex"
+    const whatDidMatch = p.match(/^what\s+did\s+([a-zA-Z0-9_\-]+)\s+(?:send|sent|sended|text|texted|write|wrote|say)(?:\s+me)?(?:\s+on\s+whatsapp)?/i);
+    const checkFromMatch = p.match(/^(?:check|read|show|view|see)\s+(?:messages?|texts?|chats?)\s+from\s+([a-zA-Z0-9_\-]+)/i);
+    const checkPersonMatch = p.match(/^(?:check|read|show|view|see)\s+([a-zA-Z0-9_\-]+)'s\s*(?:messages?|texts?|chats?)/i);
+    const matchedContact = whatDidMatch?.[1] || checkFromMatch?.[1] || checkPersonMatch?.[1];
+
+    if (matchedContact) {
+      const contactClean = matchedContact.trim();
+      const forbidden = ['you', 'the', 'my', 'recent', 'latest', 'whatsapp', 'wa', 'pc', 'system', 'it'];
+      if (!forbidden.includes(contactClean.toLowerCase())) {
+        return { tool: 'get_whatsapp_recent_messages', args: { contact_name: contactClean } };
+      }
+    }
+
     // Fast App Open + Type Intent: e.g. "open notepad and type Hello from Grokki"
     const openTypeMatch = p.match(/^(?:can\s+you\s+)?open\s+([a-zA-Z0-9_\-\s]+?)\s+and\s+(?:type|write)\s+(.+)$/i);
     if (openTypeMatch) {
@@ -2247,6 +2307,10 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
     // When Deep Search / Live Grounding is active, omit desktop tools so Gemini synthesizes search results
     const tools = isWebSearchActive ? undefined : this.getRelevantTools(prompt, 'gemini');
     const systemInstruction = memory.buildSystemPrompt(config);
+
+    if (context && Array.isArray(context.conversationHistory) && context.conversationHistory.length > 0) {
+      memory.syncFromExternalHistory(context.conversationHistory);
+    }
 
     memory.addTurn('user', fullPrompt);
 
@@ -3465,47 +3529,118 @@ Rules:
       }
 
       case 'get_whatsapp_recent_messages': {
-        const openwaWorkspace = require('./openwa_workspace');
+        let openwaWorkspace = null;
+        try { openwaWorkspace = require('./openwa_workspace'); } catch (e) {}
+        if (!openwaWorkspace) {
+          return { success: false, message: 'WhatsApp module is not available.' };
+        }
+        const targetContact = (args.contact_name || args.contact_or_name || args.contact || '').trim().toLowerCase();
         const limit = Number(args.limit) || 5;
-        const res = await openwaWorkspace.getRecentChats(limit);
-        if (!res.success) {
+
+        // Fetch up to 50 cached chats sorted newest first
+        const res = await openwaWorkspace.getRecentChats(50);
+        let allChats = (res && res.chats) || [];
+
+        function formatRelativeTime(ts) {
+          if (!ts) return '';
+          const now = Date.now();
+          const diffMs = now - ts;
+          const d = new Date(ts);
+          const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const daysDiff = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          if (daysDiff === 0) return `Today at ${timeStr}`;
+          if (daysDiff === 1) return `Yesterday at ${timeStr}`;
+          const month = d.toLocaleString('en-US', { month: 'short' });
+          const day = d.getDate();
+          return `${month} ${day}, ${timeStr}`;
+        }
+
+        if (targetContact) {
+          const matched = allChats.filter((c) => {
+            const name = (c.name || c.formattedTitle || '').toLowerCase();
+            const id = (c.id || c.jid || '').toLowerCase();
+            const msg = (c.lastMessage?.body || '').toLowerCase();
+            return name.includes(targetContact) || id.includes(targetContact) || msg.includes(targetContact);
+          });
+
+          if (matched.length > 0) {
+            const formatted = matched.slice(0, limit).map((c, i) => {
+              const name = openwaWorkspace.formatChatName ? openwaWorkspace.formatChatName(c) : (c.name || c.formattedTitle || c.id || `Chat ${i + 1}`);
+              const lastMsg = c.lastMessage ? (typeof c.lastMessage === 'string' ? c.lastMessage : (c.lastMessage.body || c.lastMessage.type || '')) : '';
+              const timeStr = c.timestamp ? ` *(${formatRelativeTime(c.timestamp)})*` : '';
+              const unread = c.unreadCount ? ` [${c.unreadCount} unread]` : '';
+              return `${i + 1}. **${name}**${unread}${timeStr}:\n   "${lastMsg}"`;
+            }).join('\n\n');
+            return {
+              success: true,
+              message: `📱 **WhatsApp Messages matching "${args.contact_name || args.contact_or_name || args.contact}":**\n\n${formatted}`,
+            };
+          }
+
+          // If not in cache, do not launch native desktop app; show latest active conversations
+          const topPreviews = allChats.slice(0, 3).map((c, i) => {
+            const name = openwaWorkspace.formatChatName ? openwaWorkspace.formatChatName(c) : (c.name || c.formattedTitle || `Chat ${i + 1}`);
+            const timeStr = c.timestamp ? ` *(${formatRelativeTime(c.timestamp)})*` : '';
+            return `${i + 1}. **${name}**${timeStr}`;
+          }).join('\n');
+
           return {
-            success: false,
-            message: `WhatsApp Gateway: ${res.error || 'Failed to fetch chats'}. Please verify OpenWA Gateway is active in Workspace settings.`,
+            success: true,
+            message: `🔍 I searched your recent WhatsApp history, but couldn't find any chats matching **"${args.contact_name || args.contact_or_name || args.contact}"**.\n\n**Your latest active WhatsApp chats are:**\n${topPreviews}\n\n💡 *Tip: If you have their phone number, you can ask me to search or message that number directly!*`,
           };
         }
-        const chats = res.chats || [];
-        if (chats.length === 0) {
-          return { success: true, message: 'No recent WhatsApp chats found.' };
+
+        // General recent chats
+        if (allChats.length > 0) {
+          const formatted = allChats.slice(0, limit).map((c, i) => {
+            const name = openwaWorkspace.formatChatName ? openwaWorkspace.formatChatName(c) : (c.name || c.formattedTitle || c.id || `Chat ${i + 1}`);
+            const lastMsg = c.lastMessage ? (typeof c.lastMessage === 'string' ? c.lastMessage : (c.lastMessage.body || c.lastMessage.type || '')) : '';
+            const timeStr = c.timestamp ? ` *(${formatRelativeTime(c.timestamp)})*` : '';
+            const unread = c.unreadCount ? ` [${c.unreadCount} unread]` : '';
+            return `${i + 1}. **${name}**${unread}${timeStr}:\n   "${lastMsg}"`;
+          }).join('\n\n');
+          return { success: true, message: `📱 **Recent WhatsApp Chats:**\n\n${formatted}` };
         }
-        const formatted = chats.slice(0, limit).map((c, i) => {
-          const name = c.name || c.formattedTitle || c.id || `Chat ${i + 1}`;
-          const lastMsg = c.lastMessage ? (c.lastMessage.body || c.lastMessage.type || '') : '';
-          const unread = c.unreadCount ? ` (${c.unreadCount} unread)` : '';
-          return `${i + 1}. **${name}**${unread}${lastMsg ? `: "${lastMsg}"` : ''}`;
-        }).join('\n');
-        return { success: true, message: `📱 **Recent WhatsApp Chats:**\n\n${formatted}` };
+
+        const isReady = await openwaWorkspace.ensureReady(2000);
+        if (!isReady && !openwaWorkspace.hasLocalAuth()) {
+          return {
+            success: false,
+            message: 'WhatsApp is not linked yet. Please click "Link WhatsApp" in the Workspace tab and scan the QR code to connect.',
+          };
+        }
+
+        const userPhone = openwaWorkspace.localUserPhone ? ` (+${openwaWorkspace.localUserPhone})` : '';
+        return {
+          success: true,
+          message: `🟢 **WhatsApp Live & Connected**${userPhone}\n\nYour WhatsApp is actively connected in the background! Any incoming messages will appear here in real time.`,
+        };
       }
 
       case 'get_whatsapp_status': {
-        const openwaWorkspace = require('./openwa_workspace');
+        let openwaWorkspace = null;
+        try { openwaWorkspace = require('./openwa_workspace'); } catch (e) {}
+        if (!openwaWorkspace) {
+          return { success: true, message: '📱 **WhatsApp**: Not initialized or offline.' };
+        }
+        await openwaWorkspace.ensureReady(3000);
         const status = await openwaWorkspace.getStatus(true);
-        if (status.isReady) {
-          const phone = status.session?.me?.phone || status.session?.me?.id || status.sessionId;
+        if (status.connected) {
+          const phone = status.userPhone || status.userName || 'Connected';
           return {
             success: true,
-            message: `🟢 **WhatsApp OpenWA Gateway Active**\n- Gateway: \`${status.baseUrl}\`\n- Session: **${status.sessionId}** (Ready)\n- Linked Phone: ${phone || 'Active'}`,
+            message: `🟢 **WhatsApp Active & Connected**\n- Account: **${status.userName || 'Personal'}** (${phone})\n- Direct background messaging and chat history active.`,
           };
         }
         if (status.sessionStatus === 'qr_ready') {
           return {
             success: true,
-            message: `🟡 **WhatsApp OpenWA Gateway Waiting for QR Scan**\nOpen Grokki Studio Workspace to scan the live QR Code and link your WhatsApp!`,
+            message: `🟡 **WhatsApp Waiting for QR Scan**\nOpen Grokki Studio Workspace to scan the live QR code with WhatsApp on your phone (Linked Devices)!`,
           };
         }
         return {
           success: false,
-          message: `WhatsApp Gateway status: **${status.sessionStatus}**. ${status.error || ''}`,
+          message: 'WhatsApp is currently not connected. Click **Link WhatsApp** in the Workspace tab to scan and link.',
         };
       }
 
@@ -3928,13 +4063,22 @@ Rules:
     }
   }
 
-  // WhatsApp Automation: Supports direct phone numbers, Google Contact lookup, and file attachments
+  // WhatsApp Automation: Supports direct phone numbers, group names, contacts, and file attachments
   async handleWhatsAppSend({ contactOrPhone, message, filePath }) {
+    let openwaWorkspace = null;
+    try { openwaWorkspace = require('./openwa_workspace'); } catch (e) {}
+
     let phone = (contactOrPhone || '').replace(/[^\d+]/g, '');
     let contactName = (contactOrPhone || '').trim();
 
-    // If contact is a name without phone digits, try searching Google Contacts for their phone number
-    if ((!phone || phone.length < 7) && contactName && googleWorkspace.isConnected()) {
+    // 1. Resolve contact/group via OpenWA/Baileys
+    let resolvedJid = null;
+    if (openwaWorkspace && openwaWorkspace.resolveTargetJid) {
+      resolvedJid = openwaWorkspace.resolveTargetJid(contactOrPhone);
+    }
+
+    // 2. If contact is a name without phone digits, try searching Google Contacts as secondary
+    if (!resolvedJid && (!phone || phone.length < 7) && contactName && googleWorkspace && googleWorkspace.isConnected()) {
       try {
         const contactRes = await googleWorkspace.searchContacts(contactName);
         if (contactRes && contactRes.contacts && contactRes.contacts.length > 0) {
@@ -3942,11 +4086,22 @@ Rules:
           if (matched && matched.phone) {
             phone = matched.phone.replace(/[^\d+]/g, '');
             contactName = matched.name || contactName;
+            if (openwaWorkspace && openwaWorkspace.resolveTargetJid) {
+              resolvedJid = openwaWorkspace.resolveTargetJid(phone);
+            }
           }
         }
       } catch (e) {
         console.warn('[WhatsApp] Google Contacts search error:', e.message);
       }
+    }
+
+    // 3. If recipient has no digits and was not found in groups/contacts
+    if (!resolvedJid && (!phone || phone.length < 7)) {
+      return {
+        success: false,
+        message: `❓ I couldn't find a WhatsApp contact, group, or phone number for **"${contactOrPhone}"**.\n\nPlease provide their 10-digit phone number, for example:\n> \`Send WhatsApp message to +91XXXXXXXXXX saying ${message || 'hello'}\``,
+      };
     }
 
     let resolvedFilePath = filePath || '';
@@ -3956,11 +4111,11 @@ Rules:
       resolvedFilePath = attachPath;
     }
 
-    // 1. Try sending via OpenWA Gateway API (Silent, reliable background send)
-    try {
-      const openwaWorkspace = require('./openwa_workspace');
-      if (openwaWorkspace.isReady()) {
-        const sendTarget = phone && phone.length >= 7 ? phone : contactOrPhone;
+    // 4. Primary: Send via background embedded engine (Zero desktop app popup)
+    if (openwaWorkspace) {
+      try {
+        await openwaWorkspace.ensureReady(3000);
+        const sendTarget = resolvedJid || (phone && phone.length >= 7 ? phone : contactOrPhone);
         const openwaRes = await openwaWorkspace.sendWhatsAppMessage({
           to: sendTarget,
           message: message || '',
@@ -3968,19 +4123,22 @@ Rules:
         });
 
         if (openwaRes.success) {
-          const recipientDesc = contactName && phone ? `${contactName} (${phone})` : (contactOrPhone || phone);
-          const fileDesc = resolvedFilePath ? ` with attachment "${path.basename(resolvedFilePath)}"` : '';
+          const cleanTargetName = openwaWorkspace.formatChatName ? openwaWorkspace.formatChatName(sendTarget) : (contactName || sendTarget);
+          const fileDesc = resolvedFilePath ? ` with attachment \`${path.basename(resolvedFilePath)}\`` : '';
           return {
             success: true,
-            message: `🚀 **WhatsApp (OpenWA Gateway)**: Message sent to **${recipientDesc}**${fileDesc} directly in the background!`,
+            message: `🟢 **WhatsApp Message Sent!**\n\nDelivered directly to **${cleanTargetName}**${fileDesc}:\n> "${message || ''}"`,
             openwa: true,
           };
-        } else {
-          console.warn('[WhatsApp] OpenWA send returned error, falling back to desktop automation:', openwaRes.error);
+        } else if (openwaRes.notFound) {
+          return {
+            success: false,
+            message: `❓ I couldn't find a WhatsApp contact or phone number for **"${contactOrPhone}"**.\n\nPlease provide their 10-digit phone number, for example:\n> \`Send WhatsApp message to +91XXXXXXXXXX saying ${message || 'hello'}\``,
+          };
         }
+      } catch (openwaErr) {
+        console.warn('[WhatsApp] OpenWA send error, falling back to desktop automation:', openwaErr.message);
       }
-    } catch (openwaErr) {
-      console.warn('[WhatsApp] OpenWA send error, falling back to desktop automation:', openwaErr.message);
     }
 
     // 2. Desktop UI Fallback (PowerShell Automation)
