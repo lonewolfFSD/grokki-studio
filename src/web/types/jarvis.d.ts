@@ -122,6 +122,12 @@ export interface JarvisConfig {
   spatialLeftHand1FingerApp?: string;
   spatialLeftHand2FingersApp?: string;
   spatialLeftHandGestures?: LeftHandGestureItem[];
+  openwaUrl?: string;
+  openwaApiKey?: string;
+  openwaSessionId?: string;
+  openwaEngine?: 'whatsapp-web.js' | 'baileys';
+  openwaEnabled?: boolean;
+  openwaPreferGateway?: boolean;
 }
 
 export interface GoogleProfile {
@@ -217,6 +223,18 @@ export interface GitStatusResponse {
   files?: GitFileStatus[];
   recentCommits?: GitCommitInfo[];
   error?: string;
+}
+
+export interface OpenWAStatusResponse {
+  connected: boolean;
+  isGateway?: boolean;
+  sessionStatus: 'ready' | 'qr_ready' | 'starting' | 'desktop_ready' | string;
+  userPhone?: string | null;
+  userName?: string | null;
+  qrDataUrl?: string | null;
+  sessionId?: string;
+  gatewayOnline?: boolean;
+  error?: string | null;
 }
 
 export interface SystemInfo {
@@ -341,6 +359,21 @@ export interface JarvisAPI {
   gitCommit?: (cwd?: string, options?: { message: string; stageAll?: boolean }) => Promise<{ success: boolean; output?: string; error?: string }>;
   gitClone?: (cloneUrl: string, targetPath?: string) => Promise<{ success: boolean; targetPath?: string; output?: string; error?: string; canceled?: boolean }>;
   gitSelectDir?: () => Promise<{ success?: boolean; canceled?: boolean; path?: string; status?: GitStatusResponse }>;
+  getOpenWAStatus?: (forceRefresh?: boolean) => Promise<OpenWAStatusResponse>;
+  saveOpenWAConfig?: (config: {
+    baseUrl?: string;
+    apiKey?: string;
+    sessionId?: string;
+    engine?: string;
+    enabled?: boolean;
+    preferOpenWA?: boolean;
+  }) => Promise<{ success: boolean; config?: any; error?: string }>;
+  startOpenWASession?: (opts?: { name?: string; engine?: string }) => Promise<{ success: boolean; sessionId?: string; error?: string }>;
+  logoutOpenWASession?: (sessionId?: string) => Promise<{ success: boolean; error?: string }>;
+  getOpenWAQr?: (sessionId?: string) => Promise<{ success: boolean; qrDataUrl?: string; rawQr?: string; error?: string }>;
+  requestOpenWAPairingCode?: (opts: { phoneNumber: string; sessionId?: string }) => Promise<{ success: boolean; pairingCode?: string; error?: string }>;
+  testOpenWASend?: (opts: { to: string; message: string }) => Promise<{ success: boolean; messageId?: string; error?: string }>;
+  getOpenWAChats?: (limit?: number) => Promise<{ success: boolean; chats?: any[]; error?: string }>;
   getWorkspaceRoot?: () => Promise<{ workspaceRoot: string; folderName: string }>;
   setWorkspaceRoot?: (folderPath: string) => Promise<{ success: boolean; workspaceRoot?: string; error?: string }>;
   selectWorkspaceFolder?: () => Promise<{ success?: boolean; canceled?: boolean; workspaceRoot?: string; folderName?: string }>;

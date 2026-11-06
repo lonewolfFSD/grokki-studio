@@ -878,7 +878,7 @@ class AgentBrain {
           },
           {
             name: 'send_whatsapp_file_or_message',
-            description: 'Sends a message or shares and attaches a document/file on WhatsApp to a specific person or phone number',
+            description: 'Sends a message or shares and attaches a document/file on WhatsApp to a specific person or phone number (uses OpenWA Gateway if active, or Windows desktop fallback)',
             parameters: {
               type: 'OBJECT',
               properties: {
@@ -888,6 +888,21 @@ class AgentBrain {
               },
               required: ['contact_or_phone'],
             },
+          },
+          {
+            name: 'get_whatsapp_recent_messages',
+            description: 'Fetches recent WhatsApp chats and messages via OpenWA Gateway (e.g. "Check my WhatsApp", "Who texted me on WhatsApp?", "Read latest messages")',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                limit: { type: 'INTEGER', description: 'Number of recent chats/messages to retrieve (default 5)' },
+              },
+            },
+          },
+          {
+            name: 'get_whatsapp_status',
+            description: 'Checks the connection and session status of the WhatsApp OpenWA Gateway',
+            parameters: { type: 'OBJECT', properties: {} },
           },
           {
             name: 'read_attached_file',
@@ -2313,6 +2328,8 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
           'find_files_and_folders',
           'inspect_vscode_errors',
           'send_whatsapp_file_or_message',
+          'get_whatsapp_recent_messages',
+          'get_whatsapp_status',
           'open_app',
           'desktop_click',
           'desktop_type',
@@ -3447,6 +3464,51 @@ Rules:
         return await this.handleWhatsAppSend({ contactOrPhone, message, filePath });
       }
 
+      case 'get_whatsapp_recent_messages': {
+        const openwaWorkspace = require('./openwa_workspace');
+        const limit = Number(args.limit) || 5;
+        const res = await openwaWorkspace.getRecentChats(limit);
+        if (!res.success) {
+          return {
+            success: false,
+            message: `WhatsApp Gateway: ${res.error || 'Failed to fetch chats'}. Please verify OpenWA Gateway is active in Workspace settings.`,
+          };
+        }
+        const chats = res.chats || [];
+        if (chats.length === 0) {
+          return { success: true, message: 'No recent WhatsApp chats found.' };
+        }
+        const formatted = chats.slice(0, limit).map((c, i) => {
+          const name = c.name || c.formattedTitle || c.id || `Chat ${i + 1}`;
+          const lastMsg = c.lastMessage ? (c.lastMessage.body || c.lastMessage.type || '') : '';
+          const unread = c.unreadCount ? ` (${c.unreadCount} unread)` : '';
+          return `${i + 1}. **${name}**${unread}${lastMsg ? `: "${lastMsg}"` : ''}`;
+        }).join('\n');
+        return { success: true, message: `📱 **Recent WhatsApp Chats:**\n\n${formatted}` };
+      }
+
+      case 'get_whatsapp_status': {
+        const openwaWorkspace = require('./openwa_workspace');
+        const status = await openwaWorkspace.getStatus(true);
+        if (status.isReady) {
+          const phone = status.session?.me?.phone || status.session?.me?.id || status.sessionId;
+          return {
+            success: true,
+            message: `🟢 **WhatsApp OpenWA Gateway Active**\n- Gateway: \`${status.baseUrl}\`\n- Session: **${status.sessionId}** (Ready)\n- Linked Phone: ${phone || 'Active'}`,
+          };
+        }
+        if (status.sessionStatus === 'qr_ready') {
+          return {
+            success: true,
+            message: `🟡 **WhatsApp OpenWA Gateway Waiting for QR Scan**\nOpen Grokki Studio Workspace to scan the live QR Code and link your WhatsApp!`,
+          };
+        }
+        return {
+          success: false,
+          message: `WhatsApp Gateway status: **${status.sessionStatus}**. ${status.error || ''}`,
+        };
+      }
+
       case 'open_app': {
         const rawName = (args.name || '').toLowerCase().trim();
         const appMap = {
@@ -3893,6 +3955,35 @@ Rules:
     if ((!resolvedFilePath || !fs.existsSync(resolvedFilePath)) && attachPath && fs.existsSync(attachPath)) {
       resolvedFilePath = attachPath;
     }
+
+    // 1. Try sending via OpenWA Gateway API (Silent, reliable background send)
+    try {
+      const openwaWorkspace = require('./openwa_workspace');
+      if (openwaWorkspace.isReady()) {
+        const sendTarget = phone && phone.length >= 7 ? phone : contactOrPhone;
+        const openwaRes = await openwaWorkspace.sendWhatsAppMessage({
+          to: sendTarget,
+          message: message || '',
+          filePath: resolvedFilePath || null,
+        });
+
+        if (openwaRes.success) {
+          const recipientDesc = contactName && phone ? `${contactName} (${phone})` : (contactOrPhone || phone);
+          const fileDesc = resolvedFilePath ? ` with attachment "${path.basename(resolvedFilePath)}"` : '';
+          return {
+            success: true,
+            message: `🚀 **WhatsApp (OpenWA Gateway)**: Message sent to **${recipientDesc}**${fileDesc} directly in the background!`,
+            openwa: true,
+          };
+        } else {
+          console.warn('[WhatsApp] OpenWA send returned error, falling back to desktop automation:', openwaRes.error);
+        }
+      }
+    } catch (openwaErr) {
+      console.warn('[WhatsApp] OpenWA send error, falling back to desktop automation:', openwaErr.message);
+    }
+
+    // 2. Desktop UI Fallback (PowerShell Automation)
 
     let scriptPath = path.resolve(__dirname, 'office_helper.ps1');
     if (scriptPath.includes('app.asar')) {

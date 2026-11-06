@@ -208,6 +208,12 @@ function loadConfig() {
           { id: 'left-finger-2', fingers: 2, type: 'app', target: data.spatialLeftHand2FingersApp || 'whatsapp', label: 'WhatsApp', enabled: true },
         ];
       }
+      if (!data.openwaUrl) data.openwaUrl = 'http://localhost:2785';
+      if (data.openwaApiKey === undefined) data.openwaApiKey = '';
+      if (!data.openwaSessionId) data.openwaSessionId = 'default';
+      if (!data.openwaEngine) data.openwaEngine = 'whatsapp-web.js';
+      if (data.openwaEnabled === undefined) data.openwaEnabled = true;
+      if (data.openwaPreferGateway === undefined) data.openwaPreferGateway = true;
       cachedConfig = data;
       return cachedConfig;
     }
@@ -273,6 +279,12 @@ function loadConfig() {
     glowCursorEnabled: false,
     smoothCursorEnabled: false,
     smoothScroll: false,
+    openwaUrl: 'http://localhost:2785',
+    openwaApiKey: '',
+    openwaSessionId: 'default',
+    openwaEngine: 'whatsapp-web.js',
+    openwaEnabled: true,
+    openwaPreferGateway: true,
   };
   return cachedConfig;
 }
@@ -293,6 +305,22 @@ function saveConfig(newConfig) {
         });
       } catch (err) {
         console.warn('[Main] Failed to update login item settings:', err.message);
+      }
+    }
+
+    if (newConfig.openwaUrl !== undefined || newConfig.openwaApiKey !== undefined || newConfig.openwaSessionId !== undefined || newConfig.openwaEngine !== undefined || newConfig.openwaEnabled !== undefined || newConfig.openwaPreferGateway !== undefined) {
+      try {
+        const openwaWorkspace = require('./openwa_workspace');
+        openwaWorkspace.saveConfig({
+          baseUrl: updated.openwaUrl,
+          apiKey: updated.openwaApiKey,
+          sessionId: updated.openwaSessionId,
+          engine: updated.openwaEngine,
+          enabled: updated.openwaEnabled,
+          preferOpenWA: updated.openwaPreferGateway,
+        });
+      } catch (err) {
+        console.warn('[Main] Failed to sync OpenWA config:', err.message);
       }
     }
 
@@ -3845,6 +3873,32 @@ ipcMain.handle('jarvis:git-clone', async (event, cloneUrl, targetPath) => {
 ipcMain.handle('jarvis:git-select-dir', async () => {
   const githubWorkspace = require('./github_workspace');
   return await githubWorkspace.selectDirectory();
+});
+
+// OpenWA WhatsApp Gateway Integration
+ipcMain.handle('jarvis:get-openwa-status', async (event, forceRefresh) => {
+  const openwaWorkspace = require('./openwa_workspace');
+  return await openwaWorkspace.getStatus(forceRefresh);
+});
+
+ipcMain.handle('jarvis:get-openwa-qr', async () => {
+  const openwaWorkspace = require('./openwa_workspace');
+  return await openwaWorkspace.getQrCode();
+});
+
+ipcMain.handle('jarvis:disconnect-openwa', async () => {
+  const openwaWorkspace = require('./openwa_workspace');
+  return await openwaWorkspace.disconnectSession();
+});
+
+ipcMain.handle('jarvis:test-openwa-send', async (event, { to, message }) => {
+  const openwaWorkspace = require('./openwa_workspace');
+  return await openwaWorkspace.sendWhatsAppMessage({ to, message });
+});
+
+ipcMain.handle('jarvis:get-openwa-chats', async (event, limit) => {
+  const openwaWorkspace = require('./openwa_workspace');
+  return await openwaWorkspace.getRecentChats(limit);
 });
 
 // Project / Local Workspace Context (@file & @folder autocomplete)

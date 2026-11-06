@@ -46,6 +46,7 @@
     "@hugeicons/core-free-icons": "^4.3.5",
     "@hugeicons/react": "^1.1.10",
     "@picovoice/pvrecorder-node": "^1.2.9",
+    "@rmyndharis/openwa": "^0.10.0",
     "@types/prismjs": "^1.26.6",
     "agent-desktop": "^1.1.0",
     "class-variance-authority": "^0.7.1",

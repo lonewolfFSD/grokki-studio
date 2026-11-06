@@ -78,6 +78,12 @@ const DEFAULT_CONFIG: JarvisConfig = {
   smoothCursorEnabled: false,
   smoothScroll: false,
   smoothScrollIntensity: 5,
+  openwaUrl: 'http://localhost:2785',
+  openwaApiKey: '',
+  openwaSessionId: 'default',
+  openwaEngine: 'whatsapp-web.js',
+  openwaEnabled: true,
+  openwaPreferGateway: true,
 };
 
 export const App: React.FC = () => {

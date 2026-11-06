@@ -179,6 +179,13 @@ try {
     gitSelectDir: () => ipcRenderer.invoke('jarvis:git-select-dir'),
     restoreDefaultGitHubOAuth: () => ipcRenderer.invoke('jarvis:restore-default-github-oauth'),
 
+    // WhatsApp & OpenWA Integration
+    getOpenWAStatus: (forceRefresh) => ipcRenderer.invoke('jarvis:get-openwa-status', forceRefresh),
+    getOpenWAQr: () => ipcRenderer.invoke('jarvis:get-openwa-qr'),
+    disconnectOpenWA: () => ipcRenderer.invoke('jarvis:disconnect-openwa'),
+    testOpenWASend: (opts) => ipcRenderer.invoke('jarvis:test-openwa-send', opts),
+    getOpenWAChats: (limit) => ipcRenderer.invoke('jarvis:get-openwa-chats', limit),
+
     // Project / Local Folder Context (@file & @folder)
     getWorkspaceRoot: () => ipcRenderer.invoke('jarvis:get-workspace-root'),
     setWorkspaceRoot: (folderPath) => ipcRenderer.invoke('jarvis:set-workspace-root', folderPath),

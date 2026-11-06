@@ -193,7 +193,7 @@ Grokki Agent Runtime
 │   ├── Google Workspace: Gmail, Calendar, Drive, Docs, Sheets, Tasks
 │   ├── Notion Workspace: Pages, database creation, query, notes
 │   ├── Obsidian Vault: Local note creation, bi-directional linking, search
-│   └── WhatsApp Web Automation: Automated messaging and document sharing
+│   └── WhatsApp Gateway: Self-hosted OpenWA API integration (direct background messaging, media share, chat history) + Desktop bridge fallback
 │
 ├── Media & Streaming
 │   ├── Spotify, YouTube Music, Apple Music, and Amazon Music playback

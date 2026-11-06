@@ -39,6 +39,15 @@ import {
   Music,
   ListMusic,
   Radio,
+  QrCode,
+  Smartphone,
+  Sparkles,
+  Settings2,
+  Terminal,
+  SendHorizontal,
+  Info,
+  Sliders,
+  HelpCircle,
 } from 'lucide-react';
 import {
   JarvisConfig,
@@ -47,6 +56,7 @@ import {
   GitHubProfile,
   GitHubRepo,
   GitStatusResponse,
+  OpenWAStatusResponse,
 } from '../../types/jarvis';
 
 import googleLogo from '../../assets/logos/google.png';
@@ -157,8 +167,61 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
   const [googleStatusMessage, setGoogleStatusMessage] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
 
-  // WhatsApp State (Auto-connected)
+  // WhatsApp & OpenWA State
   const [whatsappExpanded, setWhatsappExpanded] = useState(false);
+  const [openwaStatus, setOpenwaStatus] = useState<OpenWAStatusResponse | null>(null);
+  const [loadingOpenWA, setLoadingOpenWA] = useState(false);
+  const [refreshingQr, setRefreshingQr] = useState(false);
+  const [unlinkingWhatsApp, setUnlinkingWhatsApp] = useState(false);
+
+  const loadOpenWAStatus = async (forceRefresh = false) => {
+    if (!window.jarvisAPI?.getOpenWAStatus) return;
+    try {
+      setLoadingOpenWA(true);
+      const res = await window.jarvisAPI.getOpenWAStatus(forceRefresh);
+      setOpenwaStatus(res);
+    } catch (e) {
+      console.warn('[GoogleWorkspaceTab] Failed to load OpenWA status:', e);
+    } finally {
+      setLoadingOpenWA(false);
+    }
+  };
+
+  const handleRefreshQr = async () => {
+    if (!window.jarvisAPI?.getOpenWAQr) return;
+    try {
+      setRefreshingQr(true);
+      const res = await window.jarvisAPI.getOpenWAQr();
+      if (res?.success && res.qrDataUrl) {
+        setOpenwaStatus((prev) =>
+          prev
+            ? { ...prev, qrDataUrl: res.qrDataUrl, sessionStatus: 'qr_ready' }
+            : {
+                connected: false,
+                sessionStatus: 'qr_ready',
+                qrDataUrl: res.qrDataUrl,
+              }
+        );
+      }
+    } catch (e) {
+      console.warn('[GoogleWorkspaceTab] Failed to refresh QR:', e);
+    } finally {
+      setRefreshingQr(false);
+    }
+  };
+
+  const handleDisconnectWhatsApp = async () => {
+    if (!window.jarvisAPI?.disconnectOpenWA) return;
+    try {
+      setUnlinkingWhatsApp(true);
+      await window.jarvisAPI.disconnectOpenWA();
+      await loadOpenWAStatus(true);
+    } catch (e) {
+      console.warn('[GoogleWorkspaceTab] Failed to disconnect WhatsApp:', e);
+    } finally {
+      setUnlinkingWhatsApp(false);
+    }
+  };
 
   const handleOpenWhatsApp = () => {
     if (window.jarvisAPI?.openUrl) {
@@ -298,6 +361,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
     loadObsidianStatus();
     loadGitHubStatus();
     loadGitStatus();
+    loadOpenWAStatus();
 
     let unsubNotion: (() => void) | undefined;
     if (window.jarvisAPI?.onNotionConnected) {
@@ -1071,14 +1135,14 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
         </div>
       </div>
 
-      {/* 2. WhatsApp Accordion Card */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
+      {/* 2. WhatsApp Card - Styled to match image.png */}
+      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-2xl shadow-xs overflow-hidden transition-all duration-300">
         <div
           onClick={() => { setWhatsappExpanded((prev) => !prev); notifyAccordionToggled(); }}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
         >
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 shadow-xs">
               <WhatsAppLogo className="w-5 h-5" />
             </div>
             <div className="min-w-0">
@@ -1086,26 +1150,39 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
                 WhatsApp Status
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 m-0 truncate">
-                Auto-connected. Desktop session active for chat messaging, contacts, and media sharing.
+                {openwaStatus?.connected
+                  ? `Connected${openwaStatus.userName ? ` as ${openwaStatus.userName}` : openwaStatus.userPhone ? ` (${openwaStatus.userPhone})` : ''}. Direct background messaging active.`
+                  : openwaStatus?.sessionStatus === 'qr_ready'
+                  ? 'Scan QR code below with WhatsApp on your phone to link.'
+                  : 'Auto-connected. Desktop session active for chat messaging, contacts, and media sharing.'}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0 ml-4" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2.5 flex-shrink-0 ml-4" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               onClick={handleOpenWhatsApp}
-              title="Open WhatsApp desktop app"
-              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all"
+              className="inline-flex items-center justify-center h-9 px-4 rounded-xl text-xs font-medium cursor-pointer border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all"
             >
-              <span>Open App</span>
-              
+              Open App
             </button>
 
-            <div className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-xs font-semibold border bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 border-gray-300 dark:border-[#1e2029] shadow-xs select-none">
-              <Check className="w-3.5 h-3.5" />
-              <span className="font-bold">Auto-Connected</span>
-            </div>
+            {openwaStatus?.sessionStatus === 'qr_ready' ? (
+              <button
+                type="button"
+                onClick={() => { setWhatsappExpanded(true); notifyAccordionToggled(); }}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl text-xs font-semibold border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60 shadow-xs cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-colors"
+              >
+                <QrCode className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Link WhatsApp</span>
+              </button>
+            ) : (
+              <div className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl text-xs font-semibold border bg-gray-100 dark:bg-[#161822] text-gray-900 dark:text-gray-100 border-gray-300 dark:border-[#1e2029] shadow-xs select-none">
+                <Check className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                <span>{openwaStatus?.connected ? 'Connected' : 'Auto-Connected'}</span>
+              </div>
+            )}
 
             <button
               type="button"
@@ -1122,25 +1199,91 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
           </div>
         </div>
 
-        {/* Smooth Accordion Content: Integrated WhatsApp Apps Grid */}
+        {/* Smooth Accordion Content: Matches image.png */}
         <div
           className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             whatsappExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none'
           }`}
         >
           <div className="overflow-hidden">
-            <div className="px-5 pb-5 pt-4 border-t border-[#e4e4eb] dark:border-[#1e2029]">
-              <div className="grid grid-cols-3 gap-3 w-full">
+            <div className="px-5 pb-5 pt-3 border-t border-[#e4e4eb] dark:border-[#1e2029] flex flex-col gap-4">
+              
+              {/* If QR code is available / needs pairing, show clean QR card */}
+              {openwaStatus?.sessionStatus === 'qr_ready' && (
+                <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029] flex flex-col sm:flex-row items-center gap-5">
+                  <div className="w-44 h-44 rounded-xl bg-white p-2.5 border border-gray-200 dark:border-gray-700 flex items-center justify-center flex-shrink-0 shadow-sm">
+                    {openwaStatus.qrDataUrl ? (
+                      <img
+                        src={openwaStatus.qrDataUrl}
+                        alt="WhatsApp QR Code"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-gray-400">
+                        <QrCode className="w-10 h-10 mb-2 opacity-50" />
+                        <span className="text-[11px]">Loading QR...</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 flex flex-col gap-2.5 min-w-0">
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 m-0">
+                      Link WhatsApp with QR Code
+                    </h4>
+                    <ol className="text-xs text-gray-600 dark:text-gray-300 space-y-1 pl-4 m-0">
+                      <li>Open WhatsApp on your phone</li>
+                      <li>Go to <strong>Settings</strong> or <strong>Menu (⋮) &gt; Linked Devices</strong></li>
+                      <li>Tap <strong>Link a Device</strong> and point your camera at this QR code</li>
+                    </ol>
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={handleRefreshQr}
+                        disabled={refreshingQr}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer border-none shadow-xs transition-colors"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${refreshingQr ? 'animate-spin' : ''}`} />
+                        <span>Refresh QR</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 6 Capability Pill Cards - Exact Match to image.png */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
                 {whatsappApps.map((app, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-2.5 p-3 rounded-lg bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200"
+                    className="flex items-center gap-3 p-3.5 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029] text-xs font-medium text-gray-800 dark:text-gray-200"
                   >
                     {app.icon}
                     <span>{app.label}</span>
                   </div>
                 ))}
               </div>
+
+              {/* Connected Footer Details with Unlink button if OpenWA is connected */}
+              {openwaStatus?.connected && (
+                <div className="flex items-center justify-between pt-1 text-xs text-gray-500 dark:text-gray-400 border-t border-[#e4e4eb] dark:border-[#1e2029]/60">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span>
+                      {openwaStatus.userName ? `${openwaStatus.userName} ` : ''}
+                      {openwaStatus.userPhone ? `(${openwaStatus.userPhone})` : 'Connected'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDisconnectWhatsApp}
+                    disabled={unlinkingWhatsApp}
+                    className="text-xs text-red-500 hover:text-red-600 hover:underline cursor-pointer border-none bg-transparent"
+                  >
+                    {unlinkingWhatsApp ? 'Unlinking...' : 'Unlink WhatsApp'}
+                  </button>
+                </div>
+              )}
+
             </div>
           </div>
         </div>
