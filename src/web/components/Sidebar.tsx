@@ -14,7 +14,8 @@ import { PencilIcon } from '@animateicons/react/lucide/pencil-icon';
 import { Trash2Icon } from '@animateicons/react/lucide/trash-2-icon';
 import { PinIcon } from '@animateicons/react/lucide/pin-icon';
 import { PinOffIcon } from '@animateicons/react/lucide/pin-off-icon';
-import { Pin } from 'lucide-react';
+import { Pin, Check, ChevronRight, ListFilter, Search } from 'lucide-react';
+import ChatSearchModal from './ChatSearchModal';
 import { RefreshCwIcon } from '@animateicons/react/lucide/refresh-cw-icon';
 import { LogOutIcon } from '@animateicons/react/lucide/log-out-icon';
 import { CheckIcon } from '@animateicons/react/lucide/check-icon';
@@ -191,9 +192,21 @@ export const Sidebar = React.memo<SidebarProps>(({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const profileChevronRef = useRef<IconHandle | null>(null);
   const openLogoIconRef = useRef<IconHandle | null>(null);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchModalOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   const handleToggleSidebar = () => {
     setIsCollapsed((prev) => {
@@ -336,20 +349,118 @@ export const Sidebar = React.memo<SidebarProps>(({
 
   const isChatActive = activeTab === 'chat';
 
+  type SortByOption = 'activity' | 'created' | 'name';
+  type GroupByOption = 'none' | 'date' | 'unread' | 'state' | 'custom';
+
+  const [sortBy, setSortBy] = useState<SortByOption>('activity');
+  const [groupBy, setGroupBy] = useState<GroupByOption>('date');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [activeSubmenu, setActiveSubmenu] = useState<'sort' | 'group' | null>(null);
+
+  const getGroupByLabel = () => {
+    switch (groupBy) {
+      case 'none': return 'None';
+      case 'date': return 'Date';
+      case 'unread': return 'Unread';
+      case 'state': return 'State';
+      case 'custom': return 'Custom groups';
+      default: return 'None';
+    }
+  };
+
+  const getSortByLabel = () => {
+    switch (sortBy) {
+      case 'activity': return 'Last activity';
+      case 'created': return 'Date created';
+      case 'name': return 'Name';
+      default: return 'Last activity';
+    }
+  };
+
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const filterSubmenuRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+
+  const handleToggleFilter = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isFilterOpen) {
+      setIsFilterOpen(false);
+      setActiveSubmenu(null);
+    } else {
+      if (filterBtnRef.current) {
+        const rect = filterBtnRef.current.getBoundingClientRect();
+        setMenuPos({
+          top: rect.bottom + 4,
+          left: Math.max(12, rect.right - 168),
+        });
+      }
+      setIsFilterOpen(true);
+      setActiveSubmenu(null);
+    }
+  };
+
+  // Close filter popover on outside click or Escape
+  useEffect(() => {
+    if (!isFilterOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        filterMenuRef.current && !filterMenuRef.current.contains(target) &&
+        filterSubmenuRef.current && !filterSubmenuRef.current.contains(target) &&
+        filterBtnRef.current && !filterBtnRef.current.contains(target)
+      ) {
+        setIsFilterOpen(false);
+        setActiveSubmenu(null);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsFilterOpen(false);
+        setActiveSubmenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFilterOpen]);
+
   const sortedConversations = useMemo(() => {
     if (!conversations || conversations.length === 0) return [];
-    return [...conversations].sort((a, b) => {
+
+    const list = [...conversations];
+
+    list.sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
-      const timeA = (typeof a.createdAt === 'number' && a.createdAt > 0)
-        ? a.createdAt
-        : (a.id.startsWith('c_') ? parseInt(a.id.split('_')[1], 36) : 0) || a.updatedAt || 0;
-      const timeB = (typeof b.createdAt === 'number' && b.createdAt > 0)
-        ? b.createdAt
-        : (b.id.startsWith('c_') ? parseInt(b.id.split('_')[1], 36) : 0) || b.updatedAt || 0;
+
+      if (sortBy === 'name') {
+        const titleA = (a.title || 'New Chat').toLowerCase();
+        const titleB = (b.title || 'New Chat').toLowerCase();
+        return titleA.localeCompare(titleB);
+      }
+
+      if (sortBy === 'created') {
+        const timeA = (typeof a.createdAt === 'number' && a.createdAt > 0)
+          ? a.createdAt
+          : (a.id.startsWith('c_') ? parseInt(a.id.split('_')[1], 36) : 0) || a.updatedAt || 0;
+        const timeB = (typeof b.createdAt === 'number' && b.createdAt > 0)
+          ? b.createdAt
+          : (b.id.startsWith('c_') ? parseInt(b.id.split('_')[1], 36) : 0) || b.updatedAt || 0;
+        return timeB - timeA;
+      }
+
+      // Default: 'activity' (Last activity)
+      const timeA = a.updatedAt || ((typeof a.createdAt === 'number' && a.createdAt > 0) ? a.createdAt : 0) || (a.id.startsWith('c_') ? parseInt(a.id.split('_')[1], 36) : 0) || 0;
+      const timeB = b.updatedAt || ((typeof b.createdAt === 'number' && b.createdAt > 0) ? b.createdAt : 0) || (b.id.startsWith('c_') ? parseInt(b.id.split('_')[1], 36) : 0) || 0;
       return timeB - timeA;
     });
-  }, [conversations]);
+
+    return list;
+  }, [conversations, sortBy]);
 
   const activeConvo = useMemo(() => {
     return conversations.find((c) => c.id === activeConversationId);
@@ -375,6 +486,62 @@ export const Sidebar = React.memo<SidebarProps>(({
     const now = new Date();
     const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const yesterdayMidnight = todayMidnight - 86400000;
+
+    // If Group by is None, render flat list
+    if (groupBy === 'none') {
+      return [
+        {
+          label: 'Chats',
+          headerClassName: 'group flex items-center justify-between w-full px-2.5 py-1 text-[11px] font-semibold text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors select-none cursor-pointer',
+          children: sortedConversations.map((convo) => ({
+            value: convo.id,
+            label: convo.title || 'New Chat',
+            icon: convo.isPinned ? (
+              <Pin
+                size={12}
+                fill="currentColor"
+                className="rotate-45 text-gray-700 dark:text-white flex-shrink-0"
+              />
+            ) : undefined,
+            onDoubleClick: (e: React.MouseEvent) => handleStartRename(e, convo),
+            actions: (
+              <>
+                <AnimatedIconButton
+                  Icon={convo.isPinned ? PinOffIcon : PinIcon}
+                  iconSize={12}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTogglePinConversation?.(convo.id);
+                  }}
+                  title={convo.isPinned ? 'Unpin conversation' : 'Pin conversation'}
+                  className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent transition-colors"
+                />
+                <AnimatedIconButton
+                  Icon={PencilIcon}
+                  iconSize={12}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartRename(e, convo);
+                  }}
+                  title="Rename conversation"
+                  className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
+                />
+                <AnimatedIconButton
+                  Icon={Trash2Icon}
+                  iconSize={12}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteConversation?.(convo.id);
+                  }}
+                  title="Delete conversation"
+                  className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
+                />
+              </>
+            ),
+          })),
+        },
+      ];
+    }
 
     const groupsMap = new Map<string, { label: string; timestamp: number; convos: Conversation[] }>();
 
@@ -578,6 +745,46 @@ export const Sidebar = React.memo<SidebarProps>(({
               }}
             />
 
+            {/* Search Chats Row */}
+            <WarmTooltip
+              content="Search chats"
+              shortcut="Ctrl+K"
+              side="right"
+              disabled={!isCollapsed}
+              surfaceColor="#f5f5f5"
+              inkColor="#18181b"
+              size="md"
+              radius={8}
+              gap={8}
+              arrow
+              popDuration={160}
+              popScale={0.94}
+              popBlur={4}
+              showFuse={false}
+              className="w-full"
+            >
+              <div
+                onClick={() => setIsSearchModalOpen(true)}
+                className={`group flex items-center ${
+                  isCollapsed ? 'justify-center px-0 py-2.5' : 'justify-between px-3 py-2'
+                } w-full rounded-xl text-[13px] font-medium transition-all cursor-pointer text-left ${
+                  isSearchModalOpen
+                    ? 'bg-gray-100 dark:bg-[#1f1f24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
+                    : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#18181c]'
+                }`}
+              >
+                <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 min-w-0'}`}>
+                  <Search size={isCollapsed ? 20 : 16} className="flex-shrink-0" />
+                  {!isCollapsed && <span className="truncate">Search chats</span>}
+                </div>
+                {!isCollapsed && (
+                  <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-white/[0.05] border border-gray-200 dark:border-white/[0.06] px-1.5 py-0.5 rounded">
+                    Ctrl+K
+                  </span>
+                )}
+              </div>
+            </WarmTooltip>
+
             <AnimatedSidebarRow
               Icon={HouseIcon}
               label="Home"
@@ -590,13 +797,153 @@ export const Sidebar = React.memo<SidebarProps>(({
           {/* Sleek divider line under the overview button */}
           <div className="my-1.5 mx-1 border-t border-gray-200/80 dark:border-[#1f1f22] flex-shrink-0" />
 
-          {/* Recents text */}
+          {/* Recents Header with Claude-style Sort & Group Filter Button */}
           {!isCollapsed && (
             <div className="flex items-center justify-between px-3 pt-0.5 pb-1 flex-shrink-0">
               <span className="text-[10.5px] font-bold text-gray-400 dark:text-gray-500 tracking-wider uppercase select-none">
                 Recents
               </span>
+
+              <button
+                ref={filterBtnRef}
+                type="button"
+                onClick={handleToggleFilter}
+                className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer border-0 bg-transparent flex items-center justify-center"
+                title="Group and Sort"
+                aria-label="Group and Sort"
+              >
+                <ListFilter size={13} className="text-gray-400 hover:text-white transition-colors" />
+              </button>
             </div>
+          )}
+
+          {/* Claude-style Context Popover Menus (Fixed to escape any parent overflow) */}
+          {isFilterOpen && (
+            <>
+              {/* Primary Menu */}
+              <div
+                ref={filterMenuRef}
+                style={{ top: `${menuPos.top}px`, left: `${menuPos.left}px` }}
+                className="fixed z-[9999] w-[168px] rounded-xl bg-[#222225] text-gray-200 border border-white/[0.09] shadow-2xl p-1 flex flex-col gap-0.5 select-none animate-in fade-in zoom-in-95 duration-100"
+              >
+                {/* Group by option */}
+                <div
+                  onMouseEnter={() => setActiveSubmenu('group')}
+                  onClick={() => setActiveSubmenu((prev) => (prev === 'group' ? null : 'group'))}
+                  className={`h-[28px] px-2.5 rounded-lg text-[12.5px] cursor-pointer flex items-center justify-between transition-colors ${
+                    activeSubmenu === 'group'
+                      ? 'bg-white/[0.12] text-white font-medium'
+                      : 'text-gray-200 hover:bg-white/[0.08] hover:text-white'
+                  }`}
+                >
+                  <span>Group by</span>
+                  <div className="flex items-center gap-1 text-gray-400 text-[12px]">
+                    <span>{getGroupByLabel()}</span>
+                    <ChevronRight size={12} className="text-gray-400" />
+                  </div>
+                </div>
+
+                {/* Sort by option */}
+                <div
+                  onMouseEnter={() => setActiveSubmenu('sort')}
+                  onClick={() => setActiveSubmenu((prev) => (prev === 'sort' ? null : 'sort'))}
+                  className={`h-[28px] px-2.5 rounded-lg text-[12.5px] cursor-pointer flex items-center justify-between transition-colors ${
+                    activeSubmenu === 'sort'
+                      ? 'bg-white/[0.12] text-white font-medium'
+                      : 'text-gray-200 hover:bg-white/[0.08] hover:text-white'
+                  }`}
+                >
+                  <span>Sort by</span>
+                  <div className="flex items-center gap-1 text-gray-400 text-[12px]">
+                    <span>{getSortByLabel()}</span>
+                    <ChevronRight size={12} className="text-gray-400" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Submenu for Group By */}
+              {activeSubmenu === 'group' && (
+                <div
+                  ref={filterSubmenuRef}
+                  style={{
+                    top: `${menuPos.top}px`,
+                    left: `${menuPos.left + 172}px`,
+                  }}
+                  className="fixed z-[9999] w-[156px] rounded-xl bg-[#222225] text-gray-200 border border-white/[0.09] shadow-2xl p-1 flex flex-col gap-0.5 select-none animate-in fade-in zoom-in-95 duration-100"
+                >
+                  {[
+                    { id: 'date', label: 'Date' },
+                    { id: 'unread', label: 'Unread' },
+                    { id: 'state', label: 'State' },
+                    { id: 'custom', label: 'Custom groups' },
+                  ].map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        setGroupBy(item.id as GroupByOption);
+                        setIsFilterOpen(false);
+                        setActiveSubmenu(null);
+                      }}
+                      className="h-[28px] px-2.5 rounded-lg text-[12.5px] text-gray-200 hover:bg-white/[0.08] hover:text-white cursor-pointer flex items-center justify-between transition-colors"
+                    >
+                      <span>{item.label}</span>
+                      {groupBy === item.id && (
+                        <Check size={14} strokeWidth={2.5} className="text-[#3b82f6]" />
+                      )}
+                    </div>
+                  ))}
+
+                  <div className="my-1 border-t border-white/[0.08]" />
+
+                  <div
+                    onClick={() => {
+                      setGroupBy('none');
+                      setIsFilterOpen(false);
+                      setActiveSubmenu(null);
+                    }}
+                    className="h-[28px] px-2.5 rounded-lg text-[12.5px] text-gray-200 hover:bg-white/[0.08] hover:text-white cursor-pointer flex items-center justify-between transition-colors"
+                  >
+                    <span>None</span>
+                    {groupBy === 'none' && (
+                      <Check size={14} strokeWidth={2.5} className="text-[#3b82f6]" />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Submenu for Sort By */}
+              {activeSubmenu === 'sort' && (
+                <div
+                  ref={filterSubmenuRef}
+                  style={{
+                    top: `${menuPos.top + 28}px`,
+                    left: `${menuPos.left + 172}px`,
+                  }}
+                  className="fixed z-[9999] w-[156px] rounded-xl bg-[#222225] text-gray-200 border border-white/[0.09] shadow-2xl p-1 flex flex-col gap-0.5 select-none animate-in fade-in zoom-in-95 duration-100"
+                >
+                  {[
+                    { id: 'name', label: 'Name' },
+                    { id: 'created', label: 'Date created' },
+                    { id: 'activity', label: 'Last activity' },
+                  ].map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        setSortBy(item.id as SortByOption);
+                        setIsFilterOpen(false);
+                        setActiveSubmenu(null);
+                      }}
+                      className="h-[28px] px-2.5 rounded-lg text-[12.5px] text-gray-200 hover:bg-white/[0.08] hover:text-white cursor-pointer flex items-center justify-between transition-colors"
+                    >
+                      <span>{item.label}</span>
+                      {sortBy === item.id && (
+                        <Check size={14} strokeWidth={2.5} className="text-[#3b82f6]" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           {/* Creation Date Grouped Chat List with Branch Lines */}
@@ -861,6 +1208,16 @@ export const Sidebar = React.memo<SidebarProps>(({
         </WarmTooltip>
       </div>
     </aside>
+
+    {/* Search Chats Modal */}
+    <ChatSearchModal
+      isOpen={isSearchModalOpen}
+      onClose={() => setIsSearchModalOpen(false)}
+      conversations={conversations}
+      activeConversationId={activeConversationId}
+      onSelectConversation={onSelectConversation}
+      onSelectTab={onSelectTab}
+    />
     </WarmTooltipGroup>
   );
 });

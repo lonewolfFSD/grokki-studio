@@ -34,6 +34,7 @@ import {
   Activity,
   Trash2,
   Camera,
+  Calendar,
   Lock,
   GitMerge,
   Code2,
@@ -2842,21 +2843,29 @@ export const ChatTab = React.memo<ChatTabProps>(({
       title: 'Windows Health & Diagnostics',
       desc: 'Check CPU load, NVIDIA GPU temp, and system memory.',
       prompt: '/status',
+      icon: Activity,
+      badge: '/status',
     },
     {
       title: 'System Storage & Cleanup',
       desc: 'Clear temporary cache and check drive free space.',
       prompt: '/clean',
+      icon: Trash2,
+      badge: '/clean',
     },
     {
       title: 'Google Calendar & Agenda',
       desc: "Retrieve today's schedule and pending deadlines.",
       prompt: 'What meetings and events do I have on Google Calendar today?',
+      icon: Calendar,
+      badge: 'Agenda',
     },
     {
       title: 'Clean Fullscreen Screenshot',
       desc: 'Capture screen directly to Desktop and Clipboard.',
       prompt: '/screenshot',
+      icon: Camera,
+      badge: '/screenshot',
     },
   ];
 
@@ -3353,7 +3362,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           </div>
 
           {/* Persona Heading */}
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-6 font-sans">
+          <h1 className="text-[22px] md:text-[24px] font-semibold tracking-[-0.03em] text-gray-950 dark:text-white mb-6 font-sans">
             Ready when you are. What are we executing today?
           </h1>
 
@@ -3640,26 +3649,49 @@ export const ChatTab = React.memo<ChatTabProps>(({
             </div>
           </div>
 
-          {/* Suggestions Grid */}
-          <div className="w-full max-w-xl mt-8 text-left">
-            <span className="text-[11px] font-semibold text-gray-300 dark:text-gray-400 tracking-wider uppercase block mb-2.5">
-              Suggestions & Commands
-            </span>
-            <div className="grid grid-cols-2 gap-2.5 w-full">
-              {suggestions.map((item, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => handleSendMessage(item.prompt)}
-                  className="p-5 rounded-xl bg-white dark:bg-[#0f0f13] border border-gray-200 dark:border-[#1f1f22] hover:border-gray-400 dark:hover:border-gray-600 cursor-pointer transition-all flex flex-col gap-0.5 shadow-xs hover:shadow-sm"
-                >
-                  <strong className="text-xs font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
-                    {item.title}
-                  </strong>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 m-0 leading-relaxed">
-                    {item.desc}
-                  </p>
-                </div>
-              ))}
+          {/* Suggestions & Quick Commands Vertical List */}
+          <div className="w-full max-w-xl mt-6 text-left">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase">
+                Suggestions & Commands
+              </span>
+              <span className="text-[9.5px] font-mono text-gray-400 dark:text-gray-600">
+                Click to execute
+              </span>
+            </div>
+
+            <div className="w-full rounded-xl border border-gray-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-[#0e0f14]/85 backdrop-blur-md overflow-hidden divide-y divide-gray-100 dark:divide-white/[0.04] shadow-xs">
+              {suggestions.map((item, idx) => {
+                const IconComponent = item.icon;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSendMessage(item.prompt)}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 text-left transition-colors duration-150 hover:bg-gray-100/80 dark:hover:bg-white/[0.04] group cursor-pointer border-none bg-transparent"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 pr-2">
+                      <div className="w-7 h-7 rounded-md bg-gray-100/90 dark:bg-white/[0.04] border border-gray-200/80 dark:border-white/[0.06] flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:text-gray-950 dark:group-hover:text-white group-hover:border-gray-300 dark:group-hover:border-white/20 transition-all shrink-0">
+                        <IconComponent className="w-3.5 h-3.5 stroke-[2.2]" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[12.5px] font-medium text-gray-800 dark:text-gray-200 group-hover:text-gray-950 dark:group-hover:text-white tracking-[-0.01em] truncate transition-colors">
+                          {item.title}
+                        </div>
+                        <div className="text-[11px] text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400 truncate transition-colors">
+                          {item.desc}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-mono text-[9px] text-gray-400 dark:text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300 px-1.5 py-0.5 rounded border border-gray-200/70 dark:border-white/[0.06] bg-gray-50/80 dark:bg-white/[0.02] group-hover:border-gray-300 dark:group-hover:border-white/15 transition-colors">
+                        {item.badge}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

@@ -142,5 +142,29 @@
         "text": "Hey there! What's on your mind today?"
       }
     ]
+  },
+  {
+    "role": "user",
+    "parts": [
+      {
+        "text": "hi"
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "parts": [
+      {
+        "text": "hi"
+      }
+    ]
+  },
+  {
+    "role": "model",
+    "parts": [
+      {
+        "text": "Hey! I'm here. What can I help you with?"
+      }
+    ]
   }
 ]
