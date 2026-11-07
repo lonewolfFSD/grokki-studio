@@ -11,7 +11,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "Hey Ajx! What's on your mind?"
+        "text": "Hey there! What's on your mind today?"
       }
     ]
   },
@@ -19,7 +19,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "who are you?"
+        "text": "hi"
       }
     ]
   },
@@ -27,7 +27,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "I'm Grokki, your Windows desktop companion, Ajx! I can handle your PC controls, Google Classroom, Gmail, Calendar, attendance checks, study help, and a lot more. What do you need?"
+        "text": "Hey! I'm here. What can I help you with?"
       }
     ]
   },
@@ -35,7 +35,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "can you speak any other language?"
+        "text": "What model are you using?"
       }
     ]
   },
@@ -43,7 +43,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "Yes, I can! Which language did you have in mind, Ajx?"
+        "text": "I'm Grokki, your AI assistant for Windows. I'm built on a large language model, but I don't have a specific model name or version to share.\n\nIs there something I can help you with on your PC?"
       }
     ]
   },
@@ -51,7 +51,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "Any assignment due??"
+        "text": "hi"
       }
     ]
   },
@@ -59,7 +59,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "### 🎉 All Clear This Week!\nYou have no assignments due in the next 7 days. Great job staying ahead!\n\n### ⚠️ Past Due / Missed (2)\n1. **[JAVA BCA 2nd Sem 2026]** In Class Activity — *Due Apr 8, 2026 at 7:00 AM* (213 days ago) [Open ↗](https://classroom.google.com/c/ODI0NTcyOTgxODY4/a/Nzk3MTEzMTM0MTM1/details)\n2. **[BCA 2nd Sem]** Write down what have you studied today — *Due Mar 10, 2026 at 6:29 PM* (241 days ago) [Open ↗](https://classroom.google.com/c/ODQ3OTUwODQyMzIw/sa/ODUwNDk1MTQ0MzM2/details)\n\n### 📝 Open Lab & Practice (5 ongoing)\n1. **[BCA 2025-2029]** Lab Practice [Open ↗](https://classroom.google.com/c/ODcwOTYwNjUwOTA0/a/ODg2NDcxMjM0NTU5/details)\n2. **[BCA 2025-2029]** Lab assignment 10 [Open ↗](https://classroom.google.com/c/ODcwOTYwNjUwOTA0/a/ODc4Mzg4MzY2NzA4/details)\n3. **[BCA 2025-2029]** Lab assignment 9 [Open ↗](https://classroom.google.com/c/ODcwOTYwNjUwOTA0/a/ODc4Mzk0MDQ4ODg5/details)\n4. **[BCA 2nd Sem]** Understanding India [Open ↗](https://classroom.google.com/c/ODQ3OTUwODQyMzIw/sa/ODQ4NzA2MTIyNTgz/details)\n\n*...and 1 more open practice tasks.* [View All on Classroom ↗](https://classroom.google.com)"
+        "text": "Hey! How's it going?"
       }
     ]
   },
@@ -67,7 +67,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "Any emails?"
+        "text": "hey"
       }
     ]
   },
@@ -75,71 +75,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "You have no unread primary emails right now!"
-      }
-    ]
-  },
-  {
-    "role": "user",
-    "parts": [
-      {
-        "text": "Any events?"
-      }
-    ]
-  },
-  {
-    "role": "model",
-    "parts": [
-      {
-        "text": "Upcoming Calendar Events:\n• **[Happy birthday!](https://www.google.com/calendar/event?eid=OXNlbnZzNG41dW02NTg2YWZtdGpjZmZtbDhfMjAyNjEyMDEgaXRzYXJpaml0MDFAbQ)** (1/12/2026, 5:30:00 am) • [Open in Calendar ↗](https://www.google.com/calendar/event?eid=OXNlbnZzNG41dW02NTg2YWZtdGpjZmZtbDhfMjAyNjEyMDEgaXRzYXJpaml0MDFAbQ)\n• **[Miaa's Birthday's birthday](https://www.google.com/calendar/event?eid=Y2RpajBkcjJjY3JtMmJiNmNkaGowYjlrNmhnajZiOXA2NHIzNGI5amNncGppb3BwNm9xM2VkMzVjY18yMDI3MDIyMCBpdHNhcmlqaXQwMUBt)** (20/2/2027, 5:30:00 am) • [Open in Calendar ↗](https://www.google.com/calendar/event?eid=Y2RpajBkcjJjY3JtMmJiNmNkaGowYjlrNmhnajZiOXA2NHIzNGI5amNncGppb3BwNm9xM2VkMzVjY18yMDI3MDIyMCBpdHNhcmlqaXQwMUBt)\n• **[Happy birthday!](https://www.google.com/calendar/event?eid=OXNlbnZzNG41dW02NTg2YWZtdGpjZmZtbDhfMjAyNzEyMDEgaXRzYXJpaml0MDFAbQ)** (1/12/2027, 5:30:00 am) • [Open in Calendar ↗](https://www.google.com/calendar/event?eid=OXNlbnZzNG41dW02NTg2YWZtdGpjZmZtbDhfMjAyNzEyMDEgaXRzYXJpaml0MDFAbQ)\n• **[Miaa's Birthday's birthday](https://www.google.com/calendar/event?eid=Y2RpajBkcjJjY3JtMmJiNmNkaGowYjlrNmhnajZiOXA2NHIzNGI5amNncGppb3BwNm9xM2VkMzVjY18yMDI4MDIyMCBpdHNhcmlqaXQwMUBt)** (20/2/2028, 5:30:00 am) • [Open in Calendar ↗](https://www.google.com/calendar/event?eid=Y2RpajBkcjJjY3JtMmJiNmNkaGowYjlrNmhnajZiOXA2NHIzNGI5amNncGppb3BwNm9xM2VkMzVjY18yMDI4MDIyMCBpdHNhcmlqaXQwMUBt)\n• **[Happy birthday!](https://www.google.com/calendar/event?eid=OXNlbnZzNG41dW02NTg2YWZtdGpjZmZtbDhfMjAyODEyMDEgaXRzYXJpaml0MDFAbQ)** (1/12/2028, 5:30:00 am) • [Open in Calendar ↗](https://www.google.com/calendar/event?eid=OXNlbnZzNG41dW02NTg2YWZtdGpjZmZtbDhfMjAyODEyMDEgaXRzYXJpaml0MDFAbQ)"
-      }
-    ]
-  },
-  {
-    "role": "user",
-    "parts": [
-      {
-        "text": "Remove miaa's birthday please"
-      }
-    ]
-  },
-  {
-    "role": "model",
-    "parts": [
-      {
-        "text": "I can't delete calendar events directly; I only have tools to create events, list your agenda, and open Google Calendar. You can remove them here:\n\n- [Miaa's Birthday (2027)](https://www.google.com/calendar/event?eid=Y2RpajBkcjJjY3JtMmJiNmNkaGowYjlrNmhnajZiOXA2NHIzNGI5amNncGppb3BwNm9xM2VkMzVjY18yMDI3MDIyMCBpdHNhcmlqaXQwMUBt)\n- [Miaa's Birthday (2028)](https://www.google.com/calendar/event?eid=Y2RpajBkcjJjY3JtMmJiNmNkaGowYjlrNmhnajZiOXA2NHIzNGI5amNncGppb3BwNm9xM2VkMzVjY18yMDI4MDIyMCBpdHNhcmlqaXQwMUBt)\n\nOpen each link and choose Delete. If the event repeats, you may want to delete the whole series."
-      }
-    ]
-  },
-  {
-    "role": "user",
-    "parts": [
-      {
-        "text": "What do you see?"
-      }
-    ]
-  },
-  {
-    "role": "model",
-    "parts": [
-      {
-        "text": "Could not analyze image: {\"error\":{\"code\":503,\"message\":\"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\"status\":\"UNAVAILABLE\"}}"
-      }
-    ]
-  },
-  {
-    "role": "user",
-    "parts": [
-      {
-        "text": "umm.."
-      }
-    ]
-  },
-  {
-    "role": "model",
-    "parts": [
-      {
-        "text": "Sorry about that, Ajx! The vision model is busy right now. Want me to try looking at your screen again, or is there something else you need?"
+        "text": "Hey! What's up?"
       }
     ]
   }
