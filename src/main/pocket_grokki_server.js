@@ -17,7 +17,7 @@ const crypto = require('crypto');
 const { exec } = require('child_process');
 const { clipboard, desktopCapturer, shell } = require('electron');
 const powerTools = require('./power_tools');
-const kokoroTTS = require('./kokoro_tts');
+const voicestudioTTS = require('./voicestudio_tts');
 const elevenlabsTTS = require('./elevenlabs_tts');
 
 class PocketGrokkiServer {
@@ -41,7 +41,7 @@ class PocketGrokkiServer {
     this.qrSecret = crypto.randomBytes(16).toString('hex');
   }
 
-  // Synthesize speech reply for mobile companion using configured voice engine (Kokoro or ElevenLabs)
+  // Synthesize speech reply for mobile companion using configured voice engine (VoiceStudio or ElevenLabs)
   async synthesizeSpeech(text, config = {}) {
     if (!text) return null;
     try {
@@ -54,14 +54,8 @@ class PocketGrokkiServer {
           return res;
         }
       }
-      // Natural Kokoro-82M Studio Voice
-      if (!kokoroTTS.ttsInstance && typeof kokoroTTS.getTTS === 'function') {
-        await kokoroTTS.getTTS();
-      }
-      const voice = (config.ttsVoice && (config.ttsVoice.startsWith('af_') || config.ttsVoice.startsWith('am_') || config.ttsVoice.startsWith('bf_') || config.ttsVoice.startsWith('bm_')))
-        ? config.ttsVoice
-        : 'af_bella';
-      return await kokoroTTS.synthesize(text, voice);
+            // VoiceStudio Neural Engine
+      return await voicestudioTTS.synthesize(text, { voice, endpoint: config.voiceStudioEndpoint || 'http://localhost:3900' });
     } catch (e) {
       console.warn('[PocketGrokkiServer] Speech synthesis error:', e.message);
       return null;
@@ -1101,7 +1095,7 @@ class PocketGrokkiServer {
 
           let audioBase64 = null;
           let audioMime = null;
-          // When interacting from host device, synthesize reply using Kokoro or ElevenLabs
+          // When interacting from host device, synthesize reply using VoiceStudio or ElevenLabs
           if (isOwner && (msg.isVoice || config.ttsEnabled !== false)) {
             try {
               const ttsRes = await this.synthesizeSpeech(reply, config);

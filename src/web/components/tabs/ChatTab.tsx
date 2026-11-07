@@ -5,6 +5,7 @@ import {
 } from '../../utils/brandLinks';
 import {
   ArrowUp,
+  CornerDownLeft,
   Mic,
   Plus,
   Paperclip,
@@ -831,7 +832,7 @@ const StaticMessageContent = React.memo<{
     <div
       ref={containerRef}
       onClick={handleContainerClick}
-      className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed select-text"
+      className="prose prose-sm dark:prose-invert max-w-none text-[13.5px] leading-relaxed select-text"
       dangerouslySetInnerHTML={{ __html: rawHtml }}
     />
   );
@@ -3093,7 +3094,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
             style={{ transformOrigin: isTop ? 'bottom left' : 'top left' }}
             className={`absolute left-0 ${
               isTop ? 'bottom-full mb-3' : 'top-full mt-3'
-            } w-52 bg-white/95 dark:bg-[#14161e]/95 backdrop-blur-xl border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-lg dark:shadow-black/50 p-1.5 z-50 select-none`}
+            } w-52 bg-white/95 dark:bg-[#131317]/95 backdrop-blur-xl border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-lg dark:shadow-black/50 p-1.5 z-50 select-none`}
           >
             <div className="flex flex-col gap-0.5">
               {items.map((item, idx) => (
@@ -3358,7 +3359,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
           {/* Staged File Preview Card */}
           {attachedFile && (
-            <div className="w-full max-w-xl mx-auto mb-3 p-2.5 bg-white/95 dark:bg-[#14161e]/95 backdrop-blur-md border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-xs flex items-center justify-between text-left transition-all">
+            <div className="w-full max-w-xl mx-auto mb-3 p-2.5 bg-white/95 dark:bg-[#131317]/95 backdrop-blur-md border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-xs flex items-center justify-between text-left transition-all">
               <div className="flex items-center gap-3 min-w-0">
                 {isImageAttachment(attachedFile) ? (
                   <ChatImageAttachment
@@ -3435,7 +3436,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
               </div>
             )}
 
-            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5 text-left">
+            <div className="w-full bg-white dark:bg-[#0f0f13] border border-gray-200 dark:border-[#1f1f22] rounded-2xl md:rounded-3xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5 text-left">
               {/* Battle Stage Selector when Dual-Battle Mode is active */}
               {dualBattleEnabled && renderBattleStageBar('top')}
 
@@ -3649,7 +3650,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 <div
                   key={idx}
                   onClick={() => handleSendMessage(item.prompt)}
-                  className="p-5 rounded-xl bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] hover:border-gray-400 dark:hover:border-gray-600 cursor-pointer transition-all flex flex-col gap-0.5 shadow-xs hover:shadow-sm"
+                  className="p-5 rounded-xl bg-white dark:bg-[#0f0f13] border border-gray-200 dark:border-[#1f1f22] hover:border-gray-400 dark:hover:border-gray-600 cursor-pointer transition-all flex flex-col gap-0.5 shadow-xs hover:shadow-sm"
                 >
                   <strong className="text-xs font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
                     {item.title}
@@ -3691,7 +3692,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                     editingMessageId === msg.id ? (
                       /* Inline Edit UI */
                       <div className="w-full max-w-[75%] flex flex-col items-end gap-2 animate-in fade-in duration-200">
-                        <div className="w-full bg-white dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 p-3 rounded-2xl border border-sky-500/60 dark:border-sky-500/60 shadow-xs focus-within:ring-2 focus-within:ring-sky-500/20">
+                        <div className="w-full bg-white dark:bg-[#131317] text-gray-900 dark:text-gray-100 p-3.5 rounded-2xl border border-gray-300 dark:border-[#24242c] shadow-[0_0_0_1px_rgba(255,255,255,0.05),inset_0_1px_0_0_rgba(255,255,255,0.1)] focus-within:border-gray-400 dark:focus-within:border-white/40 focus-within:ring-1 focus-within:ring-white/20 transition-all">
                           <textarea
                             value={editingContent}
                             onChange={(e) => setEditingContent(e.target.value)}
@@ -3705,15 +3706,15 @@ export const ChatTab = React.memo<ChatTabProps>(({
                             }}
                             autoFocus
                             rows={Math.min(8, Math.max(2, editingContent.split('\n').length))}
-                            className="w-full bg-transparent resize-none border-none outline-none text-sm font-medium leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-0 p-0"
+                            className="w-full bg-transparent resize-none border-none outline-none text-[13px] font-medium leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-0 p-0"
                             placeholder="Edit your message..."
                           />
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs font-mono">
+                        <div className="flex items-center gap-2 text-xs font-mono">
                           <button
                             type="button"
                             onClick={handleCancelEdit}
-                            className="px-3 py-1.5 rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-[#1e2029] transition-all cursor-pointer font-medium"
+                            className="px-3 py-1.5 rounded-xl text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-white/10 transition-all cursor-pointer font-medium"
                           >
                             Cancel
                           </button>
@@ -3721,17 +3722,19 @@ export const ChatTab = React.memo<ChatTabProps>(({
                             type="button"
                             onClick={() => handleSaveEditedMessage(msg.id)}
                             disabled={!editingContent.trim() || loading}
-                            className="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 active:scale-95 text-white font-semibold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-xs flex items-center gap-1.5"
+                            className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-gray-100 active:scale-95 text-gray-900 font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs border border-gray-200/90 flex items-center gap-1.5"
                           >
                             <span>Send</span>
-                            <ArrowUp className="w-3.5 h-3.5" />
+                            <kbd className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-800 text-[10px] font-mono font-bold border border-gray-300 shadow-2xs">
+                              <CornerDownLeft className="w-2.5 h-2.5 stroke-[2.5]" />
+                            </kbd>
                           </button>
                         </div>
                       </div>
                     ) : (
                       /* User Message: Clean Modern Rounded Bubble with Action Options */
                       <div className="flex flex-col items-end max-w-[75%] group/user-msg">
-                        <div className="w-full bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-sm font-medium leading-relaxed border border-gray-300/80 dark:border-[#1e2029]">
+                        <div className="w-full bg-gray-100 dark:bg-[#1a1a20] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-sm font-medium leading-relaxed border border-gray-300/80 dark:border-[#26262e]">
                           {msg.attachedFile && (
                             isImageAttachment(msg.attachedFile) ? (
                               <ChatImageAttachment
@@ -3754,7 +3757,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                               </div>
                             )
                           )}
-                          <p className="whitespace-pre-wrap m-0 leading-relaxed text-[13px]">
+                          <p className="whitespace-pre-wrap m-0 leading-relaxed text-[13.5px]">
                             {renderContentWithBrandLinks(msg.content)}
                           </p>
                         </div>
@@ -3851,7 +3854,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           <div className="w-full my-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               {/* Brain A Card */}
-                              <div className="p-3.5 rounded-xl bg-white dark:bg-[#13141a] border border-gray-200/90 dark:border-[#1e2029] hover:border-sky-500/40 dark:hover:border-sky-500/40 transition-all flex flex-col justify-between shadow-xs">
+                              <div className="p-3.5 rounded-xl bg-white dark:bg-[#090a0f] border border-gray-200/90 dark:border-[#181924] hover:border-sky-500/40 dark:hover:border-sky-500/40 transition-all flex flex-col justify-between shadow-xs">
                                 <div>
                                   <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-gray-100 dark:border-[#1e2029]">
                                     <div className="flex items-center gap-2 min-w-0">
@@ -3894,7 +3897,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                               </div>
 
                               {/* Brain B Card */}
-                              <div className="p-3.5 rounded-xl bg-white dark:bg-[#13141a] border border-gray-200/90 dark:border-[#1e2029] hover:border-purple-500/40 dark:hover:border-purple-500/40 transition-all flex flex-col justify-between shadow-xs">
+                              <div className="p-3.5 rounded-xl bg-white dark:bg-[#090a0f] border border-gray-200/90 dark:border-[#181924] hover:border-purple-500/40 dark:hover:border-purple-500/40 transition-all flex flex-col justify-between shadow-xs">
                                 <div>
                                   <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-gray-100 dark:border-[#1e2029]">
                                     <div className="flex items-center gap-2 min-w-0">
@@ -4187,7 +4190,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         <div className="w-full pt-2.5 bg-transparent">
           {/* Staged File Preview Card */}
           {attachedFile && (
-            <div className="w-full max-w-xl mx-auto mb-2 p-2.5 bg-white/95 dark:bg-[#14161e]/95 backdrop-blur-md border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-xs flex items-center justify-between text-left transition-all">
+            <div className="w-full max-w-xl mx-auto mb-2 p-2.5 bg-white/95 dark:bg-[#131317]/95 backdrop-blur-md border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-xs flex items-center justify-between text-left transition-all">
               <div className="flex items-center gap-3 min-w-0">
                 {isImageAttachment(attachedFile) ? (
                   <ChatImageAttachment
@@ -4264,7 +4267,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
               </div>
             )}
 
-            <div className="w-full bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl md:rounded-3xl mb-1.5 p-3 transition-all flex flex-col gap-2.5 shadow-sm hover:shadow-md">
+            <div className="w-full bg-white dark:bg-[#131317] border border-gray-200 dark:border-[#24242c] rounded-2xl md:rounded-3xl mb-1.5 p-3 transition-all flex flex-col gap-2.5 shadow-sm hover:shadow-md">
               {/* Battle Stage Selector when Dual-Battle Mode is active */}
               {dualBattleEnabled && renderBattleStageBar('top')}
 

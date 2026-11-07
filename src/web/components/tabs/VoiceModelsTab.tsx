@@ -28,7 +28,14 @@ interface VoiceModelsTabProps {
   onPreviewVoice: (
     voiceId: string,
     customText?: string,
-    options?: { provider?: 'grokki' | 'elevenlabs'; apiKey?: string; previewUrl?: string }
+    options?: {
+      provider?: 'grokki_voice' | 'voicestudio' | 'elevenlabs';
+      apiKey?: string;
+      previewUrl?: string;
+      language?: string;
+      langCode?: string;
+      gender?: 'female' | 'male';
+    }
   ) => void;
 }
 
@@ -41,16 +48,26 @@ interface SphereStyle {
   seed: number;
 }
 
+interface VoicePreset {
+  label: string;
+  text: string;
+}
+
 interface VoiceItem {
   id: string;
   name: string;
   style: string;
   tag: string;
-  accent: 'us' | 'uk';
+  accent: 'us' | 'uk' | 'global';
   gender: 'female' | 'male';
   sphere: SphereStyle;
   previewUrl?: string;
   category?: string;
+  language?: string;
+  languageName?: string;
+  langCode?: string;
+  sampleText?: string;
+  presets?: VoicePreset[];
 }
 
 // Palette for one voice sphere: a base color plus four soft blobs that drift around.
@@ -180,31 +197,245 @@ const getSphereForId = (id: string, index: number): SphereStyle => {
   return { ...palette, seed: ((hash + index) % 29) + 1 };
 };
 
-const GROKKI_VOICES: VoiceItem[] = [
-  { id: 'af_heart', name: 'Heart', style: 'Warm & Expressive', tag: 'US • Conversational', accent: 'us', gender: 'female', sphere: SPHERE_PALETTES[0] },
-  { id: 'af_bella', name: 'Bella', style: 'Crisp & Playful', tag: 'US • High Energy', accent: 'us', gender: 'female', sphere: SPHERE_PALETTES[1] },
-  { id: 'af_nicole', name: 'Nicole', style: 'Clear & Formal', tag: 'US • Studio Pro', accent: 'us', gender: 'female', sphere: SPHERE_PALETTES[2] },
-  { id: 'af_sky', name: 'Sky', style: 'Soft & Calm', tag: 'US • Narrative', accent: 'us', gender: 'female', sphere: SPHERE_PALETTES[3] },
-  { id: 'af_sarah', name: 'Sarah', style: 'Gentle & Natural', tag: 'US • Storyteller', accent: 'us', gender: 'female', sphere: SPHERE_PALETTES[4] },
-  { id: 'af_alloy', name: 'Alloy', style: 'Crisp & Balanced', tag: 'US • Assistant', accent: 'us', gender: 'female', sphere: SPHERE_PALETTES[5] },
-  { id: 'af_aoede', name: 'Aoede', style: 'Melodic & Warm', tag: 'US • Expressive', accent: 'us', gender: 'female', sphere: SPHERE_PALETTES[6] },
-  { id: 'af_kore', name: 'Kore', style: 'Bright & Radiant', tag: 'US • Dynamic', accent: 'us', gender: 'female', sphere: SPHERE_PALETTES[7] },
-  { id: 'af_jessica', name: 'Jessica', style: 'Confident & Friendly', tag: 'US • Casual Companion', accent: 'us', gender: 'female', sphere: SPHERE_PALETTES[8] },
-  { id: 'am_adam', name: 'Adam', style: 'Deep Baritone', tag: 'US • Confident', accent: 'us', gender: 'male', sphere: SPHERE_PALETTES[9] },
-  { id: 'am_michael', name: 'Michael', style: 'Classic Anchor', tag: 'US • Broadcast', accent: 'us', gender: 'male', sphere: SPHERE_PALETTES[10] },
-  { id: 'am_echo', name: 'Echo', style: 'Modern & Resonant', tag: 'US • Smooth Cadence', accent: 'us', gender: 'male', sphere: SPHERE_PALETTES[11] },
-  { id: 'am_eric', name: 'Eric', style: 'Warm & Grounded', tag: 'US • Tech Professional', accent: 'us', gender: 'male', sphere: SPHERE_PALETTES[12] },
-  { id: 'am_fenrir', name: 'Fenrir', style: 'Deep Cinematic', tag: 'US • Authoritative', accent: 'us', gender: 'male', sphere: SPHERE_PALETTES[13] },
-  { id: 'am_liam', name: 'Liam', style: 'Youthful & Clear', tag: 'US • Conversational', accent: 'us', gender: 'male', sphere: SPHERE_PALETTES[14] },
-  { id: 'am_onyx', name: 'Onyx', style: 'Low Velvet Bass', tag: 'US • Dramatic', accent: 'us', gender: 'male', sphere: SPHERE_PALETTES[15] },
-  { id: 'bf_emma', name: 'Emma', style: 'British RP Accent', tag: 'UK • Gentle RP', accent: 'uk', gender: 'female', sphere: SPHERE_PALETTES[16] },
-  { id: 'bf_isabella', name: 'Isabella', style: 'British Aristocratic', tag: 'UK • Oxford RP', accent: 'uk', gender: 'female', sphere: SPHERE_PALETTES[17] },
-  { id: 'bf_alice', name: 'Alice', style: 'Clear British BBC', tag: 'UK • Broadcaster', accent: 'uk', gender: 'female', sphere: SPHERE_PALETTES[18] },
-  { id: 'bf_lily', name: 'Lily', style: 'Sweet & Poetic', tag: 'UK • Storyteller', accent: 'uk', gender: 'female', sphere: SPHERE_PALETTES[19] },
-  { id: 'bm_george', name: 'George', style: 'Warm British Gentleman', tag: 'UK • Classic RP', accent: 'uk', gender: 'male', sphere: SPHERE_PALETTES[20] },
-  { id: 'bm_fable', name: 'Fable', style: 'British Narrator', tag: 'UK • Dramatic Tale', accent: 'uk', gender: 'male', sphere: SPHERE_PALETTES[21] },
-  { id: 'bm_lewis', name: 'Lewis', style: 'Executive British', tag: 'UK • Professional', accent: 'uk', gender: 'male', sphere: SPHERE_PALETTES[22] },
-  { id: 'bm_daniel', name: 'Daniel', style: 'Deep British Newsreader', tag: 'UK • Baritone', accent: 'uk', gender: 'male', sphere: SPHERE_PALETTES[23] },
+const DEFAULT_ENGLISH_PRESETS: VoicePreset[] = [
+  { label: 'Greeting', text: 'Hey! I am Grokki, your Windows companion. How can I assist you today?' },
+  { label: 'Coding', text: 'I analyzed your codebase and fixed the memory leak in the audio worker.' },
+  { label: 'Briefing', text: 'Good afternoon. You have two scheduled meetings on Google Calendar today.' },
+];
+
+const VOICESTUDIO_VOICES: VoiceItem[] = [
+  // Grokki Voice Neural Models (On-Device Neural Synthesis)
+  {
+    id: 'expr-voice-2-f',
+    name: 'Bella',
+    style: 'Warm & Natural',
+    tag: 'Flagship • Expressive',
+    accent: 'us',
+    gender: 'female',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-US',
+    sampleText: 'Hey! I am Grokki, your Windows companion. How can I assist you today?',
+    presets: [
+      { label: 'Greeting', text: 'Hey! I am Grokki, your Windows companion. How can I assist you today?' },
+      { label: 'Coding', text: 'I analyzed your codebase and fixed the memory leak in the audio worker.' },
+      { label: 'Briefing', text: 'Good afternoon. You have two scheduled meetings on Google Calendar today.' },
+    ],
+    sphere: SPHERE_PALETTES[0],
+  },
+  {
+    id: 'expr-voice-2-m',
+    name: 'Jasper',
+    style: 'Calm & Friendly',
+    tag: 'Natural • Companion',
+    accent: 'us',
+    gender: 'male',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-US',
+    sampleText: 'Good afternoon. All system metrics and background tasks are running smoothly.',
+    presets: [
+      { label: 'Status', text: 'Good afternoon. All system metrics and background tasks are running smoothly.' },
+      { label: 'Workflow', text: 'I organized your downloads into clean topic folders on your desktop.' },
+      { label: 'Focus', text: 'Focus mode active. Notifications muted for the next twenty-five minutes.' },
+    ],
+    sphere: SPHERE_PALETTES[1],
+  },
+  {
+    id: 'expr-voice-3-f',
+    name: 'Luna',
+    style: 'Smooth & Gentle',
+    tag: 'Soft • Conversational',
+    accent: 'us',
+    gender: 'female',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-US',
+    sampleText: 'I am here to help you work faster, automate tasks, and keep your workspace organized.',
+    presets: [
+      { label: 'Assistant', text: 'I am here to help you work faster, automate tasks, and keep your workspace organized.' },
+      { label: 'Writing', text: 'Here is a polished summary of the research article you shared.' },
+      { label: 'Calm', text: 'Take a breath. Everything is synced and safely saved to the cloud.' },
+    ],
+    sphere: SPHERE_PALETTES[2],
+  },
+  {
+    id: 'expr-voice-3-m',
+    name: 'Bruno',
+    style: 'Deep & Confident',
+    tag: 'Bold • Resonant',
+    accent: 'us',
+    gender: 'male',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-US',
+    sampleText: 'Compilation finished successfully. Zero errors and zero warnings detected.',
+    presets: [
+      { label: 'Build', text: 'Compilation finished successfully. Zero errors and zero warnings detected.' },
+      { label: 'Terminal', text: 'Git commit created with three modified files. Ready to push to main.' },
+      { label: 'Diagnostic', text: 'Memory usage is nominal at four gigabytes across all studio processes.' },
+    ],
+    sphere: SPHERE_PALETTES[3],
+  },
+  {
+    id: 'expr-voice-4-f',
+    name: 'Rosie',
+    style: 'Bright & Expressive',
+    tag: 'High Energy • Cheerful',
+    accent: 'us',
+    gender: 'female',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-US',
+    sampleText: 'Ready to get things done! Tell me what you want to build or automate next!',
+    presets: [
+      { label: 'Energy', text: 'Ready to get things done! Tell me what you want to build or automate next!' },
+      { label: 'Idea', text: 'I found three creative approaches to optimize the user onboarding flow.' },
+      { label: 'Celebration', text: 'Awesome work! That unit test suite just passed on the first try!' },
+    ],
+    sphere: SPHERE_PALETTES[4],
+  },
+  {
+    id: 'expr-voice-4-m',
+    name: 'Hugo',
+    style: 'Crisp & Articulate',
+    tag: 'Executive • Studio Pro',
+    accent: 'uk',
+    gender: 'male',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-GB',
+    sampleText: 'Good day! Allow me to take care of the details while you concentrate on the big picture.',
+    presets: [
+      { label: 'Executive', text: 'Good day! Allow me to take care of the details while you concentrate on the big picture.' },
+      { label: 'Briefing', text: 'The executive briefing has been formatted and emailed to the team.' },
+      { label: 'Schedule', text: 'Your next design review begins in twenty minutes on Google Meet.' },
+    ],
+    sphere: SPHERE_PALETTES[5],
+  },
+  {
+    id: 'expr-voice-5-f',
+    name: 'Kiki',
+    style: 'Playful & Energetic',
+    tag: 'UK • Dynamic & Vibrant',
+    accent: 'uk',
+    gender: 'female',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-US',
+    sampleText: 'Your workspace environment and all configured tasks are up to date and ready to roll!',
+    presets: [
+      { label: 'Upbeat', text: 'Your workspace environment and all configured tasks are up to date and ready to roll!' },
+      { label: 'Design', text: 'The new color palette and glass blur effects look absolutely stunning!' },
+      { label: 'Music', text: 'Now playing your favorite ambient synthwave playlist on YouTube Music.' },
+    ],
+    sphere: SPHERE_PALETTES[6],
+  },
+  {
+    id: 'expr-voice-5-m',
+    name: 'Leo',
+    style: 'Warm & Resonant',
+    tag: 'UK • Authoritative & Clear',
+    accent: 'uk',
+    gender: 'male',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-US',
+    sampleText: 'In deep space, silence reigns supreme as stars quietly burn across billions of years.',
+    presets: [
+      { label: 'Narrative', text: 'In deep space, silence reigns supreme as stars quietly burn across billions of years.' },
+      { label: 'Discovery', text: 'The neural network model completed training with ninety-nine percent accuracy.' },
+      { label: 'Overview', text: 'All background daemons and wake word listeners are standing by.' },
+    ],
+    sphere: SPHERE_PALETTES[7],
+  },
+
+  // English Variations
+  {
+    id: 'vs_en_heart',
+    name: 'Heart',
+    style: 'Warm & Expressive',
+    tag: 'Expressive • Conversational',
+    accent: 'us',
+    gender: 'female',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-US',
+    sampleText: 'Hello there! Let us have a productive session today.',
+    presets: DEFAULT_ENGLISH_PRESETS,
+    sphere: SPHERE_PALETTES[6],
+  },
+  {
+    id: 'vs_en_bella',
+    name: 'Bella',
+    style: 'Crisp & Playful',
+    tag: 'Energetic • High Energy',
+    accent: 'us',
+    gender: 'female',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-US',
+    sampleText: 'Hey! Ready to get things done? Tell me what you want to build next!',
+    presets: DEFAULT_ENGLISH_PRESETS,
+    sphere: SPHERE_PALETTES[7],
+  },
+  {
+    id: 'vs_en_nicole',
+    name: 'Nicole',
+    style: 'Clear & Formal',
+    tag: 'Executive • Studio Pro',
+    accent: 'us',
+    gender: 'female',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-US',
+    sampleText: 'Your workspace environment and all configured tasks are up to date.',
+    presets: DEFAULT_ENGLISH_PRESETS,
+    sphere: SPHERE_PALETTES[8],
+  },
+  {
+    id: 'vs_en_adam',
+    name: 'Adam',
+    style: 'Deep Baritone',
+    tag: 'Confident • Technical',
+    accent: 'us',
+    gender: 'male',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-US',
+    sampleText: 'Compilation finished successfully. Zero errors and zero warnings detected.',
+    presets: DEFAULT_ENGLISH_PRESETS,
+    sphere: SPHERE_PALETTES[9],
+  },
+  {
+    id: 'vs_en_george',
+    name: 'George',
+    style: 'Warm British Gentleman',
+    tag: 'UK • Classic RP',
+    accent: 'uk',
+    gender: 'male',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-GB',
+    sampleText: 'Good day! Allow me to take care of the details while you concentrate on the big picture.',
+    presets: DEFAULT_ENGLISH_PRESETS,
+    sphere: SPHERE_PALETTES[10],
+  },
+  {
+    id: 'vs_en_emma',
+    name: 'Emma',
+    style: 'British RP Accent',
+    tag: 'UK • Gentle RP',
+    accent: 'uk',
+    gender: 'female',
+    language: 'en',
+    languageName: 'English',
+    langCode: 'en-GB',
+    sampleText: 'Shall we review the agenda for this afternoon? Everything looks splendid.',
+    presets: DEFAULT_ENGLISH_PRESETS,
+    sphere: SPHERE_PALETTES[11],
+  },
+
 ];
 
 // Build 200 ElevenLabs Voices out-of-the-box
@@ -417,6 +648,7 @@ const EXTRA_PROFILES: [string, string, string, 'us' | 'uk', 'female' | 'male', s
 const DEFAULT_ELEVENLABS_VOICES: VoiceItem[] = [
   ...BASE_ELEVENLABS_VOICES.map((v, idx) => ({
     ...v,
+    accent: v.accent as 'us' | 'uk' | 'global',
     sphere: getSphereForId(v.id, idx),
   })),
   ...EXTRA_PROFILES.slice(0, 200 - BASE_ELEVENLABS_VOICES.length).map(
@@ -427,7 +659,7 @@ const DEFAULT_ELEVENLABS_VOICES: VoiceItem[] = [
         name,
         style,
         tag,
-        accent,
+        accent: accent as 'us' | 'uk' | 'global',
         gender,
         sphere: getSphereForId(id, BASE_ELEVENLABS_VOICES.length + i),
       };
@@ -452,7 +684,7 @@ const CAROUSEL_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 // Shared surface style for cards and panels.
 const SURFACE =
-  'bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029]';
+  'bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22]';
 
 // Small section label used above each block of the page.
 const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -550,7 +782,7 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
   playingVoice,
   onPreviewVoice,
 }) => {
-  const activeProvider: 'grokki' | 'elevenlabs' = config.ttsProvider === 'elevenlabs' ? 'elevenlabs' : 'grokki';
+  const activeProvider: 'grokki_voice' | 'elevenlabs' = config.ttsProvider === 'elevenlabs' ? 'elevenlabs' : 'grokki_voice';
   const isElevenLabs = activeProvider === 'elevenlabs';
   const activeElevenModel = config.elevenlabsModel || 'eleven_v3';
 
@@ -574,7 +806,7 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
   // Carousel state: which voice is in the center, and how wide the track is.
   const selectedVoiceId = isElevenLabs
     ? (config.elevenlabsVoiceId || 'JBFqnCBsd6RMkjVDRZzb')
-    : (config.ttsVoice || 'af_bella');
+    : (config.grokkiVoiceId || config.ttsVoice || 'expr-voice-2-f');
 
   const [focusId, setFocusId] = useState<string>(selectedVoiceId);
   const [trackWidth, setTrackWidth] = useState(900);
@@ -583,14 +815,22 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
   const dragMoved = useRef(false);
   const lastWheel = useRef(0);
 
-  // Sync focusId when switching between Grokki Voice and ElevenLabs Voice
+  // Sync focusId when switching between VoiceStudio and ElevenLabs Voice
   useEffect(() => {
-    setFocusId(
-      isElevenLabs
-        ? (config.elevenlabsVoiceId || 'JBFqnCBsd6RMkjVDRZzb')
-        : (config.ttsVoice || 'af_bella')
-    );
-  }, [isElevenLabs, config.elevenlabsVoiceId, config.ttsVoice]);
+    const targetId = isElevenLabs
+      ? (config.elevenlabsVoiceId || 'JBFqnCBsd6RMkjVDRZzb')
+      : (config.grokkiVoiceId || config.ttsVoice || 'expr-voice-2-f');
+    setFocusId(targetId);
+  }, [isElevenLabs, config.elevenlabsVoiceId, config.grokkiVoiceId, config.ttsVoice]);
+
+  // Sync sandbox text to voice's native language when focus changes
+  useEffect(() => {
+    const list = isElevenLabs ? elevenLabsVoices : VOICESTUDIO_VOICES;
+    const currentVoice = list.find((v) => v.id === focusId);
+    if (currentVoice && currentVoice.sampleText) {
+      setSandboxText(currentVoice.sampleText);
+    }
+  }, [focusId, isElevenLabs, elevenLabsVoices]);
 
   // Automatically fetch live voices in the background when API key is provided or user searches
   const autoFetchElevenLabsVoices = useCallback(async (query?: string) => {
@@ -600,7 +840,6 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
       return;
     }
 
-    // Try via IPC first, or directly via ElevenLabs REST API so it works even without restarting Electron
     try {
       if (window.jarvisAPI?.fetchElevenLabsVoices) {
         const res = await window.jarvisAPI.fetchElevenLabsVoices({
@@ -614,13 +853,12 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
             name: v.name,
             style: v.style || 'Natural Expressive',
             tag: v.tag || `${v.accent === 'uk' ? 'UK' : 'US'} • ElevenLabs`,
-            accent: v.accent === 'uk' ? 'uk' : 'us',
-            gender: v.gender === 'male' ? 'male' : 'female',
+            accent: (v.accent === 'uk' ? 'uk' : 'us') as 'us' | 'uk' | 'global',
+            gender: (v.gender === 'male' ? 'male' : 'female') as 'female' | 'male',
             sphere: getSphereForId(v.id, idx),
             previewUrl: v.previewUrl,
             category: v.category,
           }));
-          // Ensure at least 200 voices are available when not filtering by search
           if (!query && mapped.length < 200) {
             const seen = new Set(mapped.map((m) => m.id));
             for (const d of DEFAULT_ELEVENLABS_VOICES) {
@@ -661,7 +899,9 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
     };
   }, [filterMenuOpen]);
 
-  const activeFilterCount = (accentFilter !== 'all' ? 1 : 0) + (genderFilter !== 'all' ? 1 : 0);
+  const activeFilterCount =
+    (accentFilter !== 'all' ? 1 : 0) +
+    (genderFilter !== 'all' ? 1 : 0);
   const isFilterActive = activeFilterCount > 0;
 
   const handleResetFilters = () => {
@@ -670,7 +910,7 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
     setSearchQuery('');
   };
 
-  const sourceVoices = isElevenLabs ? elevenLabsVoices : GROKKI_VOICES;
+  const sourceVoices = isElevenLabs ? elevenLabsVoices : VOICESTUDIO_VOICES;
 
   const filteredVoices = sourceVoices.filter((v) => {
     if (accentFilter !== 'all' && v.accent !== accentFilter) return false;
@@ -680,9 +920,11 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
       const matchName = v.name.toLowerCase().includes(q);
       const matchStyle = v.style.toLowerCase().includes(q);
       const matchTag = v.tag.toLowerCase().includes(q);
-      const matchAccent = (v.accent === 'us' ? 'american us usa' : 'british uk english').includes(q);
       const matchGender = v.gender.toLowerCase().includes(q);
-      return matchName || matchStyle || matchTag || matchAccent || matchGender;
+      const matchLang =
+        (v.languageName || '').toLowerCase().includes(q) ||
+        (v.language || '').toLowerCase().includes(q);
+      return matchName || matchStyle || matchTag || matchGender || matchLang;
     }
     return true;
   });
@@ -764,6 +1006,9 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
   };
 
   const handleSelectVoice = (voice: VoiceItem) => {
+    if (voice.sampleText) {
+      setSandboxText(voice.sampleText);
+    }
     if (isElevenLabs) {
       onChangeConfig({
         ttsProvider: 'elevenlabs',
@@ -772,26 +1017,24 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
       });
     } else {
       onChangeConfig({
-        ttsProvider: 'grokki',
+        ttsProvider: 'grokki_voice',
         ttsVoice: voice.id,
+        grokkiVoiceId: voice.id,
+        grokkiVoiceName: voice.name,
       });
     }
   };
 
   const triggerPreview = (voice: VoiceItem, customText?: string) => {
-    onPreviewVoice(voice.id, customText, {
+    onPreviewVoice(voice.id, customText || voice.sampleText, {
       provider: activeProvider,
-      apiKey: config.elevenlabsApiKey,
+      apiKey: isElevenLabs ? config.elevenlabsApiKey : '',
       previewUrl: voice.previewUrl,
+      language: voice.language,
+      langCode: voice.langCode,
+      gender: voice.gender,
     });
   };
-
-  const accentTabClass = (value: 'all' | 'us' | 'uk') =>
-    `text-xs font-semibold px-4 py-2 rounded-full cursor-pointer border-none transition-all ${
-      accentFilter === value
-        ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-sm'
-        : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-    }`;
 
   const atStart = focusIndex <= 0;
   const atEnd = focusIndex >= filteredVoices.length - 1;
@@ -808,40 +1051,35 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h2 className="m-0 text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                Voice Models
+                Grokki Voice
               </h2>
               {activeVoice && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] text-[11px] font-semibold text-gray-600 dark:text-gray-300">
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: activeVoice.sphere.mid }}
-                  />
+                <span className="inline-flex items-center gap-1.5 px-4.5 py-1.5 rounded-lg bg-gray-100 dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] text-[11px] font-semibold text-gray-600 dark:text-gray-300">
                   {activeVoice.name}
                   <span className="text-[10px] opacity-60 font-normal">
-                    • {isElevenLabs ? 'ElevenLabs' : 'Grokki'}
+                    • {isElevenLabs ? 'ElevenLabs' : 'Grokki Voice'}
                   </span>
                 </span>
               )}
             </div>
-            <p className="m-0 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+            <p className="m-0 mt-1.5 text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-2xl">
               {isElevenLabs
                 ? `Ultra-realistic neural voices powered by ElevenLabs v3 (${sourceVoices.length} voices ready).`
-                : `High-fidelity neural voices rendered on local Kokoro-82M engine (${GROKKI_VOICES.length} available).`}
+                : `Ultra-fast neural speech running 100% locally on your device. Sub-100ms latency, zero cloud dependency, natural conversational flow.`}
             </p>
           </div>
 
-          {/* Voice Engine Toggle Switch (Grokki Voice vs ElevenLabs Voice) */}
+          {/* Voice Engine Toggle Switch (VoiceStudio vs ElevenLabs Voice) */}
           <div className="inline-flex items-center p-1.5 rounded-2xl bg-gray-100 dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] self-start md:self-auto">
             <button
               type="button"
-              onClick={() => onChangeConfig({ ttsProvider: 'grokki' })}
+              onClick={() => onChangeConfig({ ttsProvider: 'grokki_voice' })}
               className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-semibold cursor-pointer border-none transition-all ${
                 !isElevenLabs
                   ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-sm'
                   : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
-             
               <span>Grokki Voice</span>
             </button>
 
@@ -854,7 +1092,6 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
                   : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
-           
               <span>ElevenLabs Voice</span>
             </button>
           </div>
@@ -865,15 +1102,14 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
           <div className={`${SURFACE} rounded-2xl p-5 flex flex-col gap-4 transition-all`}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-bold text-base tracking-tighter flex-shrink-0">
+                {/* <div className="w-8 h-8 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-bold text-base tracking-tighter flex-shrink-0">
                   <span className='mr-[1.5px]'>I</span>I
-                </div>
+                </div> */}
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="m-0 text-sm font-bold text-gray-900 dark:text-gray-100">
                       ElevenLabs API Key & Model
                     </h4>
-                    
                   </div>
                   <p className="m-0 -mt-[0.5px] text-[12px] text-gray-500 dark:text-gray-400">
                     Your key and selected voice save automatically and apply immediately in Chat & Grokki Island.
@@ -912,11 +1148,7 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
             </div>
 
             {/* ElevenLabs Model Version Selector (ElevenLabs v3 default) */}
-            <div className="flex items-center gap-2 pt-1">
-              <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mr-1">
-                Select Version:
-              </span>
-              
+            <div className="flex items-center gap-2 pt-1 flex-wrap">
               {ELEVENLABS_MODELS.map((m) => {
                 const isSelected = activeElevenModel === m.id;
                 return (
@@ -924,14 +1156,13 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
                     key={m.id}
                     type="button"
                     onClick={() => onChangeConfig({ elevenlabsModel: m.id })}
-                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer border transition-all ${
+                    className={`inline-flex items-center gap-1.5 px-5 py-3 rounded-xl text-[12px] font-semibold cursor-pointer border transition-all ${
                       isSelected
                         ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white shadow-xs'
                         : 'bg-gray-50 dark:bg-[#181a22] text-gray-700 dark:text-gray-300 border-gray-200 dark:border-[#222533] hover:border-gray-400'
                     }`}
                   >
                     <span>{m.label}</span>
-                    
                   </button>
                 );
               })}
@@ -942,27 +1173,22 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
 
       {/* Voices */}
       <section>
-        {/* Search + Accent tabs + View mode + Filters */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          {/* Accent segmented control */}
-          <div className="flex items-center gap-1 bg-gray-100 dark:bg-[#13141a] p-1 rounded-full border border-gray-200 dark:border-[#1e2029] self-start">
-            <button type="button" onClick={() => setAccentFilter('all')} className={accentTabClass('all')}>
-              All <span className="opacity-60 ml-0.5">{sourceVoices.length}</span>
-            </button>
-            <button type="button" onClick={() => setAccentFilter('us')} className={accentTabClass('us')}>
-              American
-            </button>
-            <button type="button" onClick={() => setAccentFilter('uk')} className={accentTabClass('uk')}>
-              British
-            </button>
+        {/* Search + Voice count badge + View mode + Filters */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold px-4 py-2 rounded-xl bg-gray-100 dark:bg-[#13141a] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e2029]">
+              {isElevenLabs
+                ? `${filteredVoices.length} ElevenLabs Voices`
+                : `${filteredVoices.length} Grokki Neural Voices`}
+            </span>
           </div>
 
           {/* Sphere vs Grid view switcher */}
-          <div className="flex items-center gap-1 bg-gray-100 dark:bg-[#13141a] p-2 rounded-xl border border-gray-200 dark:border-[#1e2029] self-start sm:self-auto">
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-[#13141a] p-1.5 rounded-xl border border-gray-200 dark:border-[#1e2029] self-start sm:self-auto">
             <button
               type="button"
               onClick={() => setViewMode('sphere')}
-              className={`inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-semibold cursor-pointer border-none transition-all ${
+              className={`inline-flex items-center gap-1.5 px-4 py-3 rounded-lg text-xs font-semibold cursor-pointer border-none transition-all ${
                 viewMode === 'sphere'
                   ? 'bg-white dark:bg-[#1e2029] text-gray-900 dark:text-white shadow-sm'
                   : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -974,14 +1200,53 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
             <button
               type="button"
               onClick={() => setViewMode('grid')}
-              className={`inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-semibold cursor-pointer border-none transition-all ${
+              className={`inline-flex items-center gap-1.5 px-4 py-3 rounded-lg text-xs font-semibold cursor-pointer border-none transition-all ${
                 viewMode === 'grid'
                   ? 'bg-white dark:bg-[#1e2029] text-gray-900 dark:text-white shadow-sm'
                   : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
-              <span>All {sourceVoices.length} Grid</span>
+              <span>All {filteredVoices.length} Grid</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Accent Filter Tabs (American vs British) */}
+        <div className="flex items-center gap-1.5 py-1 mb-3.5">
+          <div className="inline-flex items-center gap-1 bg-gray-100 dark:bg-[#13141a] p-1 rounded-xl border border-gray-200 dark:border-[#1e2029]">
+            <button
+              type="button"
+              onClick={() => setAccentFilter('all')}
+              className={`text-xs font-semibold px-4 py-3 rounded-lg cursor-pointer border-none transition-all ${
+                accentFilter === 'all'
+                  ? 'bg-white dark:bg-[#1e2029] text-gray-900 dark:text-white shadow-sm'
+                  : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              All Accents <span className="opacity-60 ml-0.5">{sourceVoices.length}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAccentFilter('us')}
+              className={`text-xs font-semibold px-4 py-3 rounded-lg cursor-pointer border-none transition-all ${
+                accentFilter === 'us'
+                  ? 'bg-white dark:bg-[#1e2029] text-gray-900 dark:text-white shadow-sm'
+                  : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              American (US)
+            </button>
+            <button
+              type="button"
+              onClick={() => setAccentFilter('uk')}
+              className={`text-xs font-semibold px-4 py-3 rounded-lg cursor-pointer border-none transition-all ${
+                accentFilter === 'uk'
+                  ? 'bg-white dark:bg-[#1e2029] text-gray-900 dark:text-white shadow-sm'
+                  : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              British (UK)
             </button>
           </div>
         </div>
@@ -996,9 +1261,9 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
               placeholder={
                 isElevenLabs
                   ? `Search ${sourceVoices.length}+ ElevenLabs voices by name, character, accent, or style...`
-                  : 'Search voices by name, style, accent, or gender...'
+                  : `Search ${sourceVoices.length}+ Grokki voices by name, accent, or style...`
               }
-              className="w-full h-11 pl-10 pr-9 rounded-xl bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-gray-900 dark:focus:border-white focus:outline-none transition-all"
+              className="w-full h-11 pl-10 pr-9 rounded-xl bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-gray-900 dark:focus:border-white focus:outline-none transition-all"
             />
             {searchQuery && (
               <button
@@ -1039,7 +1304,7 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
 
             {/* Filter popover */}
             {filterMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-72 p-5 bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] rounded-2xl shadow-xl z-50 flex flex-col gap-4">
+              <div className="absolute right-0 top-full mt-2 w-72 p-5 bg-white dark:bg-[#0f0f13] border border-gray-200 dark:border-[#1f1f22] rounded-2xl shadow-xl z-50 flex flex-col gap-4">
                 <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#1e2029]">
                   <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
                     Voice Filters
@@ -1056,7 +1321,7 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
                   )}
                 </div>
 
-                {/* Accent filter */}
+                {/* Accent selector */}
                 <div className="flex flex-col gap-2">
                   <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                     Accent
@@ -1069,11 +1334,11 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
                         onClick={() => setAccentFilter(acc)}
                         className={`py-2 text-xs font-medium rounded-lg cursor-pointer border transition-all ${
                           accentFilter === acc
-                            ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent font-semibold'
+                            ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent font-semibold shadow-xs'
                             : 'bg-gray-50 dark:bg-[#181a22] text-gray-700 dark:text-gray-300 border-gray-200 dark:border-[#222533] hover:border-gray-400'
                         }`}
                       >
-                        {acc === 'all' ? 'All' : acc === 'us' ? 'US' : 'UK'}
+                        {acc === 'all' ? 'All' : acc === 'us' ? 'American' : 'British'}
                       </button>
                     ))}
                   </div>
@@ -1119,7 +1384,7 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
               No voices found matching "{searchQuery}"
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 m-0 max-w-sm">
-              Try adjusting your search query or reset your accent and gender filters.
+              Try adjusting your search query or reset your accent, language, and gender filters.
             </p>
             <button
               type="button"
@@ -1361,7 +1626,7 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
       </section>
 
       {/* Preview */}
-      <section>
+      <section className='hidden'>
         <SectionLabel>Preview</SectionLabel>
         <div className={`${SURFACE} rounded-2xl p-5 flex flex-col gap-4`}>
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -1376,7 +1641,7 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
               <strong className="font-semibold text-gray-900 dark:text-gray-100">
                 {activeVoice ? activeVoice.name : 'selected voice'}
               </strong>{' '}
-              ({isElevenLabs ? `ElevenLabs • ${activeElevenModel}` : 'Grokki Kokoro-82M'})
+              ({isElevenLabs ? `ElevenLabs • ${activeElevenModel}` : 'VoiceStudio • 646 Languages'})
             </span>
             <span className={`vm-eq ${isAnyPlaying ? 'on' : ''}`}>
               <i />
@@ -1397,8 +1662,11 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
               onClick={() =>
                 onPreviewVoice(selectedVoiceId, sandboxText, {
                   provider: activeProvider,
-                  apiKey: config.elevenlabsApiKey,
+                  apiKey: isElevenLabs ? config.elevenlabsApiKey : config.voiceStudioApiKey,
                   previewUrl: activeVoice?.previewUrl,
+                  language: activeVoice?.language,
+                  langCode: activeVoice?.langCode,
+                  gender: activeVoice?.gender,
                 })
               }
               className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-xl text-xs font-semibold bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 transition-all cursor-pointer flex-shrink-0 border-none"
@@ -1419,39 +1687,22 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
 
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-gray-400 dark:text-gray-500 text-[11px] mr-1">Presets</span>
-            <button
-              type="button"
-              onClick={() =>
-                setSandboxText('Hey! I am Grokki, your Windows companion. How can I assist you today?')
-              }
-              className="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-[#1e2029] text-[11px] font-medium cursor-pointer transition-colors"
-            >
-              Greeting
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setSandboxText('I analyzed your codebase and fixed the memory leak in the audio worker.')
-              }
-              className="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-[#1e2029] text-[11px] font-medium cursor-pointer transition-colors"
-            >
-              Coding
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setSandboxText('Good afternoon. You have two scheduled meetings on Google Calendar today.')
-              }
-              className="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-[#1e2029] text-[11px] font-medium cursor-pointer transition-colors"
-            >
-              Briefing
-            </button>
+            {(activeVoice?.presets || DEFAULT_ENGLISH_PRESETS).map((preset, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setSandboxText(preset.text)}
+                className="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-[#1e2029] text-[11px] font-medium cursor-pointer transition-colors"
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Behavior */}
-      <section>
+      <section className="hidden">
         <SectionLabel>Behavior</SectionLabel>
         <div className={`${SURFACE} rounded-2xl flex flex-col divide-y divide-[#e4e4eb] dark:divide-[#1e2029]`}>
           <div className="flex items-center justify-between gap-4 px-5 py-4">
@@ -1464,7 +1715,7 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
                   Spoken Audio Response
                 </strong>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Read answers out loud using your chosen {isElevenLabs ? 'ElevenLabs' : 'Grokki Kokoro'} neural voice.
+                  Read answers out loud using your chosen {isElevenLabs ? 'ElevenLabs' : 'VoiceStudio'} neural voice.
                 </span>
               </div>
             </div>

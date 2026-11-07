@@ -100,7 +100,7 @@ const TRY_SAYING: { prompt: string; hint: string; needs?: Requirement }[] = [
   { prompt: 'Commit and push my changes', hint: 'Git', needs: 'git' },
 ];
 
-const SURFACE = 'bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029]';
+const SURFACE = 'bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22]';
 
 const getGreeting = (): string => {
   const hour = new Date().getHours();
@@ -604,7 +604,7 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
               <div className="flex items-center justify-between gap-3 px-4 py-3">
                 <span className="text-xs text-gray-500 dark:text-gray-400">Voice</span>
                 <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                  Kokoro-82M, {voiceName(config.ttsVoice)}
+                  VoiceStudio, {voiceName(config.ttsVoice)}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3 px-4 py-3">

@@ -309,7 +309,9 @@ class AgentBrain {
       const selectedNames = new Set([
         // Always include core desktop & quick actions
         'open_app', 'desktop_click', 'desktop_type', 'desktop_find', 'desktop_snapshot',
-        'close_active_window', 'system_volume', 'window_manager', 'system_power', 'system_brightness'
+        'close_active_window', 'system_volume', 'window_manager', 'system_power', 'system_brightness',
+        'storage_and_cleanup', 'screen_capture_and_recorder', 'connectivity_control', 'power_and_theme_control',
+        'pc_health_and_optimizer', 'organize_folder'
       ]);
 
       if (isWhatsApp || (!isDesktop && !isMedia && !isGoogle && !isUni)) {
@@ -1064,7 +1066,7 @@ class AgentBrain {
           },
           {
             name: 'schedule_reminder_or_action',
-            description: 'Spoken Background Reminders & Timed OS Actions: Schedules a background timer that pops open Grokki and speaks a reminder out loud via Kokoro TTS, or executes a timed OS action (lock, sleep, shutdown, mute, unmute, close_window) after X minutes/seconds.',
+            description: 'Spoken Background Reminders & Timed OS Actions: Schedules a background timer that pops open Grokki and speaks a reminder out loud via VoiceStudio TTS, or executes a timed OS action (lock, sleep, shutdown, mute, unmute, close_window) after X minutes/seconds.',
             parameters: {
               type: 'OBJECT',
               properties: {
@@ -1212,7 +1214,7 @@ class AgentBrain {
           },
           {
             name: 'offline_airgap_mode',
-            description: '100% Offline Air-Gapped Mode: Forces Grokki to run completely air-gapped without internet, routing all queries to local Ollama (Llama 3.2 / Qwen 2.5) and local Kokoro-82M TTS, or checks offline status.',
+            description: '100% Offline Air-Gapped Mode: Forces Grokki to run completely air-gapped without internet, routing all queries to local Ollama (Llama 3.2 / Qwen 2.5) and local VoiceStudio TTS, or checks offline status.',
             parameters: {
               type: 'OBJECT',
               properties: {
@@ -1470,7 +1472,8 @@ class AgentBrain {
     }
 
     // --- 5. Storage, Recycle Bin & Temp Cache Fast Intents ---
-    if (/\b(empty\s+(the\s+)?recycle\s+bin|clear\s+recycle\s+bin)\b/i.test(p)) {
+    if (/\b(empty|clear|clean|purge|delete|flush|dump)\b.*?\b(recycle\s*bin|recyclebin|trash|bin)\b/i.test(p) ||
+        /\b(recycle\s*bin|recyclebin|trash)\b.*?\b(empty|clear|clean|purge|delete)\b/i.test(p)) {
       return { tool: 'storage_and_cleanup', args: { action: 'empty_recycle_bin' } };
     }
     if (/\b(clean|clear|purge)\s+(windows\s+)?temp(\s+files|\s+cache)?\b/i.test(p)) {
@@ -5518,7 +5521,7 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
       const action = (args.action || 'drive_space').toLowerCase();
 
       if (action === 'empty_recycle_bin') {
-        const psCmd = `Clear-RecycleBin -Force -ErrorAction SilentlyContinue; Write-Output "RECYCLE_BIN_CLEARED"`;
+        const psCmd = `Get-PSDrive -PSProvider FileSystem | ForEach-Object { Clear-RecycleBin -DriveLetter $_.Name -Force -ErrorAction SilentlyContinue }; Write-Output "RECYCLE_BIN_CLEARED"`;
         await new Promise((resolve) => {
           execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psCmd], { timeout: 10000, windowsHide: true }, () => resolve());
         });

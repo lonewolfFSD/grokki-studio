@@ -11,6 +11,7 @@ import { GoogleWorkspaceTab } from './components/tabs/GoogleWorkspaceTab';
 import { AppearanceTab } from './components/tabs/AppearanceTab';
 import { StudioSettingsTab } from './components/tabs/StudioSettingsTab';
 import { AboutTab } from './components/tabs/AboutTab';
+import { SettingsModal, SettingsSection } from './components/SettingsModal';
 import { JarvisConfig, GoogleProfile, SystemInfo } from './types/jarvis';
 import { useConversations } from './hooks/useConversations';
 import { useSmoothScroll } from './hooks/useSmoothScroll';
@@ -45,8 +46,10 @@ const DEFAULT_CONFIG: JarvisConfig = {
   omnirouterApiKey: '',
   omnirouterModel: 'omnirouter/auto',
   omnirouterEndpoint: 'https://api.omnirouter.ai/v1',
-  ttsVoice: 'af_bella',
-  ttsProvider: 'grokki',
+  ttsVoice: 'expr-voice-2-f',
+  ttsProvider: 'grokki_voice',
+  grokkiVoiceId: 'expr-voice-2-f',
+  grokkiVoiceName: 'Bella',
   elevenlabsApiKey: '',
   elevenlabsVoiceId: 'JBFqnCBsd6RMkjVDRZzb',
   elevenlabsVoiceName: 'George',
@@ -92,6 +95,29 @@ const DEFAULT_CONFIG: JarvisConfig = {
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('chat');
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [settingsActiveSection, setSettingsActiveSection] = useState<SettingsSection>('settings');
+
+  const handleOpenSettings = useCallback((section?: SettingsSection) => {
+    if (section) setSettingsActiveSection(section);
+    setIsSettingsModalOpen(true);
+  }, []);
+
+  const handleSelectTab = useCallback((tab: TabId) => {
+    if (
+      tab === 'settings' ||
+      tab === 'appearance' ||
+      tab === 'profile' ||
+      tab === 'about' ||
+      tab === 'voice' ||
+      tab === 'ai' ||
+      tab === 'google'
+    ) {
+      handleOpenSettings(tab as SettingsSection);
+    } else {
+      setActiveTab(tab);
+    }
+  }, [handleOpenSettings]);
   const [config, setConfig] = useState<JarvisConfig>(DEFAULT_CONFIG);
   const [originalConfig, setOriginalConfig] = useState<JarvisConfig>(DEFAULT_CONFIG);
   const [hasUnsaved, setHasUnsaved] = useState(false);
@@ -119,6 +145,8 @@ export const App: React.FC = () => {
 
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+
 
   // Initialize theme from config
   const VALID_PALETTES = ['grokki-blue', 'cream', 'jungle', 'sakura', 'cyber', 'sunset', 'arctic', 'crimson'];
@@ -442,12 +470,23 @@ export const App: React.FC = () => {
   const handlePreviewVoice = useCallback(async (
     voiceId: string,
     customText?: string,
-    options?: { provider?: 'grokki' | 'elevenlabs'; apiKey?: string; previewUrl?: string }
+    options?: {
+      provider?: 'grokki' | 'grokki_voice' | 'elevenlabs' | 'voicestudio';
+      apiKey?: string;
+      previewUrl?: string;
+      endpoint?: string;
+      language?: string;
+      langCode?: string;
+      gender?: 'female' | 'male';
+    }
   ) => {
     if (playingVoice === voiceId) {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
+      }
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
       }
       setPlayingVoice(null);
       return;
@@ -457,15 +496,18 @@ export const App: React.FC = () => {
       audioRef.current.pause();
       audioRef.current = null;
     }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
 
     const textToSpeak = customText || `Hello! I am ready to assist you on Windows.`;
     setPlayingVoice(voiceId);
 
     try {
-      const providerToUse = options?.provider || config.ttsProvider || 'grokki';
+      const providerToUse = options?.provider || config.ttsProvider || 'grokki_voice';
       const apiKeyToUse = (options?.apiKey !== undefined ? options.apiKey : config.elevenlabsApiKey) || '';
 
-      // Helper for direct browser ElevenLabs synthesis (works even if Electron main process wasn't restarted)
+      // Helper for direct browser ElevenLabs synthesis
       const synthesizeElevenLabsDirect = async (text: string, vId: string, key: string, prefModel: string) => {
         const clean = text.replace(/[*#`_~\[\]]/g, '').trim().slice(0, 500);
         if (!clean || !key.trim()) return null;
@@ -556,19 +598,14 @@ export const App: React.FC = () => {
           provider: providerToUse,
           apiKey: apiKeyToUse,
           model: config.elevenlabsModel || 'eleven_v3',
+          endpoint: config.voiceStudioEndpoint || 'http://localhost:3900',
+          language: options?.language || 'en',
+          langCode: options?.langCode || 'en-US',
+          gender: options?.gender,
         });
         if (res && res.success && res.base64Audio) {
           const mime = res.mimeType || 'audio/wav';
           const audio = new Audio(`data:${mime};base64,${res.base64Audio}`);
-          audioRef.current = audio;
-          audio.onended = () => {
-            setPlayingVoice(null);
-            audioRef.current = null;
-          };
-          audio.play();
-        } else if (options?.previewUrl) {
-          // Fallback to ElevenLabs sample previewUrl if API call failed
-          const audio = new Audio(options.previewUrl);
           audioRef.current = audio;
           audio.onended = () => {
             setPlayingVoice(null);
@@ -579,17 +616,35 @@ export const App: React.FC = () => {
             audioRef.current = null;
           };
           await audio.play();
-        } else {
-          setPlayingVoice(null);
+          return;
         }
-      } else {
-        setPlayingVoice(null);
       }
+
+      if (options?.previewUrl) {
+        // Fallback to sample previewUrl
+        const audio = new Audio(options.previewUrl);
+        audioRef.current = audio;
+        audio.onended = () => {
+          setPlayingVoice(null);
+          audioRef.current = null;
+        };
+        audio.onerror = () => {
+          setPlayingVoice(null);
+          audioRef.current = null;
+        };
+        await audio.play();
+        return;
+      }
+
+      // Never fall back to robotic Windows speechSynthesis
+      setPlayingVoice(null);
+
+      setPlayingVoice(null);
     } catch (err) {
       console.error('TTS error:', err);
       setPlayingVoice(null);
     }
-  }, [playingVoice, config.ttsProvider, config.elevenlabsApiKey, config.elevenlabsModel]);
+  }, [playingVoice, config.ttsProvider, config.elevenlabsApiKey, config.elevenlabsModel, config.voiceStudioEndpoint]);
 
   const effectiveHotkeys = getEffectiveHotkeys(config);
 
@@ -610,9 +665,9 @@ export const App: React.FC = () => {
         if (!isCustomThemeActive) {
           handleToggleTheme();
         }
-      } else if (matchesHotkey(e, effectiveHotkeys.openSettings)) {
+      } else if (matchesHotkey(e, effectiveHotkeys.openSettings) || ((e.ctrlKey || e.metaKey) && e.key === ',')) {
         e.preventDefault();
-        setActiveTab('settings');
+        setIsSettingsModalOpen((prev) => !prev);
       } else if (activeTab !== 'chat') {
         // Allow chat-specific hotkeys from other tabs to jump into Chat and trigger the action
         let chatAction: string | null = null;
@@ -668,11 +723,12 @@ export const App: React.FC = () => {
         enabled={!!config.glowCursorEnabled}
         className="w-screen h-screen"
       >
-      <div className="w-full h-full flex flex-row overflow-hidden bg-[#f7f7fa] dark:bg-[#0c0d12] text-gray-900 dark:text-gray-100 font-sans">
+      <div className="w-full h-full flex flex-row overflow-hidden bg-[#f7f7fa] dark:bg-[#070709] text-gray-900 dark:text-gray-100 font-sans">
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
-        onSelectTab={setActiveTab}
+        onSelectTab={handleSelectTab}
+        onOpenSettings={handleOpenSettings}
         theme={theme}
         userName={displayName}
         googleProfile={googleProfile}
@@ -690,7 +746,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Content Column */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-[#f7f7fa] dark:bg-[#0c0d12]">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-[#f7f7fa] dark:bg-[#070709]">
         <Header
           title={tabTitles[activeTab]}
           theme={theme as 'light' | 'dark'}
@@ -706,13 +762,13 @@ export const App: React.FC = () => {
         />
 
         {/* Tab Panels */}
-        <main id="grokki-main-scroll" className={`flex-1 min-h-0 overflow-y-auto ${activeTab === 'chat' ? 'h-full flex flex-col relative bg-[#f7f7fa] dark:bg-[#0b0c10] overflow-hidden' : 'px-8 py-6'}`}>
+        <main id="grokki-main-scroll" className={`flex-1 min-h-0 overflow-y-auto ${activeTab === 'chat' ? 'h-full flex flex-col relative bg-[#f7f7fa] dark:bg-[#070709] overflow-hidden' : 'px-8 py-6'}`}>
           <div className={activeTab === 'chat' ? 'h-full flex flex-col relative w-full overflow-hidden' : 'hidden'}>
             <ChatTab
               config={config}
               onChangeConfig={handleChatModelChange}
               userName={displayName}
-              onNavigateTab={setActiveTab}
+              onNavigateTab={handleSelectTab}
               activeConversation={activeConversation}
               onUpdateMessages={updateActiveMessages}
               onNewChat={createConversation}
@@ -725,7 +781,7 @@ export const App: React.FC = () => {
               <OverviewTab
                 config={config}
                 userName={displayName}
-                onNavigateTab={setActiveTab}
+                onNavigateTab={handleSelectTab}
                 googleConnected={googleConnected}
               />
             )}
@@ -790,6 +846,26 @@ export const App: React.FC = () => {
           </div>
         </main>
       </div>
+
+            {/* Studio Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        activeSection={settingsActiveSection}
+        onSelectSection={setSettingsActiveSection}
+        config={config}
+        onChangeConfig={handleConfigChange}
+        systemInfo={systemInfo}
+        effectiveHotkeys={effectiveHotkeys}
+        onClearConversations={() => {
+          conversations.forEach((c) => deleteConversation(c.id));
+        }}
+        playingVoice={playingVoice}
+        onPreviewVoice={handlePreviewVoice}
+        googleConnected={googleConnected}
+        googleProfile={googleProfile}
+        onRefreshGoogleStatus={loadGoogleStatus}
+      />
 
       {/* Discord-Style Full-Width Bottom Unsaved Changes Banner */}
       <UnsavedToast

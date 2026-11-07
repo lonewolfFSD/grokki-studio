@@ -1,45 +1,76 @@
-const path = require('path');
-const fs = require('fs');
+/**
+ * VoiceStudio TTS Service
+ * Powered by debpalash/VoiceStudio
+ * "AI voice studio. On your device. Clone, design, dub, dictate, transcribe and narrate in 646 languages.
+ *  Runs on your laptop, desktop, servers, phone, tablets and more."
+ *
+ * Connects via standard OpenAI-compatible audio API at http://localhost:3900
+ * Endpoints:
+ *   POST /v1/audio/speech
+ *   GET  /v1/audio/voices
+ */
 
-class KokoroTTSService {
+class VoiceStudioTTSService {
   constructor() {
-    this.ttsInstance = null;
-    this.isLoading = false;
-    this.initPromise = null;
-    this.defaultVoice = 'af_heart';
-    this.modelId = 'onnx-community/Kokoro-82M-v1.0-ONNX';
+    this.defaultEndpoint = 'http://localhost:3900';
+    this.defaultModel = 'tts-1';
+    this.defaultVoice = 'default';
   }
 
-  async getTTS() {
-    if (this.ttsInstance) return this.ttsInstance;
-    if (this.initPromise) return await this.initPromise;
+  normalizeEndpoint(endpoint) {
+    let url = (endpoint || this.defaultEndpoint).trim();
+    if (!url) url = this.defaultEndpoint;
+    url = url.replace(/\/+$/, '');
+    if (url.endsWith('/v1')) {
+      url = url.slice(0, -3);
+    }
+    return url;
+  }
 
-    this.isLoading = true;
-    this.initPromise = (async () => {
+  /**
+   * Health-check against VoiceStudio local server
+   */
+  async checkHealth(endpoint) {
+    const base = this.normalizeEndpoint(endpoint);
+    const urlsToTry = [
+      `${base}/health`,
+      `${base}/.well-known/voicestudio-speech`,
+      `${base}/v1/audio/voices`,
+      `${base}/`,
+    ];
+
+    for (const url of urlsToTry) {
       try {
-        console.log('[KokoroTTS] Initializing local 82M model...');
-        const { KokoroTTS } = await import('kokoro-js');
-        this.ttsInstance = await KokoroTTS.from_pretrained(this.modelId, {
-          dtype: 'q8',
-          device: 'cpu',
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 1200);
+        const res = await fetch(url, {
+          method: 'GET',
+          signal: controller.signal,
         });
-        console.log('[KokoroTTS] Kokoro-82M model ready in memory!');
-        this.isLoading = false;
-        return this.ttsInstance;
-      } catch (err) {
-        this.isLoading = false;
-        this.initPromise = null;
-        throw err;
-      }
-    })();
+        clearTimeout(timeout);
 
-    return await this.initPromise;
+        if (res.ok || res.status === 200 || res.status === 404) {
+          return {
+            connected: true,
+            endpoint: base,
+            status: res.status,
+            message: 'VoiceStudio server connected',
+          };
+        }
+      } catch (err) {
+        // Try next
+      }
+    }
+
+    return {
+      connected: false,
+      endpoint: base,
+      message: 'VoiceStudio offline (Run VoiceStudio at http://localhost:3900)',
+    };
   }
 
   /**
    * Transforms raw markdown/status replies into a short, emotionally expressive spoken takeaway.
-   * Never reads out long essays, raw LaTeX formulas, citations, or bullet lists verbatim—
-   * keeps spoken audio under ~145 chars so Kokoro-82M synthesizes in <300ms without blocking!
    */
   formatForExpressiveSpeech(rawText) {
     let text = String(rawText || '').trim();
@@ -61,8 +92,7 @@ class KokoroTTSService {
     }
     if (/^Workstation locked/i.test(text)) return `Locking it down... see ya in a bit!`;
 
-    // 2. Smart Spoken Summaries for Rich Visual / Academic Cards
-    // Instead of reading 500 words of citations, timestamps, or math equations aloud, speak a natural summary!
+    // 2. Smart Spoken Summaries for Rich Cards
     if (/Academic Research Papers|Citation \((?:APA|IEEE|BibTeX)\)/i.test(text)) {
       return `Heh, I've pulled up the top peer-reviewed research papers and citations for you right here on screen!`;
     }
@@ -144,7 +174,6 @@ class KokoroTTSService {
     if (/Presentation Mode Deactivated/i.test(text)) {
       return `Presentation mode deactivated.`;
     }
-    // Stay silent during active slide advancement so speaker is never interrupted!
     if (/Advanced to Next Slide|Moved to Previous Slide|Toggled Blackout Screen/i.test(text)) {
       return ``;
     }
@@ -152,7 +181,7 @@ class KokoroTTSService {
       return `Found it! I've opened File Explorer and highlighted your file right there.`;
     }
 
-    // Special handling for active Viva Oral Quiz turns: read feedback + question, skip tips/model answer
+    // Special handling for active Viva Oral Quiz turns
     if (/Viva Oral Exam Mode|Question \d+ of 5/i.test(text)) {
       let vivaSpoken = text
         .replace(/💡\s*\*?(?:Key Note|Model Answer)\*?:[^\n]+/gi, '')
@@ -163,7 +192,7 @@ class KokoroTTSService {
       text = vivaSpoken;
     }
 
-    // 3. Translate paralinguistic / emotion tags into Kokoro-compatible phonetic vocalizations
+    // 3. Translate paralinguistic / emotion tags
     text = text
       .replace(/\[(?:laugh|laughs|laughing)\]|\*(?:laughs?|laughing)\*/gi, 'Haha, ')
       .replace(/\[(?:chuckle|chuckles|giggle)\]|\*(?:chuckles?|giggles?)\*/gi, 'Heh... ')
@@ -173,7 +202,7 @@ class KokoroTTSService {
       .replace(/\[(?:hmm|thinking|pondering)\]|\*(?:thinks?|thinking)\*/gi, 'Hmm... ')
       .replace(/\[(?:um|uh|hesitate)\]/gi, 'Umm... ');
 
-    // 4. Strip code blocks, LaTeX math formulas, URLs, and markdown noise so TTS never chokes
+    // 4. Strip code blocks, LaTeX math formulas, URLs, and markdown noise
     const hadLongContent = text.length > 180 || /```|\$\$|\\\[|\n\s*[-•*]\s+/m.test(text);
 
     text = text
@@ -186,9 +215,7 @@ class KokoroTTSService {
       .replace(/`([^`]+)`/g, '$1')
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
       .replace(/https?:\/\/[^\s)]+/g, ' ')
-      // Remove emojis
       .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
-      // Strip markdown formatting symbols (#, *, _, ~, >, •, |)
       .replace(/[#*_~>•|]/g, ' ')
       .replace(/\s+--\s+/g, ' — ')
       .replace(/\s+/g, ' ')
@@ -198,9 +225,8 @@ class KokoroTTSService {
       return `Here you go! Check out the result on your screen.`;
     }
 
-    // 5. Keep spoken voice ultra-snappy (1 short sentence, max 95 chars)
-    // If the displayed text is long, only speak the opening takeaway so synthesis is sub-second!
-    const maxSpokenLen = 95;
+    // 5. Keep spoken voice snappy
+    const maxSpokenLen = 120;
     if (text.length > maxSpokenLen || hadLongContent) {
       const sentences = text.match(/[^.!?]+[.!?]+/g);
       if (sentences && sentences.length > 0) {
@@ -208,98 +234,168 @@ class KokoroTTSService {
         if (first.length > maxSpokenLen) {
           first = first.substring(0, maxSpokenLen).replace(/\s+\S*$/, '') + '.';
         }
-        text = first;
-      } else {
-        text = text.substring(0, maxSpokenLen).replace(/\s+\S*$/, '') + '.';
+        return first;
       }
+      return text.substring(0, maxSpokenLen).replace(/\s+\S*$/, '') + '.';
     }
 
     return text;
   }
 
-  async synthesize(text, voice = 'af_heart') {
-    const cleanText = this.formatForExpressiveSpeech(text);
-    if (!cleanText) return { success: false, error: 'Empty text', cleanText: '' };
-
-    // Only use Kokoro if the model is already warm in memory and text is short;
-    // otherwise return cleanText immediately so the renderer can speak with zero delay!
-    if (!this.ttsInstance) {
-      // Trigger non-blocking background warm-up if not started
-      this.getTTS().catch(() => {});
-      return {
-        success: false,
-        useFastNative: true,
-        cleanText,
-      };
+  /**
+   * Fetch live voices from VoiceStudio instance or return curated multilingual presets
+   */
+  async fetchVoices({ endpoint, apiKey } = {}) {
+    const base = this.normalizeEndpoint(endpoint);
+    const headers = { Accept: 'application/json' };
+    if (apiKey && apiKey.trim()) {
+      headers['Authorization'] = `Bearer ${apiKey.trim()}`;
     }
 
-    try {
-      const tts = this.ttsInstance;
-      const targetVoice = voice || this.defaultVoice;
+    const endpoints = [
+      `${base}/v1/audio/voices`,
+      `${base}/v1/voices`,
+      `${base}/api/voices`,
+    ];
 
-      const startTime = Date.now();
-      const audio = await tts.generate(cleanText, {
-        voice: targetVoice,
-        speed: 1.05,
-      });
-      const durationMs = Date.now() - startTime;
-      console.log(`[KokoroTTS] Synthesized "${cleanText}" in ${durationMs}ms with voice "${targetVoice}"`);
+    let liveVoices = [];
+    let connected = false;
 
-      // Convert audio Float32Array to 16-bit PCM WAV buffer
-      const wavBuffer = this.createWavBuffer(audio.audio, audio.sampling_rate || 24000);
-      const base64Audio = wavBuffer.toString('base64');
+    for (const ep of endpoints) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 1200);
+        const res = await fetch(ep, {
+          method: 'GET',
+          headers,
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
 
-      return {
-        success: true,
-        base64Audio,
-        cleanText,
-        mimeType: 'audio/wav',
-        durationMs,
-      };
-    } catch (err) {
-      console.error('[KokoroTTS] Synthesis error:', err);
-      return { success: false, error: err.message, cleanText };
+        if (res.ok) {
+          const data = await res.json();
+          connected = true;
+          const rawList = Array.isArray(data)
+            ? data
+            : (Array.isArray(data.voices) ? data.voices : (Array.isArray(data.data) ? data.data : []));
+
+          if (rawList.length > 0) {
+            liveVoices = rawList.map((v, i) => {
+              if (typeof v === 'string') {
+                return {
+                  id: v,
+                  name: v.charAt(0).toUpperCase() + v.slice(1).replace(/[-_]/g, ' '),
+                  style: 'VoiceStudio Profile',
+                  tag: 'Cloned Voice',
+                  accent: 'us',
+                  gender: i % 2 === 0 ? 'female' : 'male',
+                  category: 'cloned',
+                  language: 'en',
+                  languageName: 'English',
+                };
+              }
+              return {
+                id: v.id || v.voice_id || v.name || `vs_voice_${i}`,
+                name: v.name || v.id || `Voice ${i + 1}`,
+                style: v.description || v.style || (v.cloned ? 'Cloned Voice' : 'VoiceStudio Engine'),
+                tag: v.tag || (v.language ? `Lang: ${v.language}` : 'VoiceStudio Native'),
+                accent: v.accent || 'us',
+                gender: v.gender || (i % 2 === 0 ? 'female' : 'male'),
+                category: v.category || (v.cloned ? 'cloned' : 'preset'),
+                previewUrl: v.preview_url || v.sample_url || '',
+                language: v.language || 'en',
+                languageName: v.language_name || 'English',
+              };
+            });
+            break;
+          }
+        }
+      } catch (err) {
+        // Fall back to presets
+      }
     }
+
+    return {
+      success: true,
+      connected,
+      endpoint: base,
+      voices: liveVoices,
+    };
   }
 
-  createWavBuffer(float32Array, sampleRate = 24000) {
-    const numChannels = 1;
-    const bytesPerSample = 2; // 16-bit
-    const blockAlign = numChannels * bytesPerSample;
-    const byteRate = sampleRate * blockAlign;
-    const dataSize = float32Array.length * bytesPerSample;
-    const buffer = Buffer.alloc(44 + dataSize);
-
-    // RIFF identifier
-    buffer.write('RIFF', 0);
-    buffer.writeUInt32LE(36 + dataSize, 4);
-    buffer.write('WAVE', 8);
-
-    // fmt subchunk
-    buffer.write('fmt ', 12);
-    buffer.writeUInt32LE(16, 16); // SubChunk1Size (16 for PCM)
-    buffer.writeUInt16LE(1, 20); // AudioFormat (1 = PCM)
-    buffer.writeUInt16LE(numChannels, 22);
-    buffer.writeUInt32LE(sampleRate, 24);
-    buffer.writeUInt32LE(byteRate, 28);
-    buffer.writeUInt16LE(blockAlign, 32);
-    buffer.writeUInt16LE(16, 34); // BitsPerSample (16)
-
-    // data subchunk
-    buffer.write('data', 36);
-    buffer.writeUInt32LE(dataSize, 40);
-
-    // Write 16-bit PCM samples
-    let offset = 44;
-    for (let i = 0; i < float32Array.length; i++) {
-      let sample = Math.max(-1, Math.min(1, float32Array[i]));
-      let int16 = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-      buffer.writeInt16LE(Math.round(int16), offset);
-      offset += 2;
+  /**
+   * Synthesizes speech using VoiceStudio OpenAI-compatible server at endpoint.
+   */
+  async synthesize(text, { voice, model, endpoint, apiKey, speed } = {}) {
+    const cleanText = this.formatForExpressiveSpeech(text);
+    if (!cleanText) {
+      return { success: false, error: 'Empty text', cleanText: '' };
     }
 
-    return buffer;
+    const base = this.normalizeEndpoint(endpoint);
+    const targetVoice = voice || this.defaultVoice;
+    const targetModel = model || this.defaultModel;
+    const targetSpeed = typeof speed === 'number' ? speed : 1.0;
+
+    const requestUrl = `${base}/v1/audio/speech`;
+    const headers = {
+      'Content-Type': 'application/json',
+      Accept: 'audio/wav, audio/mpeg, audio/*;q=0.9',
+    };
+    if (apiKey && apiKey.trim()) {
+      headers['Authorization'] = `Bearer ${apiKey.trim()}`;
+    }
+
+    const payload = {
+      model: targetModel,
+      voice: targetVoice,
+      input: cleanText,
+      response_format: 'wav',
+      speed: targetSpeed,
+    };
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
+      const response = await fetch(requestUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (response.ok) {
+        const contentType = response.headers.get('content-type') || 'audio/wav';
+        const mimeType = contentType.includes('mpeg') || contentType.includes('mp3')
+          ? 'audio/mpeg'
+          : 'audio/wav';
+
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const base64Audio = buffer.toString('base64');
+
+        return {
+          success: true,
+          base64Audio,
+          cleanText,
+          mimeType,
+          provider: 'voicestudio',
+          engine: 'voicestudio',
+        };
+      }
+    } catch (_) {
+      // VoiceStudio server offline or unavailable
+    }
+
+    return {
+      success: false,
+      cleanText,
+      error: 'VoiceStudio local server not reachable at ' + base,
+      provider: 'voicestudio',
+    };
   }
 }
 
-module.exports = new KokoroTTSService();
+module.exports = new VoiceStudioTTSService();

@@ -24,6 +24,7 @@ import { PanelLeftIcon } from '@animateicons/react/lucide/panel-left-icon';
 import { PanelLeftCloseIcon } from '@animateicons/react/lucide/panel-left-close-icon';
 import { PanelLeftOpenIcon } from '@animateicons/react/lucide/panel-left-open-icon';
 import { GoogleProfile, Conversation, StudioHotkeys } from '../types/jarvis';
+import { SettingsSection } from './SettingsModal';
 import BranchedMenu, { BranchedMenuItem } from './BranchedMenu';
 import WarmTooltip, { WarmTooltipGroup, type WarmTooltipSide } from './WarmTooltip';
 import { DEFAULT_HOTKEYS } from '../utils/hotkeys';
@@ -79,8 +80,8 @@ const AnimatedSidebarRow: React.FC<{
           isCollapsed ? 'justify-center px-0 py-2.5' : 'justify-between px-3 py-2'
         } w-full rounded-xl text-[13px] font-medium transition-all cursor-pointer text-left ${
           isActive
-            ? 'bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
-            : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#14161f]'
+            ? 'bg-gray-100 dark:bg-[#1f1f24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
+            : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#18181c]'
         }`}
       >
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 min-w-0'}`}>
@@ -161,6 +162,7 @@ interface SidebarProps {
   onTogglePinConversation?: (id: string) => void;
   onSwitchGoogle?: () => Promise<void> | void;
   onDisconnectGoogle?: () => Promise<void> | void;
+  onOpenSettings?: (section?: SettingsSection) => void;
 }
 
 export const Sidebar = React.memo<SidebarProps>(({
@@ -180,6 +182,7 @@ export const Sidebar = React.memo<SidebarProps>(({
   onTogglePinConversation,
   onSwitchGoogle,
   onDisconnectGoogle,
+  onOpenSettings,
 }) => {
   const effectiveHotkeys: StudioHotkeys = { ...DEFAULT_HOTKEYS, ...(hotkeys || {}) };
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -325,20 +328,9 @@ export const Sidebar = React.memo<SidebarProps>(({
     };
   }, [accountMenuOpen]);
 
-  const primaryNavItems: { id: TabId; label: string; Icon: AnimatedIconComponent }[] = [
-    { id: 'chat', label: 'Chat', Icon: MessageSquareIcon },
-    { id: 'overview', label: 'Home', Icon: HouseIcon },
-    { id: 'voice', label: 'Voice Models', Icon: MicIcon },
-    { id: 'ai', label: 'AI Models', Icon: CpuIcon },
-    { id: 'google', label: 'Workspace', Icon: GlobeIcon },
-  ];
 
-  const pinnedNavItems: { id: TabId; label: string; Icon: AnimatedIconComponent }[] = [
-    { id: 'settings', label: 'Studio Settings', Icon: SettingsIcon },
-    { id: 'profile', label: 'Personalization', Icon: SlidersHorizontalIcon },
-    { id: 'appearance', label: 'Appearance', Icon: PaletteIcon },
-    { id: 'about', label: 'About', Icon: InfoIcon },
-  ];
+
+
 
   const isDark = theme === 'dark' || (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
 
@@ -346,43 +338,81 @@ export const Sidebar = React.memo<SidebarProps>(({
 
   const sortedConversations = useMemo(() => {
     if (!conversations || conversations.length === 0) return [];
-    const pinned = conversations.filter((c) => Boolean(c.isPinned));
-    const unpinned = conversations.filter((c) => !c.isPinned);
-    return [...pinned, ...unpinned];
+    return [...conversations].sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      const timeA = (typeof a.createdAt === 'number' && a.createdAt > 0)
+        ? a.createdAt
+        : (a.id.startsWith('c_') ? parseInt(a.id.split('_')[1], 36) : 0) || a.updatedAt || 0;
+      const timeB = (typeof b.createdAt === 'number' && b.createdAt > 0)
+        ? b.createdAt
+        : (b.id.startsWith('c_') ? parseInt(b.id.split('_')[1], 36) : 0) || b.updatedAt || 0;
+      return timeB - timeA;
+    });
   }, [conversations]);
 
-  const chatBranchedItems: BranchedMenuItem[] = useMemo(() => [
-    {
-      label: 'Chat',
-      icon: <MessageSquareIcon size={16} className="flex-shrink-0" />,
-      headerClassName: `group flex items-center justify-between w-full px-3 py-2 rounded-xl text-[13px] font-medium transition-all cursor-pointer text-left select-none ${
-        isChatActive
-          ? 'bg-gray-100 dark:bg-[#1a1c24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
-          : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#14161f]'
-      }`,
-      onHeaderClick: (isOpen, toggle) => {
-        if (activeTab !== 'chat') {
-          onSelectTab('chat');
-          if (!isOpen) toggle();
-        } else {
-          toggle();
-        }
-      },
-      rightSlot: (
-        <AnimatedIconButton
-          Icon={PlusIcon}
-          iconSize={14}
-          onClick={(e) => {
-            e.stopPropagation();
-            onCreateConversation?.();
-            onSelectTab('chat');
-          }}
-          title="New Conversation"
-          shortcut={effectiveHotkeys.newChat}
-          className="p-1 rounded-md text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#252836] transition-all cursor-pointer border-none bg-transparent"
-        />
-      ),
-      children: sortedConversations.length > 0 ? sortedConversations.map((convo) => ({
+  const activeConvo = useMemo(() => {
+    return conversations.find((c) => c.id === activeConversationId);
+  }, [conversations, activeConversationId]);
+
+  const isNewChatActive = activeTab === 'chat' && (!activeConvo || !activeConvo.messages || activeConvo.messages.length === 0);
+
+  const dateBranchedItems: BranchedMenuItem[] = useMemo(() => {
+    if (!conversations || conversations.length === 0) {
+      return [
+        {
+          label: 'Today',
+          children: [
+            {
+              value: 'new_chat',
+              label: 'New Chat',
+            },
+          ],
+        },
+      ];
+    }
+
+    const now = new Date();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const yesterdayMidnight = todayMidnight - 86400000;
+
+    const groupsMap = new Map<string, { label: string; timestamp: number; convos: Conversation[] }>();
+
+    for (const convo of sortedConversations) {
+      const createdTs = (typeof convo.createdAt === 'number' && convo.createdAt > 0)
+        ? convo.createdAt
+        : (convo.id.startsWith('c_') ? parseInt(convo.id.split('_')[1], 36) : 0) || convo.updatedAt || Date.now();
+
+      const convoDate = new Date(createdTs);
+      const dayMidnight = new Date(convoDate.getFullYear(), convoDate.getMonth(), convoDate.getDate()).getTime();
+
+      let label: string;
+      if (dayMidnight === todayMidnight) {
+        label = 'Today';
+      } else if (dayMidnight === yesterdayMidnight) {
+        label = 'Yesterday';
+      } else {
+        const isSameYear = convoDate.getFullYear() === now.getFullYear();
+        label = convoDate.toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          ...(isSameYear ? {} : { year: 'numeric' }),
+        });
+      }
+
+      const key = `date_${dayMidnight}`;
+      if (!groupsMap.has(key)) {
+        groupsMap.set(key, { label, timestamp: dayMidnight, convos: [] });
+      }
+      groupsMap.get(key)!.convos.push(convo);
+    }
+
+    const sortedGroups = Array.from(groupsMap.values()).sort((a, b) => b.timestamp - a.timestamp);
+
+    return sortedGroups.map((group) => ({
+      label: group.label,
+      headerClassName: 'group flex items-center justify-between w-full px-2.5 py-1 text-[11px] font-semibold text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors select-none cursor-pointer',
+      children: group.convos.map((convo) => ({
         value: convo.id,
         label: convo.title || 'New Chat',
         icon: convo.isPinned ? (
@@ -402,7 +432,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                 e.stopPropagation();
                 onTogglePinConversation?.(convo.id);
               }}
-              title={convo.isPinned ? "Unpin conversation" : "Pin conversation"}
+              title={convo.isPinned ? 'Unpin conversation' : 'Pin conversation'}
               className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent transition-colors"
             />
             <AnimatedIconButton
@@ -427,14 +457,14 @@ export const Sidebar = React.memo<SidebarProps>(({
             />
           </>
         ),
-      })) : [
-        {
-          value: 'new_chat',
-          label: 'New Chat',
-        }
-      ],
-    },
-  ], [isChatActive, activeTab, sortedConversations, onSelectTab, onCreateConversation, onDeleteConversation, onTogglePinConversation, effectiveHotkeys.newChat]);
+      })),
+    }));
+  }, [sortedConversations, onTogglePinConversation, onDeleteConversation]);
+
+  const defaultOpenIndices = useMemo(
+    () => dateBranchedItems.map((_, i) => i),
+    [dateBranchedItems.length]
+  );
 
   const effectiveWidth = isCollapsed ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth;
 
@@ -444,7 +474,7 @@ export const Sidebar = React.memo<SidebarProps>(({
         style={{ width: `${effectiveWidth}px` }}
         className={`relative h-screen flex flex-col justify-between ${
           isCollapsed ? 'p-2.5' : 'p-3.5'
-        } border-r border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#08090d] select-none flex-shrink-0 ${
+        } border-r border-[#e4e4eb] dark:border-[#1f1f22] bg-white dark:bg-[#111114] select-none flex-shrink-0 ${
           isResizing ? '' : 'transition-[width,padding] duration-200 ease-out'
         }`}
       >
@@ -483,7 +513,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                   onClick={handleToggleSidebar}
                   onMouseEnter={() => openLogoIconRef.current?.startAnimation()}
                   onMouseLeave={() => openLogoIconRef.current?.stopAnimation()}
-                  className="group/logo w-9 h-9 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent"
+                  className="group/logo w-9 h-9 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#18181c] transition-all cursor-pointer border-none bg-transparent"
                 >
                   {/* Default: Grokki Studio Logo */}
                   <img
@@ -526,121 +556,158 @@ export const Sidebar = React.memo<SidebarProps>(({
                 onClick={handleToggleSidebar}
                 title="Minimize sidebar"
                 shortcut={effectiveHotkeys.toggleSidebar}
-                className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent"
+                className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#18181c] transition-all cursor-pointer border-none bg-transparent"
               />
             </div>
           </div>
         )}
 
-        {/* Primary Navigation Menu */}
-        <nav className="flex flex-col gap-1">
-          {primaryNavItems.map((item) => {
-            const isActive = activeTab === item.id;
-            const isChatItem = item.id === 'chat';
-
-            if (isChatItem && !isCollapsed) {
-              return (
-                <div key={item.id} className="flex flex-col">
-                  <BranchedMenu
-                    items={chatBranchedItems}
-                    defaultOpen={[0]}
-                    defaultActive={activeConversationId}
-                    onSelect={(value) => {
-                      if (value === 'new_chat') {
-                        onCreateConversation?.();
-                      } else {
-                        onSelectConversation?.(value);
-                      }
-                      onSelectTab('chat');
-                    }}
-                    color={isDark ? '#f5f5f5' : '#1f2937'}
-                    accentColor={isDark ? '#f5f5f5' : '#111827'}
-                    lineColor={isDark ? '#3f3f46' : '#d4d4d8'}
-                    width={Math.max(150, effectiveWidth - 28)}
-                    rowHeight={32}
-                    indent={40}
-                    trunk={20}
-                    radius={8}
-                    lineWidth={1.5}
-                    fontSize={12}
-                    drawDuration={400}
-                    foldDuration={300}
-                    hideRail
-                  />
-                  {editingId && (
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-1 w-full px-2 py-1 mt-1 bg-gray-100 dark:bg-[#14161f] border border-blue-500/60 rounded-lg shadow-xs"
-                    >
-                      <input
-                        type="text"
-                        autoFocus
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleSaveRename(editingId);
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            handleCancelRename();
-                          }
-                        }}
-                        className="w-full text-[12px] bg-transparent text-gray-900 dark:text-gray-100 outline-none"
-                      />
-                      <AnimatedIconButton
-                        Icon={CheckIcon}
-                        iconSize={14}
-                        onClick={() => handleSaveRename(editingId)}
-                        className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-emerald-500 hover:text-emerald-400 cursor-pointer border-none bg-transparent flex-shrink-0"
-                        title="Save title"
-                      />
-                      <AnimatedIconButton
-                        Icon={XIcon}
-                        iconSize={14}
-                        onClick={handleCancelRename}
-                        className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer border-none bg-transparent flex-shrink-0"
-                        title="Cancel"
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
-            return (
-              <div key={item.id} className="flex flex-col">
-                <AnimatedSidebarRow
-                  Icon={item.Icon}
-                  label={item.label}
-                  isActive={isActive}
-                  isCollapsed={isCollapsed}
-                  onClick={() => onSelectTab(item.id)}
-                />
-              </div>
-            );
-          })}
-        </nav>
-
-        {/* Pinned Section */}
-        <div className="flex flex-col gap-0.5 pt-2 border-t border-gray-100 dark:border-[#1a1c24]">
-          {!isCollapsed && (
-            <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 px-3 py-1 tracking-wider uppercase select-none">
-              Pinned
-            </span>
-          )}
-          {pinnedNavItems.map((item) => (
+        {/* Primary Navigation & Recents List */}
+        <div className="flex flex-col gap-1 min-h-0 flex-1 overflow-y-auto no-scrollbar">
+          {/* Top Actions: New Chat & Overview (Home) */}
+          <div className="flex flex-col gap-0.5 flex-shrink-0">
             <AnimatedSidebarRow
-              key={item.id}
-              Icon={item.Icon}
-              label={item.label}
-              shortcut={item.id === 'settings' ? effectiveHotkeys.openSettings : undefined}
-              isActive={activeTab === item.id}
+              Icon={PlusIcon}
+              label="New Chat"
+              shortcut={effectiveHotkeys.newChat || 'Ctrl+N'}
+              isActive={isNewChatActive}
               isCollapsed={isCollapsed}
-              onClick={() => onSelectTab(item.id)}
+              onClick={() => {
+                onCreateConversation?.();
+                onSelectTab('chat');
+              }}
             />
-          ))}
+
+            <AnimatedSidebarRow
+              Icon={HouseIcon}
+              label="Home"
+              isActive={activeTab === 'overview'}
+              isCollapsed={isCollapsed}
+              onClick={() => onSelectTab('overview')}
+            />
+          </div>
+
+          {/* Sleek divider line under the overview button */}
+          <div className="my-1.5 mx-1 border-t border-gray-200/80 dark:border-[#1f1f22] flex-shrink-0" />
+
+          {/* Recents text */}
+          {!isCollapsed && (
+            <div className="flex items-center justify-between px-3 pt-0.5 pb-1 flex-shrink-0">
+              <span className="text-[10.5px] font-bold text-gray-400 dark:text-gray-500 tracking-wider uppercase select-none">
+                Recents
+              </span>
+            </div>
+          )}
+
+          {/* Creation Date Grouped Chat List with Branch Lines */}
+          {!isCollapsed ? (
+            <div className="flex flex-col flex-1 min-h-0">
+              <BranchedMenu
+                items={dateBranchedItems}
+                defaultOpen={defaultOpenIndices}
+                defaultActive={activeConversationId}
+                onSelect={(value) => {
+                  if (value === 'new_chat') {
+                    onCreateConversation?.();
+                  } else {
+                    onSelectConversation?.(value);
+                  }
+                  onSelectTab('chat');
+                }}
+                color={isDark ? '#e4e4e7' : '#1f2937'}
+                accentColor={isDark ? '#ffffff' : '#111827'}
+                lineColor={isDark ? '#3f3f46' : '#d4d4d8'}
+                width={Math.max(150, effectiveWidth - 28)}
+                rowHeight={30}
+                indent={34}
+                trunk={16}
+                radius={8}
+                lineWidth={1.5}
+                fontSize={12}
+                drawDuration={350}
+                foldDuration={250}
+                hideRail
+              />
+              {editingId && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-1 w-full px-2 py-1 mt-1 bg-gray-100 dark:bg-[#16161a] border border-blue-500/60 rounded-lg shadow-xs"
+                >
+                  <input
+                    type="text"
+                    autoFocus
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSaveRename(editingId);
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        handleCancelRename();
+                      }
+                    }}
+                    className="w-full text-[12px] bg-transparent text-gray-900 dark:text-gray-100 outline-none"
+                  />
+                  <AnimatedIconButton
+                    Icon={CheckIcon}
+                    iconSize={14}
+                    onClick={() => handleSaveRename(editingId)}
+                    className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-emerald-500 hover:text-emerald-400 cursor-pointer border-none bg-transparent flex-shrink-0"
+                    title="Save title"
+                  />
+                  <AnimatedIconButton
+                    Icon={XIcon}
+                    iconSize={14}
+                    onClick={handleCancelRename}
+                    className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer border-none bg-transparent flex-shrink-0"
+                    title="Cancel"
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1 items-center flex-1 min-h-0 overflow-y-auto no-scrollbar">
+              {sortedConversations.slice(0, 8).map((convo) => {
+                const isConvoActive = activeTab === 'chat' && activeConversationId === convo.id;
+                return (
+                  <WarmTooltip
+                    key={convo.id}
+                    content={convo.title || 'Chat'}
+                    side="right"
+                    surfaceColor="#f5f5f5"
+                    inkColor="#18181b"
+                    size="md"
+                    radius={8}
+                    gap={8}
+                    arrow
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectConversation?.(convo.id);
+                        onSelectTab('chat');
+                      }}
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border-none ${
+                        isConvoActive
+                          ? 'bg-gray-100 dark:bg-[#1f1f24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
+                          : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#18181c]'
+                      }`}
+                    >
+                      {convo.isPinned ? (
+                        <Pin size={13} fill="currentColor" className="rotate-45 text-gray-700 dark:text-white" />
+                      ) : (
+                        <MessageSquareIcon size={15} />
+                      )}
+                    </button>
+                  </WarmTooltip>
+                );
+              })}
+            </div>
+          )}
         </div>
+
+
       </div>
 
       {/* Bottom Profile Card & Account Switcher Popover */}
@@ -650,10 +717,10 @@ export const Sidebar = React.memo<SidebarProps>(({
           <div
             className={`absolute bottom-full left-0 ${
               isCollapsed ? 'w-56' : 'right-0'
-            } mb-2 p-1.5 bg-white dark:bg-[#13141a] border border-gray-300 dark:border-[#1e2029] rounded-2xl z-50 flex flex-col gap-1 shadow-lg`}
+            } mb-2 p-1.5 bg-white dark:bg-[#16161a] border border-gray-300 dark:border-[#26262e] rounded-2xl z-50 flex flex-col gap-1 shadow-lg`}
           >
             {/* Account Info Header */}
-            <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-[#181a22] border border-gray-100 dark:border-[#202330] flex items-center gap-2.5">
+            <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-[#1c1c22] border border-gray-100 dark:border-[#2a2a32] flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 overflow-hidden shadow-xs relative">
                 {avatarUrl && !imgError ? (
                   <img
@@ -690,22 +757,23 @@ export const Sidebar = React.memo<SidebarProps>(({
                   if (onSwitchGoogle) {
                     await onSwitchGoogle();
                   } else {
-                    onSelectTab('google');
+                    onOpenSettings?.('google');
                   }
                 }}
-                className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent text-left"
+                className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#18181c] transition-all cursor-pointer border-none bg-transparent text-left"
               />
 
               <AnimatedIconButton
-                Icon={GlobeIcon}
+                Icon={SettingsIcon}
                 iconSize={14}
-                label="Workspace Settings"
+                label="Settings"
+                shortcut={effectiveHotkeys.openSettings || 'Ctrl+,'}
                 iconClassName="text-gray-500"
                 onClick={() => {
                   setAccountMenuOpen(false);
-                  onSelectTab('google');
+                  onOpenSettings?.('settings');
                 }}
-                className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border-none bg-transparent text-left"
+                className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#18181c] transition-all cursor-pointer border-none bg-transparent text-left"
               />
 
               {googleConnected && (
@@ -750,8 +818,8 @@ export const Sidebar = React.memo<SidebarProps>(({
             onMouseLeave={() => profileChevronRef.current?.stopAnimation()}
             className={`w-full flex items-center ${
               isCollapsed
-                ? 'justify-center p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-[#181a22]'
-                : 'justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#13141a] hover:bg-gray-100 dark:hover:bg-[#181a22] border border-gray-200 dark:border-[#1e2029] shadow-xs'
+                ? 'justify-center p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1c1c22]'
+                : 'justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#16161a] hover:bg-gray-100 dark:hover:bg-[#1c1c22] border border-gray-200 dark:border-[#222228] shadow-xs'
             } transition-all cursor-pointer`}
           >
             <div className="flex items-center gap-2.5 min-w-0">

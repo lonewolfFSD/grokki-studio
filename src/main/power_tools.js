@@ -616,7 +616,7 @@ FORMAT REQUIREMENTS (Clean GitHub Markdown):
       success: true,
       airgapActive: this.airgapForced,
       message: this.airgapForced
-        ? '✈️ **100% Offline Air-Gapped Mode ENABLED!**\n- All cloud APIs disabled.\n- Routed to local Ollama & Kokoro-82M offline TTS.\n- System tools, window managers, and local file operations remain 100% functional!'
+        ? '✈️ **100% Offline Air-Gapped Mode ENABLED!**\n- All cloud APIs disabled.\n- Routed to local Ollama & VoiceStudio offline TTS.\n- System tools, window managers, and local file operations remain 100% functional!'
         : '🌐 **Air-Gapped Mode DISABLED.** Reconnected to high-speed cloud AI models (Gemini / Groq).',
     };
   }

@@ -24,11 +24,15 @@ class VoiceEngine {
     this.audioChunks = [];
     this.wakeWord = 'hey grokki';
     this.ttsEnabled = true;
-    this.voiceName = 'af_bella';
-    this.ttsProvider = 'grokki';
+    this.voiceName = 'expr-voice-2-f';
+    this.ttsProvider = 'grokki_voice';
     this.elevenlabsVoiceId = 'JBFqnCBsd6RMkjVDRZzb';
     this.elevenlabsApiKey = '';
     this.elevenlabsModel = 'eleven_v3';
+    this.voiceStudioEndpoint = 'http://localhost:3900';
+    this.voiceStudioModel = 'tts-1';
+    this.voiceStudioVoiceId = 'default';
+    this.voiceStudioApiKey = '';
     this.currentAudio = null;
 
     // Voice Activity & Silence Detection
@@ -52,11 +56,15 @@ class VoiceEngine {
     this.voiceName = voice || 'af_bella';
   }
 
-  setTTSProvider(provider, elevenlabsVoiceId, elevenlabsApiKey, elevenlabsModel) {
-    this.ttsProvider = provider || 'grokki';
+  setTTSProvider(provider, elevenlabsVoiceId, elevenlabsApiKey, elevenlabsModel, extraOptions = {}) {
+    this.ttsProvider = provider || 'grokki_voice';
     if (elevenlabsVoiceId) this.elevenlabsVoiceId = elevenlabsVoiceId;
     if (elevenlabsApiKey !== undefined) this.elevenlabsApiKey = elevenlabsApiKey;
     if (elevenlabsModel) this.elevenlabsModel = elevenlabsModel;
+    if (extraOptions.voiceStudioEndpoint) this.voiceStudioEndpoint = extraOptions.voiceStudioEndpoint;
+    if (extraOptions.voiceStudioModel) this.voiceStudioModel = extraOptions.voiceStudioModel;
+    if (extraOptions.voiceStudioVoiceId) this.voiceStudioVoiceId = extraOptions.voiceStudioVoiceId;
+    if (extraOptions.voiceStudioApiKey !== undefined) this.voiceStudioApiKey = extraOptions.voiceStudioApiKey;
   }
 
   async startListening() {
@@ -378,7 +386,7 @@ class VoiceEngine {
     return text;
   }
 
-  speakWithNativeSynth(text, onComplete) {
+  speakWithNativeSynth(text, onComplete, langHint, genderHint) {
     if (!window.speechSynthesis) {
       this.grokbot.setAudioLevel(0);
       this.grokbot.setState('idle');
@@ -390,15 +398,41 @@ class VoiceEngine {
       window.speechSynthesis.cancel();
       const spokenText = this.formatLocalSpeech(text);
       const utterance = new SpeechSynthesisUtterance(spokenText);
-      utterance.rate = 1.08;
-      utterance.pitch = 1.02;
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+
+      // Detect language from text scripts or explicit hint
+      let detectedLang = langHint || this.voiceLanguage || 'en-US';
+      if (/[\u3040-\u30ff\u31f0-\u31ff]/.test(text)) detectedLang = 'ja-JP';
+      else if (/[\u0900-\u097F]/.test(text)) detectedLang = 'hi-IN';
+      else if (/[\u4e00-\u9fff]/.test(text)) detectedLang = 'zh-CN';
+      else if (/[\u0600-\u06FF]/.test(text)) detectedLang = 'ar-SA';
+      else if (/[\uac00-\ud7af]/.test(text)) detectedLang = 'ko-KR';
+      else if (/[\u0400-\u04FF]/.test(text)) detectedLang = 'ru-RU';
+      else if (/¡|¿|[áéíóúñ]/i.test(text)) detectedLang = 'es-ES';
+      else if (/[àâçéèêëîïôûùüÿ]/i.test(text)) detectedLang = 'fr-FR';
+      else if (/[äöüß]/i.test(text)) detectedLang = 'de-DE';
+
+      utterance.lang = detectedLang;
 
       const voices = window.speechSynthesis.getVoices() || [];
-      const isMale = /^am_|^bm_/i.test(this.voiceName || '');
-      const isBritish = /^bf_|^bm_/i.test(this.voiceName || '');
+      const prefix = detectedLang.split('-')[0].toLowerCase();
+      const isFemale = genderHint ? genderHint === 'female' : !/adam|george|lukas|kenji|bo|arav|julien|mateo/i.test(this.voiceName || '');
+
       const preferredVoice =
-        voices.find((v) => /natural|online/i.test(v.name) && (isBritish ? /uk|british|gb/i.test(v.lang + v.name) : /us|english/i.test(v.lang + v.name)) && (isMale ? /guy|ryan|christopher|eric|andrew|brian|male/i.test(v.name) : /aria|jenny|ava|Emma|sonia|libby|zira|female/i.test(v.name))) ||
-        voices.find((v) => /natural|online|aria|jenny|ava|zira|david/i.test(v.name) && /en/i.test(v.lang)) ||
+        voices.find((v) => {
+          const l = v.lang.toLowerCase();
+          const matchLang = l.startsWith(prefix) || l.replace('_', '-').startsWith(prefix);
+          if (!matchLang) return false;
+          const n = v.name.toLowerCase();
+          return isFemale
+            ? /female|woman|zira|haruka|ayumi|kalpana|swara|helena|laura|julie|hedda|huihui|yaoyao/i.test(n)
+            : /male|man|david|george|ichiro|hemant|pablo|paul|stefan|kangkang/i.test(n);
+        }) ||
+        voices.find((v) => {
+          const l = v.lang.toLowerCase();
+          return l.startsWith(prefix) || l.replace('_', '-').startsWith(prefix);
+        }) ||
         voices.find((v) => /en/i.test(v.lang)) ||
         voices[0];
 
@@ -446,7 +480,12 @@ class VoiceEngine {
     }
   }
 
-  // Kokoro-82M Studio Natural Voice Output with Instant Native Fallback
+  setVoice(voice, language) {
+    this.voiceName = voice || 'default';
+    if (language) this.voiceLanguage = language;
+  }
+
+  // VoiceStudio Natural Voice Output with Instant Native Fallback
   async speak(text, onComplete) {
     if (!this.ttsEnabled || !text) {
       if (onComplete) onComplete();
@@ -462,9 +501,10 @@ class VoiceEngine {
     }
 
     try {
+      const isVoiceStudio = this.ttsProvider === 'voicestudio';
       const isElevenLabs = this.ttsProvider === 'elevenlabs';
-      const voiceIdToPass = isElevenLabs ? (this.elevenlabsVoiceId || 'JBFqnCBsd6RMkjVDRZzb') : (this.voiceName || 'af_heart');
-      const timeoutMs = isElevenLabs ? 4500 : 1400;
+      const voiceIdToPass = isElevenLabs ? (this.elevenlabsVoiceId || 'JBFqnCBsd6RMkjVDRZzb') : (this.voiceName || 'expr-voice-2-f');
+      const timeoutMs = 15000;
 
       let res = null;
       if (isElevenLabs && this.elevenlabsApiKey && this.elevenlabsApiKey.trim()) {
@@ -518,15 +558,17 @@ class VoiceEngine {
         res = await Promise.race([
           window.jarvisAPI.speakText(text, voiceIdToPass, {
             provider: this.ttsProvider,
-            apiKey: this.elevenlabsApiKey,
-            model: this.elevenlabsModel || 'eleven_v3',
+            apiKey: isVoiceStudio ? this.voiceStudioApiKey : this.elevenlabsApiKey,
+            model: isVoiceStudio ? (this.voiceStudioModel || 'tts-1') : (this.elevenlabsModel || 'eleven_v3'),
+            endpoint: this.voiceStudioEndpoint || 'http://localhost:3900',
           }),
           new Promise((resolve) => setTimeout(() => resolve({ success: false, useFastNative: true }), timeoutMs)),
         ]);
       }
       if (!res || !res.success || !res.base64Audio) {
         const cleanToSpeak = (res && res.cleanText) ? res.cleanText : text;
-        this.speakWithNativeSynth(cleanToSpeak, onComplete);
+        console.warn('[Voice] VoiceStudio response missing audio. Discarding robotic fallback.');
+        if (onComplete) onComplete();
         return;
       }
 
@@ -630,7 +672,7 @@ class VoiceEngine {
 
       await audio.play();
     } catch (err) {
-      console.warn('[VoiceEngine] Kokoro speech output failed:', err);
+      console.warn('[VoiceEngine] VoiceStudio speech output failed:', err);
       this.grokbot.setAudioLevel(0);
       this.grokbot.setState('idle');
       if (window.grokkiLightRays && typeof window.grokkiLightRays.resetAudioReaction === 'function') {

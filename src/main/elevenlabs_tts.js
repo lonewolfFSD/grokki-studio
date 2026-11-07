@@ -1,4 +1,4 @@
-const kokoroTTS = require('./kokoro_tts');
+const voicestudioTTS = require('./voicestudio_tts');
 
 const CURATED_ELEVENLABS_VOICES = [
   // Official ElevenLabs Premade & Flagship Voices (with real voice IDs)
@@ -360,7 +360,7 @@ class ElevenLabsTTSService {
 
   async synthesize(text, voiceId = 'JBFqnCBsd6RMkjVDRZzb', apiKey = '', modelId = 'eleven_v3') {
     const key = String(apiKey || process.env.ELEVENLABS_API_KEY || '').trim();
-    const cleanText = kokoroTTS.formatForExpressiveSpeech(text);
+    const cleanText = voicestudioTTS.formatForExpressiveSpeech(text);
     if (!cleanText) {
       return { success: false, error: 'Empty text', cleanText: '' };
     }

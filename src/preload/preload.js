@@ -66,7 +66,11 @@ try {
     synthesizeConsensus: (prompt, replyA, replyB, brainAName, brainBName) => ipcRenderer.invoke('jarvis:synthesize-consensus', prompt, replyA, replyB, brainAName, brainBName),
     executeAIAudio: (data) => ipcRenderer.invoke('jarvis:execute-ai-audio', data),
     speakText: (text, voice, options = {}) => ipcRenderer.invoke('jarvis:speak', { text, voice, ...options }),
+    fetchGrokkiVoices: () => ipcRenderer.invoke('jarvis:fetch-grokki-voices'),
+    checkGrokkiVoiceHealth: () => ipcRenderer.invoke('jarvis:check-grokki-voice-health'),
     fetchElevenLabsVoices: (options = {}) => ipcRenderer.invoke('jarvis:fetch-elevenlabs-voices', options),
+    fetchVoiceStudioVoices: (options = {}) => ipcRenderer.invoke('jarvis:fetch-voicestudio-voices', options),
+    checkVoiceStudioHealth: (options = {}) => ipcRenderer.invoke('jarvis:check-voicestudio-health', options),
     selectFile: () => ipcRenderer.invoke('jarvis:select-file'),
     searchWeb: (query, maxResults) => ipcRenderer.invoke('jarvis:search-web', query, maxResults),
 

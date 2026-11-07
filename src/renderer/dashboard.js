@@ -256,7 +256,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       selectedVoice = vId;
       updateVoiceCardsUI();
       const vName = card.querySelector('strong')?.innerText || vId;
-      statActiveVoice.innerText = `Kokoro-82M (${vName})`;
+      statActiveVoice.innerText = `VoiceStudio (${vName})`;
       markUnsaved();
     });
 
@@ -423,7 +423,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const currentActiveVoiceCard = document.querySelector(`.voice-card[data-voice="${selectedVoice}"]`);
     if (currentActiveVoiceCard) {
       const vTitle = currentActiveVoiceCard.querySelector('strong')?.innerText || selectedVoice;
-      statActiveVoice.innerText = `Kokoro-82M (${vTitle})`;
+      statActiveVoice.innerText = `VoiceStudio (${vTitle})`;
     }
 
     toggleTts.checked = cfg.ttsEnabled !== false;

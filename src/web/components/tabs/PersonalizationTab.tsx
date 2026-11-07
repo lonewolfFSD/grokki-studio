@@ -189,7 +189,7 @@ export const PersonalizationTab = React.memo<PersonalizationTabProps>(({
       </div>
 
       {/* User Identity Form */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
           User Profile
         </h3>
@@ -237,7 +237,7 @@ export const PersonalizationTab = React.memo<PersonalizationTabProps>(({
       </div>
 
       {/* University & Academic Portal */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center shrink-0 p-1.5 overflow-hidden shadow-2xs">
@@ -499,7 +499,7 @@ export const PersonalizationTab = React.memo<PersonalizationTabProps>(({
       </div>
 
       {/* Companion Tone */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
           Tone & Persona
         </h3>

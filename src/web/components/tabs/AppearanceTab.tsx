@@ -109,7 +109,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
       </div>
 
       {/* Studio Theme Light / Dark Selection */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
@@ -167,7 +167,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
       </div>
 
       {/* Unified Grokki Studio, Island & Control Panel Theme Carousel */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
@@ -267,7 +267,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
       </div>
 
       {/* Chat Background Effect */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-3.5">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-3.5">
         <div className="flex items-center justify-between">
           <div>
             <strong className="block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
@@ -340,7 +340,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
       </div>
 
       {/* Chat Background Noise Effect */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl px-5 py-4 flex items-center justify-between shadow-xs">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl px-5 py-4 flex items-center justify-between shadow-xs">
         <div>
           <strong className="block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
             Chat Background Noise & Scanlines
@@ -368,7 +368,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
 
       
       {/* Smooth Physics Custom Cursor */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl px-5 py-4 flex items-center justify-between shadow-xs">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl px-5 py-4 flex items-center justify-between shadow-xs">
         <div>
           <strong className="block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
             Smooth Animated Cursor
@@ -395,7 +395,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
       </div>
 
       {/* Fluid Glow Cursor Trail */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl px-5 py-4 flex items-center justify-between shadow-xs">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl px-5 py-4 flex items-center justify-between shadow-xs">
         <div>
           <strong className="block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
             Fluid Glow Cursor Trail
@@ -423,7 +423,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
 
       
       {/* Smooth Scrolling Toggle & Intensity Slider */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
             <strong className="block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
@@ -478,7 +478,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
       </div>
 
       {/* Hotkey Configuration */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl px-5 py-4 flex items-center justify-between shadow-xs">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl px-5 py-4 flex items-center justify-between shadow-xs">
         <div>
           <strong className="block text-xs font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
             Global Summon Hotkey

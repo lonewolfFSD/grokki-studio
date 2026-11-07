@@ -144,14 +144,14 @@ export const Header = React.memo<HeaderProps>(({
   };
 
   return (
-    <header className="h-[52px] px-5 flex items-center justify-between border-b border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#08090d] flex-shrink-0 select-none">
+    <header className="h-[52px] px-5 flex items-center justify-between border-b border-[#e4e4eb] dark:border-[#1f1f22] bg-white dark:bg-[#070709] flex-shrink-0 select-none">
       {/* Left: Window Drag Region & Current View Pill */}
       <div className="flex items-center gap-2.5 flex-1 h-full select-none" style={{ WebkitAppRegion: 'drag' } as any}>
         <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as any}>
           <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
             {title}
           </span>
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029] font-mono">
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1f1f22] font-mono">
             Beta
           </span>
         </div>
@@ -194,7 +194,7 @@ export const Header = React.memo<HeaderProps>(({
               disabled={isCustomThemeActive}
               onClick={isCustomThemeActive ? undefined : onToggleTheme}
               aria-label={isCustomThemeActive ? 'Theme managed by custom palette' : (theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode')}
-              className={`w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 flex items-center justify-center transition-all ${
+              className={`w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1f1f22] bg-transparent text-gray-500 dark:text-gray-400 flex items-center justify-center transition-all ${
                 isCustomThemeActive
                   ? 'opacity-35 cursor-not-allowed'
                   : 'hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] cursor-pointer'
@@ -251,7 +251,7 @@ export const Header = React.memo<HeaderProps>(({
                 onClick={handleCheckOrRestart}
                 aria-label="Check for updates"
                 disabled={updateState === 'checking'}
-                className={`w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent flex items-center justify-center transition-all cursor-pointer ${
+                className={`w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1f1f22] bg-transparent flex items-center justify-center transition-all cursor-pointer ${
                   updateState === 'up-to-date'
                     ? 'text-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500/30'
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24]'
@@ -287,7 +287,7 @@ export const Header = React.memo<HeaderProps>(({
               type="button"
               onClick={onMinimize}
               aria-label="Minimize Window"
-              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
+              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1f1f22] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
             >
               <Minus className="w-4 h-4" />
             </button>
@@ -312,7 +312,7 @@ export const Header = React.memo<HeaderProps>(({
               type="button"
               onClick={onMaximize}
               aria-label={isMaximized ? 'Restore Down' : 'Maximize Window'}
-              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
+              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1f1f22] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
             >
               {isMaximized ? (
                 <svg
@@ -350,7 +350,7 @@ export const Header = React.memo<HeaderProps>(({
               type="button"
               onClick={onClose}
               aria-label="Close Window"
-              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
+              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1f1f22] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>

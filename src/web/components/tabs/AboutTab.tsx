@@ -53,7 +53,7 @@ const formatStars = (n: number | null): string => {
 };
 
 const cardClass =
-  'bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-2xl shadow-xs';
+  'bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-2xl shadow-xs';
 
 const linkRowClass =
   'group flex items-center justify-between gap-3 px-4 py-3 rounded-xl text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1a1c24] transition-colors';

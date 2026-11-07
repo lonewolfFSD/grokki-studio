@@ -14,7 +14,8 @@ const { GoogleGenAI } = require('@google/genai');
 const agentBrain = require('./agent_brain');
 const { searchWeb } = require('./web_search');
 const { transcribeWithGroqWhisper } = require('./ai_providers');
-const kokoroTTS = require('./kokoro_tts');
+const voicestudioTTS = require('./voicestudio_tts');
+const grokkiVoiceTTS = require('./grokki_voice_tts');
 const elevenlabsTTS = require('./elevenlabs_tts');
 const PocketGrokkiServer = require('./pocket_grokki_server');
 app.setName('Grokki Studio');
@@ -174,8 +175,15 @@ function loadConfig() {
       if (!data.wakeWord) data.wakeWord = 'Hey Grokki';
       if (data.wakeWordEnabled === undefined) data.wakeWordEnabled = true;
       if (!data.musicProvider) data.musicProvider = 'ytmusic';
-      if (!data.ttsVoice) data.ttsVoice = 'af_bella';
-      if (!data.ttsProvider) data.ttsProvider = 'grokki';
+      if (!data.ttsVoice) data.ttsVoice = 'expr-voice-2-f';
+      if (!data.ttsProvider || data.ttsProvider === 'grokki' || data.ttsProvider === 'voicestudio') data.ttsProvider = 'grokki_voice';
+      if (!data.grokkiVoiceId) data.grokkiVoiceId = 'expr-voice-2-f';
+      if (!data.grokkiVoiceName) data.grokkiVoiceName = 'Bella';
+      if (!data.voiceStudioEndpoint) data.voiceStudioEndpoint = 'http://localhost:3900';
+      if (!data.voiceStudioModel) data.voiceStudioModel = 'tts-1';
+      if (!data.voiceStudioVoiceId) data.voiceStudioVoiceId = 'default';
+      if (!data.voiceStudioVoiceName) data.voiceStudioVoiceName = 'VoiceStudio Default';
+      if (data.voiceStudioApiKey === undefined) data.voiceStudioApiKey = '';
       if (data.elevenlabsApiKey === undefined) data.elevenlabsApiKey = (process.env.ELEVENLABS_API_KEY || '').trim();
       if (!data.elevenlabsVoiceId) data.elevenlabsVoiceId = 'JBFqnCBsd6RMkjVDRZzb';
       if (!data.elevenlabsVoiceName) data.elevenlabsVoiceName = 'George';
@@ -255,8 +263,15 @@ function loadConfig() {
     hotkey: 'Alt+Q',
     voiceEnabled: true,
     ttsEnabled: true,
-    ttsVoice: 'af_bella',
-    ttsProvider: 'grokki',
+    ttsVoice: 'expr-voice-2-f',
+    ttsProvider: 'grokki_voice',
+    grokkiVoiceId: 'expr-voice-2-f',
+    grokkiVoiceName: 'Bella',
+    voiceStudioEndpoint: 'http://localhost:3900',
+    voiceStudioModel: 'tts-1',
+    voiceStudioVoiceId: 'default',
+    voiceStudioVoiceName: 'VoiceStudio Default',
+    voiceStudioApiKey: '',
     elevenlabsApiKey: (process.env.ELEVENLABS_API_KEY || '').trim(),
     elevenlabsVoiceId: 'JBFqnCBsd6RMkjVDRZzb',
     elevenlabsVoiceName: 'George',
@@ -3670,10 +3685,10 @@ ipcMain.handle('jarvis:execute-ai-audio', async (event, { base64Audio, mimeType 
   return await agentBrain.runAudio(base64Audio, mimeType, config);
 });
 
-ipcMain.handle('jarvis:speak', async (event, { text, voice, provider, apiKey, model } = {}) => {
+ipcMain.handle('jarvis:speak', async (event, { text, voice, provider, apiKey, model, endpoint, speed } = {}) => {
   const config = loadConfig();
   if (config.ttsEnabled === false && !provider) return { success: false, disabled: true };
-  const activeProvider = provider || config.ttsProvider || 'grokki';
+  const activeProvider = provider || config.ttsProvider || 'grokki_voice';
   if (activeProvider === 'elevenlabs') {
     const elKey = (apiKey !== undefined ? apiKey : config.elevenlabsApiKey) || '';
     const elVoice = voice || config.elevenlabsVoiceId || 'JBFqnCBsd6RMkjVDRZzb';
@@ -3681,15 +3696,57 @@ ipcMain.handle('jarvis:speak', async (event, { text, voice, provider, apiKey, mo
     if (elKey.trim()) {
       const elRes = await elevenlabsTTS.synthesize(text, elVoice, elKey.trim(), elModel);
       if (elRes && elRes.success) return elRes;
-      if (provider === 'elevenlabs') return elRes; // explicit preview request should report error if key invalid
+      if (provider === 'elevenlabs') return elRes;
     } else if (provider === 'elevenlabs') {
       return { success: false, error: 'Please enter your ElevenLabs API key first.' };
     }
   }
-  const voiceToUse = (voice && (voice.startsWith('af_') || voice.startsWith('am_') || voice.startsWith('bf_') || voice.startsWith('bm_')))
-    ? voice
-    : (config.ttsVoice || 'af_bella');
-  return await kokoroTTS.synthesize(text, voiceToUse);
+
+  // Primary: Grokki Voice (KittenTTS on-device neural engine)
+  const gvVoice = voice || config.grokkiVoiceId || config.ttsVoice || 'expr-voice-2-f';
+  try {
+    const gvRes = await grokkiVoiceTTS.synthesize(text, {
+      voice: gvVoice,
+      speed,
+    });
+    if (gvRes && gvRes.success) return gvRes;
+  } catch (err) {
+    console.warn('[Main] Grokki Voice synthesis error:', err);
+  }
+
+  // Fallback to legacy voicestudio if explicitly requested and available
+  if (provider === 'voicestudio') {
+    const vsEndpoint = (endpoint !== undefined ? endpoint : config.voiceStudioEndpoint) || 'http://localhost:3900';
+    const vsApiKey = (apiKey !== undefined ? apiKey : config.voiceStudioApiKey) || '';
+    const vsVoice = voice || config.voiceStudioVoiceId || 'default';
+    const vsModel = model || config.voiceStudioModel || 'tts-1';
+    const vsRes = await voicestudioTTS.synthesize(text, {
+      voice: vsVoice,
+      model: vsModel,
+      endpoint: vsEndpoint,
+      apiKey: vsApiKey,
+      speed,
+    });
+    if (vsRes && vsRes.success) return vsRes;
+  }
+
+  return { success: false, cleanText: text, error: 'Grokki Voice synthesis failed' };
+});
+
+ipcMain.handle('jarvis:fetch-grokki-voices', async () => {
+  return await grokkiVoiceTTS.fetchVoices();
+});
+
+ipcMain.handle('jarvis:check-grokki-voice-health', async () => {
+  return await grokkiVoiceTTS.checkHealth();
+});
+
+ipcMain.handle('jarvis:fetch-voicestudio-voices', async (event, { endpoint, apiKey } = {}) => {
+  return await grokkiVoiceTTS.fetchVoices();
+});
+
+ipcMain.handle('jarvis:check-voicestudio-health', async (event, { endpoint } = {}) => {
+  return await grokkiVoiceTTS.checkHealth();
 });
 
 ipcMain.handle('jarvis:fetch-elevenlabs-voices', async (event, { apiKey, search, pageSize } = {}) => {
@@ -4667,10 +4724,15 @@ app.whenReady().then(() => {
     wakeWordService.start();
   }
 
-  // Pre-warm Kokoro-82M voice model in memory so first voice reply is instant
-  if (config.ttsEnabled !== false && kokoroTTS && typeof kokoroTTS.getTTS === 'function') {
-    kokoroTTS.getTTS().catch((e) => console.warn('[Main] Kokoro pre-warm warning:', e.message));
-  }
+  // Grokki Voice (KittenTTS) engine warm-up guard
+  (async () => {
+    try {
+      await grokkiVoiceTTS.ensureWorker();
+      console.log('[Main] Grokki Voice neural worker initialized and ready.');
+    } catch (e) {
+      console.warn('[Main] Error during Grokki Voice startup:', e.message);
+    }
+  })();
 
   // Background Reminder & Timed OS Action trigger
   agentBrain.onReminderTriggered = (data) => {

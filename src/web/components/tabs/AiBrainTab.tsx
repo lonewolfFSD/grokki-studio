@@ -361,7 +361,7 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
   },
 };
 
-const SURFACE = 'bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029]';
+const SURFACE = 'bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22]';
 
 const INPUT_CLASS =
   'w-full h-9 px-3 rounded-lg text-sm bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-gray-900 dark:focus:border-white focus:outline-none font-mono';

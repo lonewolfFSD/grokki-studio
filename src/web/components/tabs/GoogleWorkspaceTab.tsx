@@ -1037,7 +1037,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       </div>
 
       {/* 1. Google Workspace Accordion Card */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-200">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl shadow-xs overflow-hidden transition-all duration-200">
         <div
           onClick={() => { setGoogleExpanded((prev) => !prev); notifyAccordionToggled(); }}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
@@ -1147,7 +1147,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       </div>
 
       {/* 2. WhatsApp Card - Styled to match image.png */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-2xl shadow-xs overflow-hidden transition-all duration-300">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-2xl shadow-xs overflow-hidden transition-all duration-300">
         <div
           onClick={() => { setWhatsappExpanded((prev) => !prev); notifyAccordionToggled(); }}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
@@ -1317,7 +1317,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       </div>
 
       {/* 3. Music Streaming Accordion Card */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs transition-all duration-300">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl shadow-xs transition-all duration-300">
         <div
           onClick={() => { setMusicExpanded((prev) => !prev); notifyAccordionToggled(); }}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
@@ -1408,7 +1408,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       </div>
 
       {/* 4. Notion Workspace Accordion Card */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
         <div
           onClick={() => { setNotionExpanded((prev) => !prev); notifyAccordionToggled(); }}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
@@ -1560,7 +1560,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       </div>
 
       {/* 3. Obsidian Vault Accordion Card */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
         <div
           onClick={() => { setObsidianExpanded((prev) => !prev); notifyAccordionToggled(); }}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"
@@ -1670,7 +1670,7 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       </div>
 
       {/* 4. GitHub & Git CLI Workspace Accordion Card */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl shadow-xs overflow-hidden transition-all duration-300">
         <div
           onClick={() => { setGithubExpanded((prev) => !prev); notifyAccordionToggled(); }}
           className="p-5 flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-[#161822]/50 transition-colors"

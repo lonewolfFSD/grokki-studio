@@ -92,7 +92,14 @@ export interface JarvisConfig {
   wakeWordEnabled?: boolean;
   musicProvider?: string;
   ttsVoice?: string;
-  ttsProvider?: 'grokki' | 'elevenlabs';
+  ttsProvider?: 'grokki' | 'grokki_voice' | 'elevenlabs' | 'voicestudio';
+  grokkiVoiceId?: string;
+  grokkiVoiceName?: string;
+  voiceStudioEndpoint?: string;
+  voiceStudioModel?: string;
+  voiceStudioVoiceId?: string;
+  voiceStudioVoiceName?: string;
+  voiceStudioApiKey?: string;
   elevenlabsApiKey?: string;
   elevenlabsVoiceId?: string;
   elevenlabsVoiceName?: string;
@@ -275,6 +282,7 @@ export interface WorkspaceMention {
 export interface GroundingSource {
   id: number;
   title: string;
+  createdAt?: number;
   url: string;
   snippet: string;
   hostname: string;
@@ -398,7 +406,28 @@ export interface JarvisAPI {
   testAiKey: (options: { provider: string; key?: string; model?: string; endpoint?: string }) => Promise<{ success: boolean; latencyMs?: number; reply?: string; error?: string }>;
   fetchProviderModels?: (options: { provider: string; key?: string; endpoint?: string }) => Promise<{ success: boolean; models?: string[]; error?: string }>;
   getSystemInfo: () => Promise<SystemInfo>;
-  speakText: (text: string, voice: string, options?: { provider?: 'grokki' | 'elevenlabs'; apiKey?: string; model?: string }) => Promise<{ success: boolean; base64Audio?: string; mimeType?: string; cleanText?: string; error?: string }>;
+  speakText: (text: string, voice: string, options?: { provider?: 'grokki' | 'grokki_voice' | 'elevenlabs' | 'voicestudio'; apiKey?: string; model?: string; endpoint?: string; speed?: number }) => Promise<{ success: boolean; base64Audio?: string; mimeType?: string; cleanText?: string; error?: string }>;
+  fetchVoiceStudioVoices?: (options?: { endpoint?: string; apiKey?: string }) => Promise<{
+    success: boolean;
+    connected?: boolean;
+    endpoint?: string;
+    voices?: Array<{
+      id: string;
+      name: string;
+      style: string;
+      tag: string;
+      accent: 'us' | 'uk';
+      gender: 'female' | 'male';
+      category?: string;
+      previewUrl?: string;
+    }>;
+    error?: string;
+  }>;
+  checkVoiceStudioHealth?: (options?: { endpoint?: string }) => Promise<{
+    connected: boolean;
+    endpoint?: string;
+    message?: string;
+  }>;
   fetchElevenLabsVoices?: (options?: { apiKey?: string; search?: string; pageSize?: number }) => Promise<{
     success: boolean;
     voices?: Array<{

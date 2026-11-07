@@ -587,7 +587,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
       </div>
 
       {/* Spatial Multi-Hand Controls (Air Cursor) */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -822,7 +822,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
       </div>
 
       {/* Keyboard Shortcuts & Hotkeys Section */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight">
@@ -970,7 +970,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
       </div>
 
       {/* 1. Window Sizing & Display Mode */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
          
           <div>
@@ -1084,7 +1084,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
       </div>
 
       {/* 2. Window Close & Background Behavior */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
           <div>
             <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight">
@@ -1167,7 +1167,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
       </div>
 
       {/* 3. Startup & Boot Automation */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
           
           <div>
@@ -1330,7 +1330,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
       </div>
 
       {/* 4. Chat & Streaming Experience */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
           
           <div>
@@ -1553,7 +1553,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
       </div>
 
       {/* 5. Updates & Storage Utilities */}
-      <div className="bg-white dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
           <div>
             <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight">
