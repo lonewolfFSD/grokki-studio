@@ -2210,10 +2210,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       let iconClass = 'fa-solid fa-paragraph';
       if (clip.type === 'link') iconClass = 'fa-solid fa-link';
       else if (clip.type === 'code') iconClass = 'fa-solid fa-code';
+      else if (clip.type === 'image') iconClass = 'fa-solid fa-image';
 
       el.innerHTML = `
         <i class="${iconClass} ht-clip-type-icon"></i>
-        <span class="ht-clip-summary">${clip.text.replace(/\n/g, ' ')}</span>
+        <span class="ht-clip-summary">${(clip.text || 'Image').replace(/\n/g, ' ')}</span>
         <span class="ht-clip-time">${formatRelativeTime(clip.time)}</span>
       `;
 
@@ -2230,9 +2231,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function selectClipForPreview(clip) {
     selectedClip = clip;
-    if (htClipPreviewBody) htClipPreviewBody.textContent = clip.text;
+    if (htClipPreviewBody) {
+      if (clip.type === 'image' && clip.imageData) {
+        htClipPreviewBody.innerHTML = `<img src="${clip.imageData}" style="max-width:100%;max-height:220px;border-radius:8px;object-fit:contain;" />`;
+      } else {
+        htClipPreviewBody.textContent = clip.text;
+      }
+    }
     if (htClipMetaType) htClipMetaType.textContent = `Type: ${clip.type.toUpperCase()}`;
-    if (htClipMetaChars) htClipMetaChars.textContent = `${clip.text.length} chars`;
+    if (htClipMetaChars) {
+      htClipMetaChars.textContent = clip.type === 'image' ? `${clip.imageWidth || 0}x${clip.imageHeight || 0} px` : `${clip.text.length} chars`;
+    }
     if (htClipMetaTime) htClipMetaTime.textContent = formatRelativeTime(clip.time);
   }
 

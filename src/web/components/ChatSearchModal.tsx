@@ -222,7 +222,7 @@ export const ChatSearchModal: React.FC<ChatSearchModalProps> = ({
     const parts = text.split(regex);
     return parts.map((part, i) =>
       regex.test(part) ? (
-        <span key={i} className="text-white font-semibold underline decoration-white/40">
+        <span key={i} className="text-blue-600 dark:text-white font-semibold underline decoration-blue-500/40 dark:decoration-white/40">
           {part}
         </span>
       ) : (
@@ -238,14 +238,14 @@ export const ChatSearchModal: React.FC<ChatSearchModalProps> = ({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[10000] bg-black/65 backdrop-blur-md flex items-start justify-center pt-[12vh] px-4 animate-in fade-in duration-150 select-none"
+      className="fixed inset-0 z-[10000] bg-black/40 dark:bg-black/65 backdrop-blur-md flex items-start justify-center pt-[12vh] px-4 animate-in fade-in duration-150 select-none"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-xl bg-[#19191c] border border-white/[0.08] shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[72vh] animate-in zoom-in-95 duration-150"
+        className="w-full max-w-xl bg-white dark:bg-[#19191c] border border-gray-200 dark:border-white/[0.08] shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[72vh] animate-in zoom-in-95 duration-150"
       >
         {/* Search Input Header */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.06] bg-transparent">
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-200 dark:border-white/[0.06] bg-transparent">
           <Search size={18} className="text-gray-400 flex-shrink-0" />
           <input
             ref={inputRef}
@@ -253,18 +253,18 @@ export const ChatSearchModal: React.FC<ChatSearchModalProps> = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search chats, questions, and messages..."
-            className="w-full bg-transparent text-[14px] text-gray-100 placeholder-gray-500 outline-none"
+            className="w-full bg-transparent text-[14px] text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none"
           />
           {query ? (
             <button
               type="button"
               onClick={() => setQuery('')}
-              className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer border-0 bg-transparent flex items-center justify-center"
+              className="p-1 rounded text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer border-0 bg-transparent flex items-center justify-center"
             >
               <X size={15} />
             </button>
           ) : (
-            <kbd className="text-[10px] font-mono text-gray-400 bg-white/[0.04] border border-white/[0.06] px-1.5 py-0.5 rounded select-none">
+            <kbd className="text-[10px] font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.06] px-1.5 py-0.5 rounded select-none">
               ESC
             </kbd>
           )}
@@ -274,10 +274,10 @@ export const ChatSearchModal: React.FC<ChatSearchModalProps> = ({
         <div ref={listRef} className="flex-1 overflow-y-auto p-1.5 no-scrollbar">
           {flatResults.length === 0 ? (
             <div className="py-12 px-4 flex flex-col items-center justify-center text-center">
-              <div className="w-10 h-10 rounded-full bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-3 text-gray-500">
+              <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.06] flex items-center justify-center mb-3 text-gray-400 dark:text-gray-500">
                 <Search size={18} />
               </div>
-              <p className="text-[13.5px] font-medium text-gray-300">No chats found</p>
+              <p className="text-[13.5px] font-medium text-gray-800 dark:text-gray-300">No chats found</p>
               <p className="text-[12px] text-gray-500 mt-1">
                 {query ? `No conversations match "${query}"` : 'Start a new chat to begin'}
               </p>
@@ -286,7 +286,7 @@ export const ChatSearchModal: React.FC<ChatSearchModalProps> = ({
             Array.from(groupedResults.entries()).map(([dateLabel, items]) => (
               <div key={dateLabel} className="mb-2 last:mb-0">
                 {/* Date Group Header */}
-                <div className="px-3 pt-2 pb-1 text-[10.5px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider select-none">
+                <div className="px-3 pt-2 pb-1 text-[10.5px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider select-none">
                   {dateLabel}
                 </div>
 
@@ -304,27 +304,28 @@ export const ChatSearchModal: React.FC<ChatSearchModalProps> = ({
                         onMouseEnter={() => setSelectedIndex(currentIndex)}
                         className={`group flex items-center justify-between gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all ${
                           isSelected
-                            ? 'bg-white/[0.035] text-white'
-                            : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.025]'
+                            ? 'bg-gray-100 dark:bg-white/[0.035] text-gray-950 dark:text-white'
+                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/[0.025]'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-3.5 min-w-0 flex-1">
                           {item.convo.isPinned ? (
-                            <Pin size={14} className={`rotate-45 flex-shrink-0 ${isSelected ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'}`} />
+                            <Pin size={17} fill="currentColor" className={`rotate-45 flex-shrink-0 ${isSelected ? 'text-gray-950 dark:text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-300'}`} />
                           ) : (
                             <MessageSquare
-                              size={14}
+                              size={17}
+                              fill="currentColor"
                               className={`flex-shrink-0 ${
-                                isSelected ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'
+                                isSelected ? 'text-gray-950 dark:text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-300'
                               }`}
                             />
                           )}
                           <div className="flex flex-col min-w-0 flex-1">
-                            <span className={`text-[13px] font-medium truncate ${isSelected ? 'text-white' : 'text-gray-300 group-hover:text-white'}`}>
+                            <span className={`text-[13px] font-medium truncate ${isSelected ? 'text-gray-950 dark:text-white' : 'text-gray-800 dark:text-gray-300 group-hover:text-gray-950 dark:group-hover:text-white'}`}>
                               {highlightMatch(item.convo.title || 'New Chat', query)}
                             </span>
                             {item.matchedText && (
-                              <span className="text-[11.5px] text-gray-500 truncate mt-0.5">
+                              <span className="text-[11.5px] text-gray-500 dark:text-gray-400 truncate">
                                 {item.isSnippetMatch
                                   ? highlightMatch(item.matchedText, query)
                                   : item.matchedText}
@@ -335,9 +336,9 @@ export const ChatSearchModal: React.FC<ChatSearchModalProps> = ({
 
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {isSelected && (
-                            <div className="flex items-center gap-1 text-[11px] text-gray-400 font-normal">
+                            <div className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400 font-normal">
                               <span>Open</span>
-                              <CornerDownLeft size={11} className="text-gray-400" />
+                              <CornerDownLeft size={11} className="text-gray-500 dark:text-gray-400" />
                             </div>
                           )}
                         </div>
@@ -351,15 +352,15 @@ export const ChatSearchModal: React.FC<ChatSearchModalProps> = ({
         </div>
 
         {/* Modal Footer with quick keyboard instructions */}
-        <div className="px-4 py-2 bg-transparent border-t border-white/[0.06] flex items-center justify-between text-[11.5px] text-gray-500 select-none">
+        <div className="px-4 py-2 bg-gray-50/50 dark:bg-transparent border-t border-gray-200 dark:border-white/[0.06] flex items-center justify-between text-[11.5px] text-gray-500 dark:text-gray-400 select-none">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="font-mono bg-white/[0.04] border border-white/[0.06] px-1 py-0.5 rounded text-[10px]">↑</kbd>
-              <kbd className="font-mono bg-white/[0.04] border border-white/[0.06] px-1 py-0.5 rounded text-[10px]">↓</kbd>
+              <kbd className="font-mono bg-gray-100 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.06] text-gray-600 dark:text-gray-400 px-1 py-0.5 rounded text-[10px]">↑</kbd>
+              <kbd className="font-mono bg-gray-100 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.06] text-gray-600 dark:text-gray-400 px-1 py-0.5 rounded text-[10px]">↓</kbd>
               <span className="ml-0.5">to navigate</span>
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="font-mono bg-white/[0.04] border border-white/[0.06] px-1.5 py-0.5 rounded text-[10px]">↵</kbd>
+              <kbd className="font-mono bg-gray-100 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.06] text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded text-[10px]">↵</kbd>
               <span className="ml-0.5">to select</span>
             </span>
           </div>

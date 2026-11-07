@@ -3033,7 +3033,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         id: 'document',
         label: 'Document',
         icon: (
-          <svg className="w-4 h-4 text-zinc-400 group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+          <svg className="w-4 h-4 text-gray-500 dark:text-zinc-400 group-hover:text-gray-900 dark:group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <path d="M14 2v6h6" />
             <path d="M10 13h4" />
@@ -3046,7 +3046,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         id: 'photo',
         label: 'Photos',
         icon: (
-          <svg className="w-4 h-4 text-zinc-400 group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+          <svg className="w-4 h-4 text-gray-500 dark:text-zinc-400 group-hover:text-gray-900 dark:group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="14" height="14" rx="2" />
             <path d="M7 7h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2" />
           </svg>
@@ -3058,7 +3058,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         label: 'Videos',
         badge: 'Send / Drive',
         icon: (
-          <svg className="w-4 h-4 text-zinc-400 group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+          <svg className="w-4 h-4 text-gray-500 dark:text-zinc-400 group-hover:text-gray-900 dark:group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
             <rect x="2" y="4" width="20" height="16" rx="3" />
             <polygon points="10 9 15 12 10 15 10 9" fill="currentColor" stroke="none" />
           </svg>
@@ -3070,7 +3070,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         label: 'Camera',
         badge: hotkeys.openCamera || 'Ctrl+Shift+C',
         icon: (
-          <svg className="w-4 h-4 text-zinc-400 group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+          <svg className="w-4 h-4 text-gray-500 dark:text-zinc-400 group-hover:text-gray-900 dark:group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
             <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
             <circle cx="12" cy="13" r="3" />
           </svg>
@@ -3081,7 +3081,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         id: 'audio',
         label: 'Audio',
         icon: (
-          <svg className="w-4 h-4 text-zinc-400 group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+          <svg className="w-4 h-4 text-gray-500 dark:text-zinc-400 group-hover:text-gray-900 dark:group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
             <path d="M4 10v4" />
             <path d="M8 7v10" />
             <path d="M12 4v16" />
@@ -3106,7 +3106,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
             style={{ transformOrigin: isTop ? 'bottom left' : 'top left' }}
             className={`absolute left-0 ${
               isTop ? 'bottom-full mb-2.5' : 'top-full mt-2.5'
-            } w-52 bg-[#141417] border border-white/[0.08] rounded-xl p-1.5 z-50 select-none`}
+            } w-52 bg-white dark:bg-[#141417] border border-gray-200 dark:border-white/[0.08] rounded-xl p-1.5 z-50 select-none shadow-xl shadow-black/10 dark:shadow-2xl`}
           >
             <div className="flex flex-col gap-0.5">
               {items.map((item) => (
@@ -3114,18 +3114,18 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   key={item.id}
                   type="button"
                   onClick={() => handlePickCategory(item.id, item.accept)}
-                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer border-none bg-transparent text-left group"
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer border-none bg-transparent text-left group"
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
                       {item.icon}
                     </div>
-                    <span className="text-[13px] font-medium text-zinc-300 group-hover:text-white transition-colors">
+                    <span className="text-[13px] font-medium text-gray-700 dark:text-zinc-300 group-hover:text-gray-950 dark:group-hover:text-white transition-colors">
                       {item.label}
                     </span>
                   </div>
                   {item.badge && (
-                    <span className="text-[9px] font-mono text-zinc-500 group-hover:text-zinc-400 transition-colors">
+                    <span className="text-[9px] font-mono text-gray-400 dark:text-zinc-500 group-hover:text-gray-600 dark:group-hover:text-zinc-400 transition-colors">
                       {item.badge}
                     </span>
                   )}

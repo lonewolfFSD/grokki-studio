@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, shell, Tray, Menu, screen, nativeImage, desktopCapturer, session, clipboard } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, shell, Tray, Menu, screen, nativeImage, desktopCapturer, session, clipboard, ClipboardItem } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -1970,9 +1970,37 @@ ipcMain.on('top-notch:set-focusable', (event, focusable) => {
   }
 });
 
-// --- HITODAMA REAL CLIPBOARD MONITOR & SYSTEM STATS ---
+// --- HITODAMA REAL CLIPBOARD MONITOR & SYSTEM STATS (Electron 44 Async Clipboard API) ---
+const clipboardFilePath = path.join(grokkiDataDir, 'clipboard_history.json');
 const clipboardHistory = [];
 let lastClipText = '';
+let lastClipImageHash = '';
+let isCheckingClipboard = false;
+
+function loadClipboardHistory() {
+  try {
+    if (fs.existsSync(clipboardFilePath)) {
+      const data = fs.readFileSync(clipboardFilePath, 'utf8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        clipboardHistory.length = 0;
+        clipboardHistory.push(...parsed);
+      }
+    }
+  } catch (e) {
+    console.warn('[Clipboard] Failed to load history:', e.message);
+  }
+}
+loadClipboardHistory();
+
+function saveClipboardHistory() {
+  try {
+    const toSave = clipboardHistory.slice(0, 60);
+    fs.writeFileSync(clipboardFilePath, JSON.stringify(toSave), 'utf8');
+  } catch (e) {
+    console.warn('[Clipboard] Failed to save history:', e.message);
+  }
+}
 
 function detectClipboardItemType(rawText) {
   const trimmed = (rawText || '').trim();
@@ -1982,66 +2010,228 @@ function detectClipboardItemType(rawText) {
 }
 
 function broadcastClipboardHistory() {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('clipboard:history-updated', clipboardHistory);
-  }
-  if (topNotchWindow && !topNotchWindow.isDestroyed()) {
-    topNotchWindow.webContents.send('clipboard:history-updated', clipboardHistory);
-  }
-}
-
-function checkSystemClipboard() {
   try {
-    const text = clipboard.readText();
-    if (text && text.trim() && text.trim() !== lastClipText) {
-      const clean = text.trim();
-      lastClipText = clean;
-      const type = detectClipboardItemType(clean);
-      const existingIdx = clipboardHistory.findIndex((item) => item.text === clean);
-      let wasPinned = false;
-      if (existingIdx !== -1) {
-        wasPinned = !!clipboardHistory[existingIdx].pinned;
-        clipboardHistory.splice(existingIdx, 1);
+    const allWindows = BrowserWindow.getAllWindows();
+    for (const win of allWindows) {
+      if (win && !win.isDestroyed() && win.webContents) {
+        win.webContents.send('clipboard:history-updated', clipboardHistory);
       }
-      clipboardHistory.unshift({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        text: clean,
-        type,
-        time: Date.now(),
-        pinned: wasPinned,
-      });
-      // Keep pinned items at top
-      clipboardHistory.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-      if (clipboardHistory.length > 50) clipboardHistory.pop();
-      broadcastClipboardHistory();
     }
-  } catch (e) {}
+  } catch (_) {}
 }
 
-setInterval(checkSystemClipboard, 650);
+async function pasteImageIntoActiveApp(dataUrl) {
+  try {
+    const nativeImg = nativeImage.createFromDataURL(dataUrl);
+    if (nativeImg.isEmpty()) return;
+    const buf = nativeImg.toPNG();
+    lastClipImageHash = `${buf.length}_${buf.slice(0, 32).toString('hex')}`;
 
-ipcMain.handle('jarvis:get-clipboard-history', () => {
-  checkSystemClipboard();
+    if (typeof clipboard.write === 'function' && typeof ClipboardItem !== 'undefined') {
+      const blob = new Blob([buf], { type: 'image/png' });
+      await clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    } else if (typeof clipboard.writeImage === 'function') {
+      clipboard.writeImage(nativeImg);
+    }
+
+    if (topNotchWindow && !topNotchWindow.isDestroyed()) {
+      topNotchIsInteractive = false;
+      topNotchWindow.setFocusable(false);
+      topNotchWindow.setIgnoreMouseEvents(true, { forward: true });
+      topNotchWindow.webContents.send('top-notch:trigger', false);
+    }
+
+    setTimeout(() => {
+      triggerFastPaste();
+    }, 45);
+  } catch (e) {
+    console.warn('[Main] Failed to paste image into active app:', e.message);
+  }
+}
+
+async function checkSystemClipboard() {
+  if (isCheckingClipboard) return;
+  isCheckingClipboard = true;
+  try {
+    // 1. Check for Image (Electron 44 async ClipboardItem array)
+    if (typeof clipboard.read === 'function') {
+      try {
+        const items = await clipboard.read();
+        if (Array.isArray(items) && items.length > 0) {
+          for (const item of items) {
+            if (item && item.types && item.types.some((t) => t.startsWith('image/'))) {
+              const imgType = item.types.find((t) => t.startsWith('image/'));
+              const blob = await item.getType(imgType);
+              const ab = await blob.arrayBuffer();
+              const buf = Buffer.from(ab);
+              const img = nativeImage.createFromBuffer(buf);
+              if (!img.isEmpty()) {
+                const size = img.getSize();
+                if (size.width > 0 && size.height > 0) {
+                  const hash = `img_${size.width}x${size.height}_${buf.length}_${buf.slice(0, 32).toString('hex')}`;
+                  if (hash !== lastClipImageHash) {
+                    lastClipImageHash = hash;
+                    lastClipText = ''; // Reset text signature so identical text copied next is captured
+
+                    let thumbImg = img;
+                    if (size.width > 900 || size.height > 900) {
+                      const scale = Math.min(900 / size.width, 900 / size.height);
+                      thumbImg = img.resize({
+                        width: Math.max(1, Math.round(size.width * scale)),
+                        height: Math.max(1, Math.round(size.height * scale)),
+                        quality: 'good',
+                      });
+                    }
+                    const dataUrl = thumbImg.toDataURL();
+
+                    const existingIdx = clipboardHistory.findIndex((it) => it.imageHash === hash);
+                    let wasPinned = false;
+                    if (existingIdx !== -1) {
+                      wasPinned = !!clipboardHistory[existingIdx].pinned;
+                      clipboardHistory.splice(existingIdx, 1);
+                    }
+
+                    clipboardHistory.unshift({
+                      id: `clip_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                      type: 'image',
+                      imageHash: hash,
+                      imageData: dataUrl,
+                      imageWidth: size.width,
+                      imageHeight: size.height,
+                      text: `Image (${size.width}x${size.height})`,
+                      time: Date.now(),
+                      pinned: wasPinned,
+                    });
+
+                    clipboardHistory.sort((a, b) => {
+                      if (b.pinned !== a.pinned) return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+                      return (b.time || 0) - (a.time || 0);
+                    });
+
+                    if (clipboardHistory.length > 60) clipboardHistory.pop();
+                    saveClipboardHistory();
+                    broadcastClipboardHistory();
+                    return;
+                  }
+                  return;
+                }
+              }
+            }
+          }
+        }
+      } catch (imgErr) {}
+    }
+
+    // 2. Check for Text (Electron 44 returns a Promise<string>)
+    try {
+      const raw = clipboard.readText();
+      const text = raw instanceof Promise ? await raw : raw;
+      if (typeof text === 'string' && text.trim()) {
+        const clean = text.trim();
+        if (clean !== lastClipText) {
+          lastClipText = clean;
+          lastClipImageHash = ''; // Reset image signature so identical image copied next is captured
+
+          const type = detectClipboardItemType(clean);
+          const existingIdx = clipboardHistory.findIndex((it) => it.text === clean && it.type !== 'image');
+          let wasPinned = false;
+          if (existingIdx !== -1) {
+            wasPinned = !!clipboardHistory[existingIdx].pinned;
+            clipboardHistory.splice(existingIdx, 1);
+          }
+
+          clipboardHistory.unshift({
+            id: `clip_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            type,
+            text: clean,
+            time: Date.now(),
+            pinned: wasPinned,
+          });
+
+          clipboardHistory.sort((a, b) => {
+            if (b.pinned !== a.pinned) return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+            return (b.time || 0) - (a.time || 0);
+          });
+
+          if (clipboardHistory.length > 60) clipboardHistory.pop();
+          saveClipboardHistory();
+          broadcastClipboardHistory();
+        }
+      }
+    } catch (textErr) {}
+  } catch (e) {
+    // Windows clipboard locked or momentarily busy - retry next interval
+  } finally {
+    isCheckingClipboard = false;
+  }
+}
+
+// Check every 300ms for instant real-time response
+setInterval(checkSystemClipboard, 300);
+// Check immediately on startup
+setTimeout(checkSystemClipboard, 200);
+
+ipcMain.handle('jarvis:get-clipboard-history', async () => {
+  await checkSystemClipboard();
   return clipboardHistory;
 });
 
-ipcMain.handle('jarvis:copy-clipboard-item', (event, text) => {
+ipcMain.handle('jarvis:copy-clipboard-item', async (event, payload) => {
   try {
-    const clean = (text || '').trim();
-    if (!clean) return { success: false };
-    lastClipText = clean;
-    clipboard.writeText(clean);
+    if (!payload) return { success: false };
+
+    let item = null;
+    if (typeof payload === 'object') {
+      item = payload;
+    } else {
+      item = clipboardHistory.find((i) => i.id === payload || i.text === payload);
+    }
+
+    if (item && item.type === 'image' && item.imageData) {
+      const nativeImg = nativeImage.createFromDataURL(item.imageData);
+      if (!nativeImg.isEmpty()) {
+        const buf = nativeImg.toPNG();
+        lastClipImageHash = `${buf.length}_${buf.slice(0, 32).toString('hex')}`;
+        if (typeof clipboard.write === 'function' && typeof ClipboardItem !== 'undefined') {
+          const blob = new Blob([buf], { type: 'image/png' });
+          await clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        } else if (typeof clipboard.writeImage === 'function') {
+          clipboard.writeImage(nativeImg);
+        }
+        return { success: true };
+      }
+    }
+
+    const textToCopy = (typeof payload === 'string' ? payload : (item ? item.text : '')).trim();
+    if (!textToCopy) return { success: false };
+    lastClipText = textToCopy;
+    const writeRes = clipboard.writeText(textToCopy);
+    if (writeRes instanceof Promise) await writeRes;
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
-ipcMain.handle('jarvis:paste-clipboard-item', async (event, text) => {
+ipcMain.handle('jarvis:paste-clipboard-item', async (event, payload) => {
   try {
-    const clean = (text || '').trim();
-    if (!clean) return { success: false };
-    pasteTextIntoActiveApp(clean);
+    if (!payload) return { success: false };
+
+    let item = null;
+    if (typeof payload === 'object') {
+      item = payload;
+    } else {
+      item = clipboardHistory.find((i) => i.id === payload || i.text === payload);
+    }
+
+    if (item && item.type === 'image' && item.imageData) {
+      await pasteImageIntoActiveApp(item.imageData);
+      return { success: true };
+    }
+
+    const textToPaste = (typeof payload === 'string' ? payload : (item ? item.text : '')).trim();
+    if (!textToPaste) return { success: false };
+    pasteTextIntoActiveApp(textToPaste);
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
@@ -2052,7 +2242,11 @@ ipcMain.handle('jarvis:pin-clipboard-item', (event, id) => {
   const item = clipboardHistory.find((i) => i.id === id);
   if (item) {
     item.pinned = !item.pinned;
-    clipboardHistory.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+    clipboardHistory.sort((a, b) => {
+      if (b.pinned !== a.pinned) return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+      return (b.time || 0) - (a.time || 0);
+    });
+    saveClipboardHistory();
     broadcastClipboardHistory();
   }
   return clipboardHistory;
@@ -2062,6 +2256,7 @@ ipcMain.handle('jarvis:delete-clipboard-item', (event, id) => {
   const idx = clipboardHistory.findIndex((i) => i.id === id);
   if (idx !== -1) {
     clipboardHistory.splice(idx, 1);
+    saveClipboardHistory();
     broadcastClipboardHistory();
   }
   return clipboardHistory;
@@ -2071,6 +2266,7 @@ ipcMain.handle('jarvis:clear-clipboard-history', () => {
   const pinnedOnly = clipboardHistory.filter((i) => i.pinned);
   clipboardHistory.length = 0;
   clipboardHistory.push(...pinnedOnly);
+  saveClipboardHistory();
   broadcastClipboardHistory();
   return clipboardHistory;
 });
@@ -2545,7 +2741,7 @@ function isIgnoredGameFolder(folderName = '', fullDirPath = '') {
   const lower = String(folderName).toLowerCase().trim();
   if (!lower) return true;
   if (
-    /^(steamworks shared|wallpaper_engine|wallpaper engine|steam controller configs|proton.*|steamlinuxruntime.*|directx|redist|_commonredist|commonredist|installers|support|shader|shadercache|temp|logs|crash|excalibur)$/i.test(
+    /^(steamworks shared|wallpaper_engine|wallpaper engine|steam controller configs|proton.*|steamlinuxruntime.*|directx|redist|_commonredist|commonredist|installers|support|shader|shadercache|temp|logs|crash|excalibur|blender|gamesave|tools|soundtrack|artbook|sdk|dedicated server)$/i.test(
       lower
     )
   ) {
@@ -2560,7 +2756,7 @@ function isIgnoredGameFolder(folderName = '', fullDirPath = '') {
   return false;
 }
 
-function findGameExecutable(installDir, maxDepth = 2, currentDepth = 0) {
+function findGameExecutable(installDir, maxDepth = 3, currentDepth = 0) {
   if (!installDir || !fs.existsSync(installDir) || currentDepth > maxDepth) return '';
   let candidates = [];
   try {
@@ -2569,7 +2765,7 @@ function findGameExecutable(installDir, maxDepth = 2, currentDepth = 0) {
       const fullPath = path.join(installDir, entry.name);
       if (entry.isFile() && /\.exe$/i.test(entry.name)) {
         if (
-          /^(unins|crash|unitycrash|crs-|dxsetup|vc_redist|vcredist|dotnet|easyanticheat|battleye|beservice|launcher_helper|steamerrorreporter|cleanup|touchup|activation|cep|qtdiag|cefprocess|webhelper)/i.test(
+          /^(unins|crash|unitycrash|crs-|dxsetup|vc_redist|vcredist|dotnet|easyanticheat|battleye|beservice|launcher_helper|steamerrorreporter|cleanup|touchup|activation|cep|qtdiag|cefprocess|webhelper|installer)/i.test(
             entry.name
           )
         ) {
@@ -2579,7 +2775,9 @@ function findGameExecutable(installDir, maxDepth = 2, currentDepth = 0) {
         try {
           size = fs.statSync(fullPath).size;
         } catch (e) {}
-        candidates.push({ path: fullPath, name: entry.name, size, depth: currentDepth });
+        if (size >= 20480) {
+          candidates.push({ path: fullPath, name: entry.name, size, depth: currentDepth });
+        }
       } else if (entry.isDirectory() && currentDepth < maxDepth) {
         if (!/^(redist|_commonredist|directx|support|installers|easyanticheat|battleye|mono|logs|shadercache)$/i.test(entry.name)) {
           const subExe = findGameExecutable(fullPath, maxDepth, currentDepth + 1);
@@ -2588,7 +2786,9 @@ function findGameExecutable(installDir, maxDepth = 2, currentDepth = 0) {
             try {
               size = fs.statSync(subExe).size;
             } catch (e) {}
-            candidates.push({ path: subExe, name: path.basename(subExe), size, depth: currentDepth + 1 });
+            if (size >= 20480) {
+              candidates.push({ path: subExe, name: path.basename(subExe), size, depth: currentDepth + 1 });
+            }
           }
         }
       }
@@ -2801,7 +3001,11 @@ function discoverAllInstalledGamesOnDisk() {
           const known = KNOWN_GAME_TITLES[normKey] || KNOWN_GAME_TITLES[normalizeGameKey(folderName)];
           const displayTitle = known ? known.title : rawTitle;
           const appId = (acfInfo && acfInfo.appId) || (known && known.appId) || '';
-          const exePath = findGameExecutable(fullInstallDir);
+          const exePath = findGameExecutable(fullInstallDir, 3);
+          if (!exePath || !fs.existsSync(exePath)) {
+            // Must have a real existing game executable on disk to be considered installed
+            continue;
+          }
 
           seenKeys.add(normKey);
           discovered.push({
@@ -2831,13 +3035,17 @@ function discoverAllInstalledGamesOnDisk() {
           if (/unreal engine|epic online services|launcher/i.test(data.DisplayName)) continue;
           const normKey = normalizeGameKey(data.DisplayName);
           if (seenKeys.has(normKey)) continue;
+
+          const exePath = data.LaunchExecutable ? path.join(data.InstallLocation, data.LaunchExecutable) : findGameExecutable(data.InstallLocation, 3);
+          if (!exePath || !fs.existsSync(exePath)) continue;
+
           seenKeys.add(normKey);
           discovered.push({
             id: normKey,
             name: data.DisplayName,
             folderName: path.basename(data.InstallLocation),
             installDir: data.InstallLocation,
-            exePath: data.LaunchExecutable ? path.join(data.InstallLocation, data.LaunchExecutable) : findGameExecutable(data.InstallLocation),
+            exePath,
             appId: '',
             platform: 'Epic',
           });
@@ -2860,8 +3068,8 @@ function discoverAllInstalledGamesOnDisk() {
         const normKey = normalizeGameKey(displayTitle);
         if (!normKey || seenKeys.has(normKey)) continue;
 
-        const exePath = findGameExecutable(fullInstallDir);
-        if (!exePath) continue;
+        const exePath = findGameExecutable(fullInstallDir, 3);
+        if (!exePath || !fs.existsSync(exePath)) continue;
 
         seenKeys.add(normKey);
         discovered.push({
@@ -2883,8 +3091,10 @@ function discoverAllInstalledGamesOnDisk() {
 
 ipcMain.handle('jarvis:get-installed-games', async (event, forceRefresh = false) => {
   if (cachedInstalledGames && cachedInstalledGames.length > 0 && !forceRefresh) {
-    return cachedInstalledGames;
+    const valid = cachedInstalledGames.filter((g) => g.exePath && fs.existsSync(g.exePath));
+    if (valid.length > 0) return valid;
   }
+  cachedInstalledGames = null;
 
   const rawGames = discoverAllInstalledGamesOnDisk();
   const enriched = await Promise.all(
@@ -3758,6 +3968,100 @@ ipcMain.handle('jarvis:fetch-voicestudio-voices', async (event, { endpoint, apiK
 
 ipcMain.handle('jarvis:check-voicestudio-health', async (event, { endpoint } = {}) => {
   return await grokkiVoiceTTS.checkHealth();
+});
+
+ipcMain.handle('jarvis:check-ollama-status', async (event, customEndpoint) => {
+  const endpoint = (customEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+  let isRunning = false;
+  let models = [];
+  let isInstalled = false;
+  let exePath = '';
+
+  // 1. Check if Ollama daemon is actively running and responding at the endpoint
+  try {
+    const fetch = global.fetch || require('node-fetch');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    const res = await fetch(`${endpoint}/api/tags`, { method: 'GET', signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      isRunning = true;
+      isInstalled = true;
+      const data = await res.json();
+      models = (data.models || []).map((m) => m.name || m.model);
+    }
+  } catch (_) {}
+
+  // 2. If daemon not running, check if Ollama binary is installed on disk
+  if (!isInstalled) {
+    const localAppData = process.env.LOCALAPPDATA || (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Local') : '');
+    const programFiles = process.env.PROGRAMFILES || 'C:\\Program Files';
+    const programFilesX86 = process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)';
+
+    const candidates = [
+      localAppData ? path.join(localAppData, 'Programs', 'Ollama', 'ollama.exe') : '',
+      localAppData ? path.join(localAppData, 'Programs', 'Ollama', 'ollama app.exe') : '',
+      path.join(programFiles, 'Ollama', 'ollama.exe'),
+      path.join(programFilesX86, 'Ollama', 'ollama.exe'),
+    ];
+
+    for (const c of candidates) {
+      if (c && fs.existsSync(c)) {
+        isInstalled = true;
+        exePath = c;
+        break;
+      }
+    }
+
+    if (!isInstalled && process.platform === 'win32') {
+      try {
+        const { execSync } = require('child_process');
+        const out = execSync('where.exe ollama', { encoding: 'utf8', timeout: 1200, stdio: ['ignore', 'pipe', 'ignore'] });
+        if (out && out.trim()) {
+          isInstalled = true;
+          exePath = out.trim().split(/\r?\n/)[0];
+        }
+      } catch (_) {}
+    }
+  }
+
+  return {
+    installed: isInstalled,
+    running: isRunning,
+    models,
+    exePath,
+    endpoint,
+  };
+});
+
+ipcMain.handle('jarvis:launch-ollama', async () => {
+  try {
+    const localAppData = process.env.LOCALAPPDATA || (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Local') : '');
+    const programFiles = process.env.PROGRAMFILES || 'C:\\Program Files';
+
+    const candidates = [
+      localAppData ? path.join(localAppData, 'Programs', 'Ollama', 'ollama app.exe') : '',
+      localAppData ? path.join(localAppData, 'Programs', 'Ollama', 'ollama.exe') : '',
+      path.join(programFiles, 'Ollama', 'ollama.exe'),
+    ];
+
+    let exe = candidates.find((c) => c && fs.existsSync(c));
+    if (!exe && process.platform === 'win32') {
+      try {
+        const { execSync } = require('child_process');
+        const out = execSync('where.exe ollama', { encoding: 'utf8', timeout: 1200, stdio: ['ignore', 'pipe', 'ignore'] });
+        if (out && out.trim()) exe = out.trim().split(/\r?\n/)[0];
+      } catch (_) {}
+    }
+
+    if (exe && fs.existsSync(exe)) {
+      await shell.openPath(exe);
+      return { success: true, exePath: exe };
+    }
+    return { success: false, error: 'Ollama executable not found' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
 ipcMain.handle('jarvis:fetch-elevenlabs-voices', async (event, { apiKey, search, pageSize } = {}) => {

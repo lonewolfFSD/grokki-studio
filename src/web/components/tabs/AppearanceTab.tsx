@@ -100,7 +100,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-16">
       <div>
-        <h2 className="text-xl font-bold mt-16 tracking-tight text-gray-900 dark:text-gray-100">
+        <h2 className="text-xl font-bold mt-6 tracking-tight text-gray-900 dark:text-gray-100">
           Appearance &amp; Hotkey
         </h2>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -120,8 +120,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
             </p>
           </div>
           {isCustomThemeActive ? (
-            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/25 flex items-center gap-1.5 select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-[11px] font-semibold px-4 py-2 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/25 flex items-center gap-1.5 select-none">
               Controlled by Active Theme ({currentThemeObj.name})
             </span>
           ) : (

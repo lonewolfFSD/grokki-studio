@@ -2188,14 +2188,13 @@
       justify-content: space-between;
       gap: 10px;
       cursor: pointer;
-      transition: all 0.16s ease;
+      transition: background 0.16s ease, border-color 0.16s ease;
       min-width: 0;
     }
 
     .clip-card:hover {
       background: var(--card-hover);
       border-color: var(--cream);
-      transform: translateY(-1px);
     }
 
     .clip-card.pinned {
@@ -4416,29 +4415,55 @@
       const filtered = !clipSearchQuery
         ? clipboardItems
         : clipboardItems.filter((entry) => {
+            if (entry.type === 'image') return 'image'.includes(clipSearchQuery);
             const raw = typeof entry === 'string' ? entry : (entry.text || '');
             return raw.toLowerCase().includes(clipSearchQuery);
           });
 
       if (!filtered.length) {
         grid.innerHTML = `<div style="font-size:12px;color:var(--text-sub);grid-column:span 2;text-align:center;padding:30px 0;">${
-          clipSearchQuery ? 'No matching clipboard items found.' : 'Copy any text (Ctrl+C) to see live clipboard history here.'
+          clipSearchQuery ? 'No matching clipboard items found.' : 'Copy any text or image (Ctrl+C, Win+Shift+S) to see live clipboard history here.'
         }</div>`;
         return;
       }
 
       grid.innerHTML = filtered.map((entry, idx) => {
-        const raw = typeof entry === 'string' ? entry : (entry.text || '');
         const id = entry.id || String(idx);
         const type = entry.type || 'text';
         const pinned = !!entry.pinned;
+        const timeStr = formatRelativeClipTime(entry.time);
+
+        if (type === 'image' && entry.imageData) {
+          return `
+            <div class="clip-card ${pinned ? 'pinned' : ''}" data-idx="${idx}" title="Click to paste image directly into active app">
+              <div class="clip-left">
+                <div style="width:36px;height:36px;border-radius:9px;overflow:hidden;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <img src="${entry.imageData}" alt="Image" style="width:100%;height:100%;object-fit:cover;" />
+                </div>
+                <div class="clip-meta">
+                  <span class="clip-text" style="font-family:inherit;font-weight:600;">Image (${entry.imageWidth || 0} &times; ${entry.imageHeight || 0})</span>
+                  <span class="clip-sub">IMAGE &bull; ${timeStr}</span>
+                </div>
+              </div>
+              <div class="clip-actions">
+                <button class="clip-act-btn ${pinned ? 'pinned' : ''}" data-act="pin" data-id="${id}" title="${pinned ? 'Unpin' : 'Pin'}">
+                  <i class="fa-solid fa-thumbtack"></i>
+                </button>
+                <button class="clip-act-btn del" data-act="del" data-id="${id}" title="Remove">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }
+
+        const raw = typeof entry === 'string' ? entry : (entry.text || '');
         const typeIcon =
           type === 'link'
             ? 'fa-solid fa-link'
             : type === 'code'
             ? 'fa-solid fa-code'
             : 'fa-regular fa-file-lines';
-        const timeStr = formatRelativeClipTime(entry.time);
 
         return `
           <div class="clip-card ${pinned ? 'pinned' : ''}" data-idx="${idx}" title="Click to paste directly into active app">
@@ -4453,9 +4478,6 @@
               <button class="clip-act-btn ${pinned ? 'pinned' : ''}" data-act="pin" data-id="${id}" title="${pinned ? 'Unpin' : 'Pin'}">
                 <i class="fa-solid fa-thumbtack"></i>
               </button>
-              <button class="clip-act-btn" data-act="copy" data-idx="${idx}" title="Copy only">
-                <i class="fa-regular fa-copy"></i>
-              </button>
               <button class="clip-act-btn del" data-act="del" data-id="${id}" title="Remove">
                 <i class="fa-solid fa-xmark"></i>
               </button>
@@ -4469,13 +4491,12 @@
           if (e.target.closest('.clip-act-btn')) return;
           const idx = Number(card.dataset.idx);
           const item = filtered[idx];
-          const raw = typeof item === 'string' ? item : (item?.text || '');
-          if (!raw) return;
+          if (!item) return;
           document.getElementById('clipStatusBadge').textContent = 'PASTING...';
           if (api.pasteClipboardItem) {
-            await api.pasteClipboardItem(raw);
+            await api.pasteClipboardItem(item);
           } else if (api.copyClipboardItem) {
-            await api.copyClipboardItem(raw);
+            await api.copyClipboardItem(item);
           }
           setTimeout(() => {
             document.getElementById('clipStatusBadge').textContent = 'CLICK TO PASTE';
@@ -4497,10 +4518,9 @@
           } else if (act === 'copy') {
             const idx = Number(btn.dataset.idx);
             const item = filtered[idx];
-            const raw = typeof item === 'string' ? item : (item?.text || '');
-            if (raw && api.copyClipboardItem) {
-              await api.copyClipboardItem(raw);
-              document.getElementById('clipStatusBadge').textContent = 'COPIED TO CLIPBOARD';
+            if (item && api.copyClipboardItem) {
+              await api.copyClipboardItem(item);
+              document.getElementById('clipStatusBadge').textContent = item.type === 'image' ? 'IMAGE COPIED' : 'COPIED TO CLIPBOARD';
               setTimeout(() => {
                 document.getElementById('clipStatusBadge').textContent = 'CLICK TO PASTE';
               }, 1200);

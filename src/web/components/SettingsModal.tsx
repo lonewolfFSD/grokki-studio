@@ -48,7 +48,7 @@ const SECTIONS: SectionItem[] = [
   },
   {
     id: 'voice',
-    label: 'Grokki Voice',
+    label: 'Voice Models',
     desc: 'VoiceStudio, ElevenLabs & neural voices',
     Icon: MicIcon,
   },
@@ -153,19 +153,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
-        className="relative w-full max-w-6xl h-[88vh] max-h-[850px] bg-white dark:bg-[#0e0f14] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+        className="relative w-full max-w-6xl h-[70vh] max-h-[850px] bg-white dark:bg-[#0e0f14] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
       >
         {/* Top Header Bar */}
         <div className="h-14 px-6 border-b border-[#e4e4eb] dark:border-[#1f1f22] bg-gray-50/50 dark:bg-[#111114] flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <span
               id="settings-modal-title"
-              className="text-sm font-bold text-gray-900 dark:text-gray-100 font-sans tracking-tight"
+              className="text-base font-bold text-gray-900 dark:text-gray-100 font-sans tracking-tight"
             >
               Settings
             </span>
             <span className="text-gray-400 dark:text-gray-600 text-xs">/</span>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-gray-200/80 dark:bg-[#1f1f24] text-gray-700 dark:text-gray-300 border border-gray-300/60 dark:border-[#272832]">
+            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-gray-200/80 dark:bg-[#1f1f24] text-gray-700 dark:text-gray-300 border border-gray-300/60 dark:border-[#272832]">
               {currentSection.label}
             </span>
           </div>

@@ -405,6 +405,8 @@ export interface JarvisAPI {
   onMaximizedChange?: (callback: (isMaximized: boolean) => void) => () => void;
   testAiKey: (options: { provider: string; key?: string; model?: string; endpoint?: string }) => Promise<{ success: boolean; latencyMs?: number; reply?: string; error?: string }>;
   fetchProviderModels?: (options: { provider: string; key?: string; endpoint?: string }) => Promise<{ success: boolean; models?: string[]; error?: string }>;
+  checkOllamaStatus?: (endpoint?: string) => Promise<{ installed: boolean; running: boolean; models?: string[]; exePath?: string; endpoint?: string; error?: string }>;
+  launchOllama?: () => Promise<{ success: boolean; exePath?: string; error?: string }>;
   getSystemInfo: () => Promise<SystemInfo>;
   speakText: (text: string, voice: string, options?: { provider?: 'grokki' | 'grokki_voice' | 'elevenlabs' | 'voicestudio'; apiKey?: string; model?: string; endpoint?: string; speed?: number }) => Promise<{ success: boolean; base64Audio?: string; mimeType?: string; cleanText?: string; error?: string }>;
   fetchVoiceStudioVoices?: (options?: { endpoint?: string; apiKey?: string }) => Promise<{

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Eye,
   EyeOff,
@@ -8,6 +8,10 @@ import {
   Edit3,
   ExternalLink,
   RefreshCw,
+  Download,
+  AlertTriangle,
+  Play,
+  Info,
 } from 'lucide-react';
 import { JarvisConfig, AiProvider } from '../../types/jarvis';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
@@ -427,6 +431,80 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
   const setField = (field: string, value: string) =>
     onChangeConfig({ [field]: value } as unknown as Partial<JarvisConfig>);
 
+  const [ollamaStatus, setOllamaStatus] = useState<{
+    loading: boolean;
+    checked: boolean;
+    installed: boolean;
+    running: boolean;
+    models: string[];
+    exePath?: string;
+  }>({
+    loading: false,
+    checked: false,
+    installed: true,
+    running: false,
+    models: [],
+  });
+
+  const checkOllama = useCallback(async () => {
+    setOllamaStatus((prev) => ({ ...prev, loading: true }));
+    try {
+      if (window.jarvisAPI?.checkOllamaStatus) {
+        const res = await window.jarvisAPI.checkOllamaStatus(config.ollamaEndpoint);
+        setOllamaStatus({
+          loading: false,
+          checked: true,
+          installed: Boolean(res?.installed),
+          running: Boolean(res?.running),
+          models: res?.models || [],
+          exePath: res?.exePath,
+        });
+      } else {
+        const ep = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+        const res = await fetch(`${ep}/api/tags`, { method: 'GET' });
+        if (res.ok) {
+          const data = await res.json();
+          setOllamaStatus({
+            loading: false,
+            checked: true,
+            installed: true,
+            running: true,
+            models: (data.models || []).map((m: any) => m.name || m.model),
+          });
+        } else {
+          setOllamaStatus({
+            loading: false,
+            checked: true,
+            installed: false,
+            running: false,
+            models: [],
+          });
+        }
+      }
+    } catch (_) {
+      setOllamaStatus({
+        loading: false,
+        checked: true,
+        installed: false,
+        running: false,
+        models: [],
+      });
+    }
+  }, [config.ollamaEndpoint]);
+
+  useEffect(() => {
+    if (config.provider === 'ollama') {
+      checkOllama();
+    }
+  }, [config.provider, checkOllama]);
+
+  const handleLaunchOllama = async () => {
+    if (window.jarvisAPI?.launchOllama) {
+      await window.jarvisAPI.launchOllama();
+      setTimeout(checkOllama, 2000);
+    }
+  };
+
   const handleOpenExternal = (url: string) => {
     if (window.jarvisAPI?.openUrl) {
       window.jarvisAPI.openUrl(url);
@@ -626,8 +704,8 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
     {
       id: 'ollama',
       label: 'Ollama Local',
-      subLabel: 'Private Local Daemon',
-      badge: config.ollamaModel || 'llama3.2',
+      subLabel: !ollamaStatus.installed && ollamaStatus.checked ? 'Not Installed' : 'Private Local Daemon',
+      badge: !ollamaStatus.installed && ollamaStatus.checked ? 'Download Required' : (config.ollamaModel || 'llama3.2'),
       tag: '100% Free Air-Gap',
       Logo: OllamaLogo,
     },
@@ -881,6 +959,108 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
           )}
         </div>
 
+        {/* Ollama installation / status alert */}
+        {providerId === 'ollama' && (
+          <div>
+            {!ollamaStatus.checked || ollamaStatus.loading ? (
+              <div className="rounded-xl p-3.5 border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.03] flex items-center gap-2.5">
+                <Loader2 className="w-4 h-4 animate-spin text-gray-500 dark:text-gray-400" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">
+                  Checking local Ollama installation...
+                </span>
+              </div>
+            ) : !ollamaStatus.installed ? (
+              <div className="rounded-xl p-4 border border-amber-500/20 bg-amber-500/10 dark:bg-amber-500/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 sm:mt-0">
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="m-0 text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                      Ollama is not installed on this PC
+                    </h4>
+                    <p className="m-0 mt-0.5 text-xs text-gray-600 dark:text-gray-400">
+                      To run models locally without an API key, download and install Ollama.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenExternal('https://ollama.com/download')}
+                    className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white border-none cursor-pointer shadow-sm transition-all"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Ollama</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={checkOllama}
+                    disabled={ollamaStatus.loading}
+                    title="Check again"
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${ollamaStatus.loading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </div>
+            ) : !ollamaStatus.running ? (
+              <div className="rounded-xl p-4 border border-blue-500/20 bg-blue-500/10 dark:bg-blue-500/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 mt-0.5 sm:mt-0">
+                    <Play className="w-4 h-4 ml-0.5" />
+                  </div>
+                  <div>
+                    <h4 className="m-0 text-xs font-semibold text-gray-900 dark:text-gray-100">
+                      Ollama is installed, but daemon is stopped
+                    </h4>
+                    <p className="m-0 mt-0.5 text-xs text-gray-600 dark:text-gray-400">
+                      Start Ollama to serve local model completions.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                  <button
+                    type="button"
+                    onClick={handleLaunchOllama}
+                    className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white border-none cursor-pointer shadow-sm transition-all"
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                    <span>Start Ollama</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={checkOllama}
+                    disabled={ollamaStatus.loading}
+                    title="Check again"
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${ollamaStatus.loading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl p-3 border border-emerald-500/20 bg-emerald-500/10 dark:bg-emerald-500/[0.08] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+                  <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300 truncate">
+                    Ollama is running & connected {ollamaStatus.models.length > 0 ? `• ${ollamaStatus.models.length} model${ollamaStatus.models.length === 1 ? '' : 's'} available` : ''}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={checkOllama}
+                  disabled={ollamaStatus.loading}
+                  title="Re-check"
+                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 transition-all cursor-pointer flex-shrink-0 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${ollamaStatus.loading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
           {primaryField}
@@ -951,12 +1131,12 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
   return (
     <div className="flex flex-col  gap-8 max-w-5xl mx-auto w-full pb-16">
       {/* Header */}
-      <header className="flex flex-col mt-16 sm:flex-row sm:items-end justify-between gap-4">
+      <header className="flex flex-col mt-6 sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h2 className="m-0 text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
             AI Models
           </h2>
-          <p className="m-0 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+          <p className="m-0 mt-1.5 text-xs w-full max-w-lg text-gray-500 dark:text-gray-400">
             Choose the provider and model Grokki uses. Switch between paid flagship models and free or open-source options.
           </p>
         </div>

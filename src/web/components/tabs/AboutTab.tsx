@@ -111,7 +111,7 @@ export const AboutTab = React.memo<AboutTabProps>(({ systemInfo, hotkey }) => {
       {/* Header */}
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h2 className="text-xl mt-16 font-bold tracking-tight text-gray-900 dark:text-gray-100">
+          <h2 className="text-xl mt-6 font-bold tracking-tight text-gray-900 dark:text-gray-100">
             About Grokki Studio
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

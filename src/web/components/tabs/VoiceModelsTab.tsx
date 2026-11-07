@@ -1046,12 +1046,12 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
       <style>{VOICE_STYLES}</style>
 
       {/* Header + Engine Switcher */}
-      <header className="flex flex-col gap-5 mt-16">
+      <header className="flex flex-col gap-5 mt-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h2 className="m-0 text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                Grokki Voice
+                Voice Models
               </h2>
               {activeVoice && (
                 <span className="inline-flex items-center gap-1.5 px-4.5 py-1.5 rounded-lg bg-gray-100 dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] text-[11px] font-semibold text-gray-600 dark:text-gray-300">
@@ -1062,7 +1062,7 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
                 </span>
               )}
             </div>
-            <p className="m-0 mt-1.5 text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-2xl">
+            <p className="m-0 mt-1.5 text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-lg">
               {isElevenLabs
                 ? `Ultra-realistic neural voices powered by ElevenLabs v3 (${sourceVoices.length} voices ready).`
                 : `Ultra-fast neural speech running 100% locally on your device. Sub-100ms latency, zero cloud dependency, natural conversational flow.`}

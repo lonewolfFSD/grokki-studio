@@ -47,6 +47,10 @@ data/*.db*
 data/Local State
 data/Preferences
 
+# Runtime data and sensitive credentials
+data/clipboard_history.json
+data/whatsapp_auth/
+
 # Logs
 *.log
 npm-debug.log*

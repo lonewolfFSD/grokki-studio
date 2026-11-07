@@ -209,6 +209,8 @@ try {
     },
     testAiKey: (options) => ipcRenderer.invoke('dashboard:test-ai-key', options),
     fetchProviderModels: (options) => ipcRenderer.invoke('dashboard:fetch-provider-models', options),
+    checkOllamaStatus: (endpoint) => ipcRenderer.invoke('jarvis:check-ollama-status', endpoint),
+    launchOllama: () => ipcRenderer.invoke('jarvis:launch-ollama'),
     getSystemInfo: () => ipcRenderer.invoke('dashboard:get-system-info'),
     checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
     restartAndInstallUpdate: (data) => ipcRenderer.send('app:restart-and-install', data),
