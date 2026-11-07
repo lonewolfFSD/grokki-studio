@@ -3974,6 +3974,7 @@ ipcMain.handle('jarvis:check-ollama-status', async (event, customEndpoint) => {
   const endpoint = (customEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
   let isRunning = false;
   let models = [];
+  let detailedModels = [];
   let isInstalled = false;
   let exePath = '';
 
@@ -3989,6 +3990,14 @@ ipcMain.handle('jarvis:check-ollama-status', async (event, customEndpoint) => {
       isInstalled = true;
       const data = await res.json();
       models = (data.models || []).map((m) => m.name || m.model);
+      detailedModels = (data.models || []).map((m) => ({
+        name: m.name || m.model,
+        size: m.size || 0,
+        modifiedAt: m.modified_at || '',
+        parameterSize: m.details?.parameter_size || '',
+        family: m.details?.family || '',
+        quantization: m.details?.quantization_level || '',
+      }));
     }
   } catch (_) {}
 
@@ -4029,6 +4038,7 @@ ipcMain.handle('jarvis:check-ollama-status', async (event, customEndpoint) => {
     installed: isInstalled,
     running: isRunning,
     models,
+    detailedModels,
     exePath,
     endpoint,
   };
@@ -4059,6 +4069,90 @@ ipcMain.handle('jarvis:launch-ollama', async () => {
       return { success: true, exePath: exe };
     }
     return { success: false, error: 'Ollama executable not found' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('jarvis:pull-ollama-model', async (event, { modelName, endpoint } = {}) => {
+  const ep = (endpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+  const name = (modelName || '').trim();
+  if (!name) return { success: false, error: 'Model name is required' };
+
+  try {
+    const http = require('http');
+    const url = new URL(`${ep}/api/pull`);
+
+    return await new Promise((resolve) => {
+      const postData = JSON.stringify({ name, stream: true });
+      const req = http.request(
+        {
+          hostname: url.hostname,
+          port: url.port || 11434,
+          path: '/api/pull',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(postData),
+          },
+        },
+        (res) => {
+          let buffer = '';
+          res.on('data', (chunk) => {
+            buffer += chunk.toString();
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                const parsed = JSON.parse(line);
+                let percent = 0;
+                if (parsed.total && parsed.completed) {
+                  percent = Math.round((parsed.completed / parsed.total) * 100);
+                }
+                event.sender.send('ollama:pull-progress', {
+                  modelName: name,
+                  status: parsed.status,
+                  percent,
+                  completed: parsed.completed,
+                  total: parsed.total,
+                });
+              } catch (_) {}
+            }
+          });
+
+          res.on('end', () => {
+            resolve({ success: true, modelName: name });
+          });
+        }
+      );
+
+      req.on('error', (err) => {
+        resolve({ success: false, error: err.message });
+      });
+
+      req.write(postData);
+      req.end();
+    });
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('jarvis:delete-ollama-model', async (event, { modelName, endpoint } = {}) => {
+  const ep = (endpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+  const name = (modelName || '').trim();
+  if (!name) return { success: false, error: 'Model name is required' };
+
+  try {
+    const fetch = global.fetch || require('node-fetch');
+    const res = await fetch(`${ep}/api/delete`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return { success: true, modelName: name };
   } catch (err) {
     return { success: false, error: err.message };
   }

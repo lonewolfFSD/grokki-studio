@@ -563,7 +563,7 @@ class AgentBrain {
             parameters: {
               type: 'OBJECT',
               properties: {
-                song: { type: 'STRING', description: 'Song, artist, album, or playlist name to play' },
+                song: { type: 'STRING', description: 'Clean song, artist, album, or playlist name to play (extract ONLY the artist or song title, omitting filler words like "something from" or "play")' },
                 platform: { type: 'STRING', description: 'Optional platform override: "spotify", "ytmusic", "applemusic", "amazonmusic"' },
               },
               required: ['song'],
@@ -1960,7 +1960,7 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
             messages,
             tools,
             signal,
-            timeout: 25000,
+            timeout: provider === 'ollama' ? 180000 : 25000,
           });
           if (data && data.choices && data.choices.length > 0) {
             break;
@@ -1977,7 +1977,7 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
       if (!data) {
         // If OpenRouter or other provider failed and Groq API key is available, fast-failover to Groq!
         const groqKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
-        if (groqKey && provider !== 'groq' && (!signal || !signal.aborted)) {
+        if (groqKey && provider !== 'groq' && provider !== 'ollama' && (!signal || !signal.aborted)) {
           console.log('[AgentBrain] Provider failed or rate limited, fast-failing over to Groq (500ms)...');
           try {
             return await this.runOpenAICompatible(prompt, { ...config, provider: 'groq', groqApiKey: groqKey }, context);
@@ -2893,38 +2893,64 @@ Rules:
 
       case 'play_music':
       case 'play_youtube_music': {
-        const song = (args.song || args.query || args.name || 'trending songs').trim();
-        const configuredPlatform = (this.activeConfig && this.activeConfig.musicProvider) || 'ytmusic';
-        const platform = (args.platform || configuredPlatform || 'ytmusic').toLowerCase();
+        const rawSong = (args.song || args.query || args.name || 'trending songs').trim();
+        let cleanSong = rawSong.replace(/^(?:play\s+)?(?:something|some\s+songs?|some\s+music|songs?|music|tracks?|a\s+song)\s+(?:from|by|of)\s+/i, '').trim();
+        cleanSong = cleanSong.replace(/^(?:play|listen to|hear)\s+/i, '').trim();
+        if (!cleanSong) cleanSong = rawSong;
 
-        console.log(`[AgentBrain] Playing "${song}" via platform "${platform}" in default browser`);
+        let configuredPlatform = (this.activeConfig && this.activeConfig.musicProvider) || '';
+        if (!configuredPlatform) {
+          try {
+            const configPath = path.join(__dirname, '../../data/jarvis-config.json');
+            if (fs.existsSync(configPath)) {
+              const fileData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+              configuredPlatform = fileData.musicProvider || 'ytmusic';
+            }
+          } catch (_) {}
+        }
+        if (!configuredPlatform) configuredPlatform = 'ytmusic';
+
+        let platform = (args.platform || configuredPlatform || 'ytmusic').toLowerCase();
+        // If args.platform was set by model to generic 'youtube' or empty, respect user's configured platform
+        if (platform === 'youtube' && configuredPlatform && configuredPlatform !== 'youtube') {
+          platform = configuredPlatform;
+        }
+
+        console.log(`[AgentBrain] Playing "${cleanSong}" via platform "${platform}" in default browser`);
 
         // 1. Send stop to pause/halt any currently playing media in the browser
-        // This stops existing audio before new song starts, preventing duplicate audio
         await runPowerShell('-action media -keys "stop"');
 
         let playUrl = '';
         let platformName = 'YouTube Music';
 
-        if (platform === 'spotify') {
+        if (platform === 'ytmusic' || platform === 'youtubemusic' || platform === 'youtube_music') {
+          platformName = 'YouTube Music';
+          playUrl = `https://music.youtube.com/search?q=${encodeURIComponent(cleanSong)}`;
+        } else if (platform === 'spotify') {
           platformName = 'Spotify';
-          playUrl = `https://open.spotify.com/search/${encodeURIComponent(song)}`;
+          playUrl = `https://open.spotify.com/search/${encodeURIComponent(cleanSong)}`;
         } else if (platform === 'applemusic' || platform === 'apple_music' || platform === 'apple') {
           platformName = 'Apple Music';
-          playUrl = `https://music.apple.com/search?term=${encodeURIComponent(song)}`;
+          playUrl = `https://music.apple.com/search?term=${encodeURIComponent(cleanSong)}`;
         } else if (platform === 'amazonmusic' || platform === 'amazon_music' || platform === 'amazon') {
           platformName = 'Amazon Music';
-          playUrl = `https://music.amazon.com/search/${encodeURIComponent(song)}`;
-        } else {
-          // Default: Universal browser playback on YouTube with autoplay
-          const videoId = await resolveYouTubeVideoId(song);
+          playUrl = `https://music.amazon.com/search/${encodeURIComponent(cleanSong)}`;
+        } else if (platform === 'soundcloud') {
+          platformName = 'SoundCloud';
+          playUrl = `https://soundcloud.com/search?q=${encodeURIComponent(cleanSong)}`;
+        } else if (platform === 'youtube') {
+          const videoId = await resolveYouTubeVideoId(cleanSong);
           if (videoId) {
             playUrl = `https://www.youtube.com/watch?v=${videoId}&autoplay=1`;
             platformName = 'YouTube';
           } else {
-            playUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(song)}`;
+            playUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(cleanSong)}`;
             platformName = 'YouTube';
           }
+        } else {
+          platformName = 'YouTube Music';
+          playUrl = `https://music.youtube.com/search?q=${encodeURIComponent(cleanSong)}`;
         }
 
         console.log(`[AgentBrain] Opening ${platformName} in browser: ${playUrl}`);
@@ -2938,7 +2964,7 @@ Rules:
           await runPowerShell('-action focus -app firefox');
         }, 1200);
 
-        return { success: true, message: `Playing "${song}" on ${platformName} in your browser 🎵` };
+        return { success: true, message: `Playing "${cleanSong}" on ${platformName} in your browser 🎵` };
       }
 
       case 'control_music': {

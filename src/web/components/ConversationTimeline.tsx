@@ -59,7 +59,7 @@ export const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
   }, [messages]);
 
   // Determine if conversation is long enough to warrant overflow limit, chevrons, and fading
-  const isOverflowing = moments.length > 16;
+  const isOverflowing = moments.length > 32;
 
   // Active turn index calculated purely from scroll percentage
   const activeTurnIndex = useMemo(() => {
@@ -200,11 +200,11 @@ export const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
           style={
             isOverflowing
               ? {
-                  maxHeight: '310px',
+                  maxHeight: 'min(72vh, 620px)',
                   maskImage:
-                    'linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%)',
+                    'linear-gradient(to bottom, transparent 0%, black 24px, black calc(100% - 24px), transparent 100%)',
                   WebkitMaskImage:
-                    'linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%)',
+                    'linear-gradient(to bottom, transparent 0%, black 24px, black calc(100% - 24px), transparent 100%)',
                 }
               : undefined
           }
@@ -227,14 +227,14 @@ export const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                   isCurrent
                     ? 'w-[5px] h-[16px] bg-[#dcdce0]'
                     : isHovered
-                    ? distance <= 8
+                    ? distance <= 14
                       ? 'w-[3.5px] h-[12px] bg-white/80'
                       : 'w-[3.5px] h-[7px] bg-white/80'
-                    : distance <= 7
+                    : distance <= 12
                     ? 'w-[3px] h-[10px] bg-white/25 hover:bg-white/55'
-                    : distance === 8
+                    : distance <= 16
                     ? 'w-[3px] h-[6px] bg-white/25 hover:bg-white/55'
-                    : 'w-[3px] h-[3px] bg-white/25 hover:bg-white/55'
+                    : 'w-[3px] h-[4px] bg-white/25 hover:bg-white/55'
                 }`}
               />
             );

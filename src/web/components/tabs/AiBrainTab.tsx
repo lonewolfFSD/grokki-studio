@@ -12,6 +12,8 @@ import {
   AlertTriangle,
   Play,
   Info,
+  Trash2,
+  HardDrive,
 } from 'lucide-react';
 import { JarvisConfig, AiProvider } from '../../types/jarvis';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
@@ -126,16 +128,7 @@ export const CURATED_MODELS: Record<string, { value: string; label: string; tag?
     { value: 'llama-3.3-70b-versatile', label: 'llama-3.3-70b-versatile', tag: 'Llama 3.3 70B' },
     { value: 'llama-3.1-8b-instant', label: 'llama-3.1-8b-instant', tag: '500+ T/s' },
   ],
-  ollama: [
-    { value: 'llama3.2', label: 'llama3.2', tag: 'Fast 3B' },
-    { value: 'llama3.3', label: 'llama3.3', tag: 'Flagship 70B' },
-    { value: 'llama3.1', label: 'llama3.1', tag: 'Balanced 8B' },
-    { value: 'deepseek-r1', label: 'deepseek-r1', tag: 'Reasoning' },
-    { value: 'qwen2.5-coder', label: 'qwen2.5-coder', tag: 'Coding' },
-    { value: 'mistral', label: 'mistral', tag: 'Mistral 7B' },
-    { value: 'phi4', label: 'phi4', tag: 'Microsoft 14B' },
-    { value: 'gemma2', label: 'gemma2', tag: 'Google 9B' },
-  ],
+  ollama: [],
   openrouter: [
     { value: 'openrouter/auto', label: 'openrouter/auto', tag: 'Auto-Routing' },
     { value: 'meta-llama/llama-3.3-70b-instruct:free', label: 'meta-llama/llama-3.3-70b-instruct:free', tag: 'Free 70B' },
@@ -437,6 +430,14 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
     installed: boolean;
     running: boolean;
     models: string[];
+    detailedModels?: Array<{
+      name: string;
+      size?: number;
+      modifiedAt?: string;
+      parameterSize?: string;
+      family?: string;
+      quantization?: string;
+    }>;
     exePath?: string;
   }>({
     loading: false,
@@ -444,21 +445,99 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
     installed: true,
     running: false,
     models: [],
+    detailedModels: [],
   });
+
+  const [pullingModel, setPullingModel] = useState<string | null>(null);
+  const [pullProgress, setPullProgress] = useState<{ status: string; percent: number }>({ status: '', percent: 0 });
+  const [customModelInput, setCustomModelInput] = useState('');
+  const [deletingModel, setDeletingModel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (window.jarvisAPI?.onOllamaPullProgress) {
+      const unsub = window.jarvisAPI.onOllamaPullProgress((data) => {
+        setPullProgress({
+          status: data.status,
+          percent: data.percent,
+        });
+      });
+      return () => unsub();
+    }
+  }, []);
+
+  const handlePullModel = async (modelTag: string) => {
+    const target = modelTag.trim();
+    if (!target) return;
+    setPullingModel(target);
+    setPullProgress({ status: 'Starting pull...', percent: 0 });
+
+    try {
+      if (window.jarvisAPI?.pullOllamaModel) {
+        const res = await window.jarvisAPI.pullOllamaModel({
+          modelName: target,
+          endpoint: config.ollamaEndpoint,
+        });
+        if (res?.success) {
+          await checkOllama();
+          onChangeConfig({ ollamaModel: target });
+          setCustomModelInput('');
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed to pull model:', err);
+    } finally {
+      setPullingModel(null);
+      setPullProgress({ status: '', percent: 0 });
+    }
+  };
+
+  const handleDeleteModel = async (modelTag: string) => {
+    if (!confirm(`Are you sure you want to delete "${modelTag}" from local Ollama?`)) return;
+    setDeletingModel(modelTag);
+    try {
+      if (window.jarvisAPI?.deleteOllamaModel) {
+        await window.jarvisAPI.deleteOllamaModel({
+          modelName: modelTag,
+          endpoint: config.ollamaEndpoint,
+        });
+        await checkOllama();
+      }
+    } catch (err) {
+      console.error('Failed to delete model:', err);
+    } finally {
+      setDeletingModel(null);
+    }
+  };
 
   const checkOllama = useCallback(async () => {
     setOllamaStatus((prev) => ({ ...prev, loading: true }));
     try {
       if (window.jarvisAPI?.checkOllamaStatus) {
         const res = await window.jarvisAPI.checkOllamaStatus(config.ollamaEndpoint);
+        const modelsList = res?.models || [];
         setOllamaStatus({
           loading: false,
           checked: true,
           installed: Boolean(res?.installed),
           running: Boolean(res?.running),
-          models: res?.models || [],
+          models: modelsList,
+          detailedModels: res?.detailedModels || [],
           exePath: res?.exePath,
         });
+        if (Array.isArray(modelsList)) {
+          const prev = config.cachedProviderModels?.ollama;
+          const isSame = Array.isArray(prev) &&
+            prev.length === modelsList.length &&
+            prev.every((m, idx) => m === modelsList[idx]);
+          if (!isSame) {
+            onChangeConfig({
+              cachedProviderModels: {
+                ...(config.cachedProviderModels || {}),
+                ollama: modelsList,
+              },
+            });
+          }
+        }
       } else {
         const ep = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
         const res = await fetch(`${ep}/api/tags`, { method: 'GET' });
@@ -608,6 +687,30 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
 
 
   const getOptionsForProvider = (providerId: string, currentValue?: string): GlideSelectOption[] => {
+    if (providerId === 'ollama') {
+      const installed = (ollamaStatus.models || []).filter(Boolean);
+      if (installed.length === 0) {
+        return [
+          {
+            value: '',
+            label: 'No models installed (install below)',
+            tag: 'Empty',
+          },
+        ];
+      }
+      return installed.map((m) => {
+        let tag = 'Installed';
+        const lower = m.toLowerCase();
+        if (lower.includes('coder') || lower.includes('qwen')) tag = 'Coding';
+        else if (lower.includes('deepseek')) tag = 'Reasoning';
+        else if (lower.includes('llama')) tag = 'Meta';
+        else if (lower.includes('mistral')) tag = 'Mistral';
+        else if (lower.includes('phi')) tag = 'Microsoft';
+        else if (lower.includes('moondream')) tag = 'Vision';
+        return { value: m, label: m, tag };
+      });
+    }
+
     const curated = CURATED_MODELS[providerId] || [];
     const fetched = fetchedModels[providerId] || [];
     const map = new Map<string, GlideSelectOption>();
@@ -704,8 +807,16 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
     {
       id: 'ollama',
       label: 'Ollama Local',
-      subLabel: !ollamaStatus.installed && ollamaStatus.checked ? 'Not Installed' : 'Private Local Daemon',
-      badge: !ollamaStatus.installed && ollamaStatus.checked ? 'Download Required' : (config.ollamaModel || 'llama3.2'),
+      subLabel: !ollamaStatus.installed && ollamaStatus.checked
+        ? 'Not Installed'
+        : ollamaStatus.models.length === 0
+        ? '0 Models Installed'
+        : `${ollamaStatus.models.length} model${ollamaStatus.models.length === 1 ? '' : 's'} ready`,
+      badge: !ollamaStatus.installed && ollamaStatus.checked
+        ? 'Download Required'
+        : ollamaStatus.models.length === 0
+        ? 'Install Required'
+        : (config.ollamaModel || ollamaStatus.models[0] || 'llama3.2'),
       tag: '100% Free Air-Gap',
       Logo: OllamaLogo,
     },
@@ -1040,10 +1151,9 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl p-3 border border-emerald-500/20 bg-emerald-500/10 dark:bg-emerald-500/[0.08] flex items-center justify-between gap-3">
+              <div className="rounded-xl py-3 px-6 border border-gray-500/20 bg-gray-500/10 dark:bg-gray-500/[0.08] flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-                  <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300 truncate">
+                  <span className="text-xs font-medium text-gray-800 dark:text-gray-300 truncate">
                     Ollama is running & connected {ollamaStatus.models.length > 0 ? `• ${ollamaStatus.models.length} model${ollamaStatus.models.length === 1 ? '' : 's'} available` : ''}
                   </span>
                 </div>
@@ -1052,7 +1162,7 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
                   onClick={checkOllama}
                   disabled={ollamaStatus.loading}
                   title="Re-check"
-                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 transition-all cursor-pointer flex-shrink-0 disabled:opacity-50"
+                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-gray-500/20 bg-gray-500/10 hover:bg-gray-500/20 text-gray-700 dark:text-gray-300 transition-all cursor-pointer flex-shrink-0 disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${ollamaStatus.loading ? 'animate-spin' : ''}`} />
                 </button>
@@ -1117,6 +1227,214 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
             </span>
           )}
         </div>
+
+        {/* Ollama Local Models & Install Library Manager */}
+        {providerId === 'ollama' && ollamaStatus.installed && (
+          <div className="pt-5 border-t border-[#e4e4eb] dark:border-[#1e2029] flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h4 className="m-0 text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <HardDrive className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Installed Local Models</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300">
+                    {ollamaStatus.models.length} installed
+                  </span>
+                </h4>
+                <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  Weights stored locally on your machine for zero-latency, air-gapped inference.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleOpenExternal('https://ollama.com/library')}
+                className="inline-flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline bg-transparent border-none cursor-pointer p-0"
+              >
+                <span>Browse 100+ Models on Ollama Library</span>
+                <ExternalLink className="w-3 h-3" />
+              </button>
+            </div>
+
+            {/* Currently Installed Models List */}
+            {ollamaStatus.models.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                {ollamaStatus.models.map((m) => {
+                  const isActive = (cfg.ollamaModel || 'llama3.2') === m;
+                  const isDeleting = deletingModel === m;
+                  return (
+                    <div
+                      key={m}
+                      className={`p-4 rounded-xl border flex items-center justify-between gap-2 transition-all ${
+                        isActive
+                          ? 'border-emerald-500/40 bg-emerald-500/[0.06] dark:bg-emerald-500/[0.08]'
+                          : 'border-gray-200 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02]'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                            {m}
+                          </span>
+
+                        </div>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                          Ready for local chat
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {!isActive && (
+                          <button
+                            type="button"
+                            onClick={() => setField('ollamaModel', m)}
+                            className="px-2 py-1 text-[11px] font-medium rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-all cursor-pointer"
+                          >
+                            Select
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteModel(m)}
+                          disabled={isDeleting}
+                          title="Delete model from disk"
+                          className="p-2 text-gray-400 hover:text-red-500 rounded-sm hover:bg-red-500/10 transition-colors cursor-pointer border-none bg-transparent"
+                        >
+                          {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-xl border border-dashed border-gray-300 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02] text-xs text-gray-500 dark:text-gray-400 text-center">
+                No models installed in Ollama yet. Install a recommended model below to start chatting.
+              </div>
+            )}
+
+            {/* Active Pull Progress Banner */}
+            {pullingModel && (
+              <div className="rounded-xl p-3.5 border border-blue-500/30 bg-blue-500/10 dark:bg-blue-500/[0.08] flex flex-col gap-2">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">
+                      Downloading {pullingModel}...
+                    </span>
+                  </div>
+                  <span className="font-mono text-blue-600 dark:text-blue-400 text-[11px]">
+                    {pullProgress.percent > 0 ? `${pullProgress.percent}%` : pullProgress.status || 'Starting...'}
+                  </span>
+                </div>
+                {pullProgress.percent > 0 && (
+                  <div className="w-full h-1.5 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full bg-blue-600 transition-all duration-300 rounded-full"
+                      style={{ width: `${pullProgress.percent}%` }}
+                    />
+                  </div>
+                )}
+                {pullProgress.status && (
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate">
+                    {pullProgress.status}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Quick 1-Click Install Cards for Popular Models */}
+            <div className="flex flex-col gap-2 mt-1">
+              <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Recommended Models to Install
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {[
+                  { tag: 'llama3.2', name: 'Llama 3.2', size: '3B (~2.0 GB)', desc: 'Fast, lightweight daily assistant by Meta' },
+                  { tag: 'deepseek-r1:8b', name: 'DeepSeek R1', size: '8B (~4.9 GB)', desc: 'Step-by-step reasoning & math specialist' },
+                  { tag: 'qwen2.5-coder:7b', name: 'Qwen 2.5 Coder', size: '7B (~4.7 GB)', desc: 'Coding, code review & syntax leader' },
+                  { tag: 'mistral', name: 'Mistral 7B', size: '7B (~4.1 GB)', desc: 'Balanced reasoning & instruction following' },
+                  { tag: 'phi4', name: 'Phi-4', size: '14B (~9.1 GB)', desc: 'Microsoft advanced reasoning & math' },
+                  { tag: 'moondream', name: 'Moondream 2', size: '1.8B (~1.7 GB)', desc: 'Local vision model for image inspection' },
+                ].map((item) => {
+                  const isInstalled = ollamaStatus.models.some((m) => m === item.tag || m.startsWith(item.tag.split(':')[0]));
+                  const isThisPulling = pullingModel === item.tag;
+
+                  return (
+                    <div
+                      key={item.tag}
+                      className="p-3.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161820] flex flex-col justify-between gap-3"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                            {item.name}
+                          </span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 font-medium">
+                            {item.size}
+                          </span>
+                        </div>
+                        <p className="m-0 mt-1 text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2">
+                          {item.desc}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 dark:border-white/5">
+                        <span className="text-[10px] font-mono text-gray-400 truncate">
+                          {item.tag}
+                        </span>
+                        {isInstalled ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Installed</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handlePullModel(item.tag)}
+                            disabled={!!pullingModel}
+                            className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold bg-gray-900 dark:bg-white hover:bg-black dark:hover:bg-gray-100 text-white dark:text-gray-900 border-none cursor-pointer transition-all disabled:opacity-50"
+                          >
+                            {isThisPulling ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Download className="w-3 h-3" />
+                            )}
+                            <span>{isThisPulling ? 'Installing...' : 'Install'}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom Model Pull Input */}
+            <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+              <input
+                type="text"
+                value={customModelInput}
+                onChange={(e) => setCustomModelInput(e.target.value)}
+                placeholder="Enter any custom model tag from ollama.com (e.g. codellama, gemma2:9b)..."
+                disabled={!!pullingModel}
+                className="flex-1 w-full h-9 px-3 rounded-xl border border-gray-200 dark:border-[#252836] bg-gray-50/50 dark:bg-[#161820] text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => handlePullModel(customModelInput)}
+                disabled={!customModelInput.trim() || !!pullingModel}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white border-none cursor-pointer transition-all disabled:opacity-50 whitespace-nowrap w-full sm:w-auto"
+              >
+                {pullingModel === customModelInput.trim() ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5" />
+                )}
+                <span>Pull Model</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   };

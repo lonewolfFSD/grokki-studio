@@ -211,6 +211,13 @@ try {
     fetchProviderModels: (options) => ipcRenderer.invoke('dashboard:fetch-provider-models', options),
     checkOllamaStatus: (endpoint) => ipcRenderer.invoke('jarvis:check-ollama-status', endpoint),
     launchOllama: () => ipcRenderer.invoke('jarvis:launch-ollama'),
+    pullOllamaModel: (options) => ipcRenderer.invoke('jarvis:pull-ollama-model', options),
+    deleteOllamaModel: (options) => ipcRenderer.invoke('jarvis:delete-ollama-model', options),
+    onOllamaPullProgress: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('ollama:pull-progress', handler);
+      return () => ipcRenderer.removeListener('ollama:pull-progress', handler);
+    },
     getSystemInfo: () => ipcRenderer.invoke('dashboard:get-system-info'),
     checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
     restartAndInstallUpdate: (data) => ipcRenderer.send('app:restart-and-install', data),

@@ -1128,7 +1128,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
   }> = useMemo(() => ({
     gemini: { name: 'Gemini', modelField: 'geminiModel', defaultModel: 'gemini-2.5-flash', Logo: GeminiLogo },
     groq: { name: 'Groq', modelField: 'groqModel', defaultModel: 'llama-3.3-70b-versatile', Logo: GroqLogo },
-    ollama: { name: 'Ollama', modelField: 'ollamaModel', defaultModel: 'llama3.2', Logo: OllamaLogo },
+    ollama: { name: 'Ollama', modelField: 'ollamaModel', defaultModel: '', Logo: OllamaLogo },
     openrouter: { name: 'OpenRouter', modelField: 'openrouterModel', defaultModel: 'openrouter/auto', Logo: OpenRouterLogo },
     omniroute: { name: 'OmniRoute', modelField: 'omnirouteModel', defaultModel: 'auto', Logo: OmniRouterLogo },
     omnirouter: { name: 'OmniRoute', modelField: 'omnirouteModel', defaultModel: 'auto', Logo: OmniRouterLogo },
@@ -1139,41 +1139,77 @@ export const ChatTab = React.memo<ChatTabProps>(({
   }), []);
 
   const currentBrainInfo = brainMeta[activeBrain] || brainMeta.gemini;
-  const currentModelValue = (config[currentBrainInfo.modelField] as string) || currentBrainInfo.defaultModel;
+  const currentModelValue = useMemo(() => {
+    if (activeBrain === 'ollama') {
+      const ollamaModels = (config.cachedProviderModels?.ollama || []).filter(Boolean);
+      if (ollamaModels.length === 0) {
+        return 'no_models';
+      }
+      if (config.ollamaModel && ollamaModels.includes(config.ollamaModel)) {
+        return config.ollamaModel;
+      }
+      return (ollamaModels[0] as string) || 'no_models';
+    }
+    return (config[currentBrainInfo.modelField] as string) || currentBrainInfo.defaultModel;
+  }, [activeBrain, config, currentBrainInfo]);
 
-  // Auto-fetch provider models for ChatTab if not cached yet
+  // Auto-fetch provider models for ChatTab if not cached yet (guarded to never re-trigger infinite loop)
   useEffect(() => {
     const dynamicProviders = ['omniroute', 'omnirouter', 'ollama', 'openrouter', 'groq'];
     if (!dynamicProviders.includes(activeBrain)) return;
 
+    // Check if already cached in config
     const alreadyCached = config.cachedProviderModels?.[activeBrain];
-    if (Array.isArray(alreadyCached) && alreadyCached.length > 0) return;
+    if (Array.isArray(alreadyCached)) return;
+
+    if (activeBrain === 'ollama') {
+      if (window.jarvisAPI?.checkOllamaStatus) {
+        window.jarvisAPI.checkOllamaStatus(config.ollamaEndpoint || 'http://127.0.0.1:11434')
+          .then((res) => {
+            const models = Array.isArray(res?.models) ? res.models : [];
+            const prev = config.cachedProviderModels?.ollama;
+            const isSame = Array.isArray(prev) &&
+              prev.length === models.length &&
+              prev.every((v, i) => v === models[i]);
+            if (!isSame) {
+              onChangeConfig?.({
+                cachedProviderModels: {
+                  ...(config.cachedProviderModels || {}),
+                  ollama: models,
+                },
+              });
+            }
+          })
+          .catch(() => {});
+      }
+      return;
+    }
 
     if (window.jarvisAPI?.fetchProviderModels) {
       const ep = activeBrain === 'omniroute' || activeBrain === 'omnirouter'
         ? (config.omnirouteEndpoint || 'http://localhost:20128/v1')
-        : (activeBrain === 'ollama' ? (config.ollamaEndpoint || 'http://127.0.0.1:11434') : undefined);
+        : undefined;
       const key = activeBrain === 'omniroute' || activeBrain === 'omnirouter'
         ? (config.omnirouteApiKey || config.omnirouterApiKey)
         : (activeBrain === 'groq' ? config.groqApiKey : config.openrouterApiKey);
 
       window.jarvisAPI.fetchProviderModels({ provider: activeBrain, endpoint: ep, key })
         .then((res) => {
-          if (res?.success && Array.isArray(res.models) && res.models.length > 0) {
-            const updated = {
-              ...(config.cachedProviderModels || {}),
-              [activeBrain]: res.models,
-            };
-            onChangeConfig?.({ cachedProviderModels: updated });
-            window.jarvisAPI?.saveConfig?.({ cachedProviderModels: updated });
+          if (res?.success && Array.isArray(res.models)) {
+            onChangeConfig?.({
+              cachedProviderModels: {
+                ...(config.cachedProviderModels || {}),
+                [activeBrain]: res.models,
+              },
+            });
           }
         })
         .catch(() => {});
     }
-  }, [activeBrain, config.cachedProviderModels, config.omnirouteEndpoint, config.omnirouteApiKey]);
+  }, [activeBrain, config.ollamaEndpoint, config.omnirouteEndpoint, config.omnirouteApiKey]);
 
   const handleSelectModel = useCallback((selectedVal: string) => {
-    if (selectedVal === '__switch_brain__') {
+    if (selectedVal === '__switch_brain__' || selectedVal === 'no_models') {
       onNavigateTab('ai');
       return;
     }
@@ -1187,6 +1223,55 @@ export const ChatTab = React.memo<ChatTabProps>(({
   }, [currentBrainInfo.modelField, onChangeConfig, onNavigateTab]);
 
   const modelOptions: GlideSelectOption[] = useMemo(() => {
+    const BrainLogo = currentBrainInfo.Logo;
+    const map = new Map<string, GlideSelectOption>();
+
+    if (activeBrain === 'ollama') {
+      const ollamaModels = (config.cachedProviderModels?.ollama || []).filter(Boolean);
+      if (ollamaModels.length === 0) {
+        return [
+          {
+            value: 'no_models',
+            label: (
+              <span className="flex items-center gap-1.5 text-amber-400 font-semibold text-[11px]">
+                <Sliders className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                <span>No models installed (Install in AI Models)</span>
+              </span>
+            ),
+            tag: 'Install',
+          },
+        ];
+      }
+
+      ollamaModels.forEach((m) => {
+        const modelId = typeof m === 'string' ? m : (m as any).value || (m as any).name || (m as any).id;
+        if (!modelId) return;
+        map.set(modelId, {
+          value: modelId,
+          label: (
+            <span className="flex items-center gap-1.5 truncate max-w-[260px] text-[11px]">
+              <BrainLogo className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{modelId}</span>
+            </span>
+          ),
+          tag: 'Installed',
+        });
+      });
+
+      const opts = Array.from(map.values());
+      opts.push({
+        value: '__switch_brain__',
+        label: (
+          <span className="flex items-center gap-1.5 text-sky-400 font-semibold text-[11px]">
+            <Sliders className="w-3.5 h-3.5 shrink-0 text-sky-400" />
+            <span>+ Install more in AI Models...</span>
+          </span>
+        ),
+        tag: 'Settings',
+      });
+      return opts;
+    }
+
     const rawList = CURATED_MODELS[activeBrain] || [];
     const cachedList =
       config.cachedProviderModels?.[activeBrain] ||
@@ -1194,8 +1279,6 @@ export const ChatTab = React.memo<ChatTabProps>(({
         ? config.cachedProviderModels?.['omniroute'] || config.cachedProviderModels?.['omnirouter']
         : []) ||
       [];
-    const BrainLogo = currentBrainInfo.Logo;
-    const map = new Map<string, GlideSelectOption>();
 
     // 1. Curated list
     rawList.forEach((m) => {
@@ -2193,6 +2276,31 @@ export const ChatTab = React.memo<ChatTabProps>(({
         }
       }
     }
+    if (activeBrain === 'ollama') {
+      const ollamaModels = (config.cachedProviderModels?.ollama || []).filter(Boolean);
+      if (ollamaModels.length === 0) {
+        const userMsg: ChatMessage = {
+          id: Date.now().toString(),
+          role: 'user',
+          content: text,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          attachedFile: currentAttachment || undefined,
+          mentions: currentMentions.length > 0 ? currentMentions : undefined,
+        };
+        const noModelMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: '⚠️ **No Ollama models are installed on your PC yet.**\n\nTo chat with Ollama offline, please download a local model:\n1. Open **Settings** (or press `Ctrl+,`) and select **AI Models**.\n2. Scroll to the **Ollama** section to install top models like **Llama 3.2**, **DeepSeek R1**, or **Qwen 2.5 Coder** with one click.\n\n*Alternatively, you can switch to Gemini or Groq from the brain switcher above.*',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        onUpdateMessages((prev) => [...prev, userMsg, noModelMsg]);
+        setInputValue('');
+        setAttachedFile(null);
+        setStagedMentions([]);
+        return;
+      }
+    }
+
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
