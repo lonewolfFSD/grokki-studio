@@ -152,6 +152,7 @@ function loadConfig() {
       if (!data.groqVisionModel) data.groqVisionModel = 'qwen/qwen3.8-27b';
       if (!data.ollamaEndpoint) data.ollamaEndpoint = 'http://127.0.0.1:11434';
       if (!data.ollamaModel) data.ollamaModel = 'llama3.2';
+      if (!data.ollamaVisionModel) data.ollamaVisionModel = 'moondream';
       if (!data.openrouterApiKey && envOpenRouterKey) data.openrouterApiKey = envOpenRouterKey;
       if (!data.openrouterModel) data.openrouterModel = 'openrouter/auto';
       if (!data.openaiApiKey && envOpenAiKey) data.openaiApiKey = envOpenAiKey;
@@ -242,6 +243,7 @@ function loadConfig() {
     groqVisionModel: 'qwen/qwen3.8-27b',
     ollamaEndpoint: 'http://127.0.0.1:11434',
     ollamaModel: 'llama3.2',
+    ollamaVisionModel: 'moondream',
     openrouterApiKey: envOpenRouterKey,
     openrouterModel: 'openrouter/auto',
     openaiApiKey: envOpenAiKey,
@@ -1908,7 +1910,15 @@ function createTopNotchWindow() {
 
   topNotchWindow.setAlwaysOnTop(true, 'screen-saver');
   topNotchWindow.setIgnoreMouseEvents(true, { forward: true });
-  topNotchWindow.loadFile(path.join(__dirname, '../renderer/top_notch.html'));
+  const topNotchHtmlPath = path.join(__dirname, '../renderer/top_notch.html');
+  topNotchWindow.loadFile(topNotchHtmlPath);
+  try {
+    fs.watchFile(topNotchHtmlPath, { interval: 1000 }, () => {
+      if (topNotchWindow && !topNotchWindow.isDestroyed() && topNotchWindow.webContents) {
+        topNotchWindow.loadFile(topNotchHtmlPath);
+      }
+    });
+  } catch (_) {}
 
   // Monitor cursor touching top edge center of screen even when Grokki Island (Alt+Q) is closed
   setInterval(() => {
@@ -1917,7 +1927,8 @@ function createTopNotchWindow() {
     try {
       const pt = screen.getCursorScreenPoint();
       const centerX = Math.round(screenWidth / 2);
-      if (pt.y <= 4 && Math.abs(pt.x - centerX) <= 220) {
+      const isOverMiniIsland = (pt.y <= 36 && Math.abs(pt.x - centerX) <= 195) || (pt.y <= 4 && Math.abs(pt.x - centerX) <= 240);
+      if (isOverMiniIsland) {
         if (!topNotchIsInteractive) {
           trackExternalWindow();
           topNotchIsInteractive = true;
@@ -1925,7 +1936,7 @@ function createTopNotchWindow() {
           topNotchWindow.setAlwaysOnTop(true, 'screen-saver');
           topNotchWindow.webContents.send('top-notch:trigger', true);
         }
-      } else if (topNotchIsInteractive && (pt.y > 490 || Math.abs(pt.x - centerX) > 450)) {
+      } else if (topNotchIsInteractive && (pt.y > 520 || Math.abs(pt.x - centerX) > 450)) {
         topNotchIsInteractive = false;
         topNotchWindow.setFocusable(false);
         topNotchWindow.setIgnoreMouseEvents(true, { forward: true });

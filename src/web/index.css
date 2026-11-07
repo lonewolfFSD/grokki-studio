@@ -1158,3 +1158,24 @@ html[data-theme] ::selection {
   color: #f4f4f6;
   font-weight: 800;
 }
+
+/* Chat Turn Jump Highlight Pulse */
+@keyframes turnHighlightPulse {
+  0% {
+    background-color: rgba(59, 130, 246, 0.25);
+    outline: 2px solid rgba(59, 130, 246, 0.6);
+  }
+  60% {
+    background-color: rgba(59, 130, 246, 0.12);
+    outline: 2px solid rgba(59, 130, 246, 0.3);
+  }
+  100% {
+    background-color: transparent;
+    outline: 2px solid transparent;
+  }
+}
+
+.chat-turn-highlight {
+  animation: turnHighlightPulse 1.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  border-radius: 1rem;
+}

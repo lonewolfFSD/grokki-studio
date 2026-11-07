@@ -4844,6 +4844,70 @@ Guidelines:
       const geminiKey = (apiKey || config.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
       const promptText = `User asked about this attached image ("${path.basename(imagePath)}"): "${cleanPrompt}".\nAnalyze the image and answer directly, accurately, and concisely using clean Markdown.`;
 
+      // 1. PRIMARY VISION ENGINE: Local Moondream (Zero cloud API reliance, Zero 503 errors)
+      const ollamaEndpoint = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+      const localVisionModel = (config.ollamaVisionModel || 'moondream').trim();
+
+      try {
+        console.log(`[AgentBrain] Primary Vision: Analyzing image with local ${localVisionModel} at ${ollamaEndpoint}...`);
+        
+        let localReply = '';
+
+        // Attempt A: Native Ollama /api/generate with images array (preferred for Moondream)
+        const nativeController = new AbortController();
+        const nativeTimeout = setTimeout(() => nativeController.abort(), 45000);
+        try {
+          const nativeRes = await fetch(`${ollamaEndpoint}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: localVisionModel,
+              prompt: promptText,
+              images: [base64Image],
+              stream: false,
+            }),
+            signal: nativeController.signal,
+          });
+          clearTimeout(nativeTimeout);
+
+          if (nativeRes.ok) {
+            const data = await nativeRes.json();
+            localReply = (data?.response || '').trim();
+          }
+        } catch (_) {
+          clearTimeout(nativeTimeout);
+        }
+
+        // Attempt B: OpenAI-compatible /v1/chat/completions on local Ollama / LM Studio
+        if (!localReply) {
+          const visionData = await callOpenAICompatible({
+            endpoint: `${ollamaEndpoint}/v1`,
+            apiKey: 'ollama',
+            model: localVisionModel,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: promptText },
+                  { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } },
+                ],
+              },
+            ],
+            temperature: 0.2,
+            timeout: 45000,
+          });
+          localReply = (visionData?.choices?.[0]?.message?.content || '').trim();
+        }
+
+        if (localReply) {
+          console.log(`[AgentBrain] Local ${localVisionModel} successfully analyzed image!`);
+          return { success: true, message: localReply };
+        }
+      } catch (ollamaErr) {
+        console.warn(`[AgentBrain] Primary Vision (${localVisionModel}) error/offline:`, ollamaErr.message);
+      }
+
+      // Secondary Fallbacks if Moondream is offline or not yet installed
       if (groqKey && (config.provider === 'groq' || !geminiKey)) {
         const groqVisionCandidates = Array.from(new Set([
           (config.groqVisionModel || '').trim(),
@@ -4905,7 +4969,7 @@ Guidelines:
 
       return {
         success: false,
-        message: 'Please configure a Groq or Gemini API key to analyze images with Vision.',
+        message: 'Could not analyze image with local Moondream (make sure Ollama is running `ollama run moondream`), and no cloud vision fallback key was configured.',
       };
     } catch (err) {
       return { success: false, message: `Could not analyze image: ${err.message}` };

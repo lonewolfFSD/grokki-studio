@@ -148,6 +148,14 @@
       z-index: 0;
     }
 
+    /* Strict zero-shadow guarantees across top notch and dynamic island */
+    html, body, .notch-stage, .notch-shell, .notch-mini-island {
+      box-shadow: none !important;
+      -webkit-box-shadow: none !important;
+      filter: none !important;
+      -webkit-filter: none !important;
+    }
+
     .theme-color-square {
       position: relative;
       width: 144px;
@@ -156,13 +164,13 @@
       transform: skewX(-9deg);
       overflow: hidden;
       border: 1.5px solid rgba(255, 255, 255, 0.18);
-      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.35);
-      transition: border-color 0.25s ease, box-shadow 0.35s ease;
+      box-shadow: none !important;
+      transition: border-color 0.25s ease;
     }
 
     .theme-skew-slot[data-slot="0"] .theme-color-square {
       border: 2px solid #ffffff;
-      box-shadow: 0 20px 44px rgba(0, 0, 0, 0.82), 0 0 26px var(--cream-glow), inset 0 1px 2px rgba(255, 255, 255, 0.55);
+      box-shadow: none !important;
     }
 
     /* High-contrast tactile film grain texture over the entire color square */
@@ -214,13 +222,13 @@
       overflow: hidden;
       background: linear-gradient(145deg, #171923 0%, #0d0e14 100%);
       border: 1.5px solid rgba(255, 255, 255, 0.16);
-      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.68), inset 0 1px 1px rgba(255, 255, 255, 0.25);
-      transition: border-color 0.25s ease, box-shadow 0.35s ease, transform 0.28s ease;
+      box-shadow: none !important;
+      transition: border-color 0.25s ease, transform 0.28s ease;
     }
 
     .theme-skew-slot[data-slot="0"] .game-poster-card {
       border: 2px solid var(--cream);
-      box-shadow: 0 20px 44px rgba(0, 0, 0, 0.86), 0 0 26px var(--cream-glow);
+      box-shadow: none !important;
     }
 
     .game-poster-img {
@@ -253,7 +261,7 @@
 
     .game-poster-fallback i {
       font-size: 30px;
-      filter: drop-shadow(0 4px 12px var(--cream-glow));
+      filter: none !important;
     }
 
     .game-poster-play-pill {
@@ -271,7 +279,7 @@
       font-size: 10px;
       transform: skewX(9deg) scale(0.88);
       opacity: 0;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.65);
+      box-shadow: none !important;
       transition: opacity 0.22s ease, transform 0.22s ease;
       pointer-events: none;
     }
@@ -323,7 +331,7 @@
       height: 28px;
       object-fit: contain;
       flex-shrink: 0;
-      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+      filter: none !important;
     }
 
     .app-list-fallback {
@@ -388,29 +396,210 @@
       pointer-events: none;
     }
 
-    /* Flush Top-Attached Hardware Notch Shell */
+    /* Flush Top-Attached Hardware Notch Shell (Dynamic Island) */
     .notch-shell {
       position: relative;
-      width: 820px;
+      width: 232px;
+      height: 32px;
+      max-height: 32px;
+      min-height: 32px;
       background: var(--notch-bg);
-      border-radius: 0 0 34px 34px;
-      padding: 20px 32px 28px 32px;
-      box-shadow:
-        0 28px 65px rgba(0, 0, 0, 0.92),
-        0 1px 0 rgba(255, 255, 255, 0.05) inset;
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 0 0 16px 16px;
+      padding: 0 10px;
+      box-shadow: none !important;
+      border: 1px solid rgba(255, 255, 255, 0.08);
       border-top: none;
       pointer-events: auto;
-      transform: translateY(-106%);
-      opacity: 0;
+      transform: translateY(0);
+      opacity: 1;
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
       transition:
-        transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 0.24s ease;
+        width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        max-height 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+        min-height 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+        padding 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+        border-radius 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .notch-shell.song-toast-active:not(.open-state) {
+      width: 288px;
+    }
+    body:not(.notch-open) .notch-shell.lyrics-active {
+      width: 370px !important;
+    }
+
+    /* Synced Lyrics Island State */
+    .island-lyrics-state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 9px;
+      padding: 0 6px;
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.96);
+      transition: opacity 0.28s ease, transform 0.28s ease;
+      font-family: var(--font-sans);
+    }
+    .island-lyrics-state.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
+    }
+    .island-lyrics-left {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .island-lyrics-icon {
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: var(--cream-soft, rgba(91, 155, 248, 0.16));
+      color: var(--cream, #5b9bf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8.5px;
+    }
+    .island-lyrics-center {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .island-lyric-line {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: opacity 0.18s ease;
+    }
+    .island-lyrics-wave {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    /* Studio Tab Lyrics Sync Feature Card & Switch */
+    .studio-feature-card {
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 18px;
+      user-select: none;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+    .studio-feature-card:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    .studio-feature-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .studio-feature-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: var(--cream-soft, rgba(91, 155, 248, 0.14));
+      color: var(--cream, #5b9bf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .studio-feature-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .studio-feature-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.01em;
+    }
+    .studio-feature-desc {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-sub);
+    }
+    .notch-switch {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 22px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .notch-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+    .notch-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: rgba(255, 255, 255, 0.12);
+      transition: background-color 0.25s ease;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .notch-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #ffffff;
+      transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+      border-radius: 50%;
+    }
+    .notch-switch input:checked + .notch-slider {
+      background-color: var(--cream, #5b9bf8);
+      border-color: var(--cream, #5b9bf8);
+    }
+    .notch-switch input:checked + .notch-slider:before {
+      transform: translateX(16px);
+      background-color: var(--cream-text, #0f172a);
     }
 
     body.notch-open .notch-shell {
-      transform: translateY(0);
-      opacity: 1;
+      width: 820px;
+      min-height: 0;
+      max-height: 90vh;
+      height: auto;
+      border-radius: 0 0 34px 34px;
+      padding: 20px 32px 28px 32px;
+      overflow: visible;
+      cursor: default;
+      box-shadow: none !important;
     }
 
     /* Top-Left & Top-Right Concave Bezel Ear Curves */
@@ -422,6 +611,10 @@
       width: 28px;
       height: 28px;
       pointer-events: none;
+      opacity: 0;
+      box-shadow: none !important;
+      filter: none !important;
+      transition: opacity 0.22s ease;
     }
     .notch-shell::before {
       left: -28px;
@@ -431,6 +624,275 @@
       right: -28px;
       background: radial-gradient(circle at 100% 100%, transparent 28px, var(--notch-bg) 28.5px);
     }
+
+    body:not(.notch-open) .notch-shell::before,
+    body:not(.notch-open) .notch-shell::after {
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+    }
+
+    body.notch-open .notch-shell::before,
+    body.notch-open .notch-shell::after {
+      display: block !important;
+      opacity: 1;
+      box-shadow: none !important;
+      filter: none !important;
+    }
+
+    /* Hide full contents when collapsed */
+    body:not(.notch-open) .notch-tabs,
+    body:not(.notch-open) .notch-view {
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    /* Hide mini island when expanded */
+    body.notch-open #notchMiniIsland {
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    /* Mini Dynamic Island Layout */
+    .notch-mini-island {
+      width: 100%;
+      height: 32px;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      position: relative;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .island-default-state {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      padding: 0 4px;
+      font-family: var(--font-sans);
+      color: var(--text-main);
+      opacity: 1;
+      transform: scale(1);
+      transition: opacity 0.26s ease, transform 0.26s ease;
+    }
+
+    .island-weather-col {
+      display: flex;
+      align-items: center;
+      justify-self: start;
+      gap: 5px;
+      color: var(--cream, #5b9bf8);
+    }
+    .island-weather-col i {
+      font-size: 11px;
+    }
+    .island-temp-txt {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .island-time-col {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      justify-self: center;
+      text-align: center;
+    }
+    .island-time-txt {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text-main);
+      text-align: center;
+    }
+
+    /* Right Column: Music State (Crossed music icon when idle, Cover art when playing) */
+    .island-music-col {
+      display: flex;
+      align-items: center;
+      justify-self: end;
+      height: 18px;
+    }
+
+    .island-battery-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--cream, #5b9bf8);
+      user-select: none;
+      transition: color 0.2s ease;
+    }
+
+    .island-battery-txt {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      font-family: var(--font-sans);
+      color: inherit;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .island-battery-shell {
+      display: flex;
+      align-items: center;
+      color: inherit;
+      transform: translateY(0.5px);
+    }
+
+    .island-battery-svg {
+      display: block;
+    }
+
+    .island-battery-indicator.is-charging {
+      color: var(--cream, #5b9bf8);
+    }
+    .island-battery-indicator.is-charging .island-battery-txt {
+      color: var(--cream, #5b9bf8);
+    }
+    .island-battery-indicator.is-low:not(.is-charging) {
+      color: #ef4444 !important;
+    }
+    .island-battery-indicator.is-low:not(.is-charging) .island-battery-txt {
+      color: #ef4444 !important;
+    }
+
+    .island-music-art-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .island-mini-art {
+      width: 17px;
+      height: 17px;
+      border-radius: 4px;
+      object-fit: cover;
+      box-shadow: none !important;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      flex-shrink: 0;
+      display: block;
+    }
+
+    .island-mini-fallback-art {
+      width: 17px;
+      height: 17px;
+      border-radius: 4px;
+      background: var(--cream-soft, rgba(91, 155, 248, 0.18));
+      color: var(--cream, #5b9bf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8.5px;
+      box-shadow: none !important;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
+    }
+    .eq-dot {
+      width: 2px;
+      height: 7px;
+      background: var(--cream, #5b9bf8);
+      border-radius: 1px;
+      animation: eqWave 0.7s ease-in-out infinite alternate;
+    }
+    .eq-dot.dot1 { animation-delay: 0s; height: 5px; }
+    .eq-dot.dot2 { animation-delay: 0.2s; height: 9px; }
+    .eq-dot.dot3 { animation-delay: 0.4s; height: 6px; }
+
+    @keyframes eqWave {
+      0% { transform: scaleY(0.4); }
+      100% { transform: scaleY(1.3); }
+    }
+
+    /* Song State Toast View */
+    .island-song-state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 4px;
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.96);
+      transition: opacity 0.26s ease, transform 0.26s ease;
+    }
+    .island-song-state.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
+    }
+    .island-default-state.hide {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.96);
+    }
+
+    .island-song-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      flex: 1;
+    }
+    .island-song-icon-disc {
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: var(--cream-soft, rgba(91, 155, 248, 0.16));
+      color: var(--cream, #5b9bf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8.5px;
+      flex-shrink: 0;
+    }
+    .island-song-details {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .island-song-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-main);
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .island-song-artist {
+      font-size: 9.5px;
+      font-weight: 500;
+      color: var(--text-sub);
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .island-song-wave {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .eq-bar {
+      width: 2px;
+      height: 8px;
+      background: var(--cream, #5b9bf8);
+      border-radius: 1px;
+      animation: eqWave 0.7s ease-in-out infinite alternate;
+    }
+    .eq-bar.b1 { animation-delay: 0.1s; height: 6px; }
+    .eq-bar.b2 { animation-delay: 0.3s; height: 10px; }
+    .eq-bar.b3 { animation-delay: 0.2s; height: 7px; }
 
     /* Top 7-Tab Navigation Bar */
     .notch-tabs {
@@ -1495,12 +1957,12 @@
       transition:
         transform 0.44s cubic-bezier(0.22, 1, 0.36, 1),
         opacity 0.36s ease,
-        border-color 0.25s ease,
-        box-shadow 0.35s ease;
+        border-color 0.25s ease;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       padding: 16px;
+      box-shadow: none !important;
     }
 
     .wall-skew-item[data-slot="-2"] {
@@ -1518,7 +1980,7 @@
       opacity: 1;
       z-index: 5;
       border-color: var(--cream);
-      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.78), 0 0 0 1px rgba(91, 155, 248, 0.42);
+      box-shadow: none !important;
     }
     .wall-skew-item[data-slot="1"] {
       transform: translateX(152px) scale(0.9) skewX(-9deg);
@@ -1554,7 +2016,7 @@
       width: 52px;
       height: 52px;
       object-fit: contain;
-      filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
+      filter: none !important;
     }
 
     .app-icon-fallback {
@@ -1895,6 +2357,80 @@
 <body>
   <div class="notch-stage">
     <div class="notch-shell" id="notchShell">
+      <!-- Mini Dynamic Island Bar (Shown when collapsed) -->
+      <div class="notch-mini-island" id="notchMiniIsland">
+        <!-- Default State: Weather (Left) + Time (Center) + Music/Cover (Right) -->
+        <div class="island-default-state" id="islandDefaultState">
+          <div class="island-weather-col" id="islandWeatherCol">
+            <i id="islandWeatherIcon" class="fa-solid fa-cloud-sun"></i>
+            <span id="islandWeatherTemp" class="island-temp-txt">--°</span>
+          </div>
+
+          <div class="island-time-col">
+            <span id="islandTimeText" class="island-time-txt">--:--</span>
+          </div>
+
+          <!-- Music State on the Right: Crossed Music Icon when not playing, Album Art Cover when playing -->
+          <div class="island-music-col" id="islandMusicCol">
+            <!-- Battery Indicator when idle / no music playing -->
+            <div class="island-battery-indicator" id="islandBatteryIndicator" title="Battery Status">
+              <span id="islandBatteryPct" class="island-battery-txt">--%</span>
+              <div class="island-battery-shell">
+                <svg class="island-battery-svg" viewBox="0 0 24 12" width="18" height="10" fill="none">
+                  <rect x="1" y="1" width="19" height="10" rx="2.5" stroke="currentColor" stroke-width="1.6" />
+                  <path d="M22 4.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                  <rect id="islandBatteryFill" x="2.5" y="2.5" width="12" height="7" rx="1.2" fill="currentColor" />
+                  <path id="islandBatteryBolt" d="M11 2.2l-2.4 4.2h2.8l-1.4 3.4 3.8-4.6h-2.8z" fill="#facc15" stroke="#000" stroke-width="0.5" style="display: none;" />
+                </svg>
+              </div>
+            </div>
+
+            <!-- Album Art Cover when music is playing -->
+            <div class="island-music-art-wrap" id="islandMusicArtWrap" style="display: none;" title="Now Playing">
+              <img id="islandMiniArt" class="island-mini-art" src="" alt="Cover" />
+              <div id="islandMiniFallbackArt" class="island-mini-fallback-art" style="display: none;">
+                <i class="fa-solid fa-music"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Synced Lyrics View (Active when Lyrics Sync toggle is ON and music is playing) -->
+        <div class="island-lyrics-state" id="islandLyricsState">
+          <div class="island-lyrics-left">
+            <div class="island-lyrics-icon" id="islandLyricsIcon">
+              <i class="fa-solid fa-microphone-lines"></i>
+            </div>
+          </div>
+          <div class="island-lyrics-center">
+            <span id="islandLyricLine" class="island-lyric-line">♪ ♪ ♪</span>
+          </div>
+          <div class="island-lyrics-wave">
+            <span class="eq-bar b1"></span>
+            <span class="eq-bar b2"></span>
+            <span class="eq-bar b3"></span>
+          </div>
+        </div>
+
+        <!-- Song Changed / Playing Toast View (fades in for ~2.5s) -->
+        <div class="island-song-state" id="islandSongState">
+          <div class="island-song-left">
+            <div class="island-song-icon-disc">
+              <i class="fa-solid fa-music"></i>
+            </div>
+            <div class="island-song-details">
+              <span id="islandSongTitle" class="island-song-title">Song Title</span>
+              <span id="islandSongArtist" class="island-song-artist">Artist</span>
+            </div>
+          </div>
+          <div class="island-song-wave">
+            <span class="eq-bar b1"></span>
+            <span class="eq-bar b2"></span>
+            <span class="eq-bar b3"></span>
+          </div>
+        </div>
+      </div>
+
       <!-- 7-Tab Navigation Bar -->
       <nav class="notch-tabs" id="notchTabs">
         <button class="notch-tab-btn active" data-tab="controls" title="Controls">
@@ -2223,6 +2759,23 @@
             </button>
           </div>
         </div>
+
+        <!-- Lyrics Sync Feature Card / Toggle in Studio Tab -->
+        <div class="studio-feature-card">
+          <div class="studio-feature-left">
+            <div class="studio-feature-icon">
+              <i class="fa-solid fa-microphone-lines"></i>
+            </div>
+            <div class="studio-feature-meta">
+              <div class="studio-feature-title">Dynamic Island Lyrics Sync</div>
+              <div class="studio-feature-desc">Display live synchronized singing lyrics in the mini dynamic island</div>
+            </div>
+          </div>
+          <label class="notch-switch" title="Toggle Live Synced Lyrics">
+            <input type="checkbox" id="lyricsSyncToggle" />
+            <span class="notch-slider"></span>
+          </label>
+        </div>
       </section>
 
       <!-- =====================================================
@@ -2431,6 +2984,124 @@
     });
 
     const notchShell = document.getElementById('notchShell');
+    const miniIsland = document.getElementById('notchMiniIsland');
+
+    if (miniIsland) {
+      miniIsland.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.body.classList.add('notch-open');
+        if (api.setTopNotchInteractive) api.setTopNotchInteractive(true);
+      });
+    }
+
+    /* Live Dynamic Island Clock */
+    function updateIslandClock() {
+      const el = document.getElementById('islandTimeText');
+      if (!el) return;
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      el.textContent = `${hours}:${minutes} ${ampm}`;
+    }
+    setInterval(updateIslandClock, 1000);
+    updateIslandClock();
+
+    /* Live Battery Level & Charging Monitor for Mini Dynamic Island */
+    let currentBatteryPercent = 100;
+    let currentBatteryCharging = false;
+
+    function renderIslandBattery(pct, isCharging) {
+      currentBatteryPercent = Math.min(100, Math.max(0, Math.round(pct)));
+      currentBatteryCharging = !!isCharging;
+
+      const txt = document.getElementById('islandBatteryPct');
+      const bar = document.getElementById('islandBatteryFill');
+      const bolt = document.getElementById('islandBatteryBolt');
+      const container = document.getElementById('islandBatteryIndicator');
+
+      if (txt) txt.textContent = `${currentBatteryPercent}%`;
+
+      if (bar) {
+        const maxWidth = 16;
+        const fillW = Math.max(1.5, (currentBatteryPercent / 100) * maxWidth);
+        bar.setAttribute('width', fillW.toFixed(1));
+      }
+
+      if (bolt) {
+        bolt.style.display = currentBatteryCharging ? 'block' : 'none';
+      }
+
+      if (container) {
+        container.classList.toggle('is-charging', currentBatteryCharging);
+        container.classList.toggle('is-low', currentBatteryPercent <= 20 && !currentBatteryCharging);
+        container.title = currentBatteryCharging
+          ? `Battery: ${currentBatteryPercent}% (Charging)`
+          : `Battery: ${currentBatteryPercent}%`;
+      }
+    }
+
+    async function updateIslandBattery() {
+      // 1. Try native Web Battery API if available
+      if (typeof navigator !== 'undefined' && navigator.getBattery) {
+        try {
+          const b = await navigator.getBattery();
+          renderIslandBattery(b.level * 100, b.charging);
+          b.onlevelchange = () => renderIslandBattery(b.level * 100, b.charging);
+          b.onchargingchange = () => renderIslandBattery(b.level * 100, b.charging);
+          return;
+        } catch (_) {}
+      }
+
+      // 2. Fallback to Jarvis system stats IPC
+      if (api.getSystemStats) {
+        try {
+          const st = await api.getSystemStats();
+          if (st && (st.battery || st.batteryPct !== undefined)) {
+            const pct = st.battery?.percent ?? st.battery?.pct ?? st.batteryPct ?? 100;
+            const isCharging = st.battery?.charging ?? (st.battery?.status?.includes('Charging') || st.battery?.status?.includes('AC'));
+            renderIslandBattery(pct, isCharging);
+          }
+        } catch (_) {}
+      }
+    }
+    updateIslandBattery();
+    setInterval(updateIslandBattery, 10000);
+
+    /* Dynamic Island Song Toast on Change (Fades for 2.5s) */
+    let lastTrackKey = '';
+    let songToastTimeout = null;
+
+    function triggerSongToast(title, artist) {
+      const songState = document.getElementById('islandSongState');
+      const defaultState = document.getElementById('islandDefaultState');
+      const lyricsState = document.getElementById('islandLyricsState');
+      const songTitleEl = document.getElementById('islandSongTitle');
+      const songArtistEl = document.getElementById('islandSongArtist');
+      const shell = document.getElementById('notchShell');
+      if (!songState || !defaultState || !shell) return;
+
+      if (songTitleEl) songTitleEl.textContent = title || 'Music';
+      if (songArtistEl) songArtistEl.textContent = artist ? `• ${artist}` : '';
+
+      shell.classList.remove('lyrics-active');
+      if (lyricsState) lyricsState.classList.remove('show');
+      defaultState.classList.add('hide');
+      shell.classList.add('song-toast-active');
+      songState.classList.add('show');
+
+      if (songToastTimeout) clearTimeout(songToastTimeout);
+      songToastTimeout = setTimeout(() => {
+        songState.classList.remove('show');
+        shell.classList.remove('song-toast-active');
+        if (lyricsSyncEnabled && currentLyrics.length > 0 && currentPlaybackStatus === 'Playing') {
+          showIslandLyrics(lastRenderedLyricLine || '♪ ♪ ♪');
+        } else {
+          defaultState.classList.remove('hide');
+        }
+      }, 1800);
+    }
 
     function hideTopNotchPanel() {
       closeAllParentDropdowns();
@@ -2964,6 +3635,11 @@
           document.getElementById('weatherSunset').textContent = w.sunset || '06:15 PM';
           const iconEl = document.getElementById('weatherIcon');
           iconEl.className = `fa-solid ${w.icon || 'fa-cloud-sun'}`;
+
+          const islandTemp = document.getElementById('islandWeatherTemp');
+          const islandIcon = document.getElementById('islandWeatherIcon');
+          if (islandTemp) islandTemp.textContent = `${w.temp ?? '--'}°`;
+          if (islandIcon) islandIcon.className = `fa-solid ${w.icon || 'fa-cloud-sun'}`;
         }
         if (data && Array.isArray(data.news) && data.news.length) {
           liveNewsItems = data.news;
@@ -2996,6 +3672,208 @@
     });
 
     /* =========================================================
+       LIVE SYNCHRONIZED LYRICS ENGINE (LRCLIB Integration)
+       ========================================================= */
+    let lyricsSyncEnabled = localStorage.getItem('grokki_island_lyrics_sync') !== 'false';
+    let currentLyrics = []; // [{ time: number (seconds), text: string }]
+    let lyricsTrackKey = '';
+    let lyricsFetchInProgress = false;
+    let interpolatedPlayhead = 0; // seconds
+    let lastPositionUpdate = 0;
+    let lyricsInterpolationTimer = null;
+    let lastRenderedLyricLine = '';
+    let currentPlaybackStatus = 'Paused';
+    let currentLyricsTrackTitle = '';
+
+    // Initialize toggle in Studio tab
+    const lyricsToggleEl = document.getElementById('lyricsSyncToggle');
+    if (lyricsToggleEl) {
+      lyricsToggleEl.checked = lyricsSyncEnabled;
+      lyricsToggleEl.addEventListener('change', (e) => {
+        lyricsSyncEnabled = !!e.target.checked;
+        localStorage.setItem('grokki_island_lyrics_sync', lyricsSyncEnabled ? 'true' : 'false');
+        if (!lyricsSyncEnabled) {
+          hideIslandLyrics();
+        } else {
+          lyricsTrackKey = ''; // Force immediate fetch and sync
+          refreshMediaStatus();
+        }
+      });
+    }
+
+    function parseLrc(lrcText) {
+      if (!lrcText) return [];
+      const lines = lrcText.split(/\r?\n/);
+      const parsed = [];
+      const timeRegex = /\[(\d{1,2}):(\d{2}(?:\.\d+)?)\]/g;
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        const matches = [...line.matchAll(timeRegex)];
+        if (matches.length > 0) {
+          const text = line.replace(timeRegex, '').trim();
+          for (const m of matches) {
+            const mins = parseFloat(m[1]);
+            const secs = parseFloat(m[2]);
+            parsed.push({ time: mins * 60 + secs, text });
+          }
+        }
+      }
+      return parsed.sort((a, b) => a.time - b.time);
+    }
+
+    async function fetchSyncedLyrics(title, artist) {
+      if (!title || !title.trim()) return [];
+
+      const cleanTitle = title
+        .replace(/[’‘]/g, "'")
+        .replace(/[“”]/g, '"')
+        .replace(/\s*(\(|\[)(official\s*(music\s*)?video|video|audio|lyrics|lyric\s*video|hd|4k|remastered|hq|feat\..*?|ft\..*?)(\)|\])/gi, '')
+        .replace(/\s*-\s*(official\s*(music\s*)?video|video|audio|lyrics|remastered.*)/gi, '')
+        .replace(/\s*(feat\.|ft\.).*$/gi, '')
+        .trim();
+
+      const cleanArtist = (artist || '')
+        .replace(/[’‘]/g, "'")
+        .replace(/[“”]/g, '"')
+        .replace(/\s*(feat\.|ft\.).*$/gi, '')
+        .trim();
+
+      const headers = { 'User-Agent': 'GrokkiStudio/1.0 (https://github.com)' };
+
+      const tryFetch = async (url) => {
+        try {
+          const res = await fetch(url, { headers });
+          if (!res.ok) return null;
+          const data = await res.json();
+          if (data && data.syncedLyrics) {
+            return parseLrc(data.syncedLyrics);
+          }
+          if (Array.isArray(data) && data.length > 0) {
+            const matchWithLyrics = data.find((item) => item && item.syncedLyrics);
+            if (matchWithLyrics) {
+              return parseLrc(matchWithLyrics.syncedLyrics);
+            }
+          }
+        } catch (_) {}
+        return null;
+      };
+
+      // 1. Direct GET with track_name and artist_name
+      if (cleanArtist && cleanArtist !== 'System Media' && cleanArtist.toLowerCase() !== 'unknown artist') {
+        const res1 = await tryFetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`);
+        if (res1 && res1.length > 0) return res1;
+      }
+
+      // 2. Direct GET with track_name
+      const res2 = await tryFetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}`);
+      if (res2 && res2.length > 0) return res2;
+
+      // 3. Search by track_name & artist_name
+      if (cleanArtist && cleanArtist !== 'System Media') {
+        const res3 = await tryFetch(`https://lrclib.net/api/search?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`);
+        if (res3 && res3.length > 0) return res3;
+      }
+
+      // 4. Free-form query search: "Title Artist"
+      const q = `${cleanTitle} ${cleanArtist !== 'System Media' ? cleanArtist : ''}`.trim();
+      const res4 = await tryFetch(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`);
+      if (res4 && res4.length > 0) return res4;
+
+      // 5. Fallback search by title alone
+      const res5 = await tryFetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle)}`);
+      if (res5 && res5.length > 0) return res5;
+
+      return [];
+    }
+
+    function showIslandLyrics(lineText) {
+      const shell = document.getElementById('notchShell');
+      const defState = document.getElementById('islandDefaultState');
+      const lyrState = document.getElementById('islandLyricsState');
+      const lyrLine = document.getElementById('islandLyricLine');
+      const songState = document.getElementById('islandSongState');
+
+      if (!shell || !defState || !lyrState || !lyrLine) return;
+
+      // Don't interrupt if temporary song toast is currently active
+      if (songState && songState.classList.contains('show')) return;
+
+      shell.classList.remove('song-toast-active');
+      shell.classList.add('lyrics-active');
+      defState.classList.add('hide');
+      lyrState.classList.add('show');
+
+      const text = (lineText || '♪ ♪ ♪').trim();
+      if (lastRenderedLyricLine !== text) {
+        lastRenderedLyricLine = text;
+        lyrLine.style.opacity = '0';
+        lyrLine.style.transform = 'translateY(2px)';
+        setTimeout(() => {
+          lyrLine.textContent = text;
+          lyrLine.style.opacity = '1';
+          lyrLine.style.transform = 'translateY(0)';
+        }, 80);
+      }
+    }
+
+    function hideIslandLyrics() {
+      const shell = document.getElementById('notchShell');
+      const defState = document.getElementById('islandDefaultState');
+      const lyrState = document.getElementById('islandLyricsState');
+      const songState = document.getElementById('islandSongState');
+
+      if (!shell || !defState || !lyrState) return;
+
+      shell.classList.remove('lyrics-active');
+      lyrState.classList.remove('show');
+      lastRenderedLyricLine = '';
+
+      if (!songState || !songState.classList.contains('show')) {
+        defState.classList.remove('hide');
+      }
+    }
+
+    function syncActiveLyricLine() {
+      if (!lyricsSyncEnabled || currentLyrics.length === 0) {
+        return;
+      }
+      if (currentPlaybackStatus !== 'Playing') {
+        return;
+      }
+      // Calculate current playback time with sub-second interpolation
+      const now = performance.now();
+      const elapsed = lastPositionUpdate ? (now - lastPositionUpdate) / 1000 : 0;
+      const curTime = Math.max(0, interpolatedPlayhead + elapsed);
+
+      let activeLine = '';
+      for (let i = 0; i < currentLyrics.length; i++) {
+        if (currentLyrics[i].time <= curTime) {
+          activeLine = currentLyrics[i].text;
+        } else {
+          break;
+        }
+      }
+
+      // If activeLine is empty (e.g. intro before vocals start), show song title with note icon
+      if (!activeLine || !activeLine.trim()) {
+        const leadIn = (currentLyrics[0] && curTime < currentLyrics[0].time);
+        activeLine = leadIn ? `♪ ${currentLyricsTrackTitle || 'Music'}` : '♪ ♪ ♪';
+      }
+
+      showIslandLyrics(activeLine);
+    }
+
+    // High-resolution 120ms ticker to keep singing lyrics locked in sync with the song
+    if (!lyricsInterpolationTimer) {
+      lyricsInterpolationTimer = setInterval(() => {
+        if (lyricsSyncEnabled && currentLyrics.length > 0 && currentPlaybackStatus === 'Playing') {
+          syncActiveLyricLine();
+        }
+      }, 120);
+    }
+
+    /* =========================================================
        4. STUDIO TAB (Hides Play/Pause & Art When Nothing Playing)
        ========================================================= */
     async function refreshMediaStatus() {
@@ -3015,6 +3893,91 @@
         const thumbnail = media.thumbnail || res?.thumbnail || '';
 
         const hasTrack = title.length > 0;
+
+        // Mini Dynamic Island right-side music state: Crossed music icon if idle, Album art cover if playing
+        const batteryEl = document.getElementById('islandBatteryIndicator');
+        const artWrapEl = document.getElementById('islandMusicArtWrap');
+        const miniArtImg = document.getElementById('islandMiniArt');
+        const miniFallback = document.getElementById('islandMiniFallbackArt');
+
+        if (isPlaying && hasTrack) {
+          if (batteryEl) batteryEl.style.display = 'none';
+          if (artWrapEl) artWrapEl.style.display = 'flex';
+          if (thumbnail) {
+            if (miniArtImg) {
+              miniArtImg.onerror = () => {
+                miniArtImg.style.display = 'none';
+                if (miniFallback) miniFallback.style.display = 'flex';
+              };
+              if (miniArtImg.src !== thumbnail) miniArtImg.src = thumbnail;
+              miniArtImg.style.display = 'block';
+            }
+            if (miniFallback) miniFallback.style.display = 'none';
+          } else {
+            if (miniArtImg) miniArtImg.style.display = 'none';
+            if (miniFallback) miniFallback.style.display = 'flex';
+          }
+        } else {
+          if (batteryEl) batteryEl.style.display = 'flex';
+          if (artWrapEl) artWrapEl.style.display = 'none';
+        }
+
+        currentPlaybackStatus = isPlaying ? 'Playing' : 'Paused';
+        currentLyricsTrackTitle = title;
+
+        const trackKey = `${title}:::${artist}`;
+        if (isPlaying && hasTrack && trackKey !== lastTrackKey) {
+          lastTrackKey = trackKey;
+          triggerSongToast(title, artist);
+        } else if (!isPlaying) {
+          lastTrackKey = '';
+        }
+
+        // Live Lyrics Sync Controller
+        if (isPlaying && hasTrack && lyricsSyncEnabled) {
+          const rawPos = Number(media.position || res?.position || 0);
+          const now = performance.now();
+          const currentEst = lastPositionUpdate ? (interpolatedPlayhead + (now - lastPositionUpdate) / 1000) : 0;
+          // Re-anchor if not initialized or if position drifted by more than 1.2s (e.g. user scrubbed or seeked)
+          if (!lastPositionUpdate || Math.abs(currentEst - rawPos) > 1.2) {
+            interpolatedPlayhead = rawPos;
+            lastPositionUpdate = now;
+          }
+
+          if (trackKey !== lyricsTrackKey) {
+            lyricsTrackKey = trackKey;
+            currentLyrics = [];
+            lastRenderedLyricLine = '';
+            if (!lyricsFetchInProgress) {
+              lyricsFetchInProgress = true;
+              fetchSyncedLyrics(title, artist).then((parsed) => {
+                lyricsFetchInProgress = false;
+                if (lyricsTrackKey === trackKey) {
+                  currentLyrics = parsed;
+                  if (parsed.length > 0) {
+                    syncActiveLyricLine();
+                  } else {
+                    hideIslandLyrics();
+                  }
+                }
+              }).catch(() => {
+                lyricsFetchInProgress = false;
+                hideIslandLyrics();
+              });
+            }
+          } else if (currentLyrics.length > 0) {
+            syncActiveLyricLine();
+          }
+        } else {
+          hideIslandLyrics();
+          if (!isPlaying) {
+            currentLyrics = [];
+            lyricsTrackKey = '';
+            lastPositionUpdate = 0;
+            interpolatedPlayhead = 0;
+          }
+        }
+
         if (!hasTrack) {
           idleCard.style.display = 'flex';
           activeCard.style.display = 'none';
@@ -3736,12 +4699,17 @@
     syncControlsStatus();
     syncOsVolume();
     refreshTodayData();
+    refreshMediaStatus();
     refreshClipboard();
     refreshSystemStats();
+
+    // Constant background polling for Dynamic Island media & weather
+    setInterval(refreshMediaStatus, 1500);
+    setInterval(refreshTodayData, 60000);
+
     setInterval(() => {
       const activeTab = document.querySelector('.notch-tab-btn.active')?.dataset.tab;
       if (activeTab === 'stats') refreshSystemStats();
-      if (activeTab === 'studio') refreshMediaStatus();
       if (activeTab === 'clipboard') refreshClipboard();
     }, 2500);
   </script>

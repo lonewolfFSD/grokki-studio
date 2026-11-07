@@ -99,8 +99,23 @@ try {
         $status = $pb.PlaybackStatus.ToString()
       }
       if ($tl) {
-        $pos = [math]::Max(0, [math]::Round($tl.Position.TotalSeconds))
-        $dur = [math]::Max(0, [math]::Round($tl.EndTime.TotalSeconds))
+        $calcPos = [double]$tl.Position.TotalSeconds
+        if ($status -eq 'Playing' -and $tl.LastUpdatedTime) {
+          try {
+            $lastUtc = $tl.LastUpdatedTime.ToUniversalTime().UtcDateTime
+            $nowUtc = [DateTime]::UtcNow
+            $elapsedSec = ($nowUtc - $lastUtc).TotalSeconds
+            if ($elapsedSec -gt 0) {
+              $calcPos += $elapsedSec
+            }
+          } catch {}
+        }
+        $durSec = [double]$tl.EndTime.TotalSeconds
+        if ($durSec -gt 0 -and $calcPos -gt $durSec) {
+          $calcPos = $durSec
+        }
+        $pos = [math]::Max(0, [math]::Round($calcPos, 1))
+        $dur = [math]::Max(0, [math]::Round($durSec))
       }
     }
   }

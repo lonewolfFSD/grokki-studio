@@ -41,6 +41,7 @@ import {
   Shapes,
   ExternalLink,
   Swords,
+  ChevronDown,
 } from 'lucide-react';
 
 const BATTLE_BRAIN_OPTIONS = [
@@ -174,6 +175,7 @@ import { DEFAULT_GRAINIENT_SETTINGS } from '../GrainientCustomizerModal';
 import grokkiIcon from '../../assets/grokki_icon.svg';
 import { ImageLightboxModal } from '../ImageLightboxModal';
 import { ChatImageAttachment, isImageAttachment } from '../ChatImageAttachment';
+import { ConversationTimeline } from '../ConversationTimeline';
 
 const GRADIENT_ASCII_COLORS = ['#23378e', '#f6f8ff', '#a5d8ff', '#38bdf8'];
 
@@ -1079,6 +1081,28 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState<string>('');
+  const [canScrollDown, setCanScrollDown] = useState<boolean>(false);
+
+  // Monitor scroll distance to bottom to conditionally reveal down chevron button above input
+  useEffect(() => {
+    const container = document.getElementById('grokki-chat-scroll');
+    if (!container) return;
+
+    const checkScroll = () => {
+      const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      setCanScrollDown(distanceToBottom > 45);
+    };
+
+    container.addEventListener('scroll', checkScroll, { passive: true });
+    const ro = new ResizeObserver(checkScroll);
+    ro.observe(container);
+    checkScroll();
+
+    return () => {
+      container.removeEventListener('scroll', checkScroll);
+      ro.disconnect();
+    };
+  }, [messages.length]);
 
   // Slash Commands state
   const [slashIndex, setSlashIndex] = useState(0);
@@ -1432,58 +1456,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
   }, [dualBattleEnabled, brainASelection, brainBSelection, currentModelValue]);
 
   const renderTokenUsageCircle = () => {
-    const total = activeContextLimit;
-    const ratio = Math.min(1, Math.max(0, usedTokens / total));
-    const percentage = ratio * 100;
-    const circumference = 34.56; // 2 * Math.PI * 5.5
-    const strokeDashoffset = circumference * (1 - ratio);
-
-    return (
-      <WarmTooltip
-        content={`Context window: ${usedTokens.toLocaleString()} / ${total.toLocaleString()} tokens (${percentage.toFixed(1)}% of ${currentModelValue} used)`}
-        side="top"
-        surfaceColor="#f5f5f5"
-        inkColor="#18181b"
-        size="sm"
-        radius={8}
-        arrow
-        popDuration={140}
-        showFuse={false}
-      >
-        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors select-none cursor-default">
-          <svg className="w-3.5 h-3.5 -rotate-90 shrink-0" viewBox="0 0 16 16">
-            <circle
-              cx="8"
-              cy="8"
-              r="5.5"
-              fill="none"
-              strokeWidth="1.75"
-              className="stroke-gray-300 dark:stroke-white/10"
-            />
-            <circle
-              cx="8"
-              cy="8"
-              r="5.5"
-              fill="none"
-              strokeWidth="1.75"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
-              className={`transition-all duration-300 ${
-                percentage >= 90
-                  ? 'stroke-rose-500'
-                  : percentage >= 75
-                  ? 'stroke-amber-400'
-                  : 'stroke-sky-400 dark:stroke-sky-400'
-              }`}
-            />
-          </svg>
-          <span className="font-mono tracking-tight text-[11px]">
-            {formatTokenNumber(usedTokens)}/{formatTokenNumber(total)}
-          </span>
-        </div>
-      </WarmTooltip>
-    );
+    return null;
   };
 
   const isSlashMode = inputValue.startsWith('/') && !inputValue.includes(' ') && !slashDismissed;
@@ -3047,7 +3020,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     };
   }, [hotkeys.attachFile, hotkeys.voiceRecord, hotkeys.openCamera, hotkeys.focusInput, cameraModalOpen, isRecording]);
 
-  // Render smooth Attachment Popover Menu (Monochrome High-Contrast Light/Dark)
+  // Render clean monochrome attachment popover menu (Zero color, zero decorative dots, zero glow/shadow)
   const renderAttachMenu = (placement: 'top' | 'bottom' = 'top') => {
     const items: Array<{
       id: 'document' | 'photo' | 'video' | 'camera' | 'audio';
@@ -3059,33 +3032,63 @@ export const ChatTab = React.memo<ChatTabProps>(({
       {
         id: 'document',
         label: 'Document',
-        icon: <FileText className="w-4.5 h-4.5" />,
+        icon: (
+          <svg className="w-4 h-4 text-zinc-400 group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <path d="M14 2v6h6" />
+            <path d="M10 13h4" />
+            <path d="M10 17h4" />
+          </svg>
+        ),
         accept: '.pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.pptx,.json,.py,.js,.ts,.tsx,.jsx,.c,.cpp,.java,.html,.css,.sql,.xml,.yaml,.yml',
       },
       {
         id: 'photo',
         label: 'Photos',
-        icon: <ImageIcon className="w-4.5 h-4.5" />,
+        icon: (
+          <svg className="w-4 h-4 text-zinc-400 group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="14" height="14" rx="2" />
+            <path d="M7 7h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2" />
+          </svg>
+        ),
         accept: 'image/*,.png,.jpg,.jpeg,.webp,.gif,.bmp',
       },
       {
         id: 'video',
         label: 'Videos',
         badge: 'Send / Drive',
-        icon: <Video className="w-4.5 h-4.5" />,
+        icon: (
+          <svg className="w-4 h-4 text-zinc-400 group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="3" />
+            <polygon points="10 9 15 12 10 15 10 9" fill="currentColor" stroke="none" />
+          </svg>
+        ),
         accept: 'video/*,.mp4,.mkv,.mov,.webm,.avi,.m4v',
       },
       {
         id: 'camera',
         label: 'Camera',
-        badge: hotkeys.openCamera,
-        icon: <Camera className="w-4.5 h-4.5" />,
+        badge: hotkeys.openCamera || 'Ctrl+Shift+C',
+        icon: (
+          <svg className="w-4 h-4 text-zinc-400 group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+            <circle cx="12" cy="13" r="3" />
+          </svg>
+        ),
         accept: '',
       },
       {
         id: 'audio',
         label: 'Audio',
-        icon: <Headphones className="w-4.5 h-4.5" />,
+        icon: (
+          <svg className="w-4 h-4 text-zinc-400 group-hover:text-zinc-100 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+            <path d="M4 10v4" />
+            <path d="M8 7v10" />
+            <path d="M12 4v16" />
+            <path d="M14 7v10" />
+            <path d="M18 10v4" />
+          </svg>
+        ),
         accept: 'audio/*,.mp3,.wav,.m4a,.ogg,.flac,.aac,.webm',
       },
     ];
@@ -3096,40 +3099,37 @@ export const ChatTab = React.memo<ChatTabProps>(({
       <AnimatePresence>
         {attachMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.88, y: isTop ? 12 : -12 }}
+            initial={{ opacity: 0, scale: 0.95, y: isTop ? 6 : -6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: isTop ? 10 : -10 }}
-            transition={{ type: 'spring', stiffness: 460, damping: 28, mass: 0.7 }}
+            exit={{ opacity: 0, scale: 0.96, y: isTop ? 4 : -4 }}
+            transition={{ duration: 0.12, ease: 'easeOut' }}
             style={{ transformOrigin: isTop ? 'bottom left' : 'top left' }}
             className={`absolute left-0 ${
-              isTop ? 'bottom-full mb-3' : 'top-full mt-3'
-            } w-52 bg-white/95 dark:bg-[#131317]/95 backdrop-blur-xl border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-lg dark:shadow-black/50 p-1.5 z-50 select-none`}
+              isTop ? 'bottom-full mb-2.5' : 'top-full mt-2.5'
+            } w-52 bg-[#141417] border border-white/[0.08] rounded-xl p-1.5 z-50 select-none`}
           >
             <div className="flex flex-col gap-0.5">
-              {items.map((item, idx) => (
-                <motion.button
+              {items.map((item) => (
+                <button
                   key={item.id}
                   type="button"
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.03, duration: 0.16, ease: 'easeOut' }}
                   onClick={() => handlePickCategory(item.id, item.accept)}
-                  className="w-full flex items-center justify-between px-1.5 py-1 rounded-xl hover:bg-gray-900/[0.045] dark:hover:bg-white/[0.05] transition-colors cursor-pointer border-none bg-transparent text-left group"
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer border-none bg-transparent text-left group"
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 flex-shrink-0 bg-gray-900/[0.03] dark:bg-white/[0.035] text-gray-800 dark:text-gray-200 group-hover:bg-gray-900/[0.06] dark:group-hover:bg-white/[0.07] group-hover:text-gray-950 dark:group-hover:text-white">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
                       {item.icon}
                     </div>
-                    <span className="text-[12px] font-semibold text-gray-800 dark:text-gray-200 group-hover:text-gray-950 dark:group-hover:text-white tracking-tight transition-colors">
+                    <span className="text-[13px] font-medium text-zinc-300 group-hover:text-white transition-colors">
                       {item.label}
                     </span>
                   </div>
                   {item.badge && (
-                    <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-gray-900/[0.035] dark:bg-white/[0.04] text-gray-600 dark:text-gray-300 border border-gray-900/[0.06] dark:border-white/[0.06]">
+                    <span className="text-[9px] font-mono text-zinc-500 group-hover:text-zinc-400 transition-colors">
                       {item.badge}
                     </span>
                   )}
-                </motion.button>
+                </button>
               ))}
             </div>
           </motion.div>
@@ -3642,11 +3642,6 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 </div>
               </div>
             </div>
-
-            {/* Token Usage Circle Bar Below Hero Input Bubble (Right-aligned) */}
-            <div className="flex justify-end items-center px-1 mt-1.5">
-              {renderTokenUsageCircle()}
-            </div>
           </div>
 
           {/* Suggestions & Quick Commands Vertical List */}
@@ -3718,7 +3713,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
               return (
                 <div
                   key={msg.id}
-                  className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} w-full`}
+                  id={`chat-msg-${msg.id}`}
+                  className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} w-full transition-colors`}
                 >
                   {isUser ? (
                     editingMessageId === msg.id ? (
@@ -3794,49 +3790,59 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           </p>
                         </div>
 
-                        {/* Options under User Message: Edit & Copy (Visible only on hover, slightly smaller icons) */}
-                        <div className="flex items-center gap-0.5 mt-1 mr-0.5 text-gray-400 dark:text-gray-500 opacity-0 group-hover/user-msg:opacity-100 pointer-events-none group-hover/user-msg:pointer-events-auto transition-opacity duration-150">
-                          <WarmTooltip
-                            content={copiedId === msg.id ? 'Copied!' : 'Copy'}
-                            side="bottom"
-                            surfaceColor="#f5f5f5"
-                            inkColor="#18181b"
-                            size="sm"
-                            radius={6}
-                            arrow
-                          >
-                            <button
-                              type="button"
-                              aria-label="Copy message"
-                              onClick={() => handleCopy(msg.id, msg.content)}
-                              className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-colors cursor-pointer border-none bg-transparent"
-                            >
-                              {copiedId === msg.id ? (
-                                <Check className="w-3 h-3 text-emerald-500" />
-                              ) : (
-                                <Copy className="w-3 h-3" />
-                              )}
-                            </button>
-                          </WarmTooltip>
+                        {/* Under User Message: Sent timestamp + Copy & Edit buttons (Hidden by default, reveals on hover) */}
+                        <div className="flex items-center gap-1.5 mt-1 mr-1 text-gray-400 dark:text-zinc-500 opacity-0 group-hover/user-msg:opacity-100 pointer-events-none group-hover/user-msg:pointer-events-auto transition-opacity duration-150">
+                          {/* Timestamp of user message when sent (first) */}
+                          {msg.timestamp && (
+                            <span className="text-[10px] font-mono text-gray-400 dark:text-zinc-500 tabular-nums select-none leading-none">
+                              {msg.timestamp}
+                            </span>
+                          )}
 
-                          <WarmTooltip
-                            content="Edit message"
-                            side="bottom"
-                            surfaceColor="#f5f5f5"
-                            inkColor="#18181b"
-                            size="sm"
-                            radius={6}
-                            arrow
-                          >
-                            <button
-                              type="button"
-                              aria-label="Edit message"
-                              onClick={() => handleStartEdit(msg)}
-                              className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-colors cursor-pointer border-none bg-transparent"
+                          {/* Options: Copy & Edit */}
+                          <div className="flex items-center gap-0.5">
+                            <WarmTooltip
+                              content={copiedId === msg.id ? 'Copied!' : 'Copy'}
+                              side="bottom"
+                              surfaceColor="#f5f5f5"
+                              inkColor="#18181b"
+                              size="sm"
+                              radius={6}
+                              arrow
                             >
-                              <Pencil className="w-3 h-3" />
-                            </button>
-                          </WarmTooltip>
+                              <button
+                                type="button"
+                                aria-label="Copy message"
+                                onClick={() => handleCopy(msg.id, msg.content)}
+                                className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-colors cursor-pointer border-none bg-transparent"
+                              >
+                                {copiedId === msg.id ? (
+                                  <Check className="w-3 h-3 text-emerald-500" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+                            </WarmTooltip>
+
+                            <WarmTooltip
+                              content="Edit message"
+                              side="bottom"
+                              surfaceColor="#f5f5f5"
+                              inkColor="#18181b"
+                              size="sm"
+                              radius={6}
+                              arrow
+                            >
+                              <button
+                                type="button"
+                                aria-label="Edit message"
+                                onClick={() => handleStartEdit(msg)}
+                                className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-colors cursor-pointer border-none bg-transparent"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                            </WarmTooltip>
+                          </div>
                         </div>
                       </div>
                     )
@@ -4274,7 +4280,22 @@ export const ChatTab = React.memo<ChatTabProps>(({
           )}
 
           {/* Floating Slash Command Menu, Mention Menu & Synthesizer Visualizer for Bottom Bar */}
-          <div className="w-full max-w-xl mx-auto relative">
+          <div className="w-full max-w-xl mx-auto relative mb-6">
+            {/* Scroll-to-bottom Down Chevron Button (above input to the right side, only if there is space to scroll down) */}
+            {canScrollDown && (
+              <div className="absolute right-0 -top-9 z-30 animate-in fade-in zoom-in-95 duration-150">
+                <button
+                  type="button"
+                  onClick={() => scrollToBottom(true)}
+                  className="w-7 h-7 rounded-full bg-[#18181b]/95 hover:bg-[#25252a] text-gray-400 hover:text-white border border-white/[0.1] flex items-center justify-center transition-all cursor-pointer select-none"
+                  title="Scroll to latest messages"
+                  aria-label="Scroll to bottom"
+                >
+                  <ChevronDown size={14} strokeWidth={2.4} />
+                </button>
+              </div>
+            )}
+
             {renderSlashMenu('top')}
             {renderMentionMenu('top')}
             {renderSynthesizerVisualizer()}
@@ -4495,15 +4516,19 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 </div>
               </div>
             </div>
-
-            {/* Token Usage Circle Bar Below Floating Input Bubble (Right-aligned) */}
-            <div className="flex justify-end items-center px-1 mb-6">
-              {renderTokenUsageCircle()}
-            </div>
           </div>
         </div>
       )}
       </div>
+
+      {/* Conversation Timeline on the FULL RIGHT of screen (Matte, Dots Only, No Lines, No Glow, No Shadows) */}
+      {messages.length > 1 && (
+        <ConversationTimeline
+          messages={messages}
+          conversationTitle={activeConversation.title || 'Conversation'}
+          scrollContainerId="grokki-chat-scroll"
+        />
+      )}
     </div>
       {/* Interactive Artifacts / Canvas Split Pane */}
       <AnimatePresence>
