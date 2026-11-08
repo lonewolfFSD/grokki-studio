@@ -23,6 +23,11 @@ class GitHubWorkspaceManager {
   }
 
   getClientCredentials() {
+    try {
+      const { loadEnv } = require('./env_loader');
+      loadEnv();
+    } catch (_) {}
+
     // 1. From environment variables
     const envId = (process.env.GITHUB_CLIENT_ID || '').trim();
     const envSecret = (process.env.GITHUB_CLIENT_SECRET || '').trim();
@@ -30,15 +35,36 @@ class GitHubWorkspaceManager {
       return { clientId: envId, clientSecret: envSecret };
     }
 
-    // 2. From data/github_credentials.json
-    if (fs.existsSync(this.credentialsPath)) {
-      try {
-        const raw = JSON.parse(fs.readFileSync(this.credentialsPath, 'utf8'));
-        const creds = raw.installed || raw.web || raw;
-        if (creds.client_id && creds.client_secret) {
-          return { clientId: creds.client_id, clientSecret: creds.client_secret };
-        }
-      } catch (e) {}
+    // 2. From github_credentials.json in dataDir or fallback paths
+    let userDataDir = '';
+    try {
+      const { app } = require('electron');
+      if (app && typeof app.getPath === 'function') userDataDir = app.getPath('userData');
+    } catch (_) {}
+
+    const candidatePaths = [
+      this.credentialsPath,
+      userDataDir ? path.join(userDataDir, 'github_credentials.json') : null,
+      path.resolve(__dirname, '../../data/github_credentials.json'),
+      path.resolve(__dirname, '../../../data/github_credentials.json'),
+      path.resolve(__dirname, '../../github_credentials.json'),
+      process.resourcesPath ? path.join(process.resourcesPath, 'data/github_credentials.json') : null,
+      process.resourcesPath ? path.join(process.resourcesPath, 'github_credentials.json') : null,
+      'E:\\Grokki Studio\\data\\github_credentials.json',
+      process.env.APPDATA ? path.join(process.env.APPDATA, 'grokki-studio', 'github_credentials.json') : null,
+      process.env.APPDATA ? path.join(process.env.APPDATA, 'Grokki Studio', 'github_credentials.json') : null,
+    ].filter(Boolean);
+
+    for (const p of candidatePaths) {
+      if (p && fs.existsSync(p)) {
+        try {
+          const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
+          const creds = raw.installed || raw.web || raw;
+          if (creds.client_id && creds.client_secret) {
+            return { clientId: creds.client_id, clientSecret: creds.client_secret };
+          }
+        } catch (e) {}
+      }
     }
 
     return null;

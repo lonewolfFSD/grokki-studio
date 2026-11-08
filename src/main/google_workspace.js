@@ -38,21 +38,43 @@ class GoogleWorkspaceManager {
   }
 
   getClientCredentials() {
-    // 1. From .env
+    try {
+      const { loadEnv } = require('./env_loader');
+      loadEnv();
+    } catch (_) {}
+
+    // 1. From .env / process.env
     const envId = (process.env.GOOGLE_CLIENT_ID || '').trim();
     const envSecret = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
     if (envId && envSecret) {
+      try {
+        if (!fs.existsSync(this.credentialsPath)) {
+          this.saveCredentials(envId, envSecret);
+        }
+      } catch (_) {}
       return { clientId: envId, clientSecret: envSecret };
     }
 
     // 2. From google_credentials.json in dataDir or fallback paths
+    let userDataDir = '';
+    try {
+      const { app } = require('electron');
+      if (app && typeof app.getPath === 'function') userDataDir = app.getPath('userData');
+    } catch (_) {}
+
     const candidatePaths = [
       this.credentialsPath,
+      userDataDir ? path.join(userDataDir, 'google_credentials.json') : null,
       path.resolve(__dirname, '../../data/google_credentials.json'),
       path.resolve(__dirname, '../../../data/google_credentials.json'),
+      path.resolve(__dirname, '../../google_credentials.json'),
       process.resourcesPath ? path.join(process.resourcesPath, 'data/google_credentials.json') : null,
       process.resourcesPath ? path.join(process.resourcesPath, 'google_credentials.json') : null,
+      'E:\\Grokki Studio\\data\\google_credentials.json',
+      process.env.APPDATA ? path.join(process.env.APPDATA, 'grokki-studio', 'google_credentials.json') : null,
+      process.env.APPDATA ? path.join(process.env.APPDATA, 'Grokki Studio', 'google_credentials.json') : null,
     ].filter(Boolean);
+
     for (const p of candidatePaths) {
       if (p && fs.existsSync(p)) {
         try {
