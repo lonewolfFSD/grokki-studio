@@ -4854,9 +4854,10 @@ ipcMain.handle('app:check-for-updates', async () => {
 
     let latestRelease = null;
 
-    // 1. First try the latest release endpoint
+    // 1. First try the latest release endpoint with a tight 3.5s timeout
     try {
       const res = await fetch(`https://api.github.com/repos/${officialRepo}/releases/latest`, {
+        signal: AbortSignal.timeout(3500),
         headers: {
           'User-Agent': 'Grokki-Studio-Desktop',
           'Accept': 'application/vnd.github.v3+json',
@@ -4871,6 +4872,7 @@ ipcMain.handle('app:check-for-updates', async () => {
     if (!latestRelease || !latestRelease.tag_name) {
       try {
         const res = await fetch(`https://api.github.com/repos/${officialRepo}/releases`, {
+          signal: AbortSignal.timeout(3500),
           headers: {
             'User-Agent': 'Grokki-Studio-Desktop',
             'Accept': 'application/vnd.github.v3+json',
@@ -4885,37 +4887,13 @@ ipcMain.handle('app:check-for-updates', async () => {
       } catch (e) {}
     }
 
-    // 3. Fallback: check git tags if releases not yet created
-    if (!latestRelease || !latestRelease.tag_name) {
-      try {
-        const res = await fetch(`https://api.github.com/repos/${officialRepo}/tags`, {
-          headers: {
-            'User-Agent': 'Grokki-Studio-Desktop',
-            'Accept': 'application/vnd.github.v3+json',
-          },
-        });
-        if (res.ok) {
-          const tags = await res.json();
-          if (Array.isArray(tags) && tags.length > 0) {
-            latestRelease = {
-              tag_name: tags[0].name,
-              name: tags[0].name,
-              html_url: releasesWebUrl,
-              zipball_url: tags[0].zipball_url,
-              body: 'New version pushed to repository.',
-            };
-          }
-        }
-      } catch (e) {}
-    }
-
     if (!latestRelease || !latestRelease.tag_name) {
       return {
         updateAvailable: false,
         currentVersion,
         repo: officialRepo,
         releasesUrl: releasesWebUrl,
-        message: `Up to date (v${currentVersion}). No newer releases on GitHub.`,
+        message: `You're on the latest version (v${currentVersion}).`,
       };
     }
 
@@ -4938,29 +4916,7 @@ ipcMain.handle('app:check-for-updates', async () => {
       a.name.endsWith('.exe') || a.name.endsWith('.msi') || a.name.endsWith('.zip')
     ) || latestRelease.assets?.[0];
 
-    let downloadedPath = null;
-    const downloadTargetUrl = asset?.browser_download_url || latestRelease.zipball_url;
-
-    if (downloadTargetUrl) {
-      try {
-        const updatesDir = path.join(app.getPath('userData'), 'updates');
-        if (!fs.existsSync(updatesDir)) {
-          fs.mkdirSync(updatesDir, { recursive: true });
-        }
-        const fileName = asset?.name || `grokki-update-${latestTag}.zip`;
-        const filePath = path.join(updatesDir, fileName);
-        const fileRes = await fetch(downloadTargetUrl, {
-          headers: { 'User-Agent': 'Grokki-Studio-Desktop' },
-        });
-        if (fileRes.ok) {
-          const buffer = Buffer.from(await fileRes.arrayBuffer());
-          fs.writeFileSync(filePath, buffer);
-          downloadedPath = filePath;
-        }
-      } catch (e) {
-        console.warn('[Main] Release asset auto-download notice:', e.message);
-      }
-    }
+    const downloadTargetUrl = asset?.browser_download_url || latestRelease.html_url || releasesWebUrl;
 
     return {
       updateAvailable: true,
@@ -4968,8 +4924,7 @@ ipcMain.handle('app:check-for-updates', async () => {
       latestVersion: latestTag,
       name: latestRelease.name || latestTag,
       releasesUrl: releasesWebUrl,
-      downloadUrl: asset?.browser_download_url || latestRelease.html_url || releasesWebUrl,
-      downloadedPath,
+      downloadUrl: downloadTargetUrl,
       releaseNotes: latestRelease.body || '',
       repo: officialRepo,
     };

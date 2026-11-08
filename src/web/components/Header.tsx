@@ -44,7 +44,7 @@ export const Header = React.memo<HeaderProps>(({
   const [updateState, setUpdateState] = useState<'idle' | 'checking' | 'ready' | 'up-to-date'>('idle');
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [appVersion, setAppVersion] = useState<string>('1.52.327');
+  const [appVersion, setAppVersion] = useState<string>('1.52.328');
 
   React.useEffect(() => {
     if (window.jarvisAPI?.getAppVersion) {
@@ -81,16 +81,24 @@ export const Header = React.memo<HeaderProps>(({
     setUpdateState('checking');
     setToastMsg('Checking grokki-studio releases...');
 
+    // Safety timeout: ensure checking spinner never runs longer than 4.5 seconds under any circumstance
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Update check timeout')), 4500)
+    );
+
     try {
       let result: any = null;
 
-      // 1. Try via Electron Main Process IPC
+      // 1. Try via Electron Main Process IPC with timeout race
       try {
         if (window.jarvisAPI?.checkForUpdates) {
-          result = await window.jarvisAPI.checkForUpdates();
+          result = await Promise.race([
+            window.jarvisAPI.checkForUpdates(),
+            timeoutPromise,
+          ]);
         }
       } catch (ipcErr: any) {
-        console.warn('IPC check failed or main not yet restarted, using direct fetch:', ipcErr);
+        console.warn('IPC check error/timeout, using direct fetch:', ipcErr);
       }
 
       // 2. Direct renderer fallback if IPC was not registered yet in running main process
@@ -99,6 +107,7 @@ export const Header = React.memo<HeaderProps>(({
         const currentVersion = appVersion;
         try {
           const res = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
+            signal: AbortSignal.timeout(3500),
             headers: { 'Accept': 'application/vnd.github.v3+json' },
           });
           if (res.ok) {
