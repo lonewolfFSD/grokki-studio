@@ -5,6 +5,8 @@ import {
   useMotionValue,
   useReducedMotion,
 } from 'motion/react';
+import grokkiLogo from '../assets/grokki_logo.png';
+import grokkiWordmark from '../assets/grokki_wordmark.png';
 
 interface PreloaderProps {
   onComplete: () => void;
@@ -15,9 +17,9 @@ interface PreloaderProps {
   maxWait?: number;
 }
 
-const LOGO = '/assets/grokki_logo.png';
-const WORDMARK = '/assets/grokki_wordmark.png';
-const GROKKI_VOICE = '/audio/grokki-intro.webm';
+const LOGO = grokkiLogo;
+const WORDMARK = grokkiWordmark;
+const GROKKI_VOICE = './audio/grokki-intro.webm';
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 /* ── Web Audio Synthesizers & Sound FX ────────── */

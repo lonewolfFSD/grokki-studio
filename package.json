@@ -1,6 +1,6 @@
 {
   "name": "grokki-studio",
-  "version": "1.52.326",
+  "version": "1.52.327",
   "description": "Grokki Studio & Island - Autonomous AI Assistant for Windows",
   "main": "src/main/main.js",
   "scripts": {
