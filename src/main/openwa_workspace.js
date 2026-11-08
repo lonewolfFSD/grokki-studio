@@ -25,11 +25,17 @@ try {
 let makeWASocket = null;
 let useMultiFileAuthState = null;
 let DisconnectReason = null;
+let fetchLatestBaileysVersion = null;
+let Browsers = null;
+let downloadMediaMessage = null;
 try {
   const baileys = require('@whiskeysockets/baileys');
   makeWASocket = baileys.default || baileys.makeWASocket || baileys;
   useMultiFileAuthState = baileys.useMultiFileAuthState;
   DisconnectReason = baileys.DisconnectReason;
+  fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
+  Browsers = baileys.Browsers;
+  downloadMediaMessage = baileys.downloadMediaMessage;
 } catch (err) {
   console.warn('[OpenWA/Local] Baileys library not available:', err.message);
 }
@@ -119,6 +125,7 @@ class OpenWAWorkspaceManager {
     this.localStatus = 'idle'; // 'idle' | 'starting' | 'qr_ready' | 'ready' | 'disconnected' | 'error'
     this.localQr = null;
     this.localQrDataUrl = null;
+    this.localQrTimestamp = 0;
     this.localUserPhone = null;
     this.localUserName = null;
     this.isStartingLocal = false;
@@ -210,6 +217,21 @@ class OpenWAWorkspaceManager {
     return `+${clean}`;
   }
 
+  resolveLidToPhone(jid) {
+    if (!jid || !jid.endsWith('@lid')) return null;
+    try {
+      const lidNum = jid.replace(/@lid$/, '').split(':')[0];
+      const revFile = path.join(this.localAuthDir, `lid-mapping-${lidNum}_reverse.json`);
+      if (fs.existsSync(revFile)) {
+        const phone = JSON.parse(fs.readFileSync(revFile, 'utf8'));
+        if (phone && /^\d+$/.test(String(phone))) {
+          return `${phone}@s.whatsapp.net`;
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
   formatChatName(chatOrJid) {
     let jid = '';
     let fromMe = false;
@@ -242,9 +264,13 @@ class OpenWAWorkspaceManager {
       return 'You';
     }
 
-    // Saved contact name
+    // Saved contact name (direct or via LID->Phone reverse mapping)
     if (this.contacts[jid]) {
       return this.contacts[jid];
+    }
+    const phoneJid = jid.endsWith('@lid') ? this.resolveLidToPhone(jid) : null;
+    if (phoneJid && this.contacts[phoneJid]) {
+      return this.contacts[phoneJid];
     }
 
     // If a human name was supplied (not a formatted or raw phone number)
@@ -252,8 +278,9 @@ class OpenWAWorkspaceManager {
       return fallbackName;
     }
 
-    // Standard phone number format
-    const digits = jid.replace(/@.*$/, '').replace(/[^\d]/g, '');
+    // Standard phone number format (prefer resolved phone number if JID is @lid)
+    const targetForDigits = phoneJid || jid;
+    const digits = targetForDigits.replace(/@.*$/, '').replace(/[^\d]/g, '');
     return this.formatPhoneNumber(digits);
   }
 
@@ -292,13 +319,15 @@ class OpenWAWorkspaceManager {
   // EMBEDDED LOCAL BAILEYS ENGINE
   // ==========================================
 
-  processMessage(m) {
+  async processMessage(m, type = 'notify') {
     if (!m || !m.message) return;
-    const jid = m.key?.remoteJid;
-    if (!jid || jid.endsWith('@broadcast') || jid === 'status@broadcast') return;
+    const rawJid = m.key?.remoteJid;
+    if (!rawJid || rawJid.endsWith('@broadcast') || rawJid === 'status@broadcast') return;
 
-    // Filter internal companion device LID setup messages
-    if (jid.endsWith('@lid')) return;
+    // Resolve LID to phone JID if available via Baileys key fields or reverse mapping
+    const altJid = m.key?.remoteJidAlt || m.key?.senderPn || null;
+    const mappedPhoneJid = rawJid.endsWith('@lid') ? (altJid || this.resolveLidToPhone(rawJid)) : null;
+    const jid = mappedPhoneJid || rawJid;
 
     // Unwrap ephemeral / view once / document wrapper
     let msg = m.message;
@@ -312,7 +341,40 @@ class OpenWAWorkspaceManager {
       return;
     }
 
-    const text =
+    let savedMediaFilePath = null;
+    const isMedia = !!(msg.imageMessage || msg.videoMessage || msg.audioMessage || msg.documentMessage);
+    if (isMedia && typeof downloadMediaMessage === 'function' && this.localSock) {
+      try {
+        const mediaBuffer = await downloadMediaMessage(
+          m,
+          'buffer',
+          {},
+          {
+            logger: pino({ level: 'silent' }),
+            reuploadRequest: this.localSock.updateMediaMessage,
+          }
+        );
+        if (mediaBuffer && mediaBuffer.length > 0) {
+          const mediaDir = path.join(this.dataDir, 'media');
+          if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
+          let ext = 'bin';
+          if (msg.imageMessage) ext = 'jpg';
+          else if (msg.audioMessage) ext = 'ogg';
+          else if (msg.videoMessage) ext = 'mp4';
+          else if (msg.documentMessage) {
+            const origExt = path.extname(msg.documentMessage.fileName || '').replace('.', '');
+            ext = origExt || 'pdf';
+          }
+          const fname = `${m.key.id || Date.now()}.${ext}`;
+          savedMediaFilePath = path.join(mediaDir, fname);
+          fs.writeFileSync(savedMediaFilePath, mediaBuffer);
+        }
+      } catch (err) {
+        console.warn('[OpenWA/Local] Media download error:', err.message);
+      }
+    }
+
+    const text = (
       msg.conversation ||
       msg.extendedTextMessage?.text ||
       msg.imageMessage?.caption ||
@@ -321,7 +383,9 @@ class OpenWAWorkspaceManager {
       (msg.audioMessage ? '🎤 [Voice message]' : null) ||
       (msg.documentMessage ? `📄 [File: ${msg.documentMessage.fileName || 'Document'}]` : null) ||
       (msg.locationMessage ? '📍 [Location]' : null) ||
-      (msg.contactMessage ? '👤 [Contact Card]' : null);
+      (msg.contactMessage ? '👤 [Contact Card]' : null) ||
+      ''
+    ).trim();
 
     // If there is no real user text or media content, do not log a dummy entry
     if (!text) return;
@@ -329,8 +393,12 @@ class OpenWAWorkspaceManager {
     const isFromMe = !!m.key?.fromMe;
     let sender = m.pushName;
     if (sender) sender = sender.replace(/[\u200E\u200F]/g, '').trim();
+    if (!sender) {
+      sender = this.contacts[rawJid] || this.contacts[jid] || null;
+    }
 
     if (!isFromMe && sender && !jid.endsWith('@g.us')) {
+      this.contacts[rawJid] = sender;
       this.contacts[jid] = sender;
       this.saveContacts();
     }
@@ -345,7 +413,28 @@ class OpenWAWorkspaceManager {
     }
 
     const title = this.formatChatName({ jid, fromMe: isFromMe, name: sender });
-    const timestamp = m.messageTimestamp ? Number(m.messageTimestamp) * 1000 : Date.now();
+
+    // Robust timestamp extraction supporting protobuf Long, Number, and BigInt
+    const rawTs = m.messageTimestamp;
+    let timestamp = Date.now();
+    if (typeof rawTs === 'number') {
+      timestamp = rawTs > 1e11 ? rawTs : rawTs * 1000;
+    } else if (typeof rawTs === 'string') {
+      const n = Number(rawTs);
+      if (!isNaN(n) && n > 0) timestamp = n > 1e11 ? n : n * 1000;
+    } else if (typeof rawTs === 'object' && rawTs !== null) {
+      if (typeof rawTs.toNumber === 'function') {
+        const n = rawTs.toNumber();
+        if (!isNaN(n) && n > 0) timestamp = n > 1e11 ? n : n * 1000;
+      } else if (rawTs.low !== undefined) {
+        const n = Number(rawTs.low);
+        if (!isNaN(n) && n > 0) timestamp = n > 1e11 ? n : n * 1000;
+      }
+    }
+    if (isNaN(timestamp) || timestamp <= 0) {
+      timestamp = Date.now();
+    }
+
     const existingIdx = this.recentChats.findIndex((c) => c.id === jid || c.jid === jid);
 
     const chatItem = {
@@ -353,10 +442,11 @@ class OpenWAWorkspaceManager {
       jid,
       name: title,
       formattedTitle: title,
-      lastMessage: { body: text, type: 'chat' },
+      lastMessage: { body: text, type: isMedia ? 'media' : 'chat', filePath: savedMediaFilePath },
       timestamp,
       fromMe: isFromMe,
       unreadCount: 0,
+      filePath: savedMediaFilePath,
     };
 
     if (existingIdx >= 0) {
@@ -365,18 +455,103 @@ class OpenWAWorkspaceManager {
     this.recentChats.unshift(chatItem);
     this.recentChats.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     if (this.recentChats.length > 50) this.recentChats.pop();
+
+    // Trigger Dynamic Island notification if message is fresh or real-time notify event
+    const isNotifyType = type === 'notify';
+    const msgAge = Math.abs(Date.now() - timestamp);
+    const isFresh = isNaN(msgAge) || msgAge < 180000;
+
+    if (!isFromMe && (isNotifyType || isFresh)) {
+      const notifSender = jid.endsWith('@g.us')
+        ? `${title}${sender ? ` (${sender})` : ''}`
+        : (sender || title || 'WhatsApp');
+      this.broadcastIncomingNotification({
+        source: 'whatsapp',
+        sender: notifSender,
+        message: text,
+        icon: 'whatsapp',
+        jid,
+        filePath: savedMediaFilePath,
+      });
+    }
   }
 
-  async startLocalEngine() {
+  broadcastIncomingNotification({ source, sender, message, icon, jid, filePath }) {
+    try {
+      const electron = require('electron');
+      const BrowserWindow = electron.BrowserWindow;
+      const Notification = electron.Notification;
+
+      console.log(`[OpenWA] 🔔 Incoming WhatsApp alert from "${sender}": "${message}"`);
+
+      // 1. Broadcast to Dynamic Island & all Electron windows
+      if (BrowserWindow) {
+        BrowserWindow.getAllWindows().forEach((win) => {
+          if (!win.isDestroyed() && win.webContents) {
+            win.webContents.send('island:notification', {
+              source: source || 'whatsapp',
+              sender,
+              message,
+              icon: icon || 'whatsapp',
+              jid,
+              filePath,
+              timestamp: Date.now(),
+            });
+          }
+        });
+      }
+
+      // 2. Windows Native Notification
+      if (Notification && Notification.isSupported()) {
+        const sysNotif = new Notification({
+          title: `${sender} (WhatsApp)`,
+          body: message,
+          silent: false,
+        });
+        sysNotif.show();
+      }
+    } catch (e) {
+      console.warn('[OpenWA] Notification broadcast error:', e.message);
+    }
+  }
+
+  broadcastStatus(status) {
+    try {
+      const electron = require('electron');
+      const BrowserWindow = electron.BrowserWindow;
+      if (BrowserWindow) {
+        BrowserWindow.getAllWindows().forEach((win) => {
+          if (!win.isDestroyed() && win.webContents) {
+            win.webContents.send('openwa-status-changed', status);
+          }
+        });
+      }
+    } catch (e) {}
+  }
+
+  async startLocalEngine(forceFresh = false) {
     if (!makeWASocket || !useMultiFileAuthState) {
       console.warn('[OpenWA/Local] Baileys is not available.');
       return;
     }
-    if (this.localSock && (this.localStatus === 'ready' || this.localStatus === 'qr_ready')) {
+    const now = Date.now();
+    const qrAge = this.localQrTimestamp ? now - this.localQrTimestamp : 999999;
+    if (!forceFresh && this.localSock && (this.localStatus === 'ready' || (this.localStatus === 'qr_ready' && qrAge < 25000))) {
       return;
     }
-    if (this.isStartingLocal) return;
+    if (this.isStartingLocal && !forceFresh) return;
     this.isStartingLocal = true;
+
+    // Cleanly terminate previous socket before starting fresh pairing
+    if (this.localSock) {
+      try {
+        this.localSock.ev.removeAllListeners();
+        this.localSock.end(new Error('Refreshing WhatsApp QR Pairing'));
+      } catch (e) {}
+      this.localSock = null;
+    }
+    this.localQr = null;
+    this.localQrDataUrl = null;
     this.localStatus = 'starting';
 
     try {
@@ -384,14 +559,42 @@ class OpenWAWorkspaceManager {
         fs.mkdirSync(this.localAuthDir, { recursive: true });
       }
 
+      // If forceFresh is requested and we are not linked yet, remove stale key files
+      if (forceFresh && !this.isLocalReady()) {
+        try {
+          const files = fs.readdirSync(this.localAuthDir);
+          for (const file of files) {
+            fs.unlinkSync(path.join(this.localAuthDir, file));
+          }
+        } catch (e) {}
+      }
+
       const { state, saveCreds } = await useMultiFileAuthState(this.localAuthDir);
 
+      let waVersion;
+      try {
+        if (typeof fetchLatestBaileysVersion === 'function') {
+          const vRes = await fetchLatestBaileysVersion();
+          waVersion = vRes?.version;
+        }
+      } catch (e) {
+        console.warn('[OpenWA/Local] Failed to fetch latest WA version, using default:', e.message);
+      }
+
+      const browserSignature = (Browsers && typeof Browsers.windows === 'function')
+        ? Browsers.windows('Desktop')
+        : ['Windows', 'Desktop', '10.0.22631'];
+
       const sock = makeWASocket({
+        version: waVersion,
         auth: state,
         printQRInTerminal: false,
         logger: pino({ level: 'silent' }),
-        browser: ['Grokki Studio', 'Desktop', '1.52.0'],
+        browser: browserSignature,
         syncFullHistory: false,
+        connectTimeoutMs: 60000,
+        keepAliveIntervalMs: 25000,
+        generateHighQualityLinkPreview: true,
       });
 
       this.localSock = sock;
@@ -404,12 +607,28 @@ class OpenWAWorkspaceManager {
         if (qr) {
           try {
             this.localQr = qr;
+            this.localQrTimestamp = Date.now();
             this.localQrDataUrl = await QRCode.toDataURL(qr, {
               margin: 2,
-              width: 320,
-              color: { dark: '#111827', light: '#ffffff' },
+              width: 360,
+              color: { dark: '#0b141a', light: '#ffffff' },
+              errorCorrectionLevel: 'M',
             });
             this.localStatus = 'qr_ready';
+            console.log('[OpenWA/Local] Fresh WhatsApp Web pairing QR code generated successfully.');
+
+            this.broadcastStatus({
+              connected: false,
+              isGateway: false,
+              isLocal: true,
+              sessionStatus: 'qr_ready',
+              userPhone: null,
+              userName: null,
+              qrDataUrl: this.localQrDataUrl,
+              sessionId: this.userSessionId,
+              gatewayOnline: true,
+              error: null,
+            });
 
             while (this.qrResolvers.length > 0) {
               const res = this.qrResolvers.shift();
@@ -431,6 +650,18 @@ class OpenWAWorkspaceManager {
           if (statusCode === DisconnectReason?.loggedOut) {
             this.clearLocalAuth();
             this.localStatus = 'idle';
+            this.broadcastStatus({
+              connected: false,
+              isGateway: false,
+              isLocal: true,
+              sessionStatus: 'disconnected',
+              userPhone: null,
+              userName: null,
+              qrDataUrl: null,
+              sessionId: this.userSessionId,
+              gatewayOnline: false,
+              error: null,
+            });
           } else if (shouldReconnect) {
             setTimeout(() => {
               this.startLocalEngine().catch(() => {});
@@ -445,6 +676,19 @@ class OpenWAWorkspaceManager {
           let rawName = sock.user?.name || '';
           this.localUserName = rawName.replace(/[\u200E\u200F]/g, '').trim() || null;
 
+          this.broadcastStatus({
+            connected: true,
+            isGateway: false,
+            isLocal: true,
+            sessionStatus: 'ready',
+            userPhone: this.localUserPhone,
+            userName: this.localUserName,
+            qrDataUrl: null,
+            sessionId: this.userSessionId,
+            gatewayOnline: true,
+            error: null,
+          });
+
           while (this.qrResolvers.length > 0) {
             const res = this.qrResolvers.shift();
             res({ success: true, connected: true });
@@ -453,11 +697,11 @@ class OpenWAWorkspaceManager {
       });
 
       // Handle message events
-      sock.ev.on('messages.upsert', async ({ messages }) => {
+      sock.ev.on('messages.upsert', async ({ messages, type }) => {
         try {
           if (!Array.isArray(messages)) return;
           for (const m of messages) {
-            this.processMessage(m);
+            await this.processMessage(m, type);
           }
           this.saveRecentChats();
         } catch (err) {
@@ -465,11 +709,11 @@ class OpenWAWorkspaceManager {
         }
       });
 
-      sock.ev.on('messaging-history.set', ({ messages }) => {
+      sock.ev.on('messaging-history.set', async ({ messages }) => {
         try {
           if (Array.isArray(messages)) {
             for (const m of messages) {
-              this.processMessage(m);
+              await this.processMessage(m, 'history');
             }
             this.saveRecentChats();
           }
@@ -757,16 +1001,17 @@ class OpenWAWorkspaceManager {
     return res;
   }
 
-  async getQrCode() {
+  async getQrCode(forceFresh = false) {
     if (this.isReady()) {
       return { success: true, connected: true };
     }
 
-    if (this.localQrDataUrl && this.localStatus === 'qr_ready') {
+    const qrAge = Date.now() - (this.localQrTimestamp || 0);
+    if (!forceFresh && this.localQrDataUrl && this.localStatus === 'qr_ready' && qrAge < 25000) {
       return { success: true, qrDataUrl: this.localQrDataUrl };
     }
 
-    this.startLocalEngine().catch(() => {});
+    this.startLocalEngine(forceFresh || qrAge >= 25000).catch(() => {});
 
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -775,7 +1020,7 @@ class OpenWAWorkspaceManager {
           qrDataUrl: this.localQrDataUrl,
           error: this.localQrDataUrl ? null : 'Preparing QR code, please scan once visible...',
         });
-      }, 10000);
+      }, 12000);
 
       this.qrResolvers.push((res) => {
         clearTimeout(timer);
@@ -797,6 +1042,7 @@ class OpenWAWorkspaceManager {
     this.localStatus = 'idle';
     this.localQr = null;
     this.localQrDataUrl = null;
+    this.localQrTimestamp = 0;
     this.localUserPhone = null;
     this.localUserName = null;
     this.lastStatus = null;
@@ -842,7 +1088,7 @@ class OpenWAWorkspaceManager {
     // 2. Check known contacts
     for (const [jid, contactName] of Object.entries(this.contacts || {})) {
       if (contactName && (contactName.toLowerCase() === lower || contactName.toLowerCase().includes(lower))) {
-        return jid;
+        return this.resolveLidToPhone(jid) || jid;
       }
     }
 

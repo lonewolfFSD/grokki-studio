@@ -137,11 +137,56 @@ class GrokkiAgent {
       }
     }
 
+    // Timer / Lock-In / Focus Session detection in fallback
+    if (
+      /\b(lock[- ]?in|pomodoro|study\s+session|focus\s+session|focus\s+timer|study\s+timer)\b/i.test(lower) ||
+      /\b(set|start|begin|create|run)\s+(a\s+|an\s+)?(\d+(\.\d+)?\s*[- ]?(min|mins|minute|minutes|sec|secs|second|seconds|hr|hrs|hour|hours)\s+)?(timer|countdown|lock[- ]?in|pomodoro)\b/i.test(lower)
+    ) {
+      let mins = 25;
+      const minMatch = text.match(/(\d+(?:\.\d+)?)\s*[- ]?(?:min|mins|minute|minutes|m)\b/i);
+      const secMatch = text.match(/(\d+(?:\.\d+)?)\s*[- ]?(?:sec|secs|second|seconds|s)\b/i);
+      const hrMatch = text.match(/(\d+(?:\.\d+)?)\s*[- ]?(?:hr|hrs|hour|hours|h)\b/i);
+      if (minMatch) mins = parseFloat(minMatch[1]);
+      else if (secMatch) mins = Math.max(0.08, parseFloat(secMatch[1]) / 60);
+      else if (hrMatch) mins = parseFloat(hrMatch[1]) * 60;
+
+      const isPlainTimer = /\b(timer|countdown)\b/i.test(lower) && !/\b(lock[- ]?in|study|pomodoro|focus)\b/i.test(lower);
+      let subject = isPlainTimer ? 'Timer' : 'Study';
+      const subjMatch = text.match(/(?:on|for|studying)\s+([a-zA-Z0-9\s_+-]+)$/i);
+      if (subjMatch) {
+        const candidate = subjMatch[1].replace(/\b(\d+\s*(min|mins|minute|minutes|sec|seconds|m|s)|lock[- ]?in|session|timer|study)\b/gi, '').trim();
+        if (candidate) subject = candidate;
+      }
+      if (api && api.setIslandActivity) {
+        const totalSec = Math.max(1, Math.round(mins * 60));
+        api.setIslandActivity({
+          action: 'start',
+          kind: 'timer',
+          icon: 'fa-solid fa-stopwatch',
+          title: subject.toLowerCase() === 'timer' ? 'Timer' : `Lock-In • ${subject}`,
+          subject,
+          durationMinutes: mins,
+          durationSeconds: totalSec,
+          endTime: Date.now() + totalSec * 1000,
+        });
+      }
+      return {
+        handled: true,
+        reply: `⏱️ Lock-in study timer running for **${mins} minutes** on your **Mini Dynamic Island**!`,
+        actionsExecuted: [{ type: 'start_lock_in_study_session', duration_minutes: mins, subject }],
+      };
+    }
+
     const launchMatch = text.match(/^(?:open|launch|start|run)\s+(.+)$/i);
     if (launchMatch) {
       const appName = launchMatch[1].trim();
-      if (api) await api.openApp(appName);
-      return { handled: true, reply: `${appName} opened.`, actionsExecuted: [{ type: 'open_app', appName }] };
+      const lowerApp = appName.toLowerCase();
+      const isTaskPhrase = /^(a|an|my|the|some|this)\s+/i.test(lowerApp) ||
+        /\b(session|lock[- ]?in|timer|pomodoro|countdown|alarm|reminder|minute|minutes|min|mins|second|seconds|hour|hours|study|recording|lecture|meeting|mode|quiz|viva)\b/i.test(lowerApp);
+      if (!isTaskPhrase && api && typeof api.openApp === 'function') {
+        await api.openApp(appName);
+        return { handled: true, reply: `${appName} opened.`, actionsExecuted: [{ type: 'open_app', appName }] };
+      }
     }
 
     return { handled: false, reply: '', actionsExecuted: [] };

@@ -289,9 +289,17 @@ export interface GroundingSource {
   favicon?: string;
 }
 
+export interface GroundingImage {
+  title: string;
+  image: string;
+  thumbnail?: string;
+  url?: string;
+}
+
 export interface GroundingMetadata {
   query: string;
   sources: GroundingSource[];
+  relatedImages?: GroundingImage[];
 }
 
 export interface DualBattleResult {
@@ -328,12 +336,19 @@ export interface ChatMessage {
   dualBattle?: DualBattleResult;
 }
 
+export type ChatLockMethod = 'windows' | 'mobile_passkey' | 'custom';
+
 export interface Conversation {
   id: string;
   title: string;
   updatedAt: number;
+  createdAt?: number;
   messages: ChatMessage[];
   isPinned?: boolean;
+  isArchived?: boolean;
+  isLocked?: boolean;
+  lockMethod?: ChatLockMethod;
+  lockPasswordHash?: string;
 }
 
 export interface JarvisAPI {
@@ -383,10 +398,11 @@ export interface JarvisAPI {
   }) => Promise<{ success: boolean; config?: any; error?: string }>;
   startOpenWASession?: (opts?: { name?: string; engine?: string }) => Promise<{ success: boolean; sessionId?: string; error?: string }>;
   logoutOpenWASession?: (sessionId?: string) => Promise<{ success: boolean; error?: string }>;
-  getOpenWAQr?: (sessionId?: string) => Promise<{ success: boolean; qrDataUrl?: string; rawQr?: string; error?: string }>;
+  getOpenWAQr?: (forceFresh?: boolean | string) => Promise<{ success: boolean; qrDataUrl?: string; rawQr?: string; error?: string }>;
   requestOpenWAPairingCode?: (opts: { phoneNumber: string; sessionId?: string }) => Promise<{ success: boolean; pairingCode?: string; error?: string }>;
   testOpenWASend?: (opts: { to: string; message: string }) => Promise<{ success: boolean; messageId?: string; error?: string }>;
   getOpenWAChats?: (limit?: number) => Promise<{ success: boolean; chats?: any[]; error?: string }>;
+  onOpenWAStatusChanged?: (callback: (status: any) => void) => () => void;
   getWorkspaceRoot?: () => Promise<{ workspaceRoot: string; folderName: string }>;
   setWorkspaceRoot?: (folderPath: string) => Promise<{ success: boolean; workspaceRoot?: string; error?: string }>;
   selectWorkspaceFolder?: () => Promise<{ success?: boolean; canceled?: boolean; workspaceRoot?: string; folderName?: string }>;
@@ -498,6 +514,106 @@ export interface JarvisAPI {
   cancelDictation?: () => void;
   openApp?: (appName: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   getInstalledApps?: () => Promise<InstalledAppItem[]>;
+
+  // Grokki Persistent Memory System
+  getAllMemories?: (filters?: { category?: string; projectId?: string; pinned?: boolean; userConfirmed?: boolean; search?: string; tag?: string }) => Promise<MemoryItem[]>;
+  getMemory?: (id: string) => Promise<MemoryItem | null>;
+  addMemory?: (memoryData: Partial<MemoryItem>) => Promise<MemoryItem>;
+  updateMemory?: (id: string, updates: Partial<MemoryItem>) => Promise<MemoryItem | null>;
+  deleteMemory?: (id: string) => Promise<boolean>;
+  pinMemory?: (id: string, pinned?: boolean) => Promise<MemoryItem | null>;
+  getAllProjects?: () => Promise<ProjectItem[]>;
+  saveProject?: (projectData: Partial<ProjectItem>) => Promise<ProjectItem>;
+  deleteProject?: (projectId: string) => Promise<boolean>;
+  getMemoryStats?: () => Promise<MemoryStats>;
+  clearAllMemories?: () => Promise<boolean>;
+  exportMemories?: () => Promise<any>;
+  processMemoryNow?: (data?: { userPrompt?: string; assistantReply?: string; context?: any }) => Promise<MemoryStats>;
+
+  // Chat Lock Authentication
+  verifyWindowsAuth?: (options?: { password?: string; useSystemDialog?: boolean; reason?: string }) => Promise<{ success: boolean; error?: string }>;
+  triggerBluetoothPasskey?: (options?: { mode?: 'setup' | 'unlock' | 'remove'; credentialId?: string; title?: string }) => Promise<{ success: boolean; credentialId?: string; error?: string }>;
+
+  // Dynamic Island Notification
+  onIslandNotification?: (callback: (data: { source: string; sender: string; message: string; icon?: string; jid?: string; filePath?: string }) => void) => () => void;
+  showIslandNotification?: (data: { source: string; sender: string; message: string; icon?: string }) => void;
+
+  // Model Context Protocol (MCP) Client
+  getMcpStatus?: () => Promise<{ activeCount: number; totalTools: number; servers: Array<{ id: string; description: string; command: string; args?: string[]; enabled: boolean; connected: boolean; tools: string[] }> }>;
+  startAllMcpServers?: () => Promise<any[]>;
+  connectMcpServer?: (serverId: string, config: any) => Promise<{ success: boolean; tools: any[] }>;
+  disconnectMcpServer?: (serverId: string) => Promise<{ success: boolean }>;
+  getMcpConfig?: () => Promise<{ mcpServers: Record<string, any> }>;
+  saveMcpConfig?: (config: any) => Promise<boolean>;
+
+  // LanceDB Embedded Vector Database
+  searchLanceDb?: (query: string, limit?: number) => Promise<Array<{ id: string; title: string; text: string; source: string; score?: number }>>;
+  indexFolderLanceDb?: (folderPath: string, maxFiles?: number) => Promise<{ success: boolean; filesIndexed?: number; error?: string }>;
+  getLanceDbStats?: () => Promise<{ isReady: boolean; count: number; tableName: string; storagePath?: string }>;
+
+  // Mem0 Long-Term Personalized Memory
+  getAllMem0Memories?: () => Promise<Array<{ id: string; memory: string; category?: string; created_at?: number }>>;
+  searchMem0?: (query: string, limit?: number) => Promise<Array<{ id: string; memory: string; score?: number }>>;
+  addMem0Memory?: (fact: string) => Promise<any>;
+  deleteMem0Memory?: (id: string) => Promise<boolean>;
+
+  // browser-use Autonomous Browser Agent
+  runBrowserAgent?: (goal: string) => Promise<{ success: boolean; steps?: number; summary?: string; history?: string[]; error?: string }>;
+  cancelBrowserAgent?: () => Promise<{ success: boolean }>;
+
+  // bytedance/UI-TARS Vision Desktop Computer-Use Agent
+  runUiTars?: (goal: string) => Promise<{ success: boolean; steps?: number; summary?: string; history?: string[]; error?: string }>;
+  cancelUiTars?: () => Promise<{ success: boolean }>;
+}
+
+export type MemoryCategory = 'profile' | 'project' | 'episodic' | 'knowledge';
+
+export interface MemoryHistoryEntry {
+  date: string;
+  previousContent: string;
+  reason?: string;
+}
+
+export interface MemoryItem {
+  id: string;
+  category: MemoryCategory;
+  projectId?: string;
+  projectName?: string;
+  title: string;
+  content: string;
+  summary?: string;
+  tags: string[];
+  confidence: number;
+  userConfirmed?: boolean;
+  pinned?: boolean;
+  sourceConversationId?: string;
+  createdAt: string;
+  updatedAt: string;
+  connections?: string[];
+  history?: MemoryHistoryEntry[];
+}
+
+export interface ProjectItem {
+  id: string;
+  name: string;
+  description: string;
+  techStack?: string[];
+  status?: string;
+  createdAt: string;
+  updatedAt: string;
+  notes?: string;
+}
+
+export interface MemoryStats {
+  total: number;
+  profile: number;
+  project: number;
+  episodic: number;
+  knowledge: number;
+  pinned: number;
+  userConfirmed: number;
+  projectsCount: number;
+  lastUpdated: number;
 }
 
 declare global {

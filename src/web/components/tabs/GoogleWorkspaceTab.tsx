@@ -187,11 +187,11 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
     }
   };
 
-  const handleRefreshQr = async () => {
+  const handleRefreshQr = async (forceFresh = true) => {
     if (!window.jarvisAPI?.getOpenWAQr) return;
     try {
       setRefreshingQr(true);
-      const res = await window.jarvisAPI.getOpenWAQr();
+      const res = await window.jarvisAPI.getOpenWAQr(forceFresh);
       if (res?.success && res.qrDataUrl) {
         setOpenwaStatus((prev) =>
           prev
@@ -399,21 +399,31 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
       });
     }
 
+    let unsubWA: (() => void) | undefined;
+    if (window.jarvisAPI?.onOpenWAStatusChanged) {
+      unsubWA = window.jarvisAPI.onOpenWAStatusChanged((newStatus) => {
+        if (newStatus) {
+          setOpenwaStatus(newStatus);
+        }
+      });
+    }
+
     return () => {
       if (unsubNotion) unsubNotion();
       if (unsubGitHub) unsubGitHub();
       if (unsubGoogle) unsubGoogle();
+      if (unsubWA) unsubWA();
     };
   }, []);
 
   useEffect(() => {
     if (!whatsappExpanded || openwaStatus?.connected) return;
     if (!openwaStatus?.qrDataUrl && !refreshingQr) {
-      handleRefreshQr();
+      handleRefreshQr(true);
     }
     const interval = setInterval(() => {
       loadOpenWAStatus(true);
-    }, 3000);
+    }, 4000);
     return () => clearInterval(interval);
   }, [whatsappExpanded, openwaStatus?.connected]);
 
@@ -1232,17 +1242,17 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
               {/* If not connected yet, show 1-click QR linking card */}
               {!openwaStatus?.connected && (
                 <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#161822] border border-gray-200 dark:border-[#1e2029] flex flex-col sm:flex-row items-center gap-5">
-                  <div className="w-44 h-44 rounded-xl bg-white p-2.5 border border-gray-200 dark:border-gray-700 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <div className="w-52 h-52 sm:w-56 sm:h-56 rounded-xl bg-white p-3 border border-gray-200 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
                     {openwaStatus?.qrDataUrl ? (
                       <img
                         src={openwaStatus.qrDataUrl}
                         alt="WhatsApp QR Code"
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-contain select-none"
                       />
                     ) : (
-                      <div className="flex flex-col items-center justify-center text-gray-400">
-                        <QrCode className="w-10 h-10 mb-2 opacity-50" />
-                        <span className="text-[11px]">Loading QR...</span>
+                      <div className="flex flex-col items-center justify-center text-gray-400 gap-2">
+                        <QrCode className="w-10 h-10 opacity-50" />
+                        <span className="text-xs">Generating fresh QR...</span>
                       </div>
                     )}
                   </div>
@@ -1259,9 +1269,9 @@ export const GoogleWorkspaceTab = React.memo<GoogleWorkspaceTabProps>(({
                     <div className="pt-1">
                       <button
                         type="button"
-                        onClick={handleRefreshQr}
+                        onClick={() => handleRefreshQr(true)}
                         disabled={refreshingQr}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer border-none shadow-xs transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer border-none transition-colors"
                       >
                         <RefreshCw className={`w-3.5 h-3.5 ${refreshingQr ? 'animate-spin' : ''}`} />
                         <span>Refresh QR</span>

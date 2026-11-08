@@ -66,7 +66,7 @@ async function callOpenAICompatible({
   temperature = 0.2,
   signal = null,
   timeout = 15000,
-  max_tokens = 800,
+  max_tokens = 4000,
 }) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);

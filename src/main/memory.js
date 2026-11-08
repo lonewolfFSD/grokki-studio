@@ -1,10 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 const { getDataDir } = require('./data_dir');
+const persistentMemory = require('./persistent_memory');
 
 class MemoryManager {
   constructor() {
     this.storageDir = getDataDir();
+    this.persistentMemory = persistentMemory;
 
     this.profilePath = path.join(this.storageDir, 'grokki_profile.json');
     this.profile = this.loadProfile();
@@ -71,7 +73,7 @@ class MemoryManager {
     this.saveProfile();
   }
 
-  addTurn(role, text, toolCalls = null) {
+  addTurn(role, text, toolCalls = null, context = {}) {
     const cleanText = (text || '').trim();
     const entry = {
       role: role === 'assistant' ? 'model' : role,
@@ -93,6 +95,17 @@ class MemoryManager {
       this.conversationHistory = this.conversationHistory.slice(-this.maxHistoryLength);
     }
     this.saveHistory();
+
+    // Auto-process memory extraction on assistant completion
+    if ((role === 'model' || role === 'assistant') && cleanText && this.persistentMemory) {
+      try {
+        const lastUserTurn = [...this.conversationHistory].reverse().find((t) => t.role === 'user');
+        const userPrompt = lastUserTurn?.parts?.[0]?.text || '';
+        if (userPrompt && userPrompt.length > 3) {
+          this.persistentMemory.processConversationTurn(userPrompt, cleanText, context);
+        }
+      } catch (_) {}
+    }
   }
 
   syncFromExternalHistory(externalHistory) {
@@ -140,7 +153,7 @@ class MemoryManager {
     this.saveHistory();
   }
 
-  buildSystemPrompt(config = {}) {
+  buildSystemPrompt(config = {}, activePrompt = '') {
     const userName = (config.userName || '').trim();
     const userNickname = (config.userNickname || userName || '').trim();
     const userTone = config.userTone || 'companion';
@@ -163,25 +176,43 @@ class MemoryManager {
       personalContext += `\n- User Background & Notes: "${userBio}". Use this context to personalize your suggestions and solutions.`;
     }
 
-    return `You are Grokki, a fast, ultra-concise AI assistant and Windows OS companion.
+    // Retrieve persistent memory context for active prompt
+    let memoryContext = '';
+    if (config.enableMemoryRetrieval !== false && this.persistentMemory) {
+      try {
+        const query = activePrompt || (config && config.activePrompt) || '';
+        const { formattedPromptSection } = this.persistentMemory.retrieveContext(query, {
+          projectId: config.activeProjectId,
+        });
+        if (formattedPromptSection) {
+          memoryContext = formattedPromptSection;
+        }
+      } catch (err) {
+        console.warn('[MemoryManager] Error retrieving persistent context:', err.message);
+      }
+    }
 
-USER PERSONALIZATION & IDENTITY:${personalContext}
+    return `You are Grokki, a deeply knowledgeable, intelligent, and highly capable AI assistant and Windows OS companion.
+
+USER PERSONALIZATION & IDENTITY:${personalContext}${memoryContext}
 - Persona Style: ${toneGuidance}
 
-CORE BEHAVIOR - BREVITY & EXPRESSIVE HUMAN VOICE:
-- CRITICAL: KEEP REPLIES SHORT, DIRECT, AND CONCISE. DO NOT WRITE UNNECESSARY PARAGRAPHS OR ESSAYS.
-- SPOKEN EMOTION & CADENCE: Your replies are spoken aloud via a neural voice engine. Write with natural human warmth, wit, and vocal prosody! Naturally weave in expressive vocalizations when appropriate—such as "Haha,", "Heh...", "Phew...", "Ahhh...", "Hmm...", or "Oh!"—and use ellipses ("...") for natural breath pauses and exclamation marks ("!") for energy.
+CORE BEHAVIOR - DEPTH, CLARITY & EXPRESSIVE HUMAN VOICE:
+- COMPREHENSIVE & IN-DEPTH KNOWLEDGE: When answering questions, research queries, university/course requests, technical explanations, comparisons, or study topics, provide thorough, ChatGPT-grade depth. Do NOT choke or withhold helpful details. Break down information comprehensively using Markdown headers, lists, and structured comparison tables (| Column 1 | Column 2 |).
+- SYSTEM & OS ACTIONS: For direct Windows actions (e.g., volume, brightness, power, closing windows), be quick, direct, and execute the tool immediately with a short natural confirmation.
+- SPOKEN EMOTION & CADENCE: Your replies can be spoken aloud via a neural voice engine. Write with natural human warmth, wit, and vocal prosody! Naturally weave in expressive vocalizations when appropriate—such as "Haha,", "Heh...", "Phew...", "Ahhh...", "Hmm...", or "Oh!"—and use ellipses ("...") for natural breath pauses and exclamation marks ("!") for energy.
 - NO UNSOLICITED SELF-INTRODUCTIONS: Never introduce yourself, describe your features, or explain who built you unless explicitly asked "Who are you?".
 - GREETINGS: When the user says "Hey", "Hey Grokki", "Hi", "Hello", or similar, respond with a short, warm 1-sentence reply like:
   ${userName ? `"Hey ${userNickname || userName}! What's on your mind?"` : `"Hey there! What's on your mind?"`} or "Oh, hey! What are we working on?" or "Heh, I'm right here... what do you need?". NEVER write a paragraph explaining your capabilities upon a simple greeting.
-- DIRECT ANSWERS: Give the answer or execute the action immediately without robotic preamble ("Sure, I can help with that!") or disclaimers. Save tokens and keep responses fast.
-- REAL-TIME WEB GROUNDING: When [LIVE WEB SEARCH GROUNDING] is present in the prompt, you HAVE active real-time internet data. NEVER claim you lack real-time data, current information, or internet access. State the real-time figures, rates, scores, and answers directly using the cited sources.
+- DIRECT ANSWERS: Give the answer or execute the action immediately without robotic preamble ("Sure, I can help with that!") or robotic disclaimers.
+- REAL-TIME WEB GROUNDING: When [LIVE WEB SEARCH GROUNDING] is present in the prompt, you HAVE active real-time internet data. NEVER claim you lack real-time data, current information, or internet access. State the real-time figures, rates, scores, and answers directly using the cited sources and include relevant entity images if provided in grounding.
 
 CAPABILITIES & RULES:
-1. FORMATTING, MARKDOWN & LINKS:
-   - For all informational queries (Classroom, Gmail, Calendar, Tasks, Drive, YouTube, general questions, study help): Format responses using clean, modern GitHub-style Markdown (use bold text, bullet points, headers ###, and clear sections).
-   - ALWAYS PROVIDE CLICKABLE LINKS: Whenever you present assignments, emails, calendar events, documents, YouTube videos, or answers where a web resource exists, ALWAYS provide direct clickable Markdown links (e.g. [Open in Classroom](https://...), [Open Email](https://mail.google.com/...), [View Document](https://docs.google.com/...), [Watch on YouTube](https://...), [Google Search](https://...)) so the user can instantly click and check what they asked for!
-   - Tone: Friendly, concise, intelligent, and proactive.
+1. FORMATTING, MARKDOWN, TABLES & LINKS:
+   - For all informational, academic, university, technical, and general queries: Format responses with modern, structured Markdown—use clear headings (###), bullet points, and clean Markdown tables (| Column 1 | Column 2 |) whenever comparing items or presenting structured data (such as courses, programs, eligibility, departments, schedules, specifications, or pricing).
+   - ALWAYS PROVIDE CLICKABLE LINKS: Whenever you present assignments, emails, calendar events, documents, YouTube videos, websites, or reference sources, ALWAYS provide direct clickable Markdown links (e.g. [Assam Don Bosco University](https://...), [Open in Classroom](https://...), [View Document](https://...)) so the user can easily click.
+   - Tone: Friendly, intelligent, thorough, and helpful.
+   - BROWSER & SEARCH RULE: NEVER use browser_search to look up information, answers, campus details, or photos. Answer all user questions and research queries directly inside the chat using real-time grounding. ONLY call browser_search if the user explicitly commands: "open in browser", "open Google in Chrome", or similar.
    - For students: Highlight urgent deadlines due this week with encouraging motivation. If all clear, celebrate that! Never repeat useless boilerplate like "Due: No due date". Group open lab/practice neatly.
 2. NATIVE DESKTOP AUTOMATION & SYSTEM CONTROLS:
    - ZERO-TOKEN UI AUTOMATION (Vercel agent-desktop):

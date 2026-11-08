@@ -1251,31 +1251,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   }
 
-  function setPillDisplayMode(mode) {
-    if (mode === 'timer') {
-      isShowingFullTimer = true;
-      if (normalInputArea) normalInputArea.style.display = 'none';
-      if (normalControlsGroup) normalControlsGroup.style.display = 'none';
-      if (lockInFullView) lockInFullView.style.display = 'flex';
-      // Close drawer if open when returning to clean timer view
-      islandDrawer.classList.remove('open');
-      islandContainer.classList.remove('has-drawer-open');
-    } else {
-      // mode === 'chat' (typing or voice)
-      isShowingFullTimer = false;
-      if (lockInFullView) lockInFullView.style.display = 'none';
-      if (normalInputArea) normalInputArea.style.display = 'flex';
-      if (normalControlsGroup) normalControlsGroup.style.display = 'flex';
-      // If timer is running in background, show the return mini-button
-      if (returnToTimerBtn) {
-        returnToTimerBtn.style.display = isTimerActive ? 'inline-flex' : 'none';
+  const islandChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('grokki_island_channel') : null;
+
+  function dispatchMiniIslandActivity(payload) {
+    try {
+      if (payload && payload.action === 'start') {
+        localStorage.setItem('grokki_island_live_activity', JSON.stringify(payload));
+      } else if (payload && payload.action === 'stop') {
+        localStorage.removeItem('grokki_island_live_activity');
       }
-    }
+    } catch (_) {}
+    try {
+      if (islandChannel) islandChannel.postMessage(payload);
+    } catch (_) {}
+    try {
+      if (window.jarvisAPI && window.jarvisAPI.setIslandActivity) {
+        window.jarvisAPI.setIslandActivity(payload);
+      }
+    } catch (_) {}
+  }
+
+  function setPillDisplayMode(mode) {
+    // Keep Grokki Island in normal chat/voice mode; timers & activities live on the Mini Dynamic Island!
+    isShowingFullTimer = false;
+    if (lockInFullView) lockInFullView.style.display = 'none';
+    if (normalInputArea) normalInputArea.style.display = 'flex';
+    if (normalControlsGroup) normalControlsGroup.style.display = 'flex';
+    if (returnToTimerBtn) returnToTimerBtn.style.display = 'none';
   }
 
   function startLockInTimer(durationMinutes = 25, subject = 'Focus') {
     if (lockInInterval) {
       clearInterval(lockInInterval);
+      lockInInterval = null;
     }
 
     isTimerActive = true;
@@ -1283,50 +1291,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     lockInRemainingSeconds = Math.max(1, Math.round(durationMinutes * 60));
     lockInIsPaused = false;
 
-    if (lockInFullSubject) lockInFullSubject.innerText = lockInSubjectName;
-    if (lockInFullCountdown) lockInFullCountdown.innerText = formatTimerDisplay(lockInRemainingSeconds);
-    if (miniTimerDisplay) miniTimerDisplay.innerText = formatTimerDisplay(lockInRemainingSeconds);
-    if (lockInPausePlayIcon) lockInPausePlayIcon.className = 'fa-solid fa-pause';
-
-    // Morph the entire pill into the Focus Timer!
-    setPillDisplayMode('timer');
+    // Ensure Grokki Island stays in normal chat mode while Mini Dynamic Island hosts the live timer
+    setPillDisplayMode('chat');
     sound.playSuccess();
     grokbot.setState('happy');
 
-    lockInInterval = setInterval(() => {
-      if (lockInIsPaused) return;
-
-      lockInRemainingSeconds--;
-      const formatted = formatTimerDisplay(lockInRemainingSeconds);
-      if (lockInFullCountdown) lockInFullCountdown.innerText = formatted;
-      if (miniTimerDisplay) miniTimerDisplay.innerText = formatted;
-
-      if (lockInRemainingSeconds <= 0) {
-        clearInterval(lockInInterval);
-        lockInInterval = null;
-        isTimerActive = false;
-
-        sound.playSuccess();
-        grokbot.setState('happy');
-
-        // Bring back chat mode with victory celebration banner
-        setPillDisplayMode('chat');
-        userText.innerHTML = `<i class="fa-solid fa-fire-flame-curved" style="color:#ff9f0a; margin-right:6px;"></i> <strong>Lock-In Block Finished</strong>`;
-        setResponseHTML(`<h3><i class="fa-solid fa-award" style="color:#38bdf8; margin-right:6px;"></i> Focus Session Complete</h3><p>You completed a full <strong>${durationMinutes}-minute focus session</strong> on <em>${lockInSubjectName}</em>.</p><p style="color:#a8c7fa; margin-top:6px;">Take a well-deserved 5-minute breather.</p>`);
-        islandDrawer.classList.add('open');
-        islandContainer.classList.add('has-drawer-open');
-
-        voice.speak(`Great job! You finished your ${durationMinutes} minute lock-in session on ${lockInSubjectName}. Take a quick break!`);
-      }
-    }, 1000);
+    dispatchMiniIslandActivity({
+      action: 'start',
+      kind: 'timer',
+      icon: 'fa-solid fa-stopwatch',
+      title: lockInSubjectName.toLowerCase() === 'timer' ? 'Timer' : `Lock-In • ${lockInSubjectName}`,
+      subject: lockInSubjectName,
+      durationMinutes,
+      durationSeconds: lockInRemainingSeconds,
+      endTime: Date.now() + lockInRemainingSeconds * 1000,
+    });
   }
 
   function togglePauseLockIn() {
     lockInIsPaused = !lockInIsPaused;
     sound.playPoke();
-    if (lockInPausePlayIcon) {
-      lockInPausePlayIcon.className = lockInIsPaused ? 'fa-solid fa-play' : 'fa-solid fa-pause';
-    }
+    dispatchMiniIslandActivity({
+      action: lockInIsPaused ? 'pause' : 'resume',
+      kind: 'timer',
+    });
   }
 
   function stopLockInTimer() {
@@ -1338,7 +1326,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     lockInRemainingSeconds = 0;
     lockInIsPaused = false;
     setPillDisplayMode('chat');
-    if (returnToTimerBtn) returnToTimerBtn.style.display = 'none';
+    dispatchMiniIslandActivity({
+      action: 'stop',
+      kind: 'timer',
+    });
   }
 
   // Timer View Listeners
@@ -1623,7 +1614,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     islandDrawer.classList.add('open');
     islandContainer.classList.add('has-drawer-open');
 
-    // Immediate local deactivation hook for camera and presentation mode
+    // Immediate local deactivation hook for camera, presentation mode, and timers
     if (
       lowerText === 'deactivate' ||
       lowerText === 'stop' ||
@@ -1643,13 +1634,47 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (window.jarvisAPI && window.jarvisAPI.killCamera) {
         window.jarvisAPI.killCamera();
       }
+      dispatchMiniIslandActivity({ action: 'stop', kind: 'mode' });
+    }
+
+    if (/\b(stop|cancel|end|clear)\s+(the\s+)?(lock[- ]?in|timer|pomodoro|countdown|study\s+session)\b/i.test(lowerText)) {
+      stopLockInTimer();
+    }
+
+    // If user requested a Lock-In study session or countdown timer, immediately launch it on the Mini Dynamic Island
+    if (
+      /\b(lock[- ]?in|pomodoro|study\s+session|focus\s+session|focus\s+timer|study\s+timer)\b/i.test(lowerText) ||
+      /\b(set|start|begin|create|run)\s+(a\s+|an\s+)?(\d+(\.\d+)?\s*[- ]?(min|mins|minute|minutes|sec|secs|second|seconds|hr|hrs|hour|hours)\s+)?(timer|countdown|lock[- ]?in|pomodoro)\b/i.test(lowerText)
+    ) {
+      if (!/\b(stop|cancel|end|clear)\b/i.test(lowerText)) {
+        let mins = 25;
+        const minMatch = text.match(/(\d+(?:\.\d+)?)\s*[- ]?(?:min|mins|minute|minutes|m)\b/i);
+        const secMatch = text.match(/(\d+(?:\.\d+)?)\s*[- ]?(?:sec|secs|second|seconds|s)\b/i);
+        const hrMatch = text.match(/(\d+(?:\.\d+)?)\s*[- ]?(?:hr|hrs|hour|hours|h)\b/i);
+        if (minMatch) mins = parseFloat(minMatch[1]);
+        else if (secMatch) mins = Math.max(0.08, parseFloat(secMatch[1]) / 60);
+        else if (hrMatch) mins = parseFloat(hrMatch[1]) * 60;
+
+        const isPlainTimer = /\b(timer|countdown)\b/i.test(lowerText) && !/\b(lock[- ]?in|study|pomodoro|focus)\b/i.test(lowerText);
+        let subject = isPlainTimer ? 'Timer' : 'Study';
+        const subjMatch = text.match(/(?:on|for|studying)\s+([a-zA-Z0-9\s_+-]+)$/i);
+        if (subjMatch) {
+          const candidate = subjMatch[1].replace(/\b(\d+\s*(min|mins|minute|minutes|sec|seconds|m|s)|lock[- ]?in|session|timer|study)\b/gi, '').trim();
+          if (candidate) subject = candidate;
+        }
+        startLockInTimer(mins, subject);
+      }
     }
 
     grokbot.setState('thinking');
 
     try {
+      // Prevent openApp / shell from matching task/session/timer prompts
+      const safeAgentPrompt = /^(?:can\s+you\s+)?(?:start|run|launch|open|begin|set)\s+(?:a\s+|an\s+|my\s+|the\s+)?.*?\b(lock[- ]?in|session|timer|pomodoro|countdown|study|alarm|reminder)\b/i.test(text)
+        ? text.replace(/^(?:can\s+you\s+)?(?:start|run|launch|open|begin|set)\s+/i, 'Begin ')
+        : text;
       // Execute real system command via agent with active file attachment context
-      const response = await agent.process(text, { attachedFile: activeAttachment });
+      const response = await agent.process(safeAgentPrompt, { attachedFile: activeAttachment });
 
       if (response && (response.cancelled || response.reply === 'Cancelled.')) {
         setResponseHTML('<span style="color: rgba(255,255,255,0.4); font-style: italic;"><i class="fa-solid fa-ban"></i> Task killed.</span>');
@@ -1725,8 +1750,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 islandContainer.classList.add('hidden-state');
               }
               window.presentationController.start(mode);
+              dispatchMiniIslandActivity({
+                action: 'start',
+                kind: 'mode',
+                icon: mode === 'air_cursor' ? 'fa-solid fa-hand-pointer' : 'fa-solid fa-display',
+                title: mode === 'air_cursor' ? 'Air Cursor Active' : 'Presentation Mode',
+                startTime: Date.now(),
+              });
             } else if ((pAction === 'stop_mode' || act.result?.actionType === 'STOP_PRESENTATION') && window.presentationController) {
               window.presentationController.stop();
+              dispatchMiniIslandActivity({ action: 'stop', kind: 'mode' });
             }
           }
         });
@@ -1740,7 +1773,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           { label: '<i class="fa-solid fa-microchip"></i><span>PC & GPU Health</span>', prompt: 'Check PC health' },
           { label: '<i class="fa-solid fa-folder-tree"></i><span>Organize Downloads</span>', prompt: 'Organize my Downloads folder' },
           { label: '<i class="fa-solid fa-display"></i><span>Presentation Mode</span>', prompt: '/present' },
-          { label: '<i class="fa-solid fa-stopwatch"></i><span>Lock-In 25m</span>', prompt: 'Start a 25-minute study lock-in session' },
+          { label: '<i class="fa-solid fa-stopwatch"></i><span>Lock-In 25m</span>', prompt: 'Lock-in for a 25-minute study session' },
           { label: '<i class="fa-solid fa-screwdriver-wrench"></i><span>Bug Doctor</span>', prompt: 'Fix my code bug in VS Code' },
         ];
         defaultChips.forEach((sc) => {
@@ -2782,25 +2815,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (action === 'show' || islandContainer.classList.contains('hidden-state') || islandContainer.style.display === 'none') {
       islandContainer.style.display = '';
       islandContainer.classList.remove('hidden-state');
-      if (isTimerActive && !isShowingFullTimer) {
-        setPillDisplayMode('timer');
-      } else {
-        setPillDisplayMode('chat');
-        setMode('typing');
-        setTimeout(() => mainInput.focus(), 80);
-      }
+      setPillDisplayMode('chat');
+      setMode('typing');
+      setTimeout(() => mainInput.focus(), 80);
       sound.playPoke();
       return;
     }
 
-    // If currently in full timer view, Alt+Q flips directly into typing mode!
-    if (isTimerActive && isShowingFullTimer) {
-      sound.playPoke();
-      setPillDisplayMode('chat');
-      setMode('typing');
-      setTimeout(() => mainInput.focus(), 80);
-      return;
-    }
+    // Alt+Q toggles chat or dismisses cleanly
+    setPillDisplayMode('chat');
 
     // Tap Alt+Q while already open and idle: Dismiss/hide
     sound.playDismiss();

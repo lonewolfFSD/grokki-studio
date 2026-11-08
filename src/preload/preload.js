@@ -80,6 +80,18 @@ try {
     onTopNotchTrigger: (callback) => {
       ipcRenderer.on('top-notch:trigger', (event, shouldOpen) => callback(shouldOpen));
     },
+    onIslandNotification: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('island:notification', handler);
+      return () => ipcRenderer.removeListener('island:notification', handler);
+    },
+    showIslandNotification: (data) => ipcRenderer.send('island:show-notification', data),
+    onIslandActivity: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('island:activity', handler);
+      return () => ipcRenderer.removeListener('island:activity', handler);
+    },
+    setIslandActivity: (data) => ipcRenderer.send('island:set-activity', data),
     getClipboardHistory: () => ipcRenderer.invoke('jarvis:get-clipboard-history'),
     copyClipboardItem: (text) => ipcRenderer.invoke('jarvis:copy-clipboard-item', text),
     pasteClipboardItem: (text) => ipcRenderer.invoke('jarvis:paste-clipboard-item', text),
@@ -185,10 +197,16 @@ try {
 
     // WhatsApp & OpenWA Integration
     getOpenWAStatus: (forceRefresh) => ipcRenderer.invoke('jarvis:get-openwa-status', forceRefresh),
-    getOpenWAQr: () => ipcRenderer.invoke('jarvis:get-openwa-qr'),
+    getOpenWAQr: (forceFresh) => ipcRenderer.invoke('jarvis:get-openwa-qr', forceFresh),
     disconnectOpenWA: () => ipcRenderer.invoke('jarvis:disconnect-openwa'),
     testOpenWASend: (opts) => ipcRenderer.invoke('jarvis:test-openwa-send', opts),
+    grokkiSmartReply: (opts) => ipcRenderer.invoke('jarvis:grokki-smart-reply', opts),
     getOpenWAChats: (limit) => ipcRenderer.invoke('jarvis:get-openwa-chats', limit),
+    onOpenWAStatusChanged: (callback) => {
+      const handler = (event, status) => callback(status);
+      ipcRenderer.on('openwa-status-changed', handler);
+      return () => ipcRenderer.removeListener('openwa-status-changed', handler);
+    },
 
     // Project / Local Folder Context (@file & @folder)
     getWorkspaceRoot: () => ipcRenderer.invoke('jarvis:get-workspace-root'),
@@ -226,6 +244,25 @@ try {
     onConfigUpdated: (callback) => {
       ipcRenderer.on('config:updated', (event, data) => callback(data));
     },
+
+    // Grokki Persistent Memory System
+    getAllMemories: (filters) => ipcRenderer.invoke('jarvis:get-all-memories', filters),
+    getMemory: (id) => ipcRenderer.invoke('jarvis:get-memory', id),
+    addMemory: (memoryData) => ipcRenderer.invoke('jarvis:add-memory', memoryData),
+    updateMemory: (id, updates) => ipcRenderer.invoke('jarvis:update-memory', { id, updates }),
+    deleteMemory: (id) => ipcRenderer.invoke('jarvis:delete-memory', id),
+    pinMemory: (id, pinned) => ipcRenderer.invoke('jarvis:pin-memory', { id, pinned }),
+    getAllProjects: () => ipcRenderer.invoke('jarvis:get-all-projects'),
+    saveProject: (projectData) => ipcRenderer.invoke('jarvis:save-project', projectData),
+    deleteProject: (projectId) => ipcRenderer.invoke('jarvis:delete-project', projectId),
+    getMemoryStats: () => ipcRenderer.invoke('jarvis:get-memory-stats'),
+    clearAllMemories: () => ipcRenderer.invoke('jarvis:clear-all-memories'),
+    exportMemories: () => ipcRenderer.invoke('jarvis:export-memories'),
+    processMemoryNow: (data) => ipcRenderer.invoke('jarvis:process-memory-now', data),
+
+    // Chat Lock Authentication
+    verifyWindowsAuth: (options) => ipcRenderer.invoke('jarvis:verify-windows-auth', options),
+    triggerBluetoothPasskey: (options) => ipcRenderer.invoke('jarvis:trigger-bluetooth-passkey', options),
 
     // Pocket Grokki (Zero-Install Mobile LAN Bridge)
     getPocketStatus: () => ipcRenderer.invoke('jarvis:get-pocket-status'),
@@ -312,6 +349,33 @@ try {
       return () => ipcRenderer.removeListener('window:drag-active', handler);
     },
     getLastDetectedDragFiles: () => ipcRenderer.invoke('jarvis:get-drag-files'),
+
+    // Model Context Protocol (MCP) Client
+    getMcpStatus: () => ipcRenderer.invoke('jarvis:mcp-get-status'),
+    startAllMcpServers: () => ipcRenderer.invoke('jarvis:mcp-start-all'),
+    connectMcpServer: (serverId, config) => ipcRenderer.invoke('jarvis:mcp-connect-server', { serverId, config }),
+    disconnectMcpServer: (serverId) => ipcRenderer.invoke('jarvis:mcp-disconnect-server', serverId),
+    getMcpConfig: () => ipcRenderer.invoke('jarvis:mcp-get-config'),
+    saveMcpConfig: (config) => ipcRenderer.invoke('jarvis:mcp-save-config', config),
+
+    // LanceDB Embedded Vector Database
+    searchLanceDb: (query, limit) => ipcRenderer.invoke('jarvis:lancedb-search', { query, limit }),
+    indexFolderLanceDb: (folderPath, maxFiles) => ipcRenderer.invoke('jarvis:lancedb-index-folder', { folderPath, maxFiles }),
+    getLanceDbStats: () => ipcRenderer.invoke('jarvis:lancedb-get-stats'),
+
+    // Mem0 Long-Term Personalized Memory
+    getAllMem0Memories: () => ipcRenderer.invoke('jarvis:mem0-get-all'),
+    searchMem0: (query, limit) => ipcRenderer.invoke('jarvis:mem0-search', { query, limit }),
+    addMem0Memory: (fact) => ipcRenderer.invoke('jarvis:mem0-add', { fact }),
+    deleteMem0Memory: (id) => ipcRenderer.invoke('jarvis:mem0-delete', id),
+
+    // browser-use Autonomous Browser Agent
+    runBrowserAgent: (goal) => ipcRenderer.invoke('jarvis:browser-agent-run', { goal }),
+    cancelBrowserAgent: () => ipcRenderer.invoke('jarvis:browser-agent-cancel'),
+
+    // bytedance/UI-TARS Vision Desktop Computer-Use Agent
+    runUiTars: (goal) => ipcRenderer.invoke('jarvis:uitars-run', { goal }),
+    cancelUiTars: () => ipcRenderer.invoke('jarvis:uitars-cancel'),
   });
   console.log('Preload: jarvisAPI successfully exposed in main world.');
 } catch (err) {

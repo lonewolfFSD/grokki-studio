@@ -129,7 +129,7 @@ export const ChatImageAttachment: React.FC<ChatImageAttachmentProps> = ({
   return (
     <div
       onClick={handleClick}
-      className="mb-2 w-14 h-14 rounded-xl overflow-hidden border border-gray-300/80 dark:border-white/10 bg-black/5 dark:bg-black/30 shadow-xs cursor-pointer relative group flex-shrink-0"
+      className="mb-2 w-14 h-14 rounded-xl overflow-hidden border border-gray-300/80 dark:border-white/10 bg-black/5 dark:bg-black/30 cursor-pointer relative group flex-shrink-0"
       title="Click to view full image"
     >
       {imgSrc && !error ? (
@@ -142,7 +142,7 @@ export const ChatImageAttachment: React.FC<ChatImageAttachmentProps> = ({
           />
           {/* Subtle fade-in Expand icon on hover */}
           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-            <div className="text-white flex items-center justify-center shadow-md transform scale-90 group-hover:scale-100 transition-transform duration-200">
+            <div className="text-white flex items-center justify-center transform scale-90 group-hover:scale-100 transition-transform duration-200">
               <Maximize2 className="w-6 h-6 text-white" />
             </div>
           </div>

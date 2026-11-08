@@ -158,7 +158,7 @@ const BranchedKidRow: React.FC<{
       {kid.actions ? (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center gap-0.5 opacity-0 group-hover/kid:opacity-100 transition-opacity flex-shrink-0"
+          className="flex items-center gap-0.5 opacity-0 group-hover/kid:opacity-100 has-[[data-menu-open=true]]:opacity-100 transition-opacity flex-shrink-0"
         >
           {kid.actions}
         </div>

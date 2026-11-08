@@ -1,17 +1,9 @@
 [
   {
-    "role": "user",
-    "parts": [
-      {
-        "text": "No, play something like a music"
-      }
-    ]
-  },
-  {
     "role": "model",
     "parts": [
       {
-        "text": "I can play some music for you. What kind of music would you like to hear? Would you like to search for a specific song or artist on YouTube?"
+        "text": "🌐 **Browser Task Finished** (2 steps):\n\nThe featured article is “Fórmula, Vol. 1”."
       }
     ]
   },
@@ -19,7 +11,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "Play Chicago from Michale Jackson"
+        "text": "/uitars open notepad and write hello world"
       }
     ]
   },
@@ -27,7 +19,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "Playing \"chicago from michale jackson\" on YouTube Music in your browser 🎵"
+        "text": "Done."
       }
     ]
   },
@@ -35,7 +27,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "what else can you do?"
+        "text": "/browse go to wikipedia.org and tell me the featured article title"
       }
     ]
   },
@@ -43,7 +35,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "I can do a lot of things. Here are some examples:\n\n1. **Answer questions**: I can provide information on a wide range of topics, from science and history to entertainment and culture.\n2. **Generate text**: I can create text based on a prompt or topic. This can include writing stories, poems, or even entire articles.\n3. **Translate text**: I can translate text from one language to another. This includes popular languages such as Spanish, French, German, Chinese, and many more.\n4. **Summarize text**: I can summarize long pieces of text into shorter, more digestible versions.\n5. **Offer suggestions**: I can offer suggestions on topics such as gift ideas, travel destinations, and more.\n6. **Create lists**: I can create lists on a variety of topics, including books, movies, music, and more.\n7. **Play games**: I can play simple text-based games with you, such as Hangman or 20 Questions.\n8. **Tell jokes**: I can share jokes on a variety of topics, including puns, one-liners, and longer jokes.\n9. **Provide definitions**: I can define words and phrases, including their meanings and usage.\n10. **Chat about current events**: I can discuss current events, including news, politics, and more.\n11. **Offer advice**: I can offer advice on topics such as relationships, career development, and more.\n12. **Create stories**: I can create interactive stories, where you can make choices to progress the story.\n13. **Play \"Would you rather\"**: I can play \"Would you rather\" with you, where you have to choose between two options.\n14. **Generate passwords**: I can generate strong, unique passwords for you.\n15. **Create mind maps**: I can create mind maps on a variety of topics, including ideas, concepts, and more.\n\nThese are just a few examples of what I can do. If you have a specific question or topic in mind, feel free to ask me and I'll do my best to help!"
+        "text": "🌐 **Browser Task Finished** (2 steps):\n\nThe featured article is “Fórmula, Vol. 1”."
       }
     ]
   },
@@ -51,7 +43,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "What about workspace my google services"
+        "text": "/uitars open notepad and write Hello from Grokki UI-TARS"
       }
     ]
   },
@@ -59,7 +51,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "You're referring to the Google Workspace (formerly G Suite) integration with Grokki!\n\nTo access your Google Workspace (e.g., Gmail, Google Drive, Google Calendar) in Grokki, you can use the following functions:\n\n1. `sync_university_portal()`: This function logs into your university's ERP portal and syncs fresh attendance and profile records into Grokki. It also updates your Google Workspace accounts with the latest data.\n2. `get_university_profile()`: This function fetches student profile details (name, student ID, program, semester) from the linked university ERP portal.\n3. `open_app(\"Google Workspace\")`: This function launches the Google Workspace desktop application. You can use it to access your Gmail, Google Drive, or Google Calendar accounts directly from Grokki.\n\nTo use these functions, simply type `sync_university_portal()` or `get_university_profile()` in the Grokki console, and Grokki will handle the rest. If you want to access your Google Workspace accounts, you can use `open_app(\"Google Workspace\")` to launch the application.\n\nLet me know if you have any further questions or need help with any of these functions!"
+        "text": "Done."
       }
     ]
   },
@@ -67,7 +59,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "get_university_profile()"
+        "text": "/vsearch study notes"
       }
     ]
   },
@@ -75,7 +67,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "Failed to fetch university profile: Invalid Username or Password!"
+        "text": "### 🔍 LanceDB Vector Search Results (3 hits)\n\n1. **Grokki Knowledge Base** (system)\n   Grokki Studio & Dynamic Island initialized with LanceDB embedded vector storage....\n\n2. **Mem0 Memory** (mem0_memory)\n   User preference: I like dark mode and study computer science at ADBU...\n\n3. **Test Note** (user_document)\n   LanceDB vector embeddings work beautifully in Grokki!..."
       }
     ]
   },
@@ -83,7 +75,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "Cool man"
+        "text": "Remember that my favorite tech stack is React and Node.js, and my dog's name is Lucky"
       }
     ]
   },
@@ -91,7 +83,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "It looks like you're testing the functionality of a virtual assistant or a chatbot. The text you provided appears to be a list of functions or commands that can be used to interact with the system.\n\nIf I had to guess, I'd say that this is a test of the chatbot's ability to understand and respond to various commands, such as:\n\n* Opening applications (e.g. WhatsApp, Notepad)\n* Searching for research papers\n* Taking a viva voice quiz\n* Solving math problems or explaining diagrams\n* Controlling the system's hardware and software (e.g. screen brightness, Wi-Fi connectivity)\n* Managing files and folders\n* Recording and screenshotting the screen\n\nAm I correct?"
+        "text": "Saved fact to Mem0 memory."
       }
     ]
   },
@@ -99,7 +91,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "yeah?"
+        "text": "/mcp status"
       }
     ]
   },
@@ -107,7 +99,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "It seems like you're trying to use the Grokki assistant, but the conversation has started with a random message. How can I assist you today?"
+        "text": "### 🔌 Model Context Protocol (MCP) Servers (0 active, 0 tools)\n- **fetch**: 🟡 Enabled (starting) (0 tools) - *Web fetcher converting HTML to clean markdown for LLMs*\n- **filesystem**: 🟡 Enabled (starting) (0 tools) - *Secure local filesystem access for LLM workspace editing*\n- **sqlite**: ⚪ Disabled (0 tools) - *Local SQLite database querying & analysis*\n- **github**: ⚪ Disabled (0 tools) - *GitHub issues, PRs, commits and repo management*\n\n*Configure custom servers in `data/mcp_servers.json`.*"
       }
     ]
   },
@@ -115,7 +107,7 @@
     "role": "user",
     "parts": [
       {
-        "text": "umm.."
+        "text": "hi"
       }
     ]
   },
@@ -123,7 +115,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "It seems like you're trying to use a Grokki assistant, but the commands are not formatted correctly. Can you please reformat the commands to use the correct syntax?\n\nFor example, instead of:\n\n`{\"type\":\"function\",\"name\":\"organize_folder\",\"parameters\":{\"target_folder\":\"downloads\"}}`\n\nYou would use:\n\n`organize_folder(target_folder=\"downloads\")`\n\nPlease let me know if you need help with the correct syntax for any of the commands."
+        "text": "Hey Ajx! What’s on your mind?"
       }
     ]
   },
@@ -131,15 +123,15 @@
     "role": "user",
     "parts": [
       {
-        "text": "hello, what's my name"
+        "text": "/uitars inspect my current screen, find the search bar or input field on my open application, click it, type \"System Architecture\", and tell me what visual elements appear around it."
       }
     ]
   },
   {
-    "role": "model",
+    "role": "user",
     "parts": [
       {
-        "text": "I don't have any information about your name. I'm a new conversation, and I don't retain any information from previous conversations. You can tell me your name, and I'll make sure to remember it for our conversation."
+        "text": "[Mem0 Personalized Long-Term Memory Context]:\n- User preference: I like dark mode and study computer science at ADBU\n- User's favorite tech stack is React and Node.js\n\nsup mam"
       }
     ]
   }

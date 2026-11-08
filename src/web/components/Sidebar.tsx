@@ -14,7 +14,7 @@ import { PencilIcon } from '@animateicons/react/lucide/pencil-icon';
 import { Trash2Icon } from '@animateicons/react/lucide/trash-2-icon';
 import { PinIcon } from '@animateicons/react/lucide/pin-icon';
 import { PinOffIcon } from '@animateicons/react/lucide/pin-off-icon';
-import { Pin, Check, ChevronRight, ListFilter, Search } from 'lucide-react';
+import { Pin, PinOff, Pencil, Trash2, Lock, Unlock, Archive, ArchiveRestore, MoreHorizontal, Check, ChevronRight, ListFilter, Search, Brain } from 'lucide-react';
 import ChatSearchModal from './ChatSearchModal';
 import { RefreshCwIcon } from '@animateicons/react/lucide/refresh-cw-icon';
 import { LogOutIcon } from '@animateicons/react/lucide/log-out-icon';
@@ -33,7 +33,7 @@ import grokkiLogo from '../assets/grokki_logo.png';
 import grokkiWordmarkDark from '../assets/grokki_wordmark.png';
 import grokkiWordmarkLight from '../assets/grokki_wordmark_light.png';
 
-export type TabId = 'chat' | 'overview' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
+export type TabId = 'chat' | 'overview' | 'memory' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
 
 const MIN_EXPANDED_WIDTH = 180;
 const DEFAULT_SIDEBAR_WIDTH = 240;
@@ -43,6 +43,14 @@ const COLLAPSED_SIDEBAR_WIDTH = 64;
 type AnimatedIconComponent = React.ForwardRefExoticComponent<
   { size?: number; className?: string; color?: string; duration?: number; isAnimated?: boolean } & React.RefAttributes<IconHandle>
 >;
+
+const MemorySidebarIcon = React.forwardRef<IconHandle, { size?: number; className?: string }>((props, ref) => {
+  React.useImperativeHandle(ref, () => ({
+    startAnimation: () => {},
+    stopAnimation: () => {},
+  }));
+  return <Brain size={props.size ?? 16} className={props.className} />;
+});
 
 const AnimatedSidebarRow: React.FC<{
   Icon: AnimatedIconComponent;
@@ -161,6 +169,10 @@ interface SidebarProps {
   onDeleteConversation?: (id: string) => void;
   onRenameConversation?: (id: string, newTitle: string) => void;
   onTogglePinConversation?: (id: string) => void;
+  onToggleArchiveConversation?: (id: string, forceState?: boolean) => void;
+  unlockedConvoIds?: Set<string>;
+  onOpenLockModal?: (convo: Conversation, mode: 'setup' | 'unlock' | 'remove') => void;
+  onRelockConversation?: (id: string) => void;
   onSwitchGoogle?: () => Promise<void> | void;
   onDisconnectGoogle?: () => Promise<void> | void;
   onOpenSettings?: (section?: SettingsSection) => void;
@@ -181,6 +193,10 @@ export const Sidebar = React.memo<SidebarProps>(({
   onDeleteConversation,
   onRenameConversation,
   onTogglePinConversation,
+  onToggleArchiveConversation,
+  unlockedConvoIds,
+  onOpenLockModal,
+  onRelockConversation,
   onSwitchGoogle,
   onDisconnectGoogle,
   onOpenSettings,
@@ -354,7 +370,17 @@ export const Sidebar = React.memo<SidebarProps>(({
 
   const [sortBy, setSortBy] = useState<SortByOption>('activity');
   const [groupBy, setGroupBy] = useState<GroupByOption>('date');
+  const [showArchivedOnly, setShowArchivedOnly] = useState(false);
+  const [archiveToast, setArchiveToast] = useState<{ id: string; title: string } | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  useEffect(() => {
+    if (!archiveToast) return;
+    const timer = window.setTimeout(() => {
+      setArchiveToast(null);
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [archiveToast]);
   const [activeSubmenu, setActiveSubmenu] = useState<'sort' | 'group' | null>(null);
 
   const getGroupByLabel = () => {
@@ -381,6 +407,74 @@ export const Sidebar = React.memo<SidebarProps>(({
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const filterSubmenuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+
+  const [convoMenu, setConvoMenu] = useState<{
+    convo: Conversation;
+    id: string;
+    title: string;
+    isPinned: boolean;
+    isArchived: boolean;
+    isLocked: boolean;
+    top: number;
+    left: number;
+  } | null>(null);
+  const convoMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!convoMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (convoMenuRef.current && !convoMenuRef.current.contains(target)) {
+        setConvoMenu(null);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setConvoMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [convoMenu]);
+
+  const renderConvoActions = useCallback((convo: Conversation) => {
+    const isMenuOpen = convoMenu?.id === convo.id;
+    return (
+      <button
+        type="button"
+        data-menu-open={isMenuOpen ? 'true' : undefined}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isMenuOpen) {
+            setConvoMenu(null);
+          } else {
+            const rect = e.currentTarget.getBoundingClientRect();
+            setConvoMenu({
+              convo,
+              id: convo.id,
+              title: convo.title || 'New Chat',
+              isPinned: !!convo.isPinned,
+              isArchived: !!convo.isArchived,
+              isLocked: !!convo.isLocked,
+              top: Math.min(window.innerHeight - 195, rect.bottom + 4),
+              left: Math.max(12, rect.left),
+            });
+          }
+        }}
+        title="More options"
+        aria-label="More options"
+        className={`p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/[0.08] cursor-pointer border-none bg-transparent transition-colors flex items-center justify-center ${
+          isMenuOpen ? 'text-gray-900 dark:text-white bg-gray-200 dark:bg-white/[0.08]' : ''
+        }`}
+      >
+        <MoreHorizontal size={14} />
+      </button>
+    );
+  }, [convoMenu?.id]);
 
   const handleToggleFilter = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -431,7 +525,12 @@ export const Sidebar = React.memo<SidebarProps>(({
   const sortedConversations = useMemo(() => {
     if (!conversations || conversations.length === 0) return [];
 
-    const list = [...conversations];
+    const list = conversations.filter(
+      (c) =>
+        Array.isArray(c.messages) &&
+        c.messages.length > 0 &&
+        Boolean(c.isArchived) === showArchivedOnly
+    );
 
     list.sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
@@ -460,7 +559,7 @@ export const Sidebar = React.memo<SidebarProps>(({
     });
 
     return list;
-  }, [conversations, sortBy]);
+  }, [conversations, sortBy, showArchivedOnly]);
 
   const activeConvo = useMemo(() => {
     return conversations.find((c) => c.id === activeConversationId);
@@ -469,18 +568,8 @@ export const Sidebar = React.memo<SidebarProps>(({
   const isNewChatActive = activeTab === 'chat' && (!activeConvo || !activeConvo.messages || activeConvo.messages.length === 0);
 
   const dateBranchedItems: BranchedMenuItem[] = useMemo(() => {
-    if (!conversations || conversations.length === 0) {
-      return [
-        {
-          label: 'Today',
-          children: [
-            {
-              value: 'new_chat',
-              label: 'New Chat',
-            },
-          ],
-        },
-      ];
+    if (!sortedConversations || sortedConversations.length === 0) {
+      return [];
     }
 
     const now = new Date();
@@ -496,7 +585,13 @@ export const Sidebar = React.memo<SidebarProps>(({
           children: sortedConversations.map((convo) => ({
             value: convo.id,
             label: convo.title || 'New Chat',
-            icon: convo.isPinned ? (
+            icon: convo.isLocked ? (
+              unlockedConvoIds?.has(convo.id) ? (
+                <Unlock size={12} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+              ) : (
+                <Lock size={12} className="text-gray-700 dark:text-white flex-shrink-0" />
+              )
+            ) : convo.isPinned ? (
               <Pin
                 size={12}
                 fill="currentColor"
@@ -504,40 +599,7 @@ export const Sidebar = React.memo<SidebarProps>(({
               />
             ) : undefined,
             onDoubleClick: (e: React.MouseEvent) => handleStartRename(e, convo),
-            actions: (
-              <>
-                <AnimatedIconButton
-                  Icon={convo.isPinned ? PinOffIcon : PinIcon}
-                  iconSize={12}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onTogglePinConversation?.(convo.id);
-                  }}
-                  title={convo.isPinned ? 'Unpin conversation' : 'Pin conversation'}
-                  className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent transition-colors"
-                />
-                <AnimatedIconButton
-                  Icon={PencilIcon}
-                  iconSize={12}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleStartRename(e, convo);
-                  }}
-                  title="Rename conversation"
-                  className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
-                />
-                <AnimatedIconButton
-                  Icon={Trash2Icon}
-                  iconSize={12}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteConversation?.(convo.id);
-                  }}
-                  title="Delete conversation"
-                  className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
-                />
-              </>
-            ),
+            actions: renderConvoActions(convo),
           })),
         },
       ];
@@ -582,7 +644,13 @@ export const Sidebar = React.memo<SidebarProps>(({
       children: group.convos.map((convo) => ({
         value: convo.id,
         label: convo.title || 'New Chat',
-        icon: convo.isPinned ? (
+        icon: convo.isLocked ? (
+          unlockedConvoIds?.has(convo.id) ? (
+            <Unlock size={12} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+          ) : (
+            <Lock size={12} className="text-gray-700 dark:text-white flex-shrink-0" />
+          )
+        ) : convo.isPinned ? (
           <Pin
             size={12}
             fill="currentColor"
@@ -590,43 +658,10 @@ export const Sidebar = React.memo<SidebarProps>(({
           />
         ) : undefined,
         onDoubleClick: (e: React.MouseEvent) => handleStartRename(e, convo),
-        actions: (
-          <>
-            <AnimatedIconButton
-              Icon={convo.isPinned ? PinOffIcon : PinIcon}
-              iconSize={12}
-              onClick={(e) => {
-                e.stopPropagation();
-                onTogglePinConversation?.(convo.id);
-              }}
-              title={convo.isPinned ? 'Unpin conversation' : 'Pin conversation'}
-              className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent transition-colors"
-            />
-            <AnimatedIconButton
-              Icon={PencilIcon}
-              iconSize={12}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleStartRename(e, convo);
-              }}
-              title="Rename conversation"
-              className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
-            />
-            <AnimatedIconButton
-              Icon={Trash2Icon}
-              iconSize={12}
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteConversation?.(convo.id);
-              }}
-              title="Delete conversation"
-              className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-[#2a2d3d] cursor-pointer border-none bg-transparent"
-            />
-          </>
-        ),
+        actions: renderConvoActions(convo),
       })),
     }));
-  }, [sortedConversations, onTogglePinConversation, onDeleteConversation]);
+  }, [sortedConversations, groupBy, renderConvoActions, unlockedConvoIds]);
 
   const defaultOpenIndices = useMemo(
     () => dateBranchedItems.map((_, i) => i),
@@ -792,6 +827,14 @@ export const Sidebar = React.memo<SidebarProps>(({
               isCollapsed={isCollapsed}
               onClick={() => onSelectTab('overview')}
             />
+
+            <AnimatedSidebarRow
+              Icon={MemorySidebarIcon}
+              label="Memory"
+              isActive={activeTab === 'memory'}
+              isCollapsed={isCollapsed}
+              onClick={() => onSelectTab('memory')}
+            />
           </div>
 
           {/* Sleek divider line under the overview button */}
@@ -801,18 +844,29 @@ export const Sidebar = React.memo<SidebarProps>(({
           {!isCollapsed && (
             <div className="flex items-center justify-between px-3 pt-0.5 pb-1 flex-shrink-0">
               <span className="text-[10.5px] font-bold text-gray-400 dark:text-gray-500 tracking-wider uppercase select-none">
-                Recents
+                {showArchivedOnly ? 'Archived' : 'Recents'}
               </span>
 
               <button
                 ref={filterBtnRef}
                 type="button"
                 onClick={handleToggleFilter}
-                className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer border-0 bg-transparent flex items-center justify-center"
-                title="Group and Sort"
-                aria-label="Group and Sort"
+                className={`p-1 rounded transition-colors cursor-pointer border-0 bg-transparent flex items-center justify-center ${
+                  showArchivedOnly
+                    ? 'text-blue-500 dark:text-blue-400 bg-blue-500/10'
+                    : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                }`}
+                title="Group, Sort, and Filter"
+                aria-label="Group, Sort, and Filter"
               >
-                <ListFilter size={13} className="text-gray-400 hover:text-white transition-colors" />
+                <ListFilter
+                  size={13}
+                  className={
+                    showArchivedOnly
+                      ? 'text-blue-500 dark:text-blue-400'
+                      : 'text-gray-400 hover:text-white transition-colors'
+                  }
+                />
               </button>
             </div>
           )}
@@ -824,7 +878,7 @@ export const Sidebar = React.memo<SidebarProps>(({
               <div
                 ref={filterMenuRef}
                 style={{ top: `${menuPos.top}px`, left: `${menuPos.left}px` }}
-                className="fixed z-[9999] w-[168px] rounded-xl bg-[#222225] text-gray-200 border border-white/[0.09] shadow-2xl p-1 flex flex-col gap-0.5 select-none animate-in fade-in zoom-in-95 duration-100"
+                className="fixed z-[9999] w-[176px] rounded-xl bg-[#222225] text-gray-200 border border-white/[0.09] shadow-2xl p-1 flex flex-col gap-0.5 select-none animate-in fade-in zoom-in-95 duration-100"
               >
                 {/* Group by option */}
                 <div
@@ -858,6 +912,24 @@ export const Sidebar = React.memo<SidebarProps>(({
                     <span>{getSortByLabel()}</span>
                     <ChevronRight size={12} className="text-gray-400" />
                   </div>
+                </div>
+
+                <div className="my-0.5 border-t border-white/[0.08]" />
+
+                {/* Archived only boolean toggle */}
+                <div
+                  onMouseEnter={() => setActiveSubmenu(null)}
+                  onClick={() => {
+                    setShowArchivedOnly((prev) => !prev);
+                    setIsFilterOpen(false);
+                    setActiveSubmenu(null);
+                  }}
+                  className="h-[28px] px-2.5 rounded-lg text-[12.5px] text-gray-200 hover:bg-white/[0.08] hover:text-white cursor-pointer flex items-center justify-between transition-colors"
+                >
+                  <span>Archived only</span>
+                  {showArchivedOnly && (
+                    <Check size={14} strokeWidth={2.5} className="text-[#3b82f6]" />
+                  )}
                 </div>
               </div>
 
@@ -946,35 +1018,193 @@ export const Sidebar = React.memo<SidebarProps>(({
             </>
           )}
 
+          {/* Conversation Three-Dots Context Menu */}
+          {convoMenu && (
+            <div
+              ref={convoMenuRef}
+              onClick={(e) => e.stopPropagation()}
+              style={{ top: `${convoMenu.top}px`, left: `${convoMenu.left}px` }}
+              className="fixed z-[9999] w-[148px] rounded-xl bg-white dark:bg-[#222225] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-white/[0.09] shadow-2xl p-1 flex flex-col gap-0.5 select-none animate-in fade-in zoom-in-95 duration-100"
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const targetId = convoMenu.id;
+                  setConvoMenu(null);
+                  onTogglePinConversation?.(targetId);
+                }}
+                className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
+              >
+                {convoMenu.isPinned ? (
+                  <PinOff size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                ) : (
+                  <Pin size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                )}
+                <span>{convoMenu.isPinned ? 'Unpin' : 'Pin'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  const target = { id: convoMenu.id, title: convoMenu.title };
+                  setConvoMenu(null);
+                  handleStartRename(e, target);
+                }}
+                className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
+              >
+                <Pencil size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                <span>Rename</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const targetId = convoMenu.id;
+                  const targetTitle = convoMenu.title;
+                  const wasArchived = convoMenu.isArchived;
+                  setConvoMenu(null);
+                  onToggleArchiveConversation?.(targetId, !wasArchived);
+                  if (!wasArchived) {
+                    setArchiveToast({ id: targetId, title: targetTitle });
+                  }
+                }}
+                className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
+              >
+                {convoMenu.isArchived ? (
+                  <ArchiveRestore size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                ) : (
+                  <Archive size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                )}
+                <span>{convoMenu.isArchived ? 'Unarchive' : 'Archive'}</span>
+              </button>
+
+              {!convoMenu.isLocked ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const targetConvo = convoMenu.convo;
+                    setConvoMenu(null);
+                    onOpenLockModal?.(targetConvo, 'setup');
+                  }}
+                  className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
+                >
+                  <Lock size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                  <span>Lock chat</span>
+                </button>
+              ) : (
+                <>
+                  {unlockedConvoIds?.has(convoMenu.id) ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const targetId = convoMenu.id;
+                        setConvoMenu(null);
+                        onRelockConversation?.(targetId);
+                      }}
+                      className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
+                    >
+                      <Lock size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                      <span>Lock chat</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const targetConvo = convoMenu.convo;
+                        setConvoMenu(null);
+                        onOpenLockModal?.(targetConvo, 'unlock');
+                      }}
+                      className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
+                    >
+                      <Unlock size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                      <span>Unlock chat</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const targetConvo = convoMenu.convo;
+                      setConvoMenu(null);
+                      onOpenLockModal?.(targetConvo, 'remove');
+                    }}
+                    className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
+                  >
+                    <Unlock size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                    <span>Remove lock</span>
+                  </button>
+                </>
+              )}
+
+              <div className="my-0.5 border-t border-gray-200 dark:border-white/[0.08]" />
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const targetId = convoMenu.id;
+                  setConvoMenu(null);
+                  onDeleteConversation?.(targetId);
+                }}
+                className="h-[28px] px-2.5 rounded-lg text-[12px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
+              >
+                <Trash2 size={13} className="text-red-500 dark:text-red-400 flex-shrink-0" />
+                <span>Delete</span>
+              </button>
+            </div>
+          )}
+
           {/* Creation Date Grouped Chat List with Branch Lines */}
           {!isCollapsed ? (
             <div className="flex flex-col flex-1 min-h-0">
-              <BranchedMenu
-                items={dateBranchedItems}
-                defaultOpen={defaultOpenIndices}
-                defaultActive={activeConversationId}
-                onSelect={(value) => {
-                  if (value === 'new_chat') {
-                    onCreateConversation?.();
-                  } else {
-                    onSelectConversation?.(value);
-                  }
-                  onSelectTab('chat');
-                }}
-                color={isDark ? '#e4e4e7' : '#1f2937'}
-                accentColor={isDark ? '#ffffff' : '#111827'}
-                lineColor={isDark ? '#3f3f46' : '#d4d4d8'}
-                width={Math.max(150, effectiveWidth - 28)}
-                rowHeight={30}
-                indent={34}
-                trunk={16}
-                radius={8}
-                lineWidth={1.5}
-                fontSize={12}
-                drawDuration={350}
-                foldDuration={250}
-                hideRail
-              />
+              {sortedConversations.length === 0 ? (
+                <div className="px-3 py-6 text-center flex flex-col items-center gap-2">
+                  <span className="text-[12px] text-gray-400 dark:text-gray-500">
+                    {showArchivedOnly ? 'No archived chats' : 'No recent chats'}
+                  </span>
+                  {showArchivedOnly && (
+                    <button
+                      type="button"
+                      onClick={() => setShowArchivedOnly(false)}
+                      className="text-[11.5px] font-medium text-blue-600 dark:text-blue-400 hover:underline bg-transparent border-none cursor-pointer p-0"
+                    >
+                      Show active chats
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <BranchedMenu
+                  items={dateBranchedItems}
+                  defaultOpen={defaultOpenIndices}
+                  defaultActive={activeConversationId}
+                  onSelect={(value) => {
+                    if (value === 'new_chat') {
+                      onCreateConversation?.();
+                    } else {
+                      onSelectConversation?.(value);
+                    }
+                    onSelectTab('chat');
+                  }}
+                  color={isDark ? '#e4e4e7' : '#1f2937'}
+                  accentColor={isDark ? '#ffffff' : '#111827'}
+                  lineColor={isDark ? '#3f3f46' : '#d4d4d8'}
+                  width={Math.max(150, effectiveWidth - 28)}
+                  rowHeight={30}
+                  indent={34}
+                  trunk={16}
+                  radius={8}
+                  lineWidth={1.5}
+                  fontSize={12}
+                  drawDuration={350}
+                  foldDuration={250}
+                  hideRail
+                />
+              )}
               {editingId && (
                 <div
                   onClick={(e) => e.stopPropagation()}
@@ -1198,7 +1428,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                 <ChevronDownIcon
                   ref={profileChevronRef}
                   size={18}
-                  className={`mr-1 mt-0.5 transition-transform duration-200 ${
+                  className={`mr-1 mt-2 transition-transform duration-200 ${
                     accountMenuOpen ? 'rotate-180' : ''
                   }`}
                 />
@@ -1213,11 +1443,44 @@ export const Sidebar = React.memo<SidebarProps>(({
     <ChatSearchModal
       isOpen={isSearchModalOpen}
       onClose={() => setIsSearchModalOpen(false)}
-      conversations={conversations}
+      conversations={sortedConversations}
       activeConversationId={activeConversationId}
       onSelectConversation={onSelectConversation}
       onSelectTab={onSelectTab}
     />
+
+    {/* Archive Chat Notification Toast */}
+    {archiveToast && (
+      <div className="fixed bottom-5 right-5 z-[10000] w-[320px] flex flex-col gap-3 p-3.5 rounded-xl bg-white dark:bg-[#18181b] border border-gray-200 dark:border-[#27272a] shadow-2xl text-gray-900 dark:text-gray-100 select-none animate-in fade-in slide-in-from-bottom-2 duration-150">
+        <div className="text-[12.5px] leading-relaxed text-gray-700 dark:text-gray-200">
+          <span>Chat archived. Find it anytime in the Recents filter under </span>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-[#232329] border border-gray-200 dark:border-[#32323a] text-[11px] font-medium text-gray-800 dark:text-gray-200 align-baseline">
+            <ListFilter size={11} />
+            <span>Archived only</span>
+          </span>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100 dark:border-[#27272a]">
+          <button
+            type="button"
+            onClick={() => {
+              onToggleArchiveConversation?.(archiveToast.id, false);
+              setArchiveToast(null);
+            }}
+            className="h-7 px-3 rounded-lg text-[12px] font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90 transition-opacity cursor-pointer border-none"
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            onClick={() => setArchiveToast(null)}
+            className="h-7 px-3 rounded-lg text-[12px] font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-[#232329] transition-colors cursor-pointer border-none bg-transparent"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    )}
     </WarmTooltipGroup>
   );
 });

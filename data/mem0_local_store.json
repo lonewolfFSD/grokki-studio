@@ -1,0 +1,26 @@
+[
+  {
+    "id": "mem_init_1",
+    "memory": "User prefers concise, clean responses and dark/cream aesthetics.",
+    "category": "preference",
+    "created_at": 1794139630636
+  },
+  {
+    "id": "mem_1794139632335_ktcm",
+    "memory": "User preference: I like dark mode and study computer science at ADBU",
+    "category": "fact",
+    "created_at": 1794139632335
+  },
+  {
+    "id": "mem_1794141831741_0rme",
+    "memory": "User's favorite tech stack is React and Node.js",
+    "category": "fact",
+    "created_at": 1794141831741
+  },
+  {
+    "id": "mem_1794141831741_glld",
+    "memory": "User's dog's name is Lucky",
+    "category": "fact",
+    "created_at": 1794141831741
+  }
+]

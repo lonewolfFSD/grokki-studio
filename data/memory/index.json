@@ -1,0 +1,19 @@
+[
+  {
+    "id": "mem_profile_1794141828855_3ah8",
+    "category": "profile",
+    "title": "Preference: tech stack is React and Node",
+    "content": "User stated preference: \"tech stack is React and Node\".",
+    "tags": [
+      "preference",
+      "user-habit"
+    ],
+    "confidence": 0.9,
+    "userConfirmed": false,
+    "pinned": false,
+    "createdAt": "2026-11-08T12:43:48.855Z",
+    "updatedAt": "2026-11-08T12:43:48.855Z",
+    "connections": [],
+    "history": []
+  }
+]

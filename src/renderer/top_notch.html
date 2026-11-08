@@ -428,6 +428,39 @@
     .notch-shell.song-toast-active:not(.open-state) {
       width: 288px;
     }
+    body:not(.notch-open) .notch-shell.notif-active {
+      width: 344px !important;
+    }
+    body:not(.notch-open) .notch-shell.activity-active:not(.notif-active) {
+      width: 316px !important;
+    }
+    body:not(.notch-open) .notch-shell.notif-active.notif-reply-open {
+      width: 410px !important;
+      height: auto !important;
+      min-height: 112px !important;
+      max-height: 170px !important;
+      border-radius: 0 0 22px 22px !important;
+      padding: 10px 14px 12px 14px !important;
+      cursor: default;
+    }
+    body:not(.notch-open) .notch-shell.notif-active.notif-reply-open .notch-mini-island {
+      display: flex !important;
+      flex-direction: column !important;
+      width: 100% !important;
+      height: auto !important;
+      min-height: 0 !important;
+      align-items: stretch !important;
+      justify-content: flex-start !important;
+    }
+    .notch-shell.notif-active .island-default-state,
+    .notch-shell.activity-active .island-default-state,
+    .notch-shell.notif-reply-open .island-default-state,
+    .notch-shell.notif-reply-open .island-lyrics-state,
+    .notch-shell.notif-reply-open .island-song-state,
+    .notch-shell.notif-active .island-activity-state,
+    .notch-shell.notif-reply-open .island-activity-state {
+      display: none !important;
+    }
     body:not(.notch-open) .notch-shell.lyrics-active {
       width: 370px !important;
     }
@@ -893,6 +926,306 @@
     .eq-bar.b1 { animation-delay: 0.1s; height: 6px; }
     .eq-bar.b2 { animation-delay: 0.3s; height: 10px; }
     .eq-bar.b3 { animation-delay: 0.2s; height: 7px; }
+
+    /* Incoming Notification Island State (WhatsApp, Gmail, Classroom, Calendar) */
+    .island-notif-state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 7px;
+      padding: 0 4px;
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.96);
+      transition: opacity 0.24s ease, transform 0.24s ease;
+      font-family: var(--font-sans);
+    }
+    .notch-shell.notif-reply-open .island-notif-state {
+      position: relative;
+      inset: auto;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0;
+      gap: 8px;
+    }
+    .island-notif-state.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
+    }
+    .island-notif-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      min-height: 24px;
+    }
+    .island-notif-left {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      flex: 1;
+    }
+    .island-notif-badge {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: var(--cream, #5b9bf8) !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+      padding: 0;
+      width: auto;
+      height: auto;
+    }
+    .island-notif-content {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .island-notif-sender {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+      flex-shrink: 0;
+      letter-spacing: -0.01em;
+    }
+    .island-notif-snippet {
+      font-size: 10.5px;
+      font-weight: 500;
+      color: var(--text-sub);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .island-notif-actions {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .island-notif-reply-pill {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: var(--cream, #5b9bf8);
+      font-family: var(--font-sans);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: color 0.16s ease, opacity 0.16s ease;
+    }
+    .island-notif-reply-pill:hover {
+      opacity: 0.85;
+    }
+    .notch-shell.notif-reply-open .island-notif-reply-pill {
+      display: none !important;
+    }
+    .island-notif-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 10px;
+      cursor: pointer;
+      padding: 2px 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.16s ease;
+    }
+    .island-notif-close-btn:hover {
+      color: var(--text-main);
+    }
+
+    /* Expanded Reply & Grokki AI Drawer inside Mini Island */
+    .island-notif-reply-drawer {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      padding-top: 2px;
+    }
+    .notch-shell.notif-reply-open .island-notif-reply-drawer {
+      display: flex;
+    }
+    .island-notif-chips-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .island-notif-chips-row::-webkit-scrollbar {
+      display: none;
+    }
+    .island-notif-chip {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: var(--text-sub);
+      font-family: var(--font-sans);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 0;
+      cursor: pointer;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: color 0.16s ease, opacity 0.16s ease;
+    }
+    .island-notif-chip:hover {
+      color: var(--cream, #5b9bf8);
+    }
+    .island-notif-chip.ai-primary {
+      color: var(--cream, #5b9bf8);
+      font-weight: 700;
+    }
+    .island-notif-input-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 2px 0;
+    }
+    .island-notif-input {
+      flex: 1;
+      min-width: 0;
+      background: transparent !important;
+      border: none !important;
+      outline: none !important;
+      box-shadow: none !important;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: text;
+      pointer-events: auto;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .island-notif-input::placeholder {
+      color: var(--text-muted);
+    }
+    .island-notif-icon-btn {
+      width: 20px;
+      height: 20px;
+      border: none !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      color: var(--cream, #5b9bf8) !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      cursor: pointer;
+      flex-shrink: 0;
+      padding: 0;
+      transition: opacity 0.16s ease, transform 0.16s ease;
+    }
+    .island-notif-icon-btn:hover {
+      opacity: 0.85;
+      transform: translateY(-0.5px);
+    }
+    .island-notif-icon-btn.send-solid {
+      background: transparent !important;
+      color: var(--cream, #5b9bf8) !important;
+    }
+
+    /* Live Activity State inside Mini Dynamic Island (Lock-In Timer, Reminders, Recording, Modes) */
+    .island-activity-state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 6px;
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.96);
+      transition: opacity 0.24s ease, transform 0.24s ease;
+      font-family: var(--font-sans);
+    }
+    .island-activity-state.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
+    }
+    .island-activity-left {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      flex: 1;
+    }
+    .island-activity-icon {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: var(--cream, #5b9bf8) !important;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .island-activity-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: -0.01em;
+    }
+    .island-activity-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .island-activity-time {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--cream, #5b9bf8);
+      letter-spacing: 0.02em;
+    }
+    .island-activity-btn {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: var(--text-sub);
+      font-size: 9.5px;
+      cursor: pointer;
+      padding: 2px 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.16s ease, opacity 0.16s ease;
+    }
+    .island-activity-btn:hover {
+      color: var(--cream, #5b9bf8);
+    }
 
     /* Top 7-Tab Navigation Bar */
     .notch-tabs {
@@ -2428,6 +2761,85 @@
             <span class="eq-bar b3"></span>
           </div>
         </div>
+
+        <!-- Dynamic Island Notification Toast View (WhatsApp, Gmail, Classroom, Calendar) -->
+        <div class="island-notif-state" id="islandNotifState">
+          <div class="island-notif-top-row">
+            <div class="island-notif-left">
+              <div class="island-notif-badge" id="islandNotifBadge">
+                <i id="islandNotifIcon" class="fa-brands fa-whatsapp"></i>
+              </div>
+              <div class="island-notif-content">
+                <span id="islandNotifSender" class="island-notif-sender">Contact</span>
+                <span id="islandNotifSnippet" class="island-notif-snippet">• Message</span>
+              </div>
+            </div>
+            <div class="island-notif-actions">
+              <button type="button" class="island-notif-reply-pill" id="islandNotifReplyBtn" title="Reply or ask Grokki to reply">
+                <i class="fa-solid fa-reply" style="font-size: 8.5px;"></i>
+                <span>Reply</span>
+              </button>
+              <button type="button" class="island-notif-close-btn" id="islandNotifCloseBtn" title="Dismiss">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Expanded Grokki Smart Reply Drawer (Revealed on Hover or Clicking Reply) -->
+          <div class="island-notif-reply-drawer" id="islandNotifReplyDrawer">
+            <div class="island-notif-chips-row" id="islandNotifChipsRow">
+              <button type="button" class="island-notif-chip ai-primary" id="islandNotifAutoAiBtn">
+                <i class="fa-solid fa-wand-magic-sparkles" style="font-size: 8.5px;"></i>
+                <span>Grokki Auto-Reply</span>
+              </button>
+            </div>
+            <div class="island-notif-input-row">
+              <input
+                type="text"
+                id="islandNotifInput"
+                class="island-notif-input"
+                placeholder="Type reply or tell Grokki what to say..."
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button
+                type="button"
+                class="island-notif-icon-btn"
+                id="islandNotifAiBtn"
+                title="Have Grokki write & send reply from your instruction"
+              >
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+              </button>
+              <button
+                type="button"
+                class="island-notif-icon-btn send-solid"
+                id="islandNotifSendBtn"
+                title="Send reply (Enter)"
+              >
+                <i class="fa-solid fa-arrow-up"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Island Live Activity View (Lock-In Timer, Countdown, Reminder, Recording, Modes) -->
+        <div class="island-activity-state" id="islandActivityState">
+          <div class="island-activity-left">
+            <div class="island-activity-icon">
+              <i id="islandActivityIcon" class="fa-solid fa-stopwatch"></i>
+            </div>
+            <span id="islandActivityTitle" class="island-activity-title">Lock-In • Study</span>
+          </div>
+          <div class="island-activity-right">
+            <span id="islandActivityTime" class="island-activity-time">25:00</span>
+            <button type="button" class="island-activity-btn" id="islandActivityPauseBtn" title="Pause / Resume">
+              <i id="islandActivityPauseIcon" class="fa-solid fa-pause"></i>
+            </button>
+            <button type="button" class="island-activity-btn" id="islandActivityStopBtn" title="Stop">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- 7-Tab Navigation Bar -->
@@ -2988,6 +3400,11 @@
     if (miniIsland) {
       miniIsland.addEventListener('click', (e) => {
         e.stopPropagation();
+        const notifState = document.getElementById('islandNotifState');
+        if (notifState && notifState.classList.contains('show')) {
+          expandNotifReplyDrawer();
+          return;
+        }
         document.body.classList.add('notch-open');
         if (api.setTopNotchInteractive) api.setTopNotchInteractive(true);
       });
@@ -3079,7 +3496,11 @@
       const songTitleEl = document.getElementById('islandSongTitle');
       const songArtistEl = document.getElementById('islandSongArtist');
       const shell = document.getElementById('notchShell');
+      const notifState = document.getElementById('islandNotifState');
+      const actState = document.getElementById('islandActivityState');
       if (!songState || !defaultState || !shell) return;
+      if (notifState && notifState.classList.contains('show')) return;
+      if (actState && actState.classList.contains('show')) return;
 
       if (songTitleEl) songTitleEl.textContent = title || 'Music';
       if (songArtistEl) songArtistEl.textContent = artist ? `• ${artist}` : '';
@@ -3102,6 +3523,490 @@
       }, 1800);
     }
 
+    /* Dynamic Island Incoming Notification Toast (WhatsApp, Gmail, Classroom, Calendar) */
+    let notifToastTimeout = null;
+    let currentActiveNotif = null;
+    let isSendingNotifReply = false;
+
+    function buildSmartChipsForMessage(msgText, isWhatsApp) {
+      const chipsRow = document.getElementById('islandNotifChipsRow');
+      if (!chipsRow) return;
+      chipsRow.innerHTML = '';
+
+      if (!isWhatsApp) return;
+
+      // 1. Primary Grokki Auto-Reply Chip
+      const aiBtn = document.createElement('button');
+      aiBtn.type = 'button';
+      aiBtn.className = 'island-notif-chip ai-primary';
+      aiBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles" style="font-size:8.5px;"></i><span>Grokki Auto-Reply</span>';
+      aiBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleSendNotifReply('', true);
+      });
+      chipsRow.appendChild(aiBtn);
+
+      // 2. Context-aware 1-click quick replies
+      const lower = (msgText || '').trim().toLowerCase();
+      let presets = ['Sounds good', 'On my way', 'Busy rn, text soon'];
+      if (/^(hi|hey|sup|yo|hello|wassup|what'?s up|hii+)\b/i.test(lower)) {
+        presets = ["Hey! What's up?", 'Busy rn, text soon', 'Call you in 5'];
+      } else if (lower.includes('?')) {
+        presets = ['Yes', 'Give me 5 mins', 'Let me check'];
+      }
+
+      presets.forEach((txt) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'island-notif-chip';
+        btn.textContent = txt;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          handleSendNotifReply(txt, false);
+        });
+        chipsRow.appendChild(btn);
+      });
+    }
+
+    function focusNotifReplyInput() {
+      const inp = document.getElementById('islandNotifInput');
+      if (!inp) return;
+      if (api.setTopNotchInteractive) api.setTopNotchInteractive(true);
+      if (api.setTopNotchFocusable) api.setTopNotchFocusable(true);
+      try { inp.focus(); } catch (_) {}
+      setTimeout(() => { try { inp.focus(); } catch (_) {} }, 35);
+      setTimeout(() => { try { inp.focus(); } catch (_) {} }, 110);
+    }
+
+    function expandNotifReplyDrawer() {
+      const shell = document.getElementById('notchShell');
+      const notifState = document.getElementById('islandNotifState');
+      if (!shell || !notifState || !notifState.classList.contains('show')) return;
+      if (notifToastTimeout) {
+        clearTimeout(notifToastTimeout);
+        notifToastTimeout = null;
+      }
+      shell.classList.add('notif-reply-open');
+      focusNotifReplyInput();
+    }
+
+    function dismissNotificationToast() {
+      if (notifToastTimeout) {
+        clearTimeout(notifToastTimeout);
+        notifToastTimeout = null;
+      }
+      const notifState = document.getElementById('islandNotifState');
+      const defaultState = document.getElementById('islandDefaultState');
+      const shell = document.getElementById('notchShell');
+      const inp = document.getElementById('islandNotifInput');
+      if (inp) {
+        inp.value = '';
+        inp.blur();
+      }
+      if (api.setTopNotchFocusable) api.setTopNotchFocusable(false);
+      if (!document.body.classList.contains('notch-open') && api.setTopNotchInteractive) {
+        api.setTopNotchInteractive(false);
+      }
+      if (notifState) notifState.classList.remove('show');
+      if (shell) shell.classList.remove('notif-active', 'notif-reply-open');
+      currentActiveNotif = null;
+      isSendingNotifReply = false;
+
+      const activityState = document.getElementById('islandActivityState');
+      if (activityState && activityState.classList.contains('show')) {
+        shell.classList.add('activity-active');
+      } else if (lyricsSyncEnabled && currentLyrics.length > 0 && currentPlaybackStatus === 'Playing') {
+        showIslandLyrics(lastRenderedLyricLine || '♪ ♪ ♪');
+      } else if (defaultState) {
+        defaultState.classList.remove('hide');
+      }
+    }
+
+    async function handleSendNotifReply(rawText, forceAi = false) {
+      if (!currentActiveNotif || isSendingNotifReply) return;
+      const snippetEl = document.getElementById('islandNotifSnippet');
+      const inp = document.getElementById('islandNotifInput');
+      const instruction = (rawText !== undefined ? rawText : (inp ? inp.value : '')).trim();
+
+      if (!forceAi && !instruction) return;
+
+      isSendingNotifReply = true;
+      if (snippetEl) {
+        snippetEl.style.color = 'var(--cream)';
+        snippetEl.textContent = forceAi || /^(tell|say|reply|ask)\b/i.test(instruction)
+          ? '• Grokki is crafting reply...'
+          : '• Sending...';
+      }
+
+      try {
+        const to = currentActiveNotif.jid || currentActiveNotif.sender;
+        let res;
+        if (api.grokkiSmartReply) {
+          res = await api.grokkiSmartReply({
+            to,
+            sender: currentActiveNotif.sender,
+            incomingMessage: currentActiveNotif.message,
+            instruction,
+            useAi: forceAi,
+          });
+        } else if (api.testOpenWASend) {
+          res = await api.testOpenWASend({ to, message: instruction });
+          res = { ...res, sentText: instruction };
+        }
+
+        if (res && res.success) {
+          if (inp) inp.value = '';
+          if (snippetEl) {
+            snippetEl.style.color = 'var(--cream)';
+            snippetEl.textContent = `• ✓ Sent: ${res.sentText || instruction}`;
+          }
+          setTimeout(() => {
+            if (snippetEl) snippetEl.style.color = '';
+            dismissNotificationToast();
+          }, 1250);
+        } else {
+          if (snippetEl) {
+            snippetEl.style.color = '#ef4444';
+            snippetEl.textContent = `• Failed: ${res?.error || 'Could not send'}`;
+          }
+          isSendingNotifReply = false;
+        }
+      } catch (err) {
+        if (snippetEl) {
+          snippetEl.style.color = '#ef4444';
+          snippetEl.textContent = '• Send failed';
+        }
+        isSendingNotifReply = false;
+      }
+    }
+
+    function triggerNotificationToast(data) {
+      if (!data) return;
+      currentActiveNotif = data;
+      isSendingNotifReply = false;
+
+      const notifState = document.getElementById('islandNotifState');
+      const defaultState = document.getElementById('islandDefaultState');
+      const lyricsState = document.getElementById('islandLyricsState');
+      const songState = document.getElementById('islandSongState');
+      const badge = document.getElementById('islandNotifBadge');
+      const iconEl = document.getElementById('islandNotifIcon');
+      const senderEl = document.getElementById('islandNotifSender');
+      const snippetEl = document.getElementById('islandNotifSnippet');
+      const replyBtn = document.getElementById('islandNotifReplyBtn');
+      const shell = document.getElementById('notchShell');
+      const inp = document.getElementById('islandNotifInput');
+      if (!notifState || !defaultState || !shell) return;
+
+      const src = (data.source || 'whatsapp').toLowerCase();
+      const isWhatsApp = src === 'whatsapp';
+      badge.className = 'island-notif-badge ' + src;
+      if (src === 'whatsapp') {
+        iconEl.className = 'fa-brands fa-whatsapp';
+      } else if (src === 'gmail' || src === 'email') {
+        iconEl.className = 'fa-solid fa-envelope';
+      } else if (src === 'classroom') {
+        iconEl.className = 'fa-solid fa-graduation-cap';
+      } else if (src === 'calendar') {
+        iconEl.className = 'fa-regular fa-calendar-days';
+      } else {
+        iconEl.className = 'fa-solid fa-bell';
+      }
+
+      if (senderEl) senderEl.textContent = data.sender || 'New Message';
+      if (snippetEl) {
+        snippetEl.style.color = '';
+        snippetEl.textContent = data.message ? `• ${data.message}` : '';
+      }
+      if (replyBtn) {
+        replyBtn.style.display = isWhatsApp ? '' : 'none';
+      }
+      if (inp) inp.value = '';
+
+      buildSmartChipsForMessage(data.message || '', isWhatsApp);
+
+      shell.classList.remove('lyrics-active', 'song-toast-active', 'notif-reply-open');
+      if (lyricsState) lyricsState.classList.remove('show');
+      if (songState) songState.classList.remove('show');
+      defaultState.classList.add('hide');
+      shell.classList.add('notif-active');
+      notifState.classList.add('show');
+
+      // Make window interactive immediately so clicking Reply or hovering works even over mainWindow
+      if (api.setTopNotchInteractive) api.setTopNotchInteractive(true);
+
+      if (notifToastTimeout) clearTimeout(notifToastTimeout);
+      notifToastTimeout = setTimeout(() => {
+        if (!shell.classList.contains('notif-reply-open')) {
+          dismissNotificationToast();
+        }
+      }, 6500);
+    }
+
+    // Wire up Notification Reply UI buttons & input
+    const notifReplyBtnEl = document.getElementById('islandNotifReplyBtn');
+    const notifCloseBtnEl = document.getElementById('islandNotifCloseBtn');
+    const notifAiBtnEl = document.getElementById('islandNotifAiBtn');
+    const notifSendBtnEl = document.getElementById('islandNotifSendBtn');
+    const notifInputEl = document.getElementById('islandNotifInput');
+    const notifStateEl = document.getElementById('islandNotifState');
+
+    if (notifStateEl) {
+      notifStateEl.addEventListener('mouseenter', () => {
+        if (notifStateEl.classList.contains('show') && currentActiveNotif && (currentActiveNotif.source || 'whatsapp').toLowerCase() === 'whatsapp') {
+          expandNotifReplyDrawer();
+        }
+      });
+    }
+
+    if (notifReplyBtnEl) {
+      notifReplyBtnEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        expandNotifReplyDrawer();
+      });
+    }
+    if (notifCloseBtnEl) {
+      notifCloseBtnEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dismissNotificationToast();
+      });
+    }
+    if (notifAiBtnEl) {
+      notifAiBtnEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleSendNotifReply(notifInputEl ? notifInputEl.value : '', true);
+      });
+    }
+    if (notifSendBtnEl) {
+      notifSendBtnEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleSendNotifReply(notifInputEl ? notifInputEl.value : '', false);
+      });
+    }
+    if (notifInputEl) {
+      notifInputEl.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        focusNotifReplyInput();
+      });
+      notifInputEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        focusNotifReplyInput();
+      });
+      notifInputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          handleSendNotifReply(notifInputEl.value, e.shiftKey);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          dismissNotificationToast();
+        }
+      });
+    }
+
+    if (api.onIslandNotification) {
+      api.onIslandNotification((notif) => {
+        triggerNotificationToast(notif);
+      });
+    }
+
+    /* =========================================================
+       MINI DYNAMIC ISLAND LIVE ACTIVITY ENGINE
+       (Lock-In Timers, Countdowns, Reminders, Recording, Active Modes)
+       ========================================================= */
+    let liveActivityTimer = null;
+    let currentLiveActivity = null;
+
+    function formatActivityClock(sec) {
+      const s = Math.max(0, Math.floor(sec));
+      const hrs = Math.floor(s / 3600);
+      const mins = Math.floor((s % 3600) / 60);
+      const rem = s % 60;
+      if (hrs > 0) {
+        return `${hrs}:${String(mins).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
+      }
+      return `${String(mins).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
+    }
+
+    function renderLiveActivityTick() {
+      if (!currentLiveActivity) return;
+      const timeEl = document.getElementById('islandActivityTime');
+      const pauseBtn = document.getElementById('islandActivityPauseBtn');
+      const pauseIcon = document.getElementById('islandActivityPauseIcon');
+      if (!timeEl) return;
+
+      if (currentLiveActivity.kind === 'timer' || currentLiveActivity.kind === 'reminder') {
+        if (pauseBtn) pauseBtn.style.display = currentLiveActivity.kind === 'timer' ? 'flex' : 'none';
+        if (pauseIcon) {
+          pauseIcon.className = currentLiveActivity.paused ? 'fa-solid fa-play' : 'fa-solid fa-pause';
+        }
+        let remSec = 0;
+        if (currentLiveActivity.paused) {
+          remSec = currentLiveActivity.remainingSeconds || 0;
+        } else {
+          remSec = Math.max(0, Math.ceil((currentLiveActivity.endTime - Date.now()) / 1000));
+          currentLiveActivity.remainingSeconds = remSec;
+        }
+        timeEl.textContent = formatActivityClock(remSec);
+        if (remSec <= 0 && !currentLiveActivity.paused) {
+          const finishedTitle = currentLiveActivity.title || 'Timer';
+          const isLockIn = /lock[- ]?in/i.test(finishedTitle);
+          stopIslandActivity(true);
+          triggerNotificationToast({
+            source: 'timer',
+            sender: isLockIn ? 'Lock-In Complete 🔥' : 'Timer Complete ⏱️',
+            message: `${finishedTitle} finished! Take a well-deserved breather.`,
+          });
+        }
+      } else if (currentLiveActivity.kind === 'stopwatch') {
+        if (pauseBtn) pauseBtn.style.display = 'none';
+        const elapsedSec = Math.max(0, Math.floor((Date.now() - (currentLiveActivity.startTime || Date.now())) / 1000));
+        timeEl.textContent = formatActivityClock(elapsedSec);
+      } else {
+        if (pauseBtn) pauseBtn.style.display = 'none';
+        timeEl.textContent = 'LIVE';
+      }
+    }
+
+    function startIslandActivity(payload) {
+      if (!payload) return;
+      const shell = document.getElementById('notchShell');
+      const defState = document.getElementById('islandDefaultState');
+      const lyrState = document.getElementById('islandLyricsState');
+      const actState = document.getElementById('islandActivityState');
+      const iconEl = document.getElementById('islandActivityIcon');
+      const titleEl = document.getElementById('islandActivityTitle');
+      if (!shell || !defState || !actState) return;
+
+      const totalSec = payload.durationSeconds || Math.round((payload.durationMinutes || 25) * 60);
+      const endTime = payload.endTime || (Date.now() + totalSec * 1000);
+      const remSec = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+      if ((payload.kind === 'timer' || payload.kind === 'reminder') && remSec <= 0) {
+        try { localStorage.removeItem('grokki_island_live_activity'); } catch (_) {}
+        return;
+      }
+
+      currentLiveActivity = {
+        ...payload,
+        kind: payload.kind || 'timer',
+        endTime,
+        remainingSeconds: payload.remainingSeconds || remSec,
+        paused: !!payload.paused,
+      };
+
+      if (iconEl) iconEl.className = payload.icon || 'fa-solid fa-stopwatch';
+      if (titleEl) titleEl.textContent = payload.title || 'Lock-In • Study';
+
+      shell.classList.remove('lyrics-active');
+      if (lyrState) lyrState.classList.remove('show');
+      defState.classList.add('hide');
+      shell.classList.add('activity-active');
+      actState.classList.add('show');
+
+      renderLiveActivityTick();
+      if (liveActivityTimer) clearInterval(liveActivityTimer);
+      liveActivityTimer = setInterval(renderLiveActivityTick, 500);
+    }
+
+    function togglePauseIslandActivity() {
+      if (!currentLiveActivity) return;
+      if (currentLiveActivity.paused) {
+        currentLiveActivity.paused = false;
+        currentLiveActivity.endTime = Date.now() + (currentLiveActivity.remainingSeconds || 0) * 1000;
+      } else {
+        currentLiveActivity.remainingSeconds = Math.max(0, Math.ceil((currentLiveActivity.endTime - Date.now()) / 1000));
+        currentLiveActivity.paused = true;
+      }
+      try {
+        localStorage.setItem('grokki_island_live_activity', JSON.stringify(currentLiveActivity));
+      } catch (_) {}
+      renderLiveActivityTick();
+    }
+
+    function stopIslandActivity(clearStorage = true) {
+      if (liveActivityTimer) {
+        clearInterval(liveActivityTimer);
+        liveActivityTimer = null;
+      }
+      currentLiveActivity = null;
+      if (clearStorage) {
+        try { localStorage.removeItem('grokki_island_live_activity'); } catch (_) {}
+      }
+      const shell = document.getElementById('notchShell');
+      const defState = document.getElementById('islandDefaultState');
+      const actState = document.getElementById('islandActivityState');
+      const notifState = document.getElementById('islandNotifState');
+      if (actState) actState.classList.remove('show');
+      if (shell) shell.classList.remove('activity-active');
+
+      const isNotifShowing = notifState && notifState.classList.contains('show');
+      if (!isNotifShowing) {
+        if (lyricsSyncEnabled && currentLyrics.length > 0 && currentPlaybackStatus === 'Playing') {
+          showIslandLyrics(lastRenderedLyricLine || '♪ ♪ ♪');
+        } else if (defState) {
+          defState.classList.remove('hide');
+        }
+      }
+    }
+
+    function handleIslandActivityPayload(payload) {
+      if (!payload) return;
+      const act = (payload.action || 'start').toLowerCase();
+      if (act === 'start') {
+        startIslandActivity(payload);
+      } else if (act === 'pause') {
+        if (currentLiveActivity && !currentLiveActivity.paused) togglePauseIslandActivity();
+      } else if (act === 'resume') {
+        if (currentLiveActivity && currentLiveActivity.paused) togglePauseIslandActivity();
+      } else if (act === 'stop') {
+        stopIslandActivity(true);
+      }
+    }
+
+    document.getElementById('islandActivityPauseBtn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePauseIslandActivity();
+    });
+
+    document.getElementById('islandActivityStopBtn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      stopIslandActivity(true);
+    });
+
+    if (api.onIslandActivity) {
+      api.onIslandActivity((payload) => handleIslandActivityPayload(payload));
+    }
+
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('grokki_island_channel');
+        bc.onmessage = (ev) => {
+          if (ev && ev.data) handleIslandActivityPayload(ev.data);
+        };
+      }
+    } catch (_) {}
+
+    window.addEventListener('storage', (ev) => {
+      if (ev.key === 'grokki_island_live_activity') {
+        if (!ev.newValue) {
+          stopIslandActivity(false);
+        } else {
+          try {
+            handleIslandActivityPayload(JSON.parse(ev.newValue));
+          } catch (_) {}
+        }
+      }
+    });
+
+    // Restore active timer/activity if present in localStorage on load
+    try {
+      const savedAct = localStorage.getItem('grokki_island_live_activity');
+      if (savedAct) {
+        handleIslandActivityPayload(JSON.parse(savedAct));
+      }
+    } catch (_) {}
+
     function hideTopNotchPanel() {
       closeAllParentDropdowns();
       document.body.classList.remove('notch-open');
@@ -3109,27 +4014,40 @@
       if (api.setTopNotchInteractive) api.setTopNotchInteractive(false);
     }
 
-    // Only make Top Notch window focusable when clicking a text input inside it,
-    // so clicking buttons/clipboard/dictation never steals focus from the user's active search bar!
-    ['agendaInput', 'appsSearchInput', 'clipSearchInput'].forEach((inputId) => {
+    // Make Top Notch window focusable when clicking a text input inside it.
+    // Do NOT call setTopNotchFocusable(false) on blur because Electron's setFocusable(true)
+    // momentarily triggers a native Win32 style refresh that blurs the input and would undo focus!
+    ['agendaInput', 'appsSearchInput', 'clipSearchInput', 'islandNotifInput'].forEach((inputId) => {
       const inp = document.getElementById(inputId);
       if (!inp) return;
       inp.addEventListener('mousedown', () => {
+        if (api.setTopNotchInteractive) api.setTopNotchInteractive(true);
         if (api.setTopNotchFocusable) api.setTopNotchFocusable(true);
-        setTimeout(() => inp.focus(), 20);
-      });
-      inp.addEventListener('blur', () => {
-        if (api.setTopNotchFocusable) api.setTopNotchFocusable(false);
+        setTimeout(() => { try { inp.focus(); } catch (_) {} }, 30);
+        setTimeout(() => { try { inp.focus(); } catch (_) {} }, 100);
       });
     });
 
     notchShell.addEventListener('mouseleave', () => {
+      const notifState = document.getElementById('islandNotifState');
+      const inp = document.getElementById('islandNotifInput');
+      if (notifState && notifState.classList.contains('show')) {
+        if (document.activeElement === inp || (inp && inp.value.trim().length > 0)) return;
+        dismissNotificationToast();
+        return;
+      }
       hideTopNotchPanel();
     });
 
     if (api.onTopNotchTrigger) {
       api.onTopNotchTrigger((shouldOpen) => {
+        const notifState = document.getElementById('islandNotifState');
+        const isNotifShowing = notifState && notifState.classList.contains('show');
         if (shouldOpen) {
+          if (isNotifShowing) {
+            expandNotifReplyDrawer();
+            return;
+          }
           document.body.classList.add('notch-open');
           syncControlsStatus();
           const activeTab = document.querySelector('.notch-tab-btn.active')?.dataset.tab;
@@ -3141,6 +4059,12 @@
           if (activeTab === 'clipboard') refreshClipboard();
           if (activeTab === 'stats') refreshSystemStats();
         } else {
+          if (isNotifShowing) {
+            const inp = document.getElementById('islandNotifInput');
+            if (document.activeElement === inp) return;
+            dismissNotificationToast();
+            return;
+          }
           hideTopNotchPanel();
         }
       });
@@ -3792,11 +4716,15 @@
       const lyrState = document.getElementById('islandLyricsState');
       const lyrLine = document.getElementById('islandLyricLine');
       const songState = document.getElementById('islandSongState');
+      const notifState = document.getElementById('islandNotifState');
 
       if (!shell || !defState || !lyrState || !lyrLine) return;
 
-      // Don't interrupt if temporary song toast is currently active
+      // Don't interrupt if temporary song toast, notification toast, or live activity is currently active
+      const actState = document.getElementById('islandActivityState');
       if (songState && songState.classList.contains('show')) return;
+      if (notifState && notifState.classList.contains('show')) return;
+      if (actState && actState.classList.contains('show')) return;
 
       shell.classList.remove('song-toast-active');
       shell.classList.add('lyrics-active');
@@ -3821,6 +4749,7 @@
       const defState = document.getElementById('islandDefaultState');
       const lyrState = document.getElementById('islandLyricsState');
       const songState = document.getElementById('islandSongState');
+      const notifState = document.getElementById('islandNotifState');
 
       if (!shell || !defState || !lyrState) return;
 
@@ -3828,7 +4757,11 @@
       lyrState.classList.remove('show');
       lastRenderedLyricLine = '';
 
-      if (!songState || !songState.classList.contains('show')) {
+      const isSongActive = songState && songState.classList.contains('show');
+      const isNotifActive = notifState && notifState.classList.contains('show');
+      const actState = document.getElementById('islandActivityState');
+      const isActActive = actState && actState.classList.contains('show');
+      if (!isSongActive && !isNotifActive && !isActActive) {
         defState.classList.remove('hide');
       }
     }

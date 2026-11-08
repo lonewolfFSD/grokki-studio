@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Conversation, ChatMessage } from '../types/jarvis';
+import { Conversation, ChatMessage, ChatLockMethod } from '../types/jarvis';
 
 const STORAGE_KEY = 'grokki_conversations';
 const ACTIVE_CONVO_KEY = 'grokki_active_convo_id';
@@ -89,8 +89,8 @@ export function useConversations() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter((c) => Array.isArray(c?.messages) && c.messages.length > 0);
         }
       }
       // Check legacy chat history
@@ -113,35 +113,19 @@ export function useConversations() {
     } catch (e) {
       console.error('Failed to load conversations:', e);
     }
-    // Default initial conversation
-    return [
-      {
-        id: generateId(),
-        title: 'New Chat',
-        updatedAt: Date.now(),
-        messages: [],
-      },
-    ];
+    return [];
   });
 
   const [activeId, setActiveId] = useState<string>(() => {
     try {
       const savedActive = localStorage.getItem(ACTIVE_CONVO_KEY);
-      if (savedActive) return savedActive;
+      if (savedActive && conversations.some((c) => c.id === savedActive && !c.isArchived)) {
+        return savedActive;
+      }
     } catch (e) {}
-    return '';
+    const firstUnarchived = conversations.find((c) => !c.isArchived);
+    return firstUnarchived?.id || generateId();
   });
-
-  // Ensure activeId points to a valid conversation
-  useEffect(() => {
-    if (!conversations.some((c) => c.id === activeId)) {
-      const fallbackId = conversations[0]?.id || generateId();
-      setActiveId(fallbackId);
-      try {
-        localStorage.setItem(ACTIVE_CONVO_KEY, fallbackId);
-      } catch (e) {}
-    }
-  }, [conversations, activeId]);
 
   // Sync conversations to localStorage
   useEffect(() => {
@@ -160,53 +144,29 @@ export function useConversations() {
   }, []);
 
   const createConversation = useCallback(() => {
-    const newConvo: Conversation = {
-      id: generateId(),
-      title: 'New Chat',
-      updatedAt: Date.now(),
-      messages: [],
-    };
-    setConversations((prev) => [newConvo, ...prev]);
-    setActiveId(newConvo.id);
+    const newId = generateId();
+    setActiveId(newId);
     try {
-      localStorage.setItem(ACTIVE_CONVO_KEY, newConvo.id);
+      localStorage.setItem(ACTIVE_CONVO_KEY, newId);
     } catch (e) {}
-    return newConvo.id;
+    return newId;
   }, []);
 
   const deleteConversation = useCallback((id: string) => {
     setConversations((prev) => {
-      const filtered = prev.filter((c) => c.id !== id);
-      if (filtered.length === 0) {
-        // Create a blank conversation if all were deleted
-        const brandNew: Conversation = {
-          id: generateId(),
-          title: 'New Chat',
-          updatedAt: Date.now(),
-          messages: [],
-        };
-        setActiveId(brandNew.id);
-        try {
-          localStorage.setItem(ACTIVE_CONVO_KEY, brandNew.id);
-        } catch (e) {}
-        return [brandNew];
-      }
-      return filtered;
-    });
-
-    setActiveId((currActive) => {
-      if (currActive === id) {
-        // Switch to the first available remaining conversation
-        setConversations((latest) => {
-          const remaining = latest.filter((c) => c.id !== id);
-          const nextId = remaining[0]?.id || '';
+      const remaining = prev.filter((c) => c.id !== id);
+      setActiveId((currActive) => {
+        if (currActive === id) {
+          const nextUnarchived = remaining.find((c) => !c.isArchived);
+          const nextId = nextUnarchived?.id || generateId();
           try {
-            if (nextId) localStorage.setItem(ACTIVE_CONVO_KEY, nextId);
+            localStorage.setItem(ACTIVE_CONVO_KEY, nextId);
           } catch (e) {}
-          return latest;
-        });
-      }
-      return currActive;
+          return nextId;
+        }
+        return currActive;
+      });
+      return remaining;
     });
   }, []);
 
@@ -224,9 +184,81 @@ export function useConversations() {
     );
   }, []);
 
+  const toggleArchiveConversation = useCallback((id: string, forceState?: boolean) => {
+    setConversations((prev) => {
+      const target = prev.find((c) => c.id === id);
+      const nextArchived = forceState !== undefined ? forceState : !target?.isArchived;
+      const updated = prev.map((c) => (c.id === id ? { ...c, isArchived: nextArchived } : c));
+
+      if (nextArchived) {
+        const unarchived = updated.filter((c) => !c.isArchived);
+        setActiveId((currActive) => {
+          if (currActive === id) {
+            const nextId = unarchived[0]?.id || generateId();
+            try {
+              localStorage.setItem(ACTIVE_CONVO_KEY, nextId);
+            } catch (e) {}
+            return nextId;
+          }
+          return currActive;
+        });
+      }
+
+      return updated;
+    });
+  }, []);
+
+  const setConversationLock = useCallback(
+    (
+      id: string,
+      lockData: {
+        isLocked: boolean;
+        lockMethod?: ChatLockMethod;
+        lockPasswordHash?: string;
+      }
+    ) => {
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                isLocked: lockData.isLocked,
+                lockMethod: lockData.isLocked ? lockData.lockMethod : undefined,
+                lockPasswordHash: lockData.isLocked ? lockData.lockPasswordHash : undefined,
+              }
+            : c
+        )
+      );
+    },
+    []
+  );
+
   const updateActiveMessages = useCallback((updater: (prevMessages: ChatMessage[]) => ChatMessage[]) => {
-    setConversations((prev) =>
-      prev.map((convo) => {
+    setConversations((prev) => {
+      const existing = prev.find((c) => c.id === activeId);
+      if (!existing) {
+        const nextMsgs = updater([]);
+        if (!nextMsgs || nextMsgs.length === 0) return prev;
+        let nextTitle = 'New Chat';
+        const firstUser = nextMsgs.find((m) => m.role === 'user');
+        if (firstUser) {
+          const fileName = typeof firstUser.attachedFile === 'string'
+            ? firstUser.attachedFile.split('\\').pop()
+            : firstUser.attachedFile?.name;
+          nextTitle = deriveSmartTitle(firstUser.content, fileName);
+        }
+        const now = Date.now();
+        const newConvo: Conversation = {
+          id: activeId || generateId(),
+          title: nextTitle,
+          createdAt: now,
+          updatedAt: now,
+          messages: nextMsgs,
+        };
+        return [newConvo, ...prev];
+      }
+
+      return prev.map((convo) => {
         if (convo.id !== activeId) return convo;
         const nextMsgs = updater(convo.messages);
         let nextTitle = convo.title;
@@ -246,13 +278,13 @@ export function useConversations() {
           updatedAt: Date.now(),
           messages: nextMsgs,
         };
-      })
-    );
+      });
+    });
   }, [activeId]);
 
   const activeConversation = useMemo(() => {
-    return conversations.find((c) => c.id === activeId) || conversations[0] || {
-      id: 'default',
+    return conversations.find((c) => c.id === activeId) || {
+      id: activeId || 'default',
       title: 'New Chat',
       updatedAt: Date.now(),
       messages: [],
@@ -268,6 +300,8 @@ export function useConversations() {
     deleteConversation,
     renameConversation,
     togglePinConversation,
+    toggleArchiveConversation,
+    setConversationLock,
     updateActiveMessages,
   };
 }

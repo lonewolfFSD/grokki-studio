@@ -1,0 +1,44 @@
+{
+  "mcpServers": {
+    "fetch": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "enabled": true,
+      "description": "Web fetcher converting HTML to clean markdown for LLMs"
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "E:\\Assistant AI"
+      ],
+      "enabled": true,
+      "description": "Secure local filesystem access for LLM workspace editing"
+    },
+    "sqlite": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-sqlite",
+        "--db-path",
+        "E:\\Assistant AI\\data\\grokki_local.db"
+      ],
+      "enabled": false,
+      "description": "Local SQLite database querying & analysis"
+    },
+    "github": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": ""
+      },
+      "enabled": false,
+      "description": "GitHub issues, PRs, commits and repo management"
+    }
+  }
+}

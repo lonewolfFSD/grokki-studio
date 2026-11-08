@@ -22,7 +22,12 @@ const { convertGeminiToolsToOpenAI, callOpenAICompatible, transcribeWithGroqWhis
 const studyEngine = require('./study_engine');
 const powerTools = require('./power_tools');
 const agentDesktop = require('./agent_desktop');
-function shouldAutoSearchWeb(prompt = '') {
+const mcpManager = require('./mcp_manager');
+const browserAgent = require('./browser_agent');
+const uiTarsAgent = require('./ui_tars_agent');
+const lanceDbStore = require('./vector_db_lancedb');
+const mem0Manager = require('./mem0_manager');
+function shouldAutoSearchWeb(prompt = '', history = []) {
   if (!prompt || typeof prompt !== 'string') return false;
   const raw = prompt.trim();
   const p = raw.toLowerCase();
@@ -35,6 +40,11 @@ function shouldAutoSearchWeb(prompt = '') {
   // Never auto search for simple conversational greetings or social acknowledgments
   if (/^(hi|hello|hey|yo|sup|greetings|good\s+(morning|afternoon|evening|night)|thanks|thank\s+you|ok|okay|bye|cool|nice|who\s+are\s+you|what\s+is\s+your\s+name|how\s+are\s+you)\b/i.test(p) && p.split(/\s+/).length <= 4) {
     return false;
+  }
+
+  // Image / photo / picture / gallery queries
+  if (/\b(images?|photos?|pics?|pictures?|views?|gallery|wallpaper|look\s+like|appearance)\b/i.test(p)) {
+    return true;
   }
 
   // Explicit web search keywords
@@ -55,7 +65,83 @@ function shouldAutoSearchWeb(prompt = '') {
   // High-frequency factual questions: who won, who is the current, winner of, stock price of, etc.
   if (/\b(exchange\s*rate|currency|forex|fx\s*rate|who\s+won|who\s+is\s+the\s+current|winner\s+of|champions?\s+of|score\s+of|release\s+date\s+of|when\s+is\s+the\s+next|price\s+of|stock\s+price|crypto\s+price|weather\s*(in|for)?|nobel\s+prize|election|president\s+of|ceo\s+of)\b/i.test(p)) return true;
 
+  // If recent conversation history is grounded in an entity and prompt is a follow-up inquiry
+  if (history && history.length > 0) {
+    const isFollowUp = /^(what\s+about|how\s+about|and|more|details?|list|all|where|when|who|fees?|courses?|admission|rankings?|placement|eligibility)\b/i.test(p) || p.split(/\s+/).length <= 5;
+    if (isFollowUp) {
+      const lastTexts = history.slice(-4).map(t => {
+        if (typeof t === 'string') return t;
+        if (t.parts && Array.isArray(t.parts)) return t.parts.map(pt => pt.text || '').join(' ');
+        return t.text || t.content || '';
+      }).join(' ').toLowerCase();
+      if (/\b(university|college|campus|adbu|assam|don\s+bosco|iit|nit|institute|school|company|brand|product|place|country|city)\b/i.test(lastTexts)) {
+        return true;
+      }
+    }
+  }
+
   return false;
+}
+
+function resolveSearchQuery(prompt = '', history = []) {
+  if (!prompt || typeof prompt !== 'string') return '';
+  const raw = prompt.trim();
+  const p = raw.toLowerCase();
+
+  const isImageRequest = /\b(images?|photos?|pics?|pictures?|views?|gallery|wallpaper)\b/i.test(p);
+  const isShortFollowUp = p.split(/\s+/).length <= 6 || isImageRequest || /^(what\s+about|how\s+about|more\s+details|all\s+courses|courses|fees|location|show\s+me)\b/i.test(p);
+
+  if (!isShortFollowUp || !history || history.length === 0) {
+    return raw;
+  }
+
+  // Look back through history for the primary entity/subject
+  const recentTexts = history.slice(-6).map(t => {
+    if (typeof t === 'string') return t;
+    if (t.parts && Array.isArray(t.parts)) return t.parts.map(pt => pt.text || '').join(' ');
+    return t.text || t.content || '';
+  }).filter(Boolean);
+
+  let detectedEntity = '';
+
+  // Look for university / college / institution / entity names in recent turns
+  for (let i = recentTexts.length - 1; i >= 0; i--) {
+    const text = recentTexts[i];
+    const m = text.match(/\b([A-Z][a-zA-Z0-9&.\s]{2,40}(?:University|College|Institute|Campus|Academy|Hospital|Center))\b/);
+    if (m) {
+      detectedEntity = m[1].trim();
+      break;
+    }
+    const m2 = text.match(/\b(Assam\s+Don\s+Bosco(?:\s+University)?|ADBU(?:\s+Azara|\s+Tapesia)?|IIT\s+[A-Za-z]+|NIT\s+[A-Za-z]+)\b/i);
+    if (m2) {
+      detectedEntity = m2[1].trim();
+      break;
+    }
+  }
+
+  if (!detectedEntity) {
+    for (let i = recentTexts.length - 1; i >= 0; i--) {
+      const text = recentTexts[i].trim();
+      if (text.length > 4 && text.length < 80 && !/\b(hello|hi|hey|thanks|ok|okay|what|why|how|show\s+me\s+some\s+images)\b/i.test(text)) {
+        detectedEntity = text.replace(/^(search\s+for|what\s+is|tell\s+me\s+about|show\s+me|all\s+courses\s+list\s+please\s+all)\s+/i, '').trim();
+        if (detectedEntity.length > 3) break;
+      }
+    }
+  }
+
+  if (detectedEntity) {
+    if (isImageRequest) {
+      if (p.includes(detectedEntity.toLowerCase())) {
+        return raw;
+      }
+      return `${detectedEntity} campus images photos`;
+    }
+    if (!p.includes(detectedEntity.toLowerCase())) {
+      return `${detectedEntity} ${raw}`;
+    }
+  }
+
+  return raw;
 }
 
 const { searchWeb, buildGroundingPrompt } = require('./web_search');
@@ -265,13 +351,26 @@ class AgentBrain {
   }
 
   cancelCurrentTask() {
+    let cancelled = false;
     if (this.abortController) {
-      console.log('[AgentBrain] Alt+Q killer activated: Aborting AI request and halting tokens!');
-      this.abortController.abort();
+      console.log('[AgentBrain] Killer activated: Aborting AI request and halting tokens!');
+      try { this.abortController.abort(); } catch (_) {}
       this.abortController = null;
-      return true;
+      cancelled = true;
     }
-    return false;
+    try {
+      if (browserAgent && typeof browserAgent.cancel === 'function') {
+        browserAgent.cancel();
+        cancelled = true;
+      }
+    } catch (_) {}
+    try {
+      if (uiTarsAgent && typeof uiTarsAgent.cancel === 'function') {
+        uiTarsAgent.cancel();
+        cancelled = true;
+      }
+    } catch (_) {}
+    return cancelled;
   }
 
   setMusicPlayerHandler(handler) {
@@ -602,10 +701,10 @@ class AgentBrain {
           },
           {
             name: 'browser_search',
-            description: 'Searches Google or web, brings browser to front, moves mouse cursor and clicks top result',
+            description: 'ONLY use when the user EXPLICITLY asks to open an external browser on their PC (e.g. "open in browser", "search in Chrome", "open Brave"). NEVER use this for normal information, research, or photo requests; answer directly in the chat.',
             parameters: {
               type: 'OBJECT',
-              properties: { query: { type: 'STRING', description: 'Search query or URL' } },
+              properties: { query: { type: 'STRING', description: 'Search query or URL to open in browser' } },
               required: ['query'],
             },
           },
@@ -1259,6 +1358,67 @@ class AgentBrain {
               required: ['query'],
             },
           },
+          {
+            name: 'autonomous_browser_agent',
+            description: 'Autonomous Browser Agent (browser-use): Navigates websites, inspects interactive DOM elements, clicks buttons, fills out web forms, extracts tables, and accomplishes complex multi-step web workflows with live Chrome CDP control.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                goal: { type: 'STRING', description: 'The objective or task to complete in the web browser (e.g. "Go to github.com and search for lance-format/lancedb", "Open portal and check assignments")' },
+              },
+              required: ['goal'],
+            },
+          },
+          {
+            name: 'ui_tars_desktop_agent',
+            description: 'UI-TARS Vision Desktop Computer-Use Agent (bytedance/UI-TARS-desktop): Autonomous visual loop that captures screenshots, grounds GUI coordinates, and executes pixel-level Windows mouse/keyboard actions to accomplish complex desktop workflows.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                goal: { type: 'STRING', description: 'Desktop task instruction to execute visually on Windows (e.g. "Open VS Code, create a new file named test.py and write print hello")' },
+              },
+              required: ['goal'],
+            },
+          },
+          {
+            name: 'lancedb_vector_search',
+            description: 'LanceDB Embedded Vector Database: High-speed local semantic search, document embeddings, and folder indexing for academic notes, codebases, and student documents.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                action: { type: 'STRING', description: '"search" (default) or "index_folder"' },
+                query: { type: 'STRING', description: 'Semantic search query to find relevant local documents or notes' },
+                folder_path: { type: 'STRING', description: 'Folder path to index into LanceDB if action is index_folder' },
+                limit: { type: 'INTEGER', description: 'Max search results (default 5)' },
+              },
+            },
+          },
+          {
+            name: 'mem0_memory',
+            description: 'Mem0 Long-Term Personalized Memory (mem0ai/mem0): Stores, searches, and manages long-term facts, personal preferences, social relationships, and study history across sessions.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                action: { type: 'STRING', description: '"search", "add", "list", or "delete"' },
+                query: { type: 'STRING', description: 'Query to search matching long-term memories' },
+                fact: { type: 'STRING', description: 'Fact or statement to remember if action is add' },
+                id: { type: 'STRING', description: 'Memory ID if action is delete' },
+                limit: { type: 'INTEGER', description: 'Max memories to retrieve (default 5)' },
+              },
+            },
+          },
+          {
+            name: 'mcp_servers',
+            description: 'Model Context Protocol (MCP) Server Integration (modelcontextprotocol/servers): Connects, manages, and executes standard MCP tools (GitHub, Filesystem, SQLite, Brave, Fetch, etc.).',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                action: { type: 'STRING', description: '"status" (default, lists servers and active tools), "start_all", "connect", or "disconnect"' },
+                server_id: { type: 'STRING', description: 'ID of the server (e.g. "github", "filesystem", "sqlite")' },
+                server_config: { type: 'OBJECT', description: 'Configuration object with command and args for connect' },
+              },
+            },
+          },
         ],
       },
     ];
@@ -1311,6 +1471,21 @@ class AgentBrain {
       if (cmd === 'present' || cmd === 'presentation') {
         return { tool: 'presentation_slide_changer', args: { action: rest === 'stop' ? 'stop_mode' : 'start_mode' } };
       }
+      if (cmd === 'browse' && rest) {
+        return { tool: 'autonomous_browser_agent', args: { goal: rest } };
+      }
+      if (cmd === 'uitars' && rest) {
+        return { tool: 'ui_tars_desktop_agent', args: { goal: rest } };
+      }
+      if (cmd === 'vsearch' && rest) {
+        return { tool: 'lancedb_vector_search', args: { query: rest } };
+      }
+      if (cmd === 'mem0') {
+        return { tool: 'mem0_memory', args: { action: rest ? 'search' : 'stats', query: rest } };
+      }
+      if (cmd === 'mcp') {
+        return { tool: 'mcp_servers', args: { action: rest || 'list' } };
+      }
       if (cmd === 'organize') {
         const isDesktop = /desktop/i.test(rest);
         return { tool: 'organize_folder', args: { target_folder: isDesktop ? 'desktop' : 'downloads' } };
@@ -1320,6 +1495,21 @@ class AgentBrain {
       }
       if (cmd === 'dictate' || cmd === 'dictation') {
         return { tool: 'voice_dictation', args: {} };
+      }
+      if (cmd === 'browse' || cmd === 'browseruse') {
+        return { tool: 'autonomous_browser_agent', args: { goal: rest || 'Search the web' } };
+      }
+      if (cmd === 'uitars' || cmd === 'tars') {
+        return { tool: 'ui_tars_desktop_agent', args: { goal: rest || 'Perform desktop automation' } };
+      }
+      if (cmd === 'vsearch' || cmd === 'lancedb') {
+        return { tool: 'lancedb_vector_search', args: { query: rest || 'lecture notes' } };
+      }
+      if (cmd === 'mem0' || cmd === 'mem') {
+        return { tool: 'mem0_memory', args: { action: rest ? 'search' : 'list', query: rest } };
+      }
+      if (cmd === 'mcp') {
+        return { tool: 'mcp_servers', args: { action: rest || 'status' } };
       }
     }
 
@@ -1386,6 +1576,38 @@ class AgentBrain {
     }
     if (/\b(optimize|free\s+up|clean|boost|clear)\s+(my\s+)?(ram|memory)\b/i.test(p)) {
       return { tool: 'pc_health_and_optimizer', args: { action: 'optimize' } };
+    }
+
+    // Fast Lock-In Study / Pomodoro / Focus Timer Intent
+    if (/\b(lock[- ]?in|pomodoro|study\s+session|focus\s+session|focus\s+timer|study\s+timer)\b/i.test(p) ||
+        /\b(set|start|begin|create|run)\s+(a\s+|an\s+)?(\d+(\.\d+)?\s*[- ]?(min|mins|minute|minutes|sec|secs|second|seconds|hr|hrs|hour|hours)\s+)?(timer|countdown|lock[- ]?in|pomodoro)\b/i.test(p) ||
+        /^timer\s+(?:for\s+)?\d+/i.test(p)) {
+      if (/\b(stop|cancel|end|clear|kill)\b/i.test(p)) {
+        return { tool: 'start_lock_in_study_session', args: { action: 'stop' } };
+      }
+      let mins = 25;
+      const minMatch = p.match(/(\d+(?:\.\d+)?)\s*[- ]?(?:min|mins|minute|minutes|m)\b/i);
+      const secMatch = p.match(/(\d+(?:\.\d+)?)\s*[- ]?(?:sec|secs|second|seconds|s)\b/i);
+      const hrMatch = p.match(/(\d+(?:\.\d+)?)\s*[- ]?(?:hr|hrs|hour|hours|h)\b/i);
+      if (minMatch) mins = parseFloat(minMatch[1]);
+      else if (secMatch) mins = Math.max(0.08, parseFloat(secMatch[1]) / 60);
+      else if (hrMatch) mins = parseFloat(hrMatch[1]) * 60;
+
+      const isPlainTimer = /\b(timer|countdown)\b/i.test(p) && !/\b(lock[- ]?in|study|pomodoro|focus)\b/i.test(p);
+      const subjMatch = p.match(/(?:on|for|studying)\s+([a-zA-Z0-9\s_+-]+)$/i);
+      let subject = isPlainTimer ? 'Timer' : 'Study';
+      if (subjMatch) {
+        const candidate = subjMatch[1].replace(/\b(\d+\s*(min|mins|minute|minutes|sec|seconds|m|s)|lock[- ]?in|session|timer)\b/gi, '').trim();
+        if (candidate) subject = candidate;
+      }
+      return {
+        tool: 'start_lock_in_study_session',
+        args: {
+          duration_minutes: mins,
+          subject,
+          play_lofi: !isPlainTimer && !/\b(no\s+(music|lofi)|without\s+(music|lofi))\b/i.test(p),
+        },
+      };
     }
 
     // Guard against scheduled/timed commands being treated as immediate OS power/volume actions!
@@ -1703,8 +1925,11 @@ class AgentBrain {
     const openAppMatch = p.match(/^(?:can\s+you\s+)?(?:open|launch|start)\s+([a-zA-Z0-9_\-\s]+)$/i);
     if (openAppMatch) {
       const app = openAppMatch[1].trim();
+      const lowerApp = app.toLowerCase();
       const forbidden = ['url', 'link', 'browser', 'web', 'camera', 'settings', 'it', 'file', 'folder', 'video', 'song', 'music'];
-      if (!forbidden.includes(app.toLowerCase()) && !app.startsWith('http')) {
+      const isTaskPhrase = /^(a|an|my|the|some|this)\s+/i.test(lowerApp) ||
+        /\b(session|lock[- ]?in|timer|pomodoro|countdown|alarm|reminder|minute|minutes|min|mins|second|seconds|hour|hours|study|recording|lecture|meeting|mode|quiz|viva)\b/i.test(lowerApp);
+      if (!forbidden.includes(lowerApp) && !isTaskPhrase && !app.startsWith('http')) {
         return { tool: 'open_app', args: { name: app } };
       }
     }
@@ -1886,17 +2111,30 @@ class AgentBrain {
 
     fullPrompt = expandSlashDirective(fullPrompt);
 
+    // Mem0 Personalized Long-Term Memory Context Injection
+    try {
+      const mem0Ctx = await mem0Manager.getMemoriesContext(prompt);
+      if (mem0Ctx) {
+        fullPrompt = `${mem0Ctx}\n${fullPrompt}`;
+      }
+    } catch (_) {}
+
     let groundingSources = [];
+    const conversationHistory = (context && Array.isArray(context.conversationHistory) && context.conversationHistory.length > 0)
+      ? context.conversationHistory
+      : memory.getHistory();
     const isWebSearchActive = Boolean(
       context && (context.webSearch || context.webSearchEnabled) ||
-      shouldAutoSearchWeb(prompt)
+      shouldAutoSearchWeb(prompt, conversationHistory)
     );
+    let resolvedQuery = prompt;
     if (isWebSearchActive) {
       try {
-        console.log(`[AgentBrain] Performing live web grounding for: "${prompt}"...`);
-        groundingSources = await searchWeb(prompt, 5);
+        resolvedQuery = resolveSearchQuery(prompt, conversationHistory);
+        console.log(`[AgentBrain] Performing live web grounding for: "${resolvedQuery}" (prompt: "${prompt}")...`);
+        groundingSources = await searchWeb(resolvedQuery, 5);
         if (groundingSources.length > 0) {
-          fullPrompt = `${fullPrompt}${buildGroundingPrompt(groundingSources, prompt)}`;
+          fullPrompt = `${fullPrompt}${buildGroundingPrompt(groundingSources, resolvedQuery)}`;
         }
       } catch (err) {
         console.warn('[AgentBrain] Web grounding error:', err.message);
@@ -1910,16 +2148,16 @@ class AgentBrain {
     memory.addTurn('user', fullPrompt);
 
     const rawHistory = memory.getHistory();
-    let systemContent = memory.buildSystemPrompt(config);
+    let systemContent = memory.buildSystemPrompt(config, fullPrompt);
     let historyToUse = rawHistory.slice(-18);
 
     // Groq Free Tier optimization: keep prompt lean (<3500 tokens) to guarantee zero 413 ITPM errors
     if (provider === 'groq') {
-      systemContent = `You are Grokki, a fast, highly intelligent AI assistant for Windows${isWebSearchActive ? ' with active real-time web search capabilities' : ''}.
+      const groqMem = memory.persistentMemory ? memory.persistentMemory.retrieveContext(fullPrompt, { projectId: config.activeProjectId }).formattedPromptSection : '';
+      systemContent = `You are Grokki, a fast, deeply knowledgeable, highly intelligent AI assistant for Windows${isWebSearchActive ? ' with active real-time web search capabilities' : ''}.
 User: ${config.userNickname || config.userName || 'Friend'}.
 Tone: ${config.userTone || 'warm, friendly, direct'}.
-Respond concisely, naturally, and directly without robotic disclaimers. ${isWebSearchActive ? 'When live web search grounding is provided, answer directly with the real-time facts and numbers without robotic disclaimers. ' : ''}Use clean Markdown formatting.
-SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just an entity/university name (such as "Assam Don Bosco University" or "ADBU"), DO NOT HALLUCINATE OR GUESS. Accurately acknowledge the entity, note that it has multiple distinct campuses or areas (e.g. for ADBU: Tapesia Campus in Sonapur, Azara Campus in Guwahati, Kharguli Campus, or student ERP attendance), and smartly question back asking which specific area, campus, or detail they need.`;
+Provide comprehensive, structured, in-depth responses like ChatGPT. When live web search grounding is provided, answer directly with the real-time facts, courses, figures, and details. Use clean Markdown formatting, Markdown tables (| Column 1 | Column 2 |) for lists and structured comparisons, and styled clickable Markdown links. Avoid robotic disclaimers.${groqMem ? `\n${groqMem}` : ''}`;
       historyToUse = rawHistory.slice(-6);
     }
 
@@ -1942,7 +2180,15 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
 
     // When Deep Search / Live Grounding is active, omit desktop tools so model synthesizes search results
     const toolsDecl = isWebSearchActive ? undefined : this.getRelevantTools(prompt, provider);
-    const tools = toolsDecl ? convertGeminiToolsToOpenAI(toolsDecl) : undefined;
+    let tools = toolsDecl ? convertGeminiToolsToOpenAI(toolsDecl) : undefined;
+    if (!isWebSearchActive) {
+      try {
+        const mcpTools = mcpManager.getOpenAIToolDefinitions();
+        if (mcpTools && mcpTools.length > 0) {
+          tools = (tools || []).concat(mcpTools);
+        }
+      } catch (_) {}
+    }
 
     try {
       if (signal.aborted) throw new Error('TASK_CANCELLED');
@@ -2076,13 +2322,20 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
       }
 
       memory.addTurn('model', replyText);
+      try {
+        mem0Manager.extractMemoriesFromTurn(prompt, replyText, (s, u, tok) => this.generateAcademicLLM(s, u, tok)).catch(() => {});
+      } catch (_) {}
       this.abortController = null;
 
       return {
         success: true,
         reply: replyText,
         actionsExecuted: executed,
-        grounding: groundingSources && groundingSources.length > 0 ? { query: prompt, sources: groundingSources } : undefined,
+        grounding: groundingSources && groundingSources.length > 0 ? {
+          query: prompt,
+          sources: groundingSources,
+          relatedImages: (groundingSources.find(s => Array.isArray(s.relatedImages))?.relatedImages) || [],
+        } : undefined,
       };
     } catch (err) {
       this.abortController = null;
@@ -2275,17 +2528,30 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
 
     fullPrompt = expandSlashDirective(fullPrompt);
 
+    // Mem0 Personalized Long-Term Memory Context Injection
+    try {
+      const mem0Ctx = await mem0Manager.getMemoriesContext(prompt);
+      if (mem0Ctx) {
+        fullPrompt = `${mem0Ctx}\n${fullPrompt}`;
+      }
+    } catch (_) {}
+
     let groundingSources = [];
+    const conversationHistory = (context && Array.isArray(context.conversationHistory) && context.conversationHistory.length > 0)
+      ? context.conversationHistory
+      : memory.getHistory();
     const isWebSearchActive = Boolean(
       context && (context.webSearch || context.webSearchEnabled) ||
-      shouldAutoSearchWeb(prompt)
+      shouldAutoSearchWeb(prompt, conversationHistory)
     );
+    let resolvedQuery = prompt;
     if (isWebSearchActive) {
       try {
-        console.log(`[AgentBrain] Performing live web grounding for: "${prompt}"...`);
-        groundingSources = await searchWeb(prompt, 5);
+        resolvedQuery = resolveSearchQuery(prompt, conversationHistory);
+        console.log(`[AgentBrain] Performing live web grounding for: "${resolvedQuery}" (prompt: "${prompt}")...`);
+        groundingSources = await searchWeb(resolvedQuery, 5);
         if (groundingSources.length > 0) {
-          fullPrompt = `${fullPrompt}${buildGroundingPrompt(groundingSources, prompt)}`;
+          fullPrompt = `${fullPrompt}${buildGroundingPrompt(groundingSources, resolvedQuery)}`;
         }
       } catch (err) {
         console.warn('[AgentBrain] Web grounding error:', err.message);
@@ -2309,7 +2575,7 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
     const ai = new GoogleGenAI({ apiKey });
     // When Deep Search / Live Grounding is active, omit desktop tools so Gemini synthesizes search results
     const tools = isWebSearchActive ? undefined : this.getRelevantTools(prompt, 'gemini');
-    const systemInstruction = memory.buildSystemPrompt(config);
+    const systemInstruction = memory.buildSystemPrompt(config, fullPrompt);
 
     if (context && Array.isArray(context.conversationHistory) && context.conversationHistory.length > 0) {
       memory.syncFromExternalHistory(context.conversationHistory);
@@ -2331,7 +2597,7 @@ SMART CLARIFICATION RULE: When the user prompt is broad, underspecified, or just
           config: {
             systemInstruction,
             tools,
-            maxOutputTokens: 800,
+            maxOutputTokens: 4000,
             temperature: 0.1,
           },
         }), 25000), signal);
@@ -2458,7 +2724,7 @@ Rules:
               ],
               config: {
                 systemInstruction,
-                maxOutputTokens: 800,
+                maxOutputTokens: 4000,
                 temperature: 0.2,
               },
             }), 25000), signal);
@@ -2493,7 +2759,11 @@ Rules:
           success: true,
           reply: replyText,
           actionsExecuted: executed,
-          grounding: groundingSources && groundingSources.length > 0 ? { query: prompt, sources: groundingSources } : undefined,
+          grounding: groundingSources && groundingSources.length > 0 ? {
+          query: prompt,
+          sources: groundingSources,
+          relatedImages: (groundingSources.find(s => Array.isArray(s.relatedImages))?.relatedImages) || [],
+        } : undefined,
         };
       } catch (err) {
         if (err.message === 'TASK_CANCELLED' || (signal && signal.aborted)) {
@@ -2600,7 +2870,7 @@ Rules:
 
     const ai = new GoogleGenAI({ apiKey });
     const tools = this.getToolsDeclaration();
-    const systemInstruction = memory.buildSystemPrompt(config);
+    const systemInstruction = memory.buildSystemPrompt(config, fullPrompt);
     let lastError = null;
 
     for (const modelName of this.models) {
@@ -2683,6 +2953,10 @@ Rules:
   }
 
   async executeTool(name, args, apiKey) {
+    if (mcpManager.isMcpTool(name)) {
+      return await mcpManager.executeMcpTool(name, args);
+    }
+
     switch (name) {
       case 'compact_memory': {
         return { success: true, message: '✨ **Conversation Compacted**: Memory turns and session context have been optimized and refreshed.' };
@@ -3030,33 +3304,19 @@ Rules:
       case 'browser_search': {
         const query = args.query || '';
         const isUrl = /^https?:\/\//i.test(query);
-        const isVideoOrCourse = /youtube|course|video|tutorial/i.test(query);
+        const isExplicitYouTube = /\byoutube\b/i.test(query);
 
         let url;
         if (isUrl) {
           url = query;
-        } else if (isVideoOrCourse) {
-          url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query.replace(/youtube/i, '').trim())}`;
+        } else if (isExplicitYouTube) {
+          url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query.replace(/\byoutube\b/gi, '').trim())}`;
         } else {
           url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
         }
 
         await shell.openExternal(url);
-
-        setTimeout(async () => {
-          await runPowerShell('-action focus -app chrome');
-          await runPowerShell('-action focus -app brave');
-          await runPowerShell('-action focus -app msedge');
-          await runPowerShell('-action focus -app firefox');
-
-          // Move real mouse cursor and click on result
-          const display = screen.getPrimaryDisplay();
-          const targetX = Math.round(display.size.width * 0.40);
-          const targetY = Math.round(display.size.height * 0.36);
-          await runPowerShell(`-action click -x ${targetX} -y ${targetY} -durationMs 350`);
-        }, 1600);
-
-        return { success: true, message: `Opened "${query}" and focused top result.` };
+        return { success: true, message: `Opened "${query}" in browser.` };
       }
 
       case 'create_file_or_folder': {
@@ -3703,12 +3963,17 @@ Rules:
         console.log(`[AgentBrain] Opening app: "${args.name}" -> target: "${target}"`);
 
         const launchResult = await new Promise((resolve) => {
-          exec(`powershell.exe -NoProfile -Command "Start-Process '${target}'"`, (err, stdout, stderr) => {
+          exec(`powershell.exe -NoProfile -Command "Start-Process '${target.replace(/'/g, "''")}' -ErrorAction Stop"`, (err, stdout, stderr) => {
             if (err) {
-              exec(`cmd.exe /c start "" "${target}"`, (err2) => {
-                if (err2) resolve({ success: false, error: (stderr || err.message || '').trim() });
-                else resolve({ success: true });
-              });
+              // Only fallback to cmd start if target is a single-token executable or URI protocol (prevents Windows modal error dialogs on phrases)
+              if (!/\s/.test(target) || target.endsWith(':')) {
+                exec(`cmd.exe /c start "" "${target}"`, (err2) => {
+                  if (err2) resolve({ success: false, error: (stderr || err.message || '').trim() });
+                  else resolve({ success: true });
+                });
+              } else {
+                resolve({ success: false, error: (stderr || err.message || '').trim() });
+              }
             } else {
               resolve({ success: true });
             }
@@ -3876,8 +4141,17 @@ Rules:
       case 'lecture_meeting_stenographer': {
         const action = (args.action || 'start').toLowerCase();
         if (action === 'start') {
-          return powerTools.startStenographer(args.topic || 'Lecture');
+          const topic = args.topic || 'Lecture';
+          this.broadcastToMiniIsland('island:activity', {
+            action: 'start',
+            kind: 'stopwatch',
+            icon: 'fa-solid fa-microphone-lines',
+            title: `Rec • ${topic}`,
+            startTime: Date.now(),
+          });
+          return powerTools.startStenographer(topic);
         } else if (action === 'stop_and_summarize') {
+          this.broadcastToMiniIsland('island:activity', { action: 'stop', kind: 'stopwatch' });
           return await powerTools.stopStenographerAndSummarize((sys, usr, tok) => this.generateAcademicLLM(sys, usr, tok));
         } else {
           return {
@@ -3972,28 +4246,155 @@ Rules:
         return await powerTools.searchFilesAndFolders(args);
       }
 
+      // browser-use Autonomous Browser Agent
+      case 'autonomous_browser_agent': {
+        const goal = args.goal || args.query || args.prompt || 'Browse the web';
+        const res = await browserAgent.runGoal(goal, (sys, usr) => this.generateAcademicLLM(sys, usr, 800));
+        let cleanedSummary = (res.summary || res.message || 'Browser task complete.')
+          .replace(/^Action:\s*done\s*\(\s*(?:result\s*=\s*)?["']?/i, '')
+          .replace(/["']?\s*\)$/i, '')
+          .trim();
+        return {
+          ...res,
+          message: res.success !== false
+            ? `🌐 **Browser Task Finished** (${res.steps || 1} steps):\n\n${cleanedSummary}`
+            : `❌ Browser error: ${res.error || res.message}`,
+        };
+      }
+
+      // bytedance/UI-TARS-desktop Vision Computer-Use Agent
+      case 'ui_tars_desktop_agent': {
+        const goal = args.goal || args.task || args.instruction || 'Perform visual desktop task';
+        const res = await uiTarsAgent.runTask(goal, (sys, usr, img) => this.generateVisionLLM(sys, usr, img));
+        return {
+          ...res,
+          message: res.success !== false
+            ? `🖥️ **UI-TARS Desktop Automation Completed** (${res.steps || 1} steps):\n\n${res.summary || 'Task completed successfully.'}`
+            : `❌ UI-TARS error: ${res.error || res.message || 'Task could not complete.'}`,
+        };
+      }
+
+      // lance-format/lancedb Vector Database
+      case 'lancedb_vector_search': {
+        const action = (args.action || 'search').toLowerCase();
+        if (action === 'index_folder') {
+          return await lanceDbStore.indexFolder(args.folder_path || process.cwd());
+        }
+        const hits = await lanceDbStore.search(args.query || '', args.limit || 5);
+        if (hits.length === 0) {
+          return { success: true, message: 'No matching vector records found in local LanceDB store.', results: [] };
+        }
+        const formatted = hits.map((h, i) => `${i + 1}. **${h.title}** (${h.source})\n   ${h.text.slice(0, 300)}...`).join('\n\n');
+        return {
+          success: true,
+          message: `### 🔍 LanceDB Vector Search Results (${hits.length} hits)\n\n${formatted}`,
+          results: hits,
+        };
+      }
+
+      // mem0ai/mem0 Long-Term Personalized Memory
+      case 'mem0_memory': {
+        const action = (args.action || 'search').toLowerCase();
+        if (action === 'add') {
+          const added = await mem0Manager.extractMemoriesFromTurn(args.fact || args.text, '', null);
+          return { success: true, message: `Saved fact to Mem0 memory.`, added };
+        } else if (action === 'all' || action === 'list') {
+          const all = mem0Manager.getAll();
+          const list = all.map((m, i) => `${i + 1}. ${m.memory} *(category: ${m.category || 'general'})*`).join('\n');
+          return { success: true, message: `### 🧠 Mem0 Long-Term Memories (${all.length})\n${list || 'No memories saved yet.'}`, memories: all };
+        } else if (action === 'delete') {
+          mem0Manager.deleteMemory(args.id);
+          return { success: true, message: `Deleted memory ${args.id}.` };
+        } else {
+          const hits = await mem0Manager.searchMemories(args.query || '', args.limit || 5);
+          const list = hits.map((h, i) => `${i + 1}. ${h.memory || h.text}`).join('\n');
+          return { success: true, message: `### 🧠 Mem0 Relevant Memories\n${list || 'No matching memories found.'}`, results: hits };
+        }
+      }
+
+      // modelcontextprotocol/servers (MCP)
+      case 'mcp_servers': {
+        const action = (args.action || 'status').toLowerCase();
+        if (action === 'start_all') {
+          const res = await mcpManager.startAllEnabled();
+          return { success: true, results: res };
+        } else if (action === 'connect') {
+          const srvConfig = args.server_config || {};
+          const res = await mcpManager.connectServer(args.server_id, srvConfig);
+          return { success: true, toolsCount: res.tools.length };
+        } else if (action === 'disconnect') {
+          await mcpManager.disconnectServer(args.server_id);
+          return { success: true, message: `Disconnected ${args.server_id}` };
+        } else {
+          const st = mcpManager.getStatus();
+          const lines = st.servers.map(s => `- **${s.id}**: ${s.connected ? '🟢 Connected' : (s.enabled ? '🟡 Enabled (starting)' : '⚪ Disabled')} (${s.tools.length} tools) - *${s.description}*`).join('\n');
+          return {
+            success: true,
+            message: `### 🔌 Model Context Protocol (MCP) Servers (${st.activeCount} active, ${st.totalTools} tools)\n${lines || 'No MCP servers configured yet.'}\n\n*Configure custom servers in \`data/mcp_servers.json\`.*`,
+            status: st,
+          };
+        }
+      }
+
       default:
         return { success: false, message: `Unknown tool: ${name}` };
     }
   }
 
+  broadcastToMiniIsland(channel, payload) {
+    try {
+      if (electronModule && electronModule.BrowserWindow) {
+        electronModule.BrowserWindow.getAllWindows().forEach((win) => {
+          if (!win.isDestroyed() && win.webContents) {
+            win.webContents.send(channel, payload);
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
   // Lock-In Study Session Handler
-  async handleStartLockIn(args) {
+  async handleStartLockIn(args = {}) {
+    if (String(args.action || '').toLowerCase() === 'stop') {
+      this.broadcastToMiniIsland('island:activity', { action: 'stop', kind: 'timer' });
+      return {
+        success: true,
+        actionType: 'STOP_LOCK_IN',
+        message: '⏹️ **Lock-In / Focus Timer Stopped** on the Mini Dynamic Island.',
+      };
+    }
+
     const duration = Number(args.duration_minutes) || 25;
     const subject = (args.subject || 'Study').trim();
-    const playLofi = args.play_lofi !== false;
+    const playLofi = args.play_lofi !== false && subject.toLowerCase() !== 'timer';
+    const totalSeconds = Math.max(1, Math.round(duration * 60));
 
     // Start background lo-fi music on YouTube Music if requested
     if (playLofi) {
       this.executeTool('play_youtube_music', { song: 'lofi hip hop radio study chill beats' });
     }
 
+    // Broadcast live countdown directly to the Mini Dynamic Island (top_notch.html)
+    this.broadcastToMiniIsland('island:activity', {
+      action: 'start',
+      kind: 'timer',
+      icon: 'fa-solid fa-stopwatch',
+      title: subject.toLowerCase() === 'timer' ? 'Timer' : `Lock-In • ${subject}`,
+      subject,
+      durationMinutes: duration,
+      durationSeconds: totalSeconds,
+      endTime: Date.now() + totalSeconds * 1000,
+    });
+
+    const isPlainTimer = subject.toLowerCase() === 'timer';
     return {
       success: true,
       actionType: 'START_LOCK_IN',
       durationMinutes: duration,
       subject,
-      message: `🔥 **Lock-In Study Mode Activated** for **${duration} minutes** on *${subject}*!\n\n• Lo-Fi focus beats playing on YouTube Music 🎵\n• Non-essential distractions muted.\n• Stay focused—you've got this!`,
+      message: isPlainTimer
+        ? `⏱️ **Timer set for ${duration < 1 ? `${totalSeconds} seconds` : `${duration} minutes`}** on the Mini Dynamic Island.`
+        : `🔥 **Lock-In Study Mode Activated** for **${duration} minutes** on *${subject}*!\n\n• Live countdown running in your **Mini Dynamic Island** ⏱️${playLofi ? '\n• Lo-Fi focus beats playing on YouTube Music 🎵' : ''}\n• Stay focused—you've got this!`,
     };
   }
 
@@ -4454,6 +4855,42 @@ Keep it direct, accurate, and high-yield.`;
       const res = await tryOpenAI(primaryProvider);
       if (res) return res;
       if (config.geminiApiKey) return await tryGemini();
+    }
+
+    return '';
+  }
+
+  // Vision LLM Helper for UI-TARS and Screen Grounding
+  async generateVisionLLM(systemPrompt, userPrompt, base64Image) {
+    const config = this.activeConfig || {};
+    const geminiKey = (config.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
+
+    if (geminiKey) {
+      const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+      for (const m of candidateModels) {
+        try {
+          const ai = new GoogleGenAI({ apiKey: geminiKey });
+          const res = await ai.models.generateContent({
+            model: m,
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: userPrompt },
+                  { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
+                ],
+              },
+            ],
+            config: {
+              systemInstruction: systemPrompt,
+              temperature: 0.15,
+            },
+          });
+          if (res?.text) return res.text.trim();
+        } catch (err) {
+          console.warn(`[AgentBrain] Gemini Vision model ${m} failed:`, err.message);
+        }
+      }
     }
 
     return '';
@@ -5291,6 +5728,7 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
       this.activeReminders.forEach((r) => clearTimeout(r.timerId));
       const count = this.activeReminders.length;
       this.activeReminders = [];
+      this.broadcastToMiniIsland('island:activity', { action: 'stop', kind: 'reminder' });
       return { success: true, message: `⏰ Cancelled all **${count}** scheduled background reminders.` };
     }
 
@@ -5303,8 +5741,26 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
     const fireTimeStr = fireDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: delayMinutes < 1 ? '2-digit' : undefined });
     const id = Date.now();
 
+    // Show countdown on Mini Dynamic Island
+    this.broadcastToMiniIsland('island:activity', {
+      action: 'start',
+      kind: 'reminder',
+      icon: osAction && osAction !== 'none' ? 'fa-solid fa-bolt' : 'fa-solid fa-bell',
+      title: reminderText.length > 22 ? reminderText.slice(0, 22) + '…' : reminderText,
+      durationSeconds: Math.max(1, Math.round(delayMs / 1000)),
+      endTime: Date.now() + delayMs,
+    });
+
     const timerId = setTimeout(async () => {
       this.activeReminders = (this.activeReminders || []).filter((r) => r.id !== id);
+      this.broadcastToMiniIsland('island:activity', { action: 'stop', kind: 'reminder' });
+      this.broadcastToMiniIsland('island:notification', {
+        source: 'reminder',
+        sender: osAction && osAction !== 'none' ? `Scheduled ${osAction.toUpperCase()}` : 'Reminder',
+        message: reminderText,
+        icon: 'reminder',
+        timestamp: Date.now(),
+      });
 
       // 1. Notify Renderer / Main window so Grokki pops open and speaks the reminder aloud!
       if (typeof this.onReminderTriggered === 'function') {
@@ -5700,6 +6156,17 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
       if (action === 'start_recording' || action === 'stop_recording') {
         await runPowerShell('-action screen-record');
         const isStart = action === 'start_recording';
+        if (isStart) {
+          this.broadcastToMiniIsland('island:activity', {
+            action: 'start',
+            kind: 'stopwatch',
+            icon: 'fa-solid fa-circle-dot',
+            title: 'Screen Rec',
+            startTime: Date.now(),
+          });
+        } else {
+          this.broadcastToMiniIsland('island:activity', { action: 'stop', kind: 'stopwatch' });
+        }
         return {
           success: true,
           message: isStart
@@ -5730,6 +6197,13 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
       if (action === 'start_mode' || action === 'air_cursor' || action === 'presentation') {
         ensureSlideKeyDaemon();
         const mode = action === 'air_cursor' ? 'air_cursor' : 'presentation';
+        this.broadcastToMiniIsland('island:activity', {
+          action: 'start',
+          kind: 'mode',
+          icon: mode === 'air_cursor' ? 'fa-solid fa-hand-pointer' : 'fa-solid fa-display',
+          title: mode === 'air_cursor' ? 'Air Cursor Active' : 'Presentation Mode',
+          startTime: Date.now(),
+        });
         if (typeof this.onPresentationToggle === 'function') {
           try {
             this.onPresentationToggle(true, mode);
@@ -5751,6 +6225,7 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
       }
 
       if (action === 'stop_mode') {
+        this.broadcastToMiniIsland('island:activity', { action: 'stop', kind: 'mode' });
         if (typeof this.onPresentationToggle === 'function') {
           try {
             this.onPresentationToggle(false);
@@ -5795,14 +6270,18 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
     const cfg = this.activeConfig || {};
     const fullConfig = { ...cfg, ...brainConfig };
     const provider = fullConfig.provider || 'gemini';
+    const conversationHistory = (context && Array.isArray(context.conversationHistory) && context.conversationHistory.length > 0)
+      ? context.conversationHistory
+      : memory.getHistory();
     const isWebSearchActive = Boolean(
       context.webSearch ||
       context.webSearchEnabled ||
-      shouldAutoSearchWeb(prompt)
+      shouldAutoSearchWeb(prompt, conversationHistory)
     );
 
     let fullPrompt = prompt;
     let groundingSources = [];
+    let resolvedQuery = prompt;
 
     if (context && (context.projectMentions || context.workspaceContext)) {
       try {
@@ -5819,9 +6298,10 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
 
     if (isWebSearchActive) {
       try {
-        groundingSources = await searchWeb(prompt, 5);
+        resolvedQuery = resolveSearchQuery(prompt, conversationHistory);
+        groundingSources = await searchWeb(resolvedQuery, 5);
         if (groundingSources.length > 0) {
-          fullPrompt = `${fullPrompt}${buildGroundingPrompt(groundingSources, prompt)}`;
+          fullPrompt = `${fullPrompt}${buildGroundingPrompt(groundingSources, resolvedQuery)}`;
         }
       } catch (err) {
         console.warn('[AgentBrain] Web grounding error in runSingleModel:', err.message);
@@ -5840,7 +6320,7 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
         contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
         config: {
           systemInstruction,
-          maxOutputTokens: 1200,
+          maxOutputTokens: 4000,
           temperature: 0.2,
         },
       }), 30000);
@@ -5849,7 +6329,11 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
       return {
         success: true,
         reply: reply || 'Ready.',
-        grounding: groundingSources.length > 0 ? { query: prompt, sources: groundingSources } : undefined,
+        grounding: groundingSources.length > 0 ? {
+          query: prompt,
+          sources: groundingSources,
+          relatedImages: (groundingSources.find(s => Array.isArray(s.relatedImages))?.relatedImages) || [],
+        } : undefined,
       };
     } else {
       const { endpoint, apiKey, model } = resolveOpenAIEndpointAndKey(provider, fullConfig);
@@ -5872,7 +6356,11 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
       return {
         success: true,
         reply: reply || 'Ready.',
-        grounding: groundingSources.length > 0 ? { query: prompt, sources: groundingSources } : undefined,
+        grounding: groundingSources.length > 0 ? {
+          query: prompt,
+          sources: groundingSources,
+          relatedImages: (groundingSources.find(s => Array.isArray(s.relatedImages))?.relatedImages) || [],
+        } : undefined,
       };
     }
   }

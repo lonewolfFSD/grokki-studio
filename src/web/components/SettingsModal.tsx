@@ -12,6 +12,8 @@ import { StudioSettingsTab } from './tabs/StudioSettingsTab';
 import { AppearanceTab } from './tabs/AppearanceTab';
 import { PersonalizationTab } from './tabs/PersonalizationTab';
 import { AboutTab } from './tabs/AboutTab';
+import { MemoryTab } from './tabs/MemoryTab';
+import { Brain } from 'lucide-react';
 import { VoiceModelsTab } from './tabs/VoiceModelsTab';
 import { AiBrainTab } from './tabs/AiBrainTab';
 import { GoogleWorkspaceTab } from './tabs/GoogleWorkspaceTab';
@@ -19,6 +21,7 @@ import WarmTooltip from './WarmTooltip';
 
 export type SettingsSection =
   | 'settings'
+  | 'memory'
   | 'ai'
   | 'voice'
   | 'google'
@@ -39,6 +42,12 @@ const SECTIONS: SectionItem[] = [
     label: 'Studio Settings',
     desc: 'System preferences, shortcuts & memory',
     Icon: SettingsIcon,
+  },
+  {
+    id: 'memory',
+    label: 'Persistent Memory',
+    desc: 'Profile, projects, episodic & knowledge memory',
+    Icon: Brain,
   },
   {
     id: 'ai',
@@ -245,6 +254,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onChangeConfig={onChangeConfig}
                 onClearConversations={onClearConversations}
               />
+            )}
+
+            {activeSection === 'memory' && (
+              <MemoryTab />
             )}
 
             {activeSection === 'ai' && (

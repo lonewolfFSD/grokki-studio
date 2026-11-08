@@ -154,9 +154,48 @@ function parseDuckDuckGoHtml(html, maxResults = 5) {
   return results;
 }
 
+async function fetchRelatedImages(query, limit = 6) {
+  try {
+    const clean = query.replace(/^(search\s+(the\s+)?web\s+for|google|search\s+for|find\s+info\s+on)\s+/i, '').trim();
+    if (!clean) return [];
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    const tokenRes = await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(clean)}`, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+    });
+    const tokenText = await tokenRes.text();
+    const vqdMatch = tokenText.match(/vqd=([0-9-]+)/);
+    if (!vqdMatch) {
+      clearTimeout(timeout);
+      return [];
+    }
+    const vqd = vqdMatch[1];
+    const imgRes = await fetch(`https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(clean)}&vqd=${vqd}`, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+    });
+    clearTimeout(timeout);
+    if (!imgRes.ok) return [];
+    const data = await imgRes.json();
+    const results = Array.isArray(data.results) ? data.results : [];
+    return results
+      .slice(0, limit)
+      .map((r) => ({
+        title: cleanHtmlEntities(r.title) || clean,
+        image: r.image,
+        thumbnail: r.thumbnail || r.image,
+        url: r.url,
+      }))
+      .filter((r) => r.image && r.image.startsWith('http'));
+  } catch (e) {
+    return [];
+  }
+}
+
 /**
- * Searches the web via DuckDuckGo HTML interface with deep page excerpt enrichment
- * and instant financial/forex spot rate support.
+ * Searches the web via DuckDuckGo HTML interface with deep page excerpt enrichment,
+ * live financial/forex spot rate support, and related entity images.
  * Returns array of structured source objects.
  */
 async function searchWeb(query, maxResults = 5) {
@@ -172,7 +211,7 @@ async function searchWeb(query, maxResults = 5) {
 
   try {
     const fxPair = detectCurrencyPair(cleanQuery);
-    const [ddgRes, fxData] = await Promise.all([
+    const [ddgRes, fxData, relatedImages] = await Promise.all([
       (async () => {
         try {
           const controller = new AbortController();
@@ -193,6 +232,7 @@ async function searchWeb(query, maxResults = 5) {
         }
       })(),
       fxPair ? fetchLiveExchangeRate(fxPair.base, fxPair.target) : Promise.resolve(null),
+      fetchRelatedImages(cleanQuery, 6),
     ]);
 
     let results = ddgRes ? parseDuckDuckGoHtml(ddgRes, maxResults) : [];
@@ -207,6 +247,21 @@ async function searchWeb(query, maxResults = 5) {
           }
         })
       );
+    }
+
+    // Attach relatedImages to results metadata for grounding synthesis
+    if (results.length > 0 && Array.isArray(relatedImages) && relatedImages.length > 0) {
+      results[0].relatedImages = relatedImages;
+    } else if (results.length === 0 && Array.isArray(relatedImages) && relatedImages.length > 0) {
+      results.push({
+        id: 1,
+        title: `${cleanQuery} - Visual Gallery & Discovered Photos`,
+        url: `https://duckduckgo.com/?q=${encodeURIComponent(cleanQuery)}`,
+        snippet: `Photographic gallery and visual resources for ${cleanQuery}.`,
+        hostname: 'duckduckgo.com',
+        favicon: 'https://www.google.com/s2/favicons?domain=duckduckgo.com&sz=32',
+        relatedImages: relatedImages,
+      });
     }
 
     // If live currency conversion was found, inject verified spot rate as Source #1
@@ -235,7 +290,7 @@ async function searchWeb(query, maxResults = 5) {
 }
 
 /**
- * Builds the Perplexity-style grounding context block to inject into the LLM system/user turn.
+ * Builds the Perplexity/ChatGPT-style grounding context block to inject into the LLM system/user turn.
  */
 function buildGroundingPrompt(sources, query) {
   if (!sources || sources.length === 0) return '';
@@ -243,33 +298,45 @@ function buildGroundingPrompt(sources, query) {
   const sourcesFormatted = sources
     .map(
       (s) =>
-        `[${s.id}] "${s.title}" (${s.hostname})\nURL: ${s.url}\nSummary: ${s.snippet}${s.pageExcerpt ? `\nPage Excerpt: ${s.pageExcerpt.slice(0, 500)}...` : ''}`
+        `[${s.id}] "${s.title}" (${s.hostname})\nURL: ${s.url}\nSummary: ${s.snippet}${s.pageExcerpt ? `\nPage Excerpt: ${s.pageExcerpt.slice(0, 700)}...` : ''}`
     )
     .join('\n\n');
+
+  const relatedImgs = (sources[0] && Array.isArray(sources[0].relatedImages)) ? sources[0].relatedImages : [];
+  let imageSection = '';
+  if (relatedImgs.length > 0) {
+    imageSection = `\nRELEVANT DISCOVERED PHOTOS FOR THIS ENTITY / TOPIC (${relatedImgs.length} photos ready in UI carousel):\n${relatedImgs
+      .map((img) => `- "${img.title}": ${img.image}`)
+      .join('\n')}\nNOTE: All these photos are automatically showcased for the user in a smooth interactive horizontal carousel at the top of the chat view. You DO NOT need to output large raw markdown images in your text; focus on delivering rich, well-organized headings, paragraphs, and markdown tables.\n`;
+  }
 
   return `\n\n[LIVE WEB SEARCH GROUNDING]
 Real-time web sources retrieved for: "${query}"
 
 ${sourcesFormatted}
-
-CRITICAL GROUNDING & FORMATTING INSTRUCTIONS:
-1. You HAVE ACTIVE REAL-TIME INTERNET SEARCH ACCESS. The sources and live data above were fetched live from the web right now for this prompt.
-2. NEVER apologize, hesitate, or say "I don't have access to real-time data", "as an AI I cannot browse the internet", or "I lack current information". State the facts directly.
-3. BEAUTIFUL FORMATTING & EMBEDDED LINKS:
-   - Structure your response cleanly using bold headers (###), bullet points, and short concise paragraphs.
-   - Use bracketed citations like [1], [2] immediately following key facts, metrics, or statements.
-   - ALWAYS include clickable Markdown links (e.g. [Portal Name](https://...)) whenever mentioning resources or websites.
-   - At the very end of your response, always include a dedicated sources list:
+${imageSection}
+CRITICAL GROUNDING & PRESENTATION INSTRUCTIONS:
+1. You HAVE ACTIVE REAL-TIME INTERNET SEARCH ACCESS. Use the live data above to answer authoritatively and thoroughly.
+2. COMPREHENSIVE & IN-DEPTH ANSWERS (ChatGPT-Quality):
+   - Provide a complete, thorough, well-organized response. NEVER artificially truncate information, omit details, or write only 1-2 vague sentences.
+   - When the user asks about an organization, university, campus, course list, or topic:
+     * Provide a rich overview (established year, location, background, schools/faculties).
+     * If courses, degrees, or programs are discussed, provide a clear, structured Markdown Table (| School / Department | Programs Offered | Level | Details |) breaking down undergraduate, postgraduate, and doctoral offerings.
+     * Clearly distinguish multiple campuses if applicable (e.g. Azara Campus, Tapesia Campus, Kharguli Campus).
+3. VISUAL / PHOTO REQUESTS & PRESENTATION:
+   - When the user asks for photos, images, campus views, or pictures:
+     * Acknowledge the photos concisely and describe what is visible across the campuses, departments, facilities, or landmarks.
+     * All discovered images are rendered automatically at the top of your reply in an interactive horizontal photo carousel.
+     * DO NOT output raw markdown image syntax like ![alt](url) in the body of your response, because it causes duplicate rendering and broken layout spacing. Let the carousel display them smoothly.
+4. ELEGANT FORMATTING & CLICKABLE LINKS:
+   - Use bold headers (###), bullet points, and clean Markdown tables.
+   - Whenever referring to websites or source materials, embed direct clickable Markdown links: e.g. [Official Portal ↗](https://...), [Admission Details ↗](https://...).
+   - Use bracketed citations [1], [2] next to facts.
+   - At the end of your response, list the sources under:
      ### 🔗 Sources & References
-     - [Title of Source 1](URL)
-     - [Title of Source 2](URL)
-4. SMART CLARIFICATION & CONTEXT-SEEKING:
-   - If the user prompt is broad, underspecified, or just an entity name without a clear question (such as "Assam Don Bosco University" or "ADBU"):
-     * DO NOT HALLUCINATE OR GUESS BLINDLY!
-     * Provide a crisp 1-sentence grounded overview based on the real sources.
-     * Highlight key campuses/areas (e.g., Tapesia, Azara, Kharguli, or ERP attendance portal).
-     * Question back with a smart clarification: ask the user which specific campus, department, service, or information they need!
-5. Keep your response sharp, polished, factual, and helpful.`;
+     - [Title of Source 1 ↗](URL)
+     - [Title of Source 2 ↗](URL)
+5. Be helpful, articulate, insightful, and comprehensive.`;
 }
 
 module.exports = {

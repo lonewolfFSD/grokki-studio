@@ -990,15 +990,10 @@ body {
   transform: scale(1.15);
 }
 
-/* Full Pill Lock-In Timer Transformation */
-.lock-in-full-view {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 100%;
-  padding: 0 4px 0 10px;
-  animation: timerViewFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+/* Full Pill Lock-In Timer is permanently disabled on Grokki Island (Timers live exclusively on the Mini Dynamic Island) */
+.lock-in-full-view,
+.lock-in-mini-return {
+  display: none !important;
 }
 
 @keyframes timerViewFadeIn {

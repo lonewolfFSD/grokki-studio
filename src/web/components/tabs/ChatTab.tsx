@@ -142,10 +142,12 @@ const formatTokenNumber = (num: number): string => {
 };
 import { ArtifactCanvasPane, Artifact } from '../ArtifactCanvasPane';
 import { PerplexitySourcesBar } from '../PerplexitySourcesBar';
+import { RelatedImagesCarousel } from '../RelatedImagesCarousel';
 import { WorkspaceMentionMenu } from '../WorkspaceMentionMenu';
 import { WorkspaceMentionPill } from '../WorkspaceMentionPill';
+import SpecularButton from '@/effects/SpecularButton';
 import GradualBlur from '@/effects/GradualBlur';
-import { GroundingMetadata, WorkspaceMention } from '../../types/jarvis';
+import { GroundingMetadata, GroundingImage, WorkspaceMention } from '../../types/jarvis';
 import { highlightCode } from '../../utils/syntaxHighlight';
 import { AnimatePresence, motion } from 'motion/react';
 import { marked } from 'marked';
@@ -297,6 +299,22 @@ function getFileIcon(ext?: string) {
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
 const CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
 const CANVAS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>`;
+
+export function extractImagesFromMarkdown(text: string): GroundingImage[] {
+  if (!text) return [];
+  const regex = /!\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)/g;
+  const imgs: GroundingImage[] = [];
+  let m;
+  while ((m = regex.exec(text)) !== null) {
+    imgs.push({
+      title: m[1] || 'Discovered Photo',
+      image: m[2],
+      thumbnail: m[2],
+      url: m[2],
+    });
+  }
+  return imgs;
+}
 
 export function extractArtifactFromMessage(content: string): Artifact | null {
   const match = content.match(/```([a-zA-Z0-9_+-]+)?\n([\s\S]*?)```/);
@@ -632,7 +650,7 @@ function formatRichMarkdownHtml(rawContent: string, grounding?: GroundingMetadat
     wrapper.appendChild(table);
   });
 
-  // 3. Style <a> links as distinct colored links / link pills & prevent native Electron popup windows
+  // 3. Style <a> links as clean blue links with dotted underline & prevent native Electron popup windows
   doc.querySelectorAll('a').forEach((a) => {
     const rawHref = a.getAttribute('href') || '';
     if (rawHref && !rawHref.startsWith('#')) {
@@ -642,11 +660,32 @@ function formatRichMarkdownHtml(rawContent: string, grounding?: GroundingMetadat
     }
     a.removeAttribute('target');
     a.setAttribute('rel', 'noopener noreferrer');
-    const text = (a.textContent || '').trim();
-    if (text.includes('↗') || /^(open|view)\b/i.test(text)) {
-      a.classList.add('grokki-link-pill');
-    } else {
-      a.classList.add('grokki-link');
+    a.classList.add('grokki-link');
+  });
+
+  // 3b. Style <img> tags into responsive entity cards with hover zoom and lightbox support (no shadows)
+  doc.querySelectorAll('img').forEach((img) => {
+    img.classList.add('grokki-markdown-image');
+    img.setAttribute('loading', 'lazy');
+    img.setAttribute('referrerpolicy', 'no-referrer');
+    img.setAttribute('onerror', 'this.style.display="none"');
+    img.setAttribute('title', 'Click to zoom');
+    img.setAttribute('role', 'button');
+    img.setAttribute('tabindex', '0');
+
+    if (!img.parentElement?.classList.contains('grokki-image-wrapper')) {
+      const wrapper = doc.createElement('div');
+      wrapper.className = 'grokki-image-wrapper';
+      wrapper.setAttribute('title', 'Click to zoom');
+      img.parentNode?.replaceChild(wrapper, img);
+      wrapper.appendChild(img);
+      const altText = (img.getAttribute('alt') || '').trim();
+      if (altText && !['image', 'img', 'photo'].includes(altText.toLowerCase())) {
+        const caption = doc.createElement('div');
+        caption.className = 'grokki-image-caption';
+        caption.textContent = altText;
+        wrapper.appendChild(caption);
+      }
     }
   });
 
@@ -745,7 +784,8 @@ const StaticMessageContent = React.memo<{
   content: string;
   grounding?: GroundingMetadata;
   onOpenArtifact?: (artifact: Artifact) => void;
-}>(({ content, grounding, onOpenArtifact }) => {
+  onOpenImage?: (src: string, alt: string, originRect?: { top: number; left: number; width: number; height: number }) => void;
+}>(({ content, grounding, onOpenArtifact, onOpenImage }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const rawHtml = useMemo(() => formatRichMarkdownHtml(content, grounding), [content, grounding]);
 
@@ -770,7 +810,22 @@ const StaticMessageContent = React.memo<{
       return;
     }
 
-        // 0b. Handle Grokki file chip click (Ctrl+Click or normal click)
+    // 0c. Handle any image click (open in lightbox zoom)
+    const imgEl = (target?.closest('img') || target?.closest('.grokki-image-wrapper')?.querySelector('img')) as HTMLImageElement | null;
+    if (imgEl && imgEl.src) {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = imgEl.getBoundingClientRect();
+      onOpenImage?.(imgEl.src, imgEl.alt || 'Image zoom', {
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      });
+      return;
+    }
+
+    // 0b. Handle Grokki file chip click (Ctrl+Click or normal click)
     const fileChip = target?.closest('[data-grokki-file-chip]') as HTMLElement | null;
     if (fileChip) {
       const fileName = fileChip.getAttribute('data-file-name') || fileChip.textContent || '';
@@ -835,7 +890,7 @@ const StaticMessageContent = React.memo<{
     <div
       ref={containerRef}
       onClick={handleContainerClick}
-      className="prose prose-sm dark:prose-invert max-w-none text-[13.5px] leading-relaxed select-text"
+      className="grokki-markdown max-w-none text-gray-800 dark:text-gray-200 text-[13.5px] leading-relaxed select-text font-sans"
       dangerouslySetInnerHTML={{ __html: rawHtml }}
     />
   );
@@ -851,7 +906,8 @@ const AnimatedMessageContent: React.FC<{
   onScroll?: () => void;
   onFinished?: () => void;
   onOpenArtifact?: (artifact: Artifact) => void;
-}> = ({ content, grounding, isAnimated, speed = 'fast', onScroll, onFinished, onOpenArtifact }) => {
+  onOpenImage?: (src: string, alt: string, originRect?: { top: number; left: number; width: number; height: number }) => void;
+}> = ({ content, grounding, isAnimated, speed = 'fast', onScroll, onFinished, onOpenArtifact, onOpenImage }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -875,7 +931,22 @@ const AnimatedMessageContent: React.FC<{
       return;
     }
 
-        // 0b. Handle Grokki file chip click (Ctrl+Click or normal click)
+    // 0c. Handle any image click (open in lightbox zoom)
+    const imgEl = (target?.closest('img') || target?.closest('.grokki-image-wrapper')?.querySelector('img')) as HTMLImageElement | null;
+    if (imgEl && imgEl.src) {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = imgEl.getBoundingClientRect();
+      onOpenImage?.(imgEl.src, imgEl.alt || 'Image zoom', {
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      });
+      return;
+    }
+
+    // 0b. Handle Grokki file chip click (Ctrl+Click or normal click)
     const fileChip = target?.closest('[data-grokki-file-chip]') as HTMLElement | null;
     if (fileChip) {
       const fileName = fileChip.getAttribute('data-file-name') || fileChip.textContent || '';
@@ -1365,7 +1436,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
     return (
       <div
-        className="flex items-center shrink-0"
+        className="flex items-center shrink-0 relative z-30"
         title={`Active Brain: ${currentBrainInfo.name} • Model: ${currentModelValue}`}
       >
         <GlideSelect
@@ -1924,6 +1995,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     size?: number;
     path?: string;
     originRect?: { top: number; left: number; width: number; height: number };
+    fallbackSrc?: string;
   }>({
     isOpen: false,
     src: '',
@@ -1935,9 +2007,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
     name: string,
     size?: number,
     path?: string,
-    originRect?: { top: number; left: number; width: number; height: number }
+    originRect?: { top: number; left: number; width: number; height: number },
+    fallbackSrc?: string
   ) => {
-    setLightboxState({ isOpen: true, src, name, size, path, originRect });
+    setLightboxState({ isOpen: true, src, name, size, path, originRect, fallbackSrc });
   };
 
   const closeLightbox = () => {
@@ -2232,6 +2305,34 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }
   };
 
+  const isInterruptedRef = useRef(false);
+
+  const handleStopGeneration = useCallback(() => {
+    isInterruptedRef.current = true;
+    try {
+      if (window.jarvisAPI?.cancelTask) {
+        window.jarvisAPI.cancelTask();
+      }
+      if (window.jarvisAPI?.cancelBrowserAgent) {
+        window.jarvisAPI.cancelBrowserAgent();
+      }
+      if (window.jarvisAPI?.cancelUiTars) {
+        window.jarvisAPI.cancelUiTars();
+      }
+    } catch (e) {
+      console.warn('Failed to invoke cancel:', e);
+    }
+    setLoading(false);
+    const cancelMsg: ChatMessage = {
+      id: (Date.now() + 1).toString(),
+      role: 'assistant',
+      content: '🛑 *Cancelled. Interrupted by the user.*',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isAnimated: false,
+    };
+    onUpdateMessages((prev) => [...prev, cancelMsg]);
+  }, [onUpdateMessages]);
+
   const handleSendMessage = async (textToSend?: string) => {
     if (isRecording) {
       stopVoiceRecording();
@@ -2317,6 +2418,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     setSlashDismissed(false);
     setMentionDismissed(false);
     setLoading(true);
+    isInterruptedRef.current = false;
 
     try {
       // Strict Video Token Guard: Videos cannot be watched/analyzed (saves tokens), only sent on WhatsApp or uploaded to Drive
@@ -2397,6 +2499,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           }));
         }
         const res = await window.jarvisAPI.executeAI(text, context);
+        if (isInterruptedRef.current) return;
         let replyContent = res.reply || res.message;
         if (!replyContent) {
           if (res.error) {
@@ -2521,6 +2624,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         return;
       }
     } catch (err: any) {
+      if (isInterruptedRef.current) return;
       const errorMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -2535,6 +2639,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (loading && e.key === 'Escape') {
+      e.preventDefault();
+      handleStopGeneration();
+      return;
+    }
     if (isMentionMode && scannedFiles.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -2639,6 +2748,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     setEditingMessageId(null);
     setEditingContent('');
     setLoading(true);
+    isInterruptedRef.current = false;
 
     try {
       if (dualBattleEnabled && window.jarvisAPI?.executeDualAI) {
@@ -2738,6 +2848,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         }, 500);
       }
     } catch (err: any) {
+      if (isInterruptedRef.current) return;
       const errorMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -3528,7 +3639,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           )}
 
           {/* Centered Floating Input Pill with Slash Command Palette & Mention Palette */}
-          <div className="w-full max-w-xl mx-auto relative">
+          <div className="w-full max-w-xl mx-auto relative z-30">
             {renderSlashMenu()}
             {renderMentionMenu('bottom')}
             {renderSynthesizerVisualizer()}
@@ -3553,7 +3664,26 @@ export const ChatTab = React.memo<ChatTabProps>(({
               </div>
             )}
 
-            <div className="w-full bg-white dark:bg-[#0f0f13] border border-gray-200 dark:border-[#1f1f22] rounded-2xl md:rounded-3xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5 text-left">
+            <SpecularButton
+              as="div"
+              size="lg"
+              radius={18}
+              tint={isDarkTheme ? '#ffffff' : '#000000'}
+              tintOpacity={0.04}
+              textColor={isDarkTheme ? '#f5f5f5' : '#18181b'}
+              lineColor={isDarkTheme ? '#ffffff' : '#18181b'}
+              baseColor={isDarkTheme ? '#525252' : '#d4d4d8'}
+              intensity={1}
+              idleIntensity={0.35}
+              shineSize={10}
+              shineFade={34}
+              thickness={1.2}
+              glow={1}
+              followMouse={false}
+              autoAnimate
+              proximity={250}
+              className="w-full bg-white dark:bg-[#0f0f13] shadow-sm hover:shadow-md p-3 transition-all flex flex-col gap-2.5 text-left relative z-20"
+            >
               {/* Battle Stage Selector when Dual-Battle Mode is active */}
               {dualBattleEnabled && renderBattleStageBar('top')}
 
@@ -3717,43 +3847,54 @@ export const ChatTab = React.memo<ChatTabProps>(({
                     </button>
                   </WarmTooltip>
 
-                  {/* Send Arrow Button */}
+                  {/* Send / Stop Button */}
                   <WarmTooltip
-                    content="Send message"
-                    shortcut="↵"
+                    content={loading ? 'Stop task / generation' : 'Send message'}
+                    shortcut={loading ? 'ESC' : '↵'}
                     side="top"
                     surfaceColor="#f5f5f5"
                     inkColor="#18181b"
                     size="md"
                     radius={8}
                     gap={8}
-                    arrow
                     popDuration={160}
                     popScale={0.94}
                     popBlur={4}
-                    showFuse={false}
+                    showFuse={true}
                   >
                     <button
                       type="button"
-                      aria-label="Send message"
-                      onClick={() => handleSendMessage()}
-                      disabled={!inputValue.trim() && !attachedFile}
+                      aria-label={loading ? 'Stop generation' : 'Send message'}
+                      onClick={() => {
+                        if (loading) {
+                          handleStopGeneration();
+                        } else {
+                          handleSendMessage();
+                        }
+                      }}
+                      disabled={!loading && !inputValue.trim() && !attachedFile}
                       className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
-                        inputValue.trim() || attachedFile
+                        loading
+                          ? 'bg-red-500 hover:bg-red-600 text-white dark:bg-red-500 dark:hover:bg-red-600 shadow-md ring-2 ring-red-500/20'
+                          : inputValue.trim() || attachedFile
                           ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
                           : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
+                      {loading ? (
+                        <Square className="w-3 h-3 fill-current" />
+                      ) : (
+                        <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
+                      )}
                     </button>
                   </WarmTooltip>
                 </div>
               </div>
-            </div>
+            </SpecularButton>
           </div>
 
           {/* Suggestions & Quick Commands Vertical List */}
-          <div className="w-full max-w-xl mt-6 text-left">
+          <div className="w-full max-w-xl mt-6 text-left relative z-10">
             <div className="flex items-center justify-between mb-2 px-1">
               <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase">
                 Suggestions & Commands
@@ -3801,7 +3942,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
       ) : (
         /* Active Conversation Thread with Gradual Blur Top & Bottom */
         <div className="relative flex-1 min-h-0 overflow-hidden flex flex-col">
-          <div id="grokki-chat-scroll" className="flex-1 flex flex-col overflow-y-auto no-scrollbar px-1 pt-1 pb-3 space-y-5">
+          <div
+            id="grokki-chat-scroll"
+            className="flex-1 flex flex-col overflow-y-auto no-scrollbar px-1 pt-2 pb-4 space-y-5"
+          >
           {/* Header Action Bar */}
           <div className="flex items-center justify-between pb-2.5 pt-2.5 border-b border-gray-200 dark:border-[#1e2029]">
             <div className="flex items-center gap-2">
@@ -3995,6 +4139,20 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           <PerplexitySourcesBar grounding={msg.grounding} />
                         )}
 
+                        {/* Related Discovered Images Horizontal Carousel */}
+                        {msg.role === 'assistant' && !msg.dualBattle && (() => {
+                          const carouselImages = (msg.grounding?.relatedImages && msg.grounding.relatedImages.length > 0)
+                            ? msg.grounding.relatedImages
+                            : extractImagesFromMarkdown(msg.content);
+                          if (!carouselImages || carouselImages.length === 0) return null;
+                          return (
+                            <RelatedImagesCarousel
+                              images={carouselImages}
+                              onOpenImage={(src, alt, originRect, fallbackSrc) => openLightbox(src, alt, undefined, undefined, originRect, fallbackSrc)}
+                            />
+                          );
+                        })()}
+
                         {/* Phase 4: Multi-Brain Dual-Battle Comparative Render */}
                         {msg.role === 'assistant' && msg.dualBattle && (
                           <div className="w-full my-2">
@@ -4019,7 +4177,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
                                     )}
                                   </div>
                                   <div className="text-xs leading-relaxed select-text overflow-x-auto text-gray-800 dark:text-gray-200">
-                                    <StaticMessageContent content={msg.dualBattle.brainA.reply} />
+                                    <StaticMessageContent
+                                      content={msg.dualBattle.brainA.reply}
+                                      onOpenImage={(src, alt, originRect) => openLightbox(src, alt, undefined, undefined, originRect)}
+                                    />
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-gray-100 dark:border-[#1e2029]">
@@ -4062,7 +4223,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
                                     )}
                                   </div>
                                   <div className="text-xs leading-relaxed select-text overflow-x-auto text-gray-800 dark:text-gray-200">
-                                    <StaticMessageContent content={msg.dualBattle.brainB.reply} />
+                                    <StaticMessageContent
+                                      content={msg.dualBattle.brainB.reply}
+                                      onOpenImage={(src, alt, originRect) => openLightbox(src, alt, undefined, undefined, originRect)}
+                                    />
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-gray-100 dark:border-[#1e2029]">
@@ -4106,7 +4270,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
                                   </button>
                                 </div>
                                 <div className="text-xs leading-relaxed select-text text-gray-800 dark:text-gray-200">
-                                  <StaticMessageContent content={msg.dualBattle.consensus.content} />
+                                  <StaticMessageContent
+                                    content={msg.dualBattle.consensus.content}
+                                    onOpenImage={(src, alt, originRect) => openLightbox(src, alt, undefined, undefined, originRect)}
+                                  />
                                 </div>
                               </div>
                             ) : (
@@ -4126,23 +4293,33 @@ export const ChatTab = React.memo<ChatTabProps>(({
                         )}
 
                         {/* Rendered Markdown Body: Animated if streaming, else Fast Cached Static (for single-brain messages) */}
-                        {!msg.dualBattle && (config.streamingAnimation !== false && msg.isAnimated ? (
-                          <AnimatedMessageContent
-                            content={msg.content}
-                            grounding={msg.grounding}
-                            isAnimated={true}
-                            speed={config.streamingSpeed}
-                            onScroll={scrollToBottom}
-                            onFinished={() => handleMessageFinished(msg.id)}
-                            onOpenArtifact={setActiveArtifact}
-                          />
-                        ) : (
-                          <StaticMessageContent
-                            content={msg.content}
-                            grounding={msg.grounding}
-                            onOpenArtifact={setActiveArtifact}
-                          />
-                        ))}
+                        {!msg.dualBattle && (() => {
+                          const hasCarousel = (msg.grounding?.relatedImages && msg.grounding.relatedImages.length > 0) ||
+                            extractImagesFromMarkdown(msg.content).length > 0;
+                          const cleanBodyContent = hasCarousel && msg.content
+                            ? msg.content.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)/g, '').replace(/\n{3,}/g, '\n\n').trim()
+                            : msg.content;
+
+                          return config.streamingAnimation !== false && msg.isAnimated ? (
+                            <AnimatedMessageContent
+                              content={cleanBodyContent}
+                              grounding={msg.grounding}
+                              isAnimated={true}
+                              speed={config.streamingSpeed}
+                              onScroll={scrollToBottom}
+                              onFinished={() => handleMessageFinished(msg.id)}
+                              onOpenArtifact={setActiveArtifact}
+                              onOpenImage={(src, alt, originRect) => openLightbox(src, alt, undefined, undefined, originRect)}
+                            />
+                          ) : (
+                            <StaticMessageContent
+                              content={cleanBodyContent}
+                              grounding={msg.grounding}
+                              onOpenArtifact={setActiveArtifact}
+                              onOpenImage={(src, alt, originRect) => openLightbox(src, alt, undefined, undefined, originRect)}
+                            />
+                          );
+                        })()}
 
                         {/* Claude-Style Artifact Card */}
                         {msg.role === 'assistant' && !msg.dualBattle && (() => {
@@ -4294,42 +4471,42 @@ export const ChatTab = React.memo<ChatTabProps>(({
         </div>
 
         {/* Gradual Blur: Top of Scrolling Chat */}
-          <GradualBlur
-            position="top"
-            height="4.5rem"
-            strength={2}
-            layers={8}
-            curve="linear"
-            exponential
-            tint="transparent"
-            autoHide
-            target="parent"
-            container="#grokki-chat-scroll"
-            zIndex={10}
-            opacity={1}
-            saturation={1}
-            hoverIntensity={1}
-          />
+        <GradualBlur
+          position="top"
+          height="4.5rem"
+          strength={2}
+          layers={8}
+          curve="linear"
+          exponential
+          tint="transparent"
+          autoHide
+          target="parent"
+          container="#grokki-chat-scroll"
+          zIndex={10}
+          opacity={1}
+          saturation={1}
+          hoverIntensity={1}
+        />
 
-          {/* Gradual Blur: Bottom of Scrolling Chat */}
-          <GradualBlur
-            position="bottom"
-            height="6rem"
-            strength={2}
-            layers={8}
-            curve="linear"
-            exponential
-            tint="transparent"
-            autoHide
-            target="parent"
-            container="#grokki-chat-scroll"
-            zIndex={10}
-            opacity={1}
-            saturation={1}
-            hoverIntensity={1}
-          />
-        </div>
-      )}
+        {/* Gradual Blur: Bottom of Scrolling Chat */}
+        <GradualBlur
+          position="bottom"
+          height="6rem"
+          strength={2}
+          layers={8}
+          curve="linear"
+          exponential
+          tint="transparent"
+          autoHide
+          target="parent"
+          container="#grokki-chat-scroll"
+          zIndex={10}
+          opacity={1}
+          saturation={1}
+          hoverIntensity={1}
+        />
+      </div>
+    )}
 
       {/* Pinned Bottom Input Bar */}
       {messages.length > 0 && (
@@ -4388,7 +4565,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           )}
 
           {/* Floating Slash Command Menu, Mention Menu & Synthesizer Visualizer for Bottom Bar */}
-          <div className="w-full max-w-xl mx-auto relative mb-6">
+          <div className="w-full max-w-xl mx-auto relative mb-6 z-30">
             {/* Scroll-to-bottom Down Chevron Button (above input to the right side, only if there is space to scroll down) */}
             {canScrollDown && (
               <div className="absolute right-0 -top-9 z-30 animate-in fade-in zoom-in-95 duration-150">
@@ -4428,7 +4605,26 @@ export const ChatTab = React.memo<ChatTabProps>(({
               </div>
             )}
 
-            <div className="w-full bg-white dark:bg-[#131317] border border-gray-200 dark:border-[#24242c] rounded-2xl md:rounded-3xl mb-1.5 p-3 transition-all flex flex-col gap-2.5 shadow-sm hover:shadow-md">
+            <SpecularButton
+              as="div"
+              size="lg"
+              radius={18}
+              tint={isDarkTheme ? '#ffffff' : '#000000'}
+              tintOpacity={0.04}
+              textColor={isDarkTheme ? '#f5f5f5' : '#18181b'}
+              lineColor={isDarkTheme ? '#ffffff' : '#18181b'}
+              baseColor={isDarkTheme ? '#525252' : '#d4d4d8'}
+              intensity={1}
+              idleIntensity={0.35}
+              shineSize={10}
+              shineFade={34}
+              thickness={1.2}
+              glow={1}
+              followMouse={false}
+              autoAnimate
+              proximity={250}
+              className="w-full bg-white dark:bg-[#131317] shadow-sm hover:shadow-md mb-1.5 p-3 transition-all flex flex-col gap-2.5 text-left relative z-20"
+            >
               {/* Battle Stage Selector when Dual-Battle Mode is active */}
               {dualBattleEnabled && renderBattleStageBar('top')}
 
@@ -4591,10 +4787,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
                     </button>
                   </WarmTooltip>
 
-                  {/* Send Arrow Button */}
+                  {/* Send / Stop Button */}
                   <WarmTooltip
-                    content="Send message"
-                    shortcut="↵"
+                    content={loading ? 'Stop task / generation' : 'Send message'}
+                    shortcut={loading ? 'ESC' : '↵'}
                     side="top"
                     surfaceColor="#f5f5f5"
                     inkColor="#18181b"
@@ -4609,21 +4805,33 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   >
                     <button
                       type="button"
-                      aria-label="Send message"
-                      onClick={() => handleSendMessage()}
-                      disabled={!inputValue.trim() && !attachedFile}
+                      aria-label={loading ? 'Stop generation' : 'Send message'}
+                      onClick={() => {
+                        if (loading) {
+                          handleStopGeneration();
+                        } else {
+                          handleSendMessage();
+                        }
+                      }}
+                      disabled={!loading && !inputValue.trim() && !attachedFile}
                       className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
-                        inputValue.trim() || attachedFile
+                        loading
+                          ? 'bg-red-500 hover:bg-red-600 text-white dark:bg-red-500 dark:hover:bg-red-600 shadow-md ring-2 ring-red-500/20'
+                          : inputValue.trim() || attachedFile
                           ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
                           : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
+                      {loading ? (
+                        <Square className="w-3 h-3 fill-current" />
+                      ) : (
+                        <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
+                      )}
                     </button>
                   </WarmTooltip>
                 </div>
               </div>
-            </div>
+            </SpecularButton>
           </div>
         </div>
       )}
@@ -4657,6 +4865,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         fileSize={lightboxState.size}
         filePath={lightboxState.path}
         originRect={lightboxState.originRect}
+        fallbackSrc={lightboxState.fallbackSrc}
         onClose={closeLightbox}
       />
     </WarmTooltipGroup>

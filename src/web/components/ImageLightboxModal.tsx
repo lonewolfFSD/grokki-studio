@@ -17,6 +17,9 @@ import {
   Plus,
   Minus,
   Move,
+  ExternalLink,
+  Loader2,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -34,6 +37,7 @@ interface ImageLightboxModalProps {
   fileSize?: number;
   filePath?: string;
   originRect?: OriginRect;
+  fallbackSrc?: string;
   onClose: () => void;
 }
 
@@ -119,8 +123,36 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   fileSize,
   filePath,
   originRect,
+  fallbackSrc,
   onClose,
 }) => {
+  const [displaySrc, setDisplaySrc] = useState<string>(src);
+  const [isImgLoading, setIsImgLoading] = useState<boolean>(true);
+  const [hasError, setHasError] = useState<boolean>(false);
+
+  useEffect(() => {
+    setDisplaySrc(src);
+    setIsImgLoading(true);
+    setHasError(false);
+  }, [src, isOpen]);
+
+  const handleImgError = () => {
+    if (fallbackSrc && displaySrc !== fallbackSrc) {
+      console.log('[ImageLightbox] Primary image failed to load, falling back to CDN thumbnail:', fallbackSrc);
+      setDisplaySrc(fallbackSrc);
+      setIsImgLoading(true);
+    } else {
+      console.warn('[ImageLightbox] Failed to load image:', displaySrc);
+      setHasError(true);
+      setIsImgLoading(false);
+    }
+  };
+
+  const handleImgLoad = () => {
+    setIsImgLoading(false);
+    setHasError(false);
+    syncCanvasSize();
+  };
   // Annotation tool state (default: sketch selected, black color selected)
   const [activeTool, setActiveTool] = useState<'sketch' | 'text'>('sketch');
   const [activeColor, setActiveColor] = useState<string>('#000000');
@@ -782,32 +814,67 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 stiffness: 300,
                 mass: 0.8,
               }}
-              className="relative max-w-full max-h-full flex items-center justify-center select-none shadow-2xl rounded-2xl overflow-visible border border-white/10 bg-black/40"
+              className="relative max-w-full max-h-full flex items-center justify-center select-none rounded-2xl overflow-visible border border-white/10 bg-black/60"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Underlying Image */}
-              <img
-                ref={imageRef}
-                src={src}
-                alt={fileName}
-                crossOrigin="anonymous"
-                onLoad={syncCanvasSize}
-                className="max-w-[85vw] max-h-[68vh] object-contain block select-none pointer-events-none rounded-2xl"
-              />
+              {/* Spinner while loading */}
+              {isImgLoading && !hasError && (
+                <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-white/90 text-xs font-medium">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                    <span>Loading view...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Error fallback card if remote image failed */}
+              {hasError ? (
+                <div className="flex flex-col items-center justify-center p-8 md:p-10 text-center max-w-md bg-[#12141c] border border-white/10 rounded-2xl">
+                  <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 text-sky-400 flex items-center justify-center mb-3">
+                    <ImageIcon className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-semibold text-white mb-1">Direct Preview Unavailable</p>
+                  <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+                    The host restricted in-app embedding for this full-resolution file. You can open the original photo directly.
+                  </p>
+                  <a
+                    href={src}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-semibold transition-colors pointer-events-auto"
+                  >
+                    <span>Open in Browser</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              ) : (
+                /* Underlying Image */
+                <img
+                  ref={imageRef}
+                  src={displaySrc}
+                  alt={fileName}
+                  referrerPolicy="no-referrer"
+                  onLoad={handleImgLoad}
+                  onError={handleImgError}
+                  className="max-w-[90vw] max-h-[76vh] object-contain block select-none pointer-events-none rounded-2xl"
+                />
+              )}
 
               {/* Drawing / Interaction Canvas Overlay */}
-              <canvas
-                ref={canvasRef}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onPointerLeave={handlePointerUp}
-                className={`absolute inset-0 z-10 touch-none rounded-2xl ${
-                  activeTool === 'sketch'
-                    ? 'cursor-crosshair'
-                    : 'cursor-crosshair'
-                }`}
-              />
+              {!hasError && (
+                <canvas
+                  ref={canvasRef}
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerLeave={handlePointerUp}
+                  className={`absolute inset-0 z-10 touch-none rounded-2xl ${
+                    activeTool === 'sketch'
+                      ? 'cursor-crosshair'
+                      : 'cursor-crosshair'
+                  }`}
+                />
+              )}
 
               {/* Dragging Selection Box Indicator when creating a text box */}
               {dragBox && (

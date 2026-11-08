@@ -3,6 +3,7 @@ import { Sidebar, TabId } from './components/Sidebar';
 import { Header } from './components/Header';
 import { UnsavedToast } from './components/UnsavedToast';
 import { OverviewTab } from './components/tabs/OverviewTab';
+import { MemoryTab } from './components/tabs/MemoryTab';
 import { ChatTab } from './components/tabs/ChatTab';
 import { VoiceModelsTab } from './components/tabs/VoiceModelsTab';
 import { AiBrainTab } from './components/tabs/AiBrainTab';
@@ -12,7 +13,8 @@ import { AppearanceTab } from './components/tabs/AppearanceTab';
 import { StudioSettingsTab } from './components/tabs/StudioSettingsTab';
 import { AboutTab } from './components/tabs/AboutTab';
 import { SettingsModal, SettingsSection } from './components/SettingsModal';
-import { JarvisConfig, GoogleProfile, SystemInfo } from './types/jarvis';
+import { ChatLockModal, LockedChatScreen } from './components/ChatLockModal';
+import { JarvisConfig, GoogleProfile, SystemInfo, Conversation, ChatLockMethod } from './types/jarvis';
 import { useConversations } from './hooks/useConversations';
 import { useSmoothScroll } from './hooks/useSmoothScroll';
 import { DEFAULT_HOTKEYS, getEffectiveHotkeys, matchesHotkey } from './utils/hotkeys';
@@ -140,8 +142,73 @@ export const App: React.FC = () => {
     deleteConversation,
     renameConversation,
     togglePinConversation,
+    toggleArchiveConversation,
+    setConversationLock,
     updateActiveMessages,
   } = useConversations();
+
+  const [unlockedConvoIds, setUnlockedConvoIds] = useState<Set<string>>(() => new Set());
+  const [lockModalState, setLockModalState] = useState<{
+    isOpen: boolean;
+    mode: 'setup' | 'unlock' | 'remove';
+    conversation: Conversation | null;
+  }>({
+    isOpen: false,
+    mode: 'setup',
+    conversation: null,
+  });
+
+  const handleOpenLockModal = useCallback((convo: Conversation, mode: 'setup' | 'unlock' | 'remove') => {
+    setLockModalState({
+      isOpen: true,
+      mode,
+      conversation: convo,
+    });
+  }, []);
+
+  const handleCloseLockModal = useCallback(() => {
+    setLockModalState((prev) => ({ ...prev, isOpen: false }));
+  }, []);
+
+  const handleLockConfirmed = useCallback(
+    (id: string, method: ChatLockMethod, passwordHash?: string) => {
+      setConversationLock(id, { isLocked: true, lockMethod: method, lockPasswordHash: passwordHash });
+      setUnlockedConvoIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    },
+    [setConversationLock]
+  );
+
+  const handleUnlockConfirmed = useCallback((id: string) => {
+    setUnlockedConvoIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleRemoveLockConfirmed = useCallback(
+    (id: string) => {
+      setConversationLock(id, { isLocked: false });
+      setUnlockedConvoIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    },
+    [setConversationLock]
+  );
+
+  const handleRelockConversation = useCallback((id: string) => {
+    setUnlockedConvoIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
 
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -700,6 +767,7 @@ export const App: React.FC = () => {
   const tabTitles: Record<TabId, string> = {
     chat: 'Chat',
     overview: 'Home',
+    memory: 'Memory',
     voice: 'Voice Models',
     ai: 'AI Brain & Keys',
     profile: 'Personalization',
@@ -740,6 +808,10 @@ export const App: React.FC = () => {
         onDeleteConversation={deleteConversation}
         onRenameConversation={renameConversation}
         onTogglePinConversation={togglePinConversation}
+        onToggleArchiveConversation={toggleArchiveConversation}
+        unlockedConvoIds={unlockedConvoIds}
+        onOpenLockModal={handleOpenLockModal}
+        onRelockConversation={handleRelockConversation}
         onSwitchGoogle={handleSwitchGoogle}
         onDisconnectGoogle={handleDisconnectGoogle}
         hotkeys={effectiveHotkeys}
@@ -764,15 +836,22 @@ export const App: React.FC = () => {
         {/* Tab Panels */}
         <main id="grokki-main-scroll" className={`flex-1 min-h-0 overflow-y-auto ${activeTab === 'chat' ? 'h-full flex flex-col relative bg-[#f7f7fa] dark:bg-[#070709] overflow-hidden' : 'px-8 py-6'}`}>
           <div className={activeTab === 'chat' ? 'h-full flex flex-col relative w-full overflow-hidden' : 'hidden'}>
-            <ChatTab
-              config={config}
-              onChangeConfig={handleChatModelChange}
-              userName={displayName}
-              onNavigateTab={handleSelectTab}
-              activeConversation={activeConversation}
-              onUpdateMessages={updateActiveMessages}
-              onNewChat={createConversation}
-            />
+            {activeConversation?.isLocked && !unlockedConvoIds.has(activeConversation.id) ? (
+              <LockedChatScreen
+                conversation={activeConversation}
+                onUnlockClick={() => handleOpenLockModal(activeConversation, 'unlock')}
+              />
+            ) : (
+              <ChatTab
+                config={config}
+                onChangeConfig={handleChatModelChange}
+                userName={displayName}
+                onNavigateTab={handleSelectTab}
+                activeConversation={activeConversation}
+                onUpdateMessages={updateActiveMessages}
+                onNewChat={createConversation}
+              />
+            )}
           </div>
 
           <div id="grokki-tab-content" className={activeTab === 'chat' ? 'hidden' : 'w-full flex flex-col'}>
@@ -783,6 +862,14 @@ export const App: React.FC = () => {
                 userName={displayName}
                 onNavigateTab={handleSelectTab}
                 googleConnected={googleConnected}
+              />
+            )}
+
+            {activeTab === 'memory' && (
+              <MemoryTab
+                onNavigateTab={handleSelectTab}
+                activeConversationId={activeConversationId}
+                activeConversationTitle={activeConversation?.title}
               />
             )}
 
@@ -865,6 +952,17 @@ export const App: React.FC = () => {
         googleConnected={googleConnected}
         googleProfile={googleProfile}
         onRefreshGoogleStatus={loadGoogleStatus}
+      />
+
+      {/* Chat Lock Modal */}
+      <ChatLockModal
+        isOpen={lockModalState.isOpen}
+        mode={lockModalState.mode}
+        conversation={lockModalState.conversation}
+        onClose={handleCloseLockModal}
+        onLockConfirmed={handleLockConfirmed}
+        onUnlockConfirmed={handleUnlockConfirmed}
+        onRemoveLockConfirmed={handleRemoveLockConfirmed}
       />
 
       {/* Discord-Style Full-Width Bottom Unsaved Changes Banner */}

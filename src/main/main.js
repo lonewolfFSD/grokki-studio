@@ -476,7 +476,18 @@ function createWindow(showOnReady = false) {
     }
   });
 
-  mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+  const indexHtmlPath = path.join(__dirname, '../renderer/index.html');
+  const appJsPath = path.join(__dirname, '../renderer/app.js');
+  mainWindow.loadFile(indexHtmlPath);
+  try {
+    const reloadMainWin = () => {
+      if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+        mainWindow.loadFile(indexHtmlPath);
+      }
+    };
+    fs.watchFile(indexHtmlPath, { interval: 1000 }, reloadMainWin);
+    fs.watchFile(appJsPath, { interval: 1000 }, reloadMainWin);
+  } catch (_) {}
 
   // Window dismiss is handled intentionally via Escape key or Alt+Q toggle.
   // We do not auto-hide on blur so the user can freely interact with File Explorer,
@@ -1167,6 +1178,13 @@ function openApp(appName) {
     return Promise.resolve({ success: false, error: `"${appName}" is not an application.` });
   }
 
+  // Reject task / session / timer phrases so Windows doesn't try to execute them as apps
+  const isTaskPhrase = /^(a|an|my|the|some|this)\s+/i.test(lower) ||
+    /\b(session|lock[- ]?in|timer|pomodoro|countdown|alarm|reminder|minute|minutes|min|mins|second|seconds|hour|hours|study|recording|lecture|meeting|mode|quiz|viva)\b/i.test(lower);
+  if (isTaskPhrase) {
+    return Promise.resolve({ success: false, error: `"${appName}" is a task or timer instruction, not an application.` });
+  }
+
   // Island summon
   if (lower === 'grokki' || lower === 'island' || lower === 'open_island') {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1245,17 +1263,22 @@ function openApp(appName) {
     }
 
     // Try opening via powershell Start-Process
-    const psCmd = `powershell -Command "Start-Process '${target}'"`;
+    const psCmd = `powershell -NoProfile -Command "Start-Process '${target.replace(/'/g, "''")}' -ErrorAction Stop"`;
     exec(psCmd, (err) => {
       if (err) {
-        // Try direct command execution fallback
-        exec(`start "" "${target}"`, (err2) => {
-          if (err2) {
-            resolve({ success: false, error: `Could not launch ${appName}: ${err2.message}` });
-          } else {
-            resolve({ success: true, message: `Opened ${appName}` });
-          }
-        });
+        // Only fallback to cmd start if target is a single-token executable (.exe, .bat, etc.) or URI protocol
+        // This strictly prevents Windows modal error dialogs on arbitrary phrases or missing tasks
+        if ((!/\s/.test(target) && (target.endsWith('.exe') || target.endsWith('.bat') || target.endsWith('.cmd') || !target.includes('.'))) || target.endsWith(':')) {
+          exec(`cmd.exe /c start "" "${target}"`, (err2) => {
+            if (err2) {
+              resolve({ success: false, error: `Could not launch ${appName}: ${err2.message}` });
+            } else {
+              resolve({ success: true, message: `Opened ${appName}` });
+            }
+          });
+        } else {
+          resolve({ success: false, error: `Could not launch ${appName}: application not found.` });
+        }
       } else {
         resolve({ success: true, message: `Opened ${appName}` });
       }
@@ -1936,7 +1959,7 @@ function createTopNotchWindow() {
           topNotchWindow.setAlwaysOnTop(true, 'screen-saver');
           topNotchWindow.webContents.send('top-notch:trigger', true);
         }
-      } else if (topNotchIsInteractive && (pt.y > 520 || Math.abs(pt.x - centerX) > 450)) {
+      } else if (topNotchIsInteractive && !topNotchIsFocusable && (pt.y > 520 || Math.abs(pt.x - centerX) > 450)) {
         topNotchIsInteractive = false;
         topNotchWindow.setFocusable(false);
         topNotchWindow.setIgnoreMouseEvents(true, { forward: true });
@@ -1946,8 +1969,11 @@ function createTopNotchWindow() {
   }, 65);
 }
 
+let topNotchIsFocusable = false;
+
 ipcMain.on('top-notch:set-interactive', (event, interactive) => {
   topNotchIsInteractive = !!interactive;
+  if (!topNotchIsInteractive) topNotchIsFocusable = false;
   if (topNotchWindow && !topNotchWindow.isDestroyed()) {
     if (topNotchIsInteractive) {
       topNotchWindow.setIgnoreMouseEvents(false);
@@ -1960,6 +1986,7 @@ ipcMain.on('top-notch:set-interactive', (event, interactive) => {
 });
 
 ipcMain.on('top-notch:set-focusable', (event, focusable) => {
+  topNotchIsFocusable = !!focusable;
   if (topNotchWindow && !topNotchWindow.isDestroyed()) {
     try {
       topNotchWindow.setFocusable(!!focusable);
@@ -1969,6 +1996,105 @@ ipcMain.on('top-notch:set-focusable', (event, focusable) => {
     } catch (_) {}
   }
 });
+
+// Dynamic Island Notification & Live Activity Broadcast Handlers & Google Workspace Notifier
+ipcMain.on('island:show-notification', (event, data) => {
+  try {
+    const electron = require('electron');
+    const BrowserWindow = electron.BrowserWindow;
+    if (BrowserWindow) {
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (!win.isDestroyed() && win.webContents) {
+          win.webContents.send('island:notification', data);
+        }
+      });
+    }
+  } catch (_) {}
+});
+
+ipcMain.on('island:set-activity', (event, data) => {
+  try {
+    const electron = require('electron');
+    const BrowserWindow = electron.BrowserWindow;
+    if (BrowserWindow) {
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (!win.isDestroyed() && win.webContents) {
+          win.webContents.send('island:activity', data);
+        }
+      });
+    }
+  } catch (_) {}
+});
+
+const seenGoogleNotificationIds = new Set();
+setInterval(async () => {
+  try {
+    const googleWorkspace = require('./google_workspace');
+    if (!googleWorkspace || !googleWorkspace.isConnected()) return;
+
+    // 1. Check Unread Emails (Primary inbox)
+    try {
+      const emailRes = await googleWorkspace.listUnreadEmails(2);
+      if (emailRes && emailRes.success && Array.isArray(emailRes.emails) && emailRes.emails.length > 0) {
+        for (const email of emailRes.emails) {
+          if (!seenGoogleNotificationIds.has(`email-${email.id}`)) {
+            seenGoogleNotificationIds.add(`email-${email.id}`);
+            let sender = (email.from || 'Google Mail').replace(/<.*?>/, '').trim();
+            if (sender.startsWith('"') && sender.endsWith('"')) sender = sender.slice(1, -1);
+            const electron = require('electron');
+            electron.BrowserWindow.getAllWindows().forEach((win) => {
+              if (!win.isDestroyed() && win.webContents) {
+                win.webContents.send('island:notification', {
+                  source: 'email',
+                  sender: sender || 'Gmail',
+                  message: email.subject || 'New message in primary inbox',
+                  icon: 'email',
+                  timestamp: Date.now(),
+                });
+              }
+            });
+            break;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Check Upcoming Calendar Events (within next 30 minutes)
+    try {
+      const calRes = await googleWorkspace.getUpcomingEvents(2);
+      if (calRes && calRes.success && Array.isArray(calRes.events) && calRes.events.length > 0) {
+        const now = Date.now();
+        for (const ev of calRes.events) {
+          const eventTime = ev.start ? new Date(ev.start).getTime() : 0;
+          const diffMinutes = (eventTime - now) / (1000 * 60);
+          const evKey = `cal-${ev.title}-${ev.start}`;
+          if (diffMinutes > 0 && diffMinutes <= 30 && !seenGoogleNotificationIds.has(evKey)) {
+            seenGoogleNotificationIds.add(evKey);
+            const timeStr = Math.round(diffMinutes) === 0 ? 'starting now' : `in ${Math.round(diffMinutes)} mins`;
+            const electron = require('electron');
+            electron.BrowserWindow.getAllWindows().forEach((win) => {
+              if (!win.isDestroyed() && win.webContents) {
+                win.webContents.send('island:notification', {
+                  source: 'calendar',
+                  sender: 'Google Calendar',
+                  message: `${ev.title} (${timeStr})`,
+                  icon: 'calendar',
+                  timestamp: Date.now(),
+                });
+              }
+            });
+            break;
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (seenGoogleNotificationIds.size > 200) {
+      const arr = Array.from(seenGoogleNotificationIds);
+      arr.slice(0, 100).forEach((id) => seenGoogleNotificationIds.delete(id));
+    }
+  } catch (_) {}
+}, 45000);
 
 // --- HITODAMA REAL CLIPBOARD MONITOR & SYSTEM STATS (Electron 44 Async Clipboard API) ---
 const clipboardFilePath = path.join(grokkiDataDir, 'clipboard_history.json');
@@ -4356,9 +4482,9 @@ ipcMain.handle('jarvis:get-openwa-status', async (event, forceRefresh) => {
   return await openwaWorkspace.getStatus(forceRefresh);
 });
 
-ipcMain.handle('jarvis:get-openwa-qr', async () => {
+ipcMain.handle('jarvis:get-openwa-qr', async (event, forceFresh) => {
   const openwaWorkspace = require('./openwa_workspace');
-  return await openwaWorkspace.getQrCode();
+  return await openwaWorkspace.getQrCode(forceFresh);
 });
 
 ipcMain.handle('jarvis:disconnect-openwa', async () => {
@@ -4374,6 +4500,49 @@ ipcMain.handle('jarvis:test-openwa-send', async (event, { to, message }) => {
 ipcMain.handle('jarvis:get-openwa-chats', async (event, limit) => {
   const openwaWorkspace = require('./openwa_workspace');
   return await openwaWorkspace.getRecentChats(limit);
+});
+
+ipcMain.handle('jarvis:grokki-smart-reply', async (event, { to, sender, incomingMessage, instruction, useAi }) => {
+  try {
+    const openwaWorkspace = require('./openwa_workspace');
+    const target = to || sender;
+    if (!target) {
+      return { success: false, error: 'Missing recipient' };
+    }
+
+    let finalMessage = (instruction || '').trim();
+    const looksLikeInstruction = /^(tell|say|reply|ask|let\s+them\s+know|inform|write)\b/i.test(finalMessage);
+
+    if (useAi || !finalMessage || looksLikeInstruction) {
+      const cfg = loadConfig();
+      agentBrain.activeConfig = cfg;
+      const sysPrompt =
+        'You are Grokki drafting a WhatsApp reply on behalf of the user. ' +
+        'Output ONLY the exact message text to send to the recipient. ' +
+        'Do NOT wrap in quotes, do NOT add explanations or prefixes. Keep it natural, casual, and concise.';
+      const usrPrompt = finalMessage
+        ? `Incoming message from "${sender || 'Contact'}": "${incomingMessage || ''}"\n\nUser instruction for how to reply: "${finalMessage}"\n\nWrite the exact first-person WhatsApp reply from the user to ${sender || 'them'}:`
+        : `Incoming message from "${sender || 'Contact'}": "${incomingMessage || ''}"\n\nWrite a short, natural, friendly first-person WhatsApp reply:`;
+
+      const aiDraft = await agentBrain.generateAcademicLLM(sysPrompt, usrPrompt, 180);
+      if (aiDraft && aiDraft.trim()) {
+        finalMessage = aiDraft.trim().replace(/^["']|["']$/g, '');
+      } else if (!finalMessage) {
+        finalMessage = "Hey! I'm a bit tied up right now, will get back to you shortly.";
+      }
+    }
+
+    const res = await openwaWorkspace.sendWhatsAppMessage({
+      to: target,
+      message: finalMessage,
+    });
+    return {
+      ...res,
+      sentText: finalMessage,
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
 // Project / Local Workspace Context (@file & @folder autocomplete)
@@ -4428,6 +4597,86 @@ ipcMain.handle('jarvis:disconnect-academic-portal', async () => {
 
 ipcMain.handle('jarvis:get-academic-data', async () => {
   return academicPortal.getCachedData();
+});
+
+// --- GROKKI PERSISTENT MEMORY IPC HANDLERS ---
+const persistentMemory = require('./persistent_memory');
+
+ipcMain.handle('jarvis:get-all-memories', async (event, filters) => {
+  return persistentMemory.getAllMemories(filters);
+});
+
+ipcMain.handle('jarvis:get-memory', async (event, id) => {
+  return persistentMemory.getMemory(id);
+});
+
+ipcMain.handle('jarvis:add-memory', async (event, memoryData) => {
+  return persistentMemory.addMemory(memoryData);
+});
+
+ipcMain.handle('jarvis:update-memory', async (event, { id, updates }) => {
+  return persistentMemory.updateMemory(id, updates);
+});
+
+ipcMain.handle('jarvis:delete-memory', async (event, id) => {
+  return persistentMemory.deleteMemory(id);
+});
+
+ipcMain.handle('jarvis:pin-memory', async (event, { id, pinned }) => {
+  return persistentMemory.pinMemory(id, pinned);
+});
+
+ipcMain.handle('jarvis:get-all-projects', async () => {
+  return persistentMemory.getAllProjects();
+});
+
+ipcMain.handle('jarvis:save-project', async (event, projectData) => {
+  return persistentMemory.saveProject(projectData);
+});
+
+ipcMain.handle('jarvis:delete-project', async (event, projectId) => {
+  return persistentMemory.deleteProject(projectId);
+});
+
+ipcMain.handle('jarvis:get-memory-stats', async () => {
+  return persistentMemory.getStats();
+});
+
+ipcMain.handle('jarvis:clear-all-memories', async () => {
+  return persistentMemory.clearAllMemories();
+});
+
+ipcMain.handle('jarvis:export-memories', async () => {
+  return persistentMemory.exportMemories();
+});
+
+ipcMain.handle('jarvis:process-memory-now', async (event, payload = {}) => {
+  const { userPrompt, assistantReply, context } = payload || {};
+  if (userPrompt && assistantReply) {
+    await persistentMemory.processConversationTurn(userPrompt, assistantReply, context);
+  } else if (agentBrain && agentBrain.memory && Array.isArray(agentBrain.memory.history)) {
+    const history = agentBrain.memory.history;
+    for (let i = 0; i < history.length - 1; i++) {
+      if (history[i].role === 'user' && history[i + 1].role === 'assistant') {
+        await persistentMemory.processConversationTurn(history[i].content, history[i + 1].content, context);
+      }
+    }
+  }
+  return persistentMemory.getStats();
+});
+
+// --- CHAT LOCK AUTHENTICATION HANDLERS ---
+const chatLockAuth = require('./chat_lock_auth');
+
+ipcMain.handle('jarvis:verify-windows-auth', async (event, options = {}) => {
+  return await chatLockAuth.verifyWindowsAuth(options);
+});
+
+ipcMain.handle('jarvis:trigger-bluetooth-passkey', async (event, options = {}) => {
+  return await chatLockAuth.triggerBluetoothPasskey({
+    ...options,
+    parentWindow: dashboardWindow,
+  });
 });
 
 // Dashboard Studio Controls & Live Tests
@@ -4495,6 +4744,80 @@ ipcMain.handle('dashboard:get-system-info', async () => {
     username: os.userInfo()?.username || 'User',
     hostname: os.hostname(),
   };
+});
+
+// --- MODEL CONTEXT PROTOCOL (MCP) HANDLERS ---
+const mcpManager = require('./mcp_manager');
+
+ipcMain.handle('jarvis:mcp-get-status', async () => {
+  return mcpManager.getStatus();
+});
+ipcMain.handle('jarvis:mcp-start-all', async () => {
+  return await mcpManager.startAllEnabled();
+});
+ipcMain.handle('jarvis:mcp-connect-server', async (event, { serverId, config }) => {
+  return await mcpManager.connectServer(serverId, config);
+});
+ipcMain.handle('jarvis:mcp-disconnect-server', async (event, serverId) => {
+  await mcpManager.disconnectServer(serverId);
+  return { success: true };
+});
+ipcMain.handle('jarvis:mcp-get-config', async () => {
+  return mcpManager.getConfig();
+});
+ipcMain.handle('jarvis:mcp-save-config', async (event, config) => {
+  return mcpManager.saveConfig(config);
+});
+
+// --- LANCEDB VECTOR DATABASE HANDLERS ---
+const lanceDbStore = require('./vector_db_lancedb');
+
+ipcMain.handle('jarvis:lancedb-search', async (event, { query, limit = 5 }) => {
+  return await lanceDbStore.search(query, limit);
+});
+ipcMain.handle('jarvis:lancedb-index-folder', async (event, { folderPath, maxFiles = 30 }) => {
+  return await lanceDbStore.indexFolder(folderPath, maxFiles);
+});
+ipcMain.handle('jarvis:lancedb-get-stats', async () => {
+  return await lanceDbStore.getStats();
+});
+
+// --- MEM0 LONG-TERM MEMORY HANDLERS ---
+const mem0Manager = require('./mem0_manager');
+
+ipcMain.handle('jarvis:mem0-get-all', async () => {
+  return mem0Manager.getAll();
+});
+ipcMain.handle('jarvis:mem0-search', async (event, { query, limit = 5 }) => {
+  return await mem0Manager.searchMemories(query, limit);
+});
+ipcMain.handle('jarvis:mem0-add', async (event, { fact }) => {
+  return await mem0Manager.extractMemoriesFromTurn(fact, '', null);
+});
+ipcMain.handle('jarvis:mem0-delete', async (event, id) => {
+  return mem0Manager.deleteMemory(id);
+});
+
+// --- BROWSER-USE AUTONOMOUS AGENT HANDLERS ---
+const browserAgent = require('./browser_agent');
+
+ipcMain.handle('jarvis:browser-agent-run', async (event, { goal }) => {
+  return await browserAgent.runGoal(goal, (sys, usr) => agentBrain.generateAcademicLLM(sys, usr, 800));
+});
+ipcMain.handle('jarvis:browser-agent-cancel', async () => {
+  browserAgent.cancel();
+  return { success: true };
+});
+
+// --- BYTEDANCE UI-TARS VISION DESKTOP AGENT HANDLERS ---
+const uiTarsAgent = require('./ui_tars_agent');
+
+ipcMain.handle('jarvis:uitars-run', async (event, { goal }) => {
+  return await uiTarsAgent.runTask(goal, (sys, usr, img) => agentBrain.generateVisionLLM(sys, usr, img));
+});
+ipcMain.handle('jarvis:uitars-cancel', async () => {
+  uiTarsAgent.cancel();
+  return { success: true };
 });
 
 function compareSemver(v1, v2) {
@@ -4985,10 +5308,25 @@ ipcMain.handle('dashboard:fetch-provider-models', async (event, { provider, key,
 });
 
 ipcMain.handle('jarvis:cancel-task', () => {
+  let cancelled = false;
   if (agentBrain && typeof agentBrain.cancelCurrentTask === 'function') {
-    return agentBrain.cancelCurrentTask();
+    cancelled = agentBrain.cancelCurrentTask() || cancelled;
   }
-  return false;
+  try {
+    const browserAgent = require('./browser_agent');
+    if (browserAgent && typeof browserAgent.cancel === 'function') {
+      browserAgent.cancel();
+      cancelled = true;
+    }
+  } catch (_) {}
+  try {
+    const uiTarsAgent = require('./ui_tars_agent');
+    if (uiTarsAgent && typeof uiTarsAgent.cancel === 'function') {
+      uiTarsAgent.cancel();
+      cancelled = true;
+    }
+  } catch (_) {}
+  return cancelled;
 });
 
 ipcMain.handle('jarvis:toggle-window', () => {
@@ -5085,6 +5423,26 @@ app.whenReady().then(() => {
   createTopNotchWindow();
   createTray();
   registerShortcuts();
+
+  // Auto-connect WhatsApp background listener if authenticated
+  try {
+    const openwaWorkspace = require('./openwa_workspace');
+    if (openwaWorkspace && openwaWorkspace.hasLocalAuth()) {
+      openwaWorkspace.startLocalEngine().catch((err) => {
+        console.warn('[Main] OpenWA auto-connect error:', err?.message || err);
+      });
+    }
+  } catch (err) {
+    console.warn('[Main] OpenWA startup load error:', err?.message || err);
+  }
+
+  // Initialize LanceDB Embedded Vector Store & MCP Servers
+  try {
+    lanceDbStore.init().catch((err) => console.warn('[Main] LanceDB startup error:', err?.message || err));
+    mcpManager.startAllEnabled().catch((err) => console.warn('[Main] MCP startup error:', err?.message || err));
+  } catch (err) {
+    console.warn('[Main] LanceDB/MCP startup error:', err?.message || err);
+  }
 
   // Initialize Pocket Grokki (Zero-Install Mobile LAN Bridge)
   try {
