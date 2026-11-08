@@ -44,6 +44,13 @@ export const Header = React.memo<HeaderProps>(({
   const [updateState, setUpdateState] = useState<'idle' | 'checking' | 'ready' | 'up-to-date'>('idle');
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState<string>('1.52.326');
+
+  React.useEffect(() => {
+    if (window.jarvisAPI?.getAppVersion) {
+      window.jarvisAPI.getAppVersion().then(v => { if (v) setAppVersion(v); }).catch(() => {});
+    }
+  }, []);
 
   const handleCheckOrRestart = async (e: React.MouseEvent) => {
     // If update is ready, click triggers restart to update
@@ -89,7 +96,7 @@ export const Header = React.memo<HeaderProps>(({
       // 2. Direct renderer fallback if IPC was not registered yet in running main process
       if (!result || result.error) {
         const repo = 'lonewolfFSD/grokki-studio';
-        const currentVersion = '2.5.0';
+        const currentVersion = appVersion;
         try {
           const res = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
             headers: { 'Accept': 'application/vnd.github.v3+json' },
@@ -127,7 +134,7 @@ export const Header = React.memo<HeaderProps>(({
         setTimeout(() => setToastMsg(null), 3500);
       } else {
         setUpdateState('up-to-date');
-        setToastMsg(result?.message || 'Up to date (v2.5.0)');
+        setToastMsg(result?.message || `You're on the latest version (v${appVersion}).`);
         setTimeout(() => {
           setUpdateState('idle');
           setToastMsg(null);
@@ -135,7 +142,7 @@ export const Header = React.memo<HeaderProps>(({
       }
     } catch (err: any) {
       setUpdateState('up-to-date');
-      setToastMsg('Up to date (v2.5.0)');
+      setToastMsg(`You're on the latest version (v${appVersion}).`);
       setTimeout(() => {
         setUpdateState('idle');
         setToastMsg(null);
@@ -233,7 +240,7 @@ export const Header = React.memo<HeaderProps>(({
             </WarmTooltip>
           ) : (
             <WarmTooltip
-              content={toastMsg || (updateState === 'up-to-date' ? 'Up to date (v2.5.0)' : 'Check for updates')}
+              content={toastMsg || (updateState === 'up-to-date' ? `You're on the latest version (v${appVersion}).` : 'Check for updates')}
               side="bottom"
               surfaceColor="#f5f5f5"
               inkColor="#18181b"

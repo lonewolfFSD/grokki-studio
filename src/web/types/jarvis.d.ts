@@ -491,6 +491,7 @@ export interface JarvisAPI {
   runCommand?: (command: string) => Promise<{ success: boolean; stdout?: string; stderr?: string }>;
   openUrl?: (url: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   onConfigUpdated?: (callback: (data: JarvisConfig) => void) => void;
+  getAppVersion?: () => Promise<string>;
   checkForUpdates?: () => Promise<{
     updateAvailable: boolean;
     currentVersion?: string;

@@ -4842,9 +4842,13 @@ function compareSemver(v1, v2) {
   return 0;
 }
 
+ipcMain.handle('app:get-version', () => {
+  return app.getVersion();
+});
+
 ipcMain.handle('app:check-for-updates', async () => {
   try {
-    const currentVersion = '2.5.0';
+    const currentVersion = app.getVersion();
     const officialRepo = 'lonewolfFSD/grokki-studio';
     const releasesWebUrl = `https://github.com/${officialRepo}/releases`;
 

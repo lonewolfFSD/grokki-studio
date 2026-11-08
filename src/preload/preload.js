@@ -243,6 +243,7 @@ try {
       return () => ipcRenderer.removeListener('ollama:pull-progress', handler);
     },
     getSystemInfo: () => ipcRenderer.invoke('dashboard:get-system-info'),
+    getAppVersion: () => ipcRenderer.invoke('app:get-version'),
     checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
     restartAndInstallUpdate: (data) => ipcRenderer.send('app:restart-and-install', data),
     openConfigFolder: () => ipcRenderer.invoke('app:open-config-folder'),
