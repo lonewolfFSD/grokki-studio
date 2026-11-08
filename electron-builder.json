@@ -7,6 +7,11 @@
     "output": "release",
     "buildResources": "assets"
   },
+  "publish": {
+    "provider": "github",
+    "owner": "lonewolfFSD",
+    "repo": "grokki-studio"
+  },
   "files": [
     "dist/**/*",
     "src/main/**/*",
@@ -38,16 +43,10 @@
         "arch": [
           "x64"
         ]
-      },
-      {
-        "target": "appx",
-        "arch": [
-          "x64"
-        ]
       }
     ],
     "icon": "assets/grokki_studio_icon.ico",
-    "artifactName": "${productName}-${target}-${version}.${ext}"
+    "artifactName": "Grokki.Studio-Setup-${version}.${ext}"
   },
   "nsis": {
     "oneClick": false,
@@ -62,17 +61,5 @@
     "installerHeaderIcon": "assets/grokki_studio_icon.ico",
     "deleteAppDataOnUninstall": false,
     "runAfterFinish": true
-  },
-  "appx": {
-    "identityName": "ItzAjx.GrokkiStudio",
-    "publisher": "CN=4AFD97F6-6E42-40D1-84EC-E94EB83408C9",
-    "publisherDisplayName": "Itz Ajx",
-    "applicationId": "ItzAjx.GrokkiStudio",
-    "displayName": "Grokki Studio",
-    "backgroundColor": "#09090b",
-    "showNameOnTiles": true,
-    "languages": [
-      "en-US"
-    ]
   }
 }

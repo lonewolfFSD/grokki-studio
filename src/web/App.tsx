@@ -21,6 +21,7 @@ import { DEFAULT_HOTKEYS, getEffectiveHotkeys, matchesHotkey } from './utils/hot
 import { ErrorBoundary } from './components/ErrorBoundary';
 import GlowCursor from './components/GlowCursor';
 import { SmoothCursor } from '@/components/ui/smooth-cursor';
+import { Preloader } from './components/Preloader';
 
 const DEFAULT_CONFIG: JarvisConfig = {
   provider: 'gemini',
@@ -96,6 +97,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
 };
 
 export const App: React.FC = () => {
+  const [showPreloader, setShowPreloader] = useState(true);
   const [activeTab, setActiveTab] = useState<TabId>('chat');
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsActiveSection, setSettingsActiveSection] = useState<SettingsSection>('settings');
@@ -233,6 +235,18 @@ export const App: React.FC = () => {
   const isCustomThemeActive = Boolean(currentPillTheme && currentPillTheme !== 'none' && currentPillTheme !== 'default');
   const effectivePalette = isCustomThemeActive && VALID_PALETTES.includes(currentPillTheme) ? currentPillTheme : 'none';
   const theme = isCustomThemeActive ? 'dark' : (config.dashboardTheme || 'light');
+
+  // Seamlessly hand over from instant HTML loader to interactive Preloader
+  useEffect(() => {
+    const loader = document.getElementById('app-launch-loader');
+    if (loader) {
+      loader.style.opacity = '0';
+      const timer = setTimeout(() => {
+        try { loader.remove(); } catch (_) {}
+      }, 160);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   useEffect(() => {
     if (isCustomThemeActive) {
@@ -779,6 +793,7 @@ export const App: React.FC = () => {
 
   return (
     <>
+      {showPreloader && <Preloader onComplete={() => setShowPreloader(false)} />}
       {!!config.smoothCursorEnabled && <SmoothCursor />}
       <GlowCursor
         color="#5f8bff"

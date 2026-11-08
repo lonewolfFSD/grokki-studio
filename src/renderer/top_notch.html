@@ -736,6 +736,17 @@
       justify-content: center;
       justify-self: center;
       text-align: center;
+      gap: 4px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .island-lock-badge {
+      font-size: 8.5px;
+      color: #38bdf8;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
     }
     .island-time-txt {
       font-size: 11px;
@@ -2698,7 +2709,8 @@
             <span id="islandWeatherTemp" class="island-temp-txt">--°</span>
           </div>
 
-          <div class="island-time-col">
+          <div class="island-time-col" id="islandTimeCol" title="Click to toggle Lock Mode (keeps island compact, prevents panel opening on hover)">
+            <span id="islandLockBadge" class="island-lock-badge" style="display: none;"><i class="fa-solid fa-lock"></i></span>
             <span id="islandTimeText" class="island-time-txt">--:--</span>
           </div>
 
@@ -3972,6 +3984,9 @@
     document.getElementById('islandActivityStopBtn')?.addEventListener('click', (e) => {
       e.stopPropagation();
       stopIslandActivity(true);
+      if (api.setIslandActivity) {
+        api.setIslandActivity({ action: 'stop', kind: 'all' });
+      }
     });
 
     if (api.onIslandActivity) {
@@ -4039,6 +4054,45 @@
       hideTopNotchPanel();
     });
 
+    let islandLockMode = false;
+    try {
+      islandLockMode = localStorage.getItem('grokki_island_lock_mode') === 'true';
+    } catch (_) {}
+
+    function updateIslandLockUI() {
+      const lockBadge = document.getElementById('islandLockBadge');
+      if (lockBadge) {
+        lockBadge.style.display = islandLockMode ? 'inline-flex' : 'none';
+      }
+      const shell = document.getElementById('notchShell');
+      if (shell) {
+        if (islandLockMode) shell.classList.add('notch-locked');
+        else shell.classList.remove('notch-locked');
+      }
+    }
+
+    function toggleIslandLockMode(forceVal) {
+      islandLockMode = typeof forceVal === 'boolean' ? forceVal : !islandLockMode;
+      try {
+        localStorage.setItem('grokki_island_lock_mode', islandLockMode ? 'true' : 'false');
+      } catch (_) {}
+      updateIslandLockUI();
+    }
+
+    document.getElementById('islandTimeCol')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleIslandLockMode();
+    });
+
+    if (api.onIslandLockMode) {
+      api.onIslandLockMode(({ locked }) => {
+        toggleIslandLockMode(locked);
+      });
+    }
+
+    // Initialize lock UI on startup
+    setTimeout(updateIslandLockUI, 100);
+
     if (api.onTopNotchTrigger) {
       api.onTopNotchTrigger((shouldOpen) => {
         const notifState = document.getElementById('islandNotifState');
@@ -4048,6 +4102,17 @@
             expandNotifReplyDrawer();
             return;
           }
+
+          // Guard: If Lock Mode is ON or if small dynamic island is actively showing a live timer/countdown,
+          // NEVER open or expand the panel on hover!
+          const actState = document.getElementById('islandActivityState');
+          const isTimerActive = (actState && actState.classList.contains('show')) ||
+            (document.getElementById('notchShell')?.classList.contains('activity-active'));
+
+          if (islandLockMode || isTimerActive) {
+            return;
+          }
+
           document.body.classList.add('notch-open');
           syncControlsStatus();
           const activeTab = document.querySelector('.notch-tab-btn.active')?.dataset.tab;

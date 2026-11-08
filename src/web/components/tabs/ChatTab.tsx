@@ -2200,14 +2200,17 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }
   };
 
-  const handleNativeFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const stageFile = async (file: File) => {
     if (!file) return;
-
     const ext = file.name.includes('.') ? '.' + file.name.split('.').pop()!.toLowerCase() : '';
     let localPath = '';
     if (window.jarvisAPI?.getPathForFile) {
-      localPath = window.jarvisAPI.getPathForFile(file) || '';
+      try {
+        localPath = window.jarvisAPI.getPathForFile(file) || '';
+      } catch (_) {}
+    }
+    if (!localPath && (file as any).path) {
+      localPath = (file as any).path;
     }
     if (!localPath && window.jarvisAPI?.saveTempFile) {
       try {
@@ -2252,6 +2255,55 @@ export const ChatTab = React.memo<ChatTabProps>(({
       previewUrl,
     });
     setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const handleNativeFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await stageFile(file);
+  };
+
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const dragCounterRef = useRef(0);
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+      setIsDraggingFile(true);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+    if (!isDraggingFile) setIsDraggingFile(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDraggingFile(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDraggingFile(false);
+
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      await stageFile(files[0]);
+    }
   };
 
   const handleSelectSlashCommand = (cmd: SlashCommand) => {
@@ -3469,9 +3521,35 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
   return (
     <WarmTooltipGroup delay={400} warmWindow={300} travel={320} lean={false}>
-    <div className={`relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-0 transition-all duration-300 ${
-      activeArtifact ? 'lg:pr-[50vw]' : ''
-    }`}>
+    <div
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-0 transition-all duration-300 ${
+        activeArtifact ? 'lg:pr-[50vw]' : ''
+      }`}
+    >
+      {/* Drag & Drop Visual Dropzone Overlay */}
+      {isDraggingFile && (
+        <div className="absolute inset-2 z-50 flex flex-col items-center justify-center bg-blue-500/10 dark:bg-blue-600/15 backdrop-blur-md border-2 border-dashed border-blue-500/70 dark:border-blue-400/70 rounded-3xl pointer-events-none transition-all animate-in fade-in zoom-in-95 duration-150">
+          <div className="p-6 rounded-2xl bg-white/95 dark:bg-[#151720]/95 shadow-2xl flex flex-col items-center gap-3 border border-blue-500/30 text-center max-w-sm">
+            <div className="w-14 h-14 rounded-2xl bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-base font-semibold text-gray-900 dark:text-white">
+                Drop file to attach
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Release anywhere to ask Grokki, send on WhatsApp, or upload to Drive
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Hidden Native File Picker Input for Category Filtering */}
       <input
         ref={fileInputRef}

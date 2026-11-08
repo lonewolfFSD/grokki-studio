@@ -92,6 +92,12 @@ try {
       return () => ipcRenderer.removeListener('island:activity', handler);
     },
     setIslandActivity: (data) => ipcRenderer.send('island:set-activity', data),
+    onIslandLockMode: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('island:lock-mode', handler);
+      return () => ipcRenderer.removeListener('island:lock-mode', handler);
+    },
+    setIslandLockMode: (data) => ipcRenderer.send('island:set-lock-mode', data),
     getClipboardHistory: () => ipcRenderer.invoke('jarvis:get-clipboard-history'),
     copyClipboardItem: (text) => ipcRenderer.invoke('jarvis:copy-clipboard-item', text),
     pasteClipboardItem: (text) => ipcRenderer.invoke('jarvis:paste-clipboard-item', text),
@@ -241,6 +247,9 @@ try {
     restartAndInstallUpdate: (data) => ipcRenderer.send('app:restart-and-install', data),
     openConfigFolder: () => ipcRenderer.invoke('app:open-config-folder'),
     notifySplashFinished: () => ipcRenderer.send('splash:finished'),
+    onAppReady: (callback) => {
+      ipcRenderer.on('app:ready', () => callback());
+    },
     onConfigUpdated: (callback) => {
       ipcRenderer.on('config:updated', (event, data) => callback(data));
     },
@@ -349,6 +358,7 @@ try {
       return () => ipcRenderer.removeListener('window:drag-active', handler);
     },
     getLastDetectedDragFiles: () => ipcRenderer.invoke('jarvis:get-drag-files'),
+    getSelectedExplorerFiles: () => ipcRenderer.invoke('jarvis:get-selected-explorer-files'),
 
     // Model Context Protocol (MCP) Client
     getMcpStatus: () => ipcRenderer.invoke('jarvis:mcp-get-status'),

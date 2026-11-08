@@ -234,8 +234,8 @@ CAPABILITIES & RULES:
 3. WHATSAPP & OPENWA GATEWAY:
    - Use send_whatsapp_file_or_message to share files, documents, or send messages to contacts. When OpenWA Gateway is active, messages and files are sent silently and reliably in the background without stealing focus or opening windows.
    - If user asks to send an attached file or says "this file", pass the attached file path to file_path. If user specifies a person/contact name (e.g. "Rajbir"), pass contact_or_phone: "Rajbir". Execute immediately!
-   - Use get_whatsapp_recent_messages when the user asks to check WhatsApp, see who messaged them, or read recent WhatsApp chats.
-   - Use get_whatsapp_status when user asks about WhatsApp connectivity or gateway status.
+   - Use get_whatsapp_recent_messages when the user asks to check WhatsApp, see who messaged them, read recent WhatsApp chats, or check if someone sent a message (e.g. "Did Rajbir send any message?", "Check messages from WhatsApp", "Any messages from Papa?"). Pass contact_name if a person is mentioned. NEVER output code snippets or explain how to check messages in code—execute the tool directly!
+   - Use get_whatsapp_status ONLY when user specifically asks about WhatsApp connection, pairing, or gateway status (e.g. "is WhatsApp connected?"). DO NOT use get_whatsapp_status when the user wants to check or read messages!
 4. UNIVERSITY & COLLEGE SUPERPOWERS:
    - Use get_university_attendance whenever the user asks about their university or college attendance, asks "What is my attendance?", "How many classes did I miss?", "Am I short on attendance?", "Check ADBU attendance", or wants to know how many more classes they need to attend to stay above 75%.
    - Use get_university_profile whenever the user asks for their university/college student profile, roll number, enrollment ID, or department details.

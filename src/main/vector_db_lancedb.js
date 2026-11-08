@@ -8,7 +8,12 @@
 
 const fs = require('fs');
 const path = require('path');
-const lancedb = require('@lancedb/lancedb');
+let lancedb = null;
+try {
+  lancedb = require('@lancedb/lancedb');
+} catch (err) {
+  console.warn('[LanceDB] Optional dependency @lancedb/lancedb could not be loaded:', err.message);
+}
 
 class LanceDbStore {
   constructor() {
@@ -22,6 +27,10 @@ class LanceDbStore {
   }
 
   async init() {
+    if (!lancedb) {
+      console.warn('[LanceDB] @lancedb/lancedb is not loaded; local vector storage is offline.');
+      return;
+    }
     if (this.isReady && this.table) return;
     try {
       if (!fs.existsSync(this.dbDir)) {

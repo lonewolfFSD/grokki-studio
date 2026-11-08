@@ -14,7 +14,29 @@
       }
     </style>
   </head>
-  <body class="bg-[#f7f7fa] dark:bg-[#070709] text-gray-900 dark:text-gray-100 font-sans antialiased select-none m-0 p-0 overflow-hidden">
+  <body class="bg-[#111111] text-gray-900 dark:text-gray-100 font-sans antialiased select-none m-0 p-0 overflow-hidden" style="background-color: #111111;">
+    <div id="app-launch-loader" style="position: fixed; inset: 0; background-color: #111111; z-index: 9999999; display: flex; align-items: center; justify-content: center; pointer-events: none; transition: opacity 0.45s ease-out;">
+      <style>
+        @keyframes grokkiFadePulse {
+          0%, 100% {
+            opacity: 0;
+          }
+          50% {
+            opacity: 0.4;
+          }
+        }
+        .launch-pulse-logo {
+          width: 70px;
+          height: 70px;
+          object-fit: contain;
+          filter: brightness(0) invert(1);
+          animation: grokkiFadePulse 2.8s ease-in-out infinite;
+          user-select: none;
+          -webkit-user-drag: none;
+        }
+      </style>
+      <img src="/assets/grokki_logo.png" class="launch-pulse-logo" alt="Grokki" />
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/web/main.tsx"></script>
   </body>

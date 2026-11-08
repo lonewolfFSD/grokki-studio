@@ -88,12 +88,8 @@ app.on('second-instance', () => {
     if (dashboardWindow.webContents) {
       dashboardWindow.webContents.send('jarvis:refresh-workspace-status');
     }
-  } else if (splashWindow && !splashWindow.isDestroyed()) {
-    splashWindow.focus();
   } else {
-    createSplashWindow(() => {
-      openDashboardWindow(true);
-    });
+    openDashboardWindow(true);
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
     showWindow();
@@ -123,6 +119,7 @@ const { WakeWordService } = require('./wake_word');
 let mainWindow = null;
 let dashboardWindow = null;
 let splashWindow = null;
+let isDashboardReady = false;
 let tray = null;
 let isQuitting = false;
 let isVisible = true;
@@ -731,6 +728,15 @@ ipcMain.handle('jarvis:get-drag-files', () => {
   return lastDetectedDragFiles;
 });
 
+const { getSelectedExplorerFiles } = require('./explorer_selection');
+ipcMain.handle('jarvis:get-selected-explorer-files', () => {
+  try {
+    return getSelectedExplorerFiles();
+  } catch (_) {
+    return [];
+  }
+});
+
 // Auto-start drag watcher after app initialization
 setTimeout(() => startDragWatcher(), 1600);
 
@@ -747,8 +753,8 @@ function createSplashWindow(onFinish) {
   const studioImg = getAppIconImage(studioIco);
 
   splashWindow = new BrowserWindow({
-    width: 540,
-    height: 360,
+    width: 420,
+    height: 380,
     frame: false,
     transparent: true,
     resizable: false,
@@ -780,6 +786,9 @@ function createSplashWindow(onFinish) {
   splashWindow.once('ready-to-show', () => {
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.show();
+      if (isDashboardReady && splashWindow.webContents) {
+        splashWindow.webContents.send('app:ready');
+      }
     }
   });
 
@@ -839,7 +848,7 @@ function openDashboardWindow(showImmediately = true) {
     frame: false,
     transparent: false,
     alwaysOnTop: !!config.alwaysOnTop,
-    backgroundColor: isLight ? '#f7f7fa' : '#0c0d12',
+    backgroundColor: '#111111',
     icon: fs.existsSync(studioIco) ? studioIco : (studioImg || undefined),
     show: false,
     center: true,
@@ -889,6 +898,10 @@ function openDashboardWindow(showImmediately = true) {
   }
 
   dashboardWindow.once('ready-to-show', () => {
+    isDashboardReady = true;
+    if (splashWindow && !splashWindow.isDestroyed() && splashWindow.webContents) {
+      splashWindow.webContents.send('app:ready');
+    }
     if (showImmediately) {
       if (launchMode === 'fullscreen') {
         dashboardWindow.setFullScreen(true);
@@ -914,6 +927,7 @@ function openDashboardWindow(showImmediately = true) {
 
   dashboardWindow.on('closed', () => {
     dashboardWindow = null;
+    isDashboardReady = false;
   });
 }
 
@@ -2020,6 +2034,20 @@ ipcMain.on('island:set-activity', (event, data) => {
       BrowserWindow.getAllWindows().forEach((win) => {
         if (!win.isDestroyed() && win.webContents) {
           win.webContents.send('island:activity', data);
+        }
+      });
+    }
+  } catch (_) {}
+});
+
+ipcMain.on('island:set-lock-mode', (event, data) => {
+  try {
+    const electron = require('electron');
+    const BrowserWindow = electron.BrowserWindow;
+    if (BrowserWindow) {
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (!win.isDestroyed() && win.webContents) {
+          win.webContents.send('island:lock-mode', data);
         }
       });
     }
@@ -5460,17 +5488,7 @@ app.whenReady().then(() => {
 
   // If opening Grokki Studio directly (not auto-started on Windows boot):
   const isAutostart = process.argv.includes('--autostart') || process.argv.includes('--hidden') || process.argv.includes('--background');
-  if (!isAutostart) {
-    if (config.showSplashScreen !== false) {
-      // Show ONLY the startup splash window first.
-      // Grokki Studio dashboard window is strictly created and launched AFTER splash finishes.
-      createSplashWindow(() => {
-        openDashboardWindow(true);
-      });
-    } else {
-      openDashboardWindow(true);
-    }
-  } else if (config.autoOpenStudioOnStartup) {
+  if (!isAutostart || config.autoOpenStudioOnStartup) {
     openDashboardWindow(true);
   }
 

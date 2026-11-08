@@ -63,3 +63,12 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 data/whatsapp_recent_chats.json
+
+data/lancedb_store/
+data/media/
+data/whatsapp_contacts.json
+data/whatsapp_custom_contacts.json
+data/pocket_paired_devices.json
+data/mem0_local_store.json
+data/grokki_memory_history.json
+data/memory/

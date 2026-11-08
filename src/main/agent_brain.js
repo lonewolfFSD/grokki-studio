@@ -339,6 +339,60 @@ function expandSlashDirective(text) {
 }
 
 class AgentBrain {
+  getSelectedExplorerFiles() {
+    try {
+      const { getSelectedExplorerFiles } = require('./explorer_selection');
+      return getSelectedExplorerFiles();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  async stopAllTimers() {
+    // 1. Broadcast stop to dynamic island
+    this.broadcastToMiniIsland('island:activity', { action: 'stop', kind: 'timer' });
+    this.broadcastToMiniIsland('island:activity', { action: 'stop', kind: 'reminder' });
+    this.broadcastToMiniIsland('island:activity', { action: 'stop', kind: 'all' });
+
+    // 2. Stop all background reminders and timeouts
+    if (Array.isArray(this.activeReminders) && this.activeReminders.length > 0) {
+      this.activeReminders.forEach((r) => {
+        try { clearTimeout(r.timerId); } catch (_) {}
+      });
+      this.activeReminders = [];
+    }
+
+    // 3. Clear storage and notify renderer windows
+    try {
+      if (typeof electronModule !== 'undefined' && electronModule.BrowserWindow) {
+        electronModule.BrowserWindow.getAllWindows().forEach((win) => {
+          if (!win.isDestroyed() && win.webContents) {
+            win.webContents.send('island:activity', { action: 'stop', kind: 'all' });
+            win.webContents.send('timer:stopped');
+          }
+        });
+      }
+    } catch (_) {}
+
+    return {
+      success: true,
+      actionType: 'STOP_TIMER',
+      message: '⏹️ **Timer Stopped!**\n\nThe timer and live countdown have been completely stopped and removed from the Dynamic Island.',
+    };
+  }
+
+  async toggleIslandLockMode(locked) {
+    const isLocked = locked !== false;
+    this.broadcastToMiniIsland('island:lock-mode', { locked: isLocked });
+    return {
+      success: true,
+      locked: isLocked,
+      message: isLocked
+        ? '🔒 **Lock Mode Activated** on the Dynamic Island!\n\nThe panel will NOT appear when you hover over the small dynamic island showing the time.'
+        : '🔓 **Lock Mode Deactivated** on the Dynamic Island.\n\nHovering near the top edge will now expand the panel normally.',
+    };
+  }
+
   constructor() {
     this.abortController = null;
     this.models = [
@@ -410,11 +464,11 @@ class AgentBrain {
         'open_app', 'desktop_click', 'desktop_type', 'desktop_find', 'desktop_snapshot',
         'close_active_window', 'system_volume', 'window_manager', 'system_power', 'system_brightness',
         'storage_and_cleanup', 'screen_capture_and_recorder', 'connectivity_control', 'power_and_theme_control',
-        'pc_health_and_optimizer', 'organize_folder'
+        'pc_health_and_optimizer', 'organize_folder', 'stop_timer', 'toggle_island_lock_mode'
       ]);
 
       if (isWhatsApp || (!isDesktop && !isMedia && !isGoogle && !isUni)) {
-        ['send_whatsapp_file_or_message', 'get_whatsapp_recent_messages', 'get_whatsapp_status'].forEach(n => selectedNames.add(n));
+        ['send_whatsapp_file_or_message', 'get_whatsapp_recent_messages', 'get_whatsapp_status', 'save_whatsapp_contact_alias'].forEach(n => selectedNames.add(n));
       }
 
       if (isGoogle || (!isDesktop && !isMedia)) {
@@ -997,7 +1051,7 @@ class AgentBrain {
           },
           {
             name: 'get_whatsapp_recent_messages',
-            description: 'Fetches recent WhatsApp chats and messages (e.g. "What did Rajbir send me?", "Check my WhatsApp", "Who texted me on WhatsApp?", "Read latest messages")',
+            description: 'Fetches recent WhatsApp chats and messages (e.g. "What did Rajbir send me?", "Check my WhatsApp", "Who texted me on WhatsApp?", "Read latest messages", "Can you check any recent messages from WhatsApp?", "Did Rajbir send any message?"). Call this whenever checking, reading, or inspecting incoming messages or chats.',
             parameters: {
               type: 'OBJECT',
               properties: {
@@ -1008,8 +1062,35 @@ class AgentBrain {
           },
           {
             name: 'get_whatsapp_status',
-            description: 'Checks the connection and session status of the WhatsApp OpenWA Gateway',
+            description: 'Checks ONLY the connection and session status (online/offline/QR linked) of the WhatsApp OpenWA Gateway. DO NOT call this when the user asks to check, read, or see messages or chats; use get_whatsapp_recent_messages instead!',
             parameters: { type: 'OBJECT', properties: {} },
+          },
+          {
+            name: 'stop_timer',
+            description: 'Immediately stops and cancels any active timer, countdown, lock-in study session, or reminder running on the Dynamic Island or in the background.',
+            parameters: { type: 'OBJECT', properties: {} },
+          },
+          {
+            name: 'toggle_island_lock_mode',
+            description: 'Toggles or sets the Lock Mode on the Dynamic Island. When Lock Mode is ON, the small dynamic island shows the time and will NEVER expand the big panel when hovered.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                locked: { type: 'BOOLEAN', description: 'True to enable lock mode, false to disable' },
+              },
+            },
+          },
+          {
+            name: 'save_whatsapp_contact_alias',
+            description: 'Saves or updates a permanent WhatsApp contact phone number or alias (e.g. "Mom is 9876543210", "Papa is +919876543210", "Papa 2 is 9876543210"). Use this whenever the user specifies someone\'s phone number or contact mapping.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                name: { type: 'STRING', description: 'Contact name or alias (e.g. "Mom", "Papa", "Papa 2", "Sister")' },
+                phone: { type: 'STRING', description: 'Phone number with country code or 10 digits (e.g. "+919876543210" or "9876543210")' },
+              },
+              required: ['name', 'phone'],
+            },
           },
           {
             name: 'read_attached_file',
@@ -1578,6 +1659,28 @@ class AgentBrain {
       return { tool: 'pc_health_and_optimizer', args: { action: 'optimize' } };
     }
 
+    // 0. Instant Stop Timer & Countdown Fast Intent: e.g. "stop timer", "stop the timer", "cancel timer", "stop the fucking timer", "stop countdown", "turn off timer", "stop lock in"
+    if (/\b(?:stop|cancel|end|kill|clear|turn\s+off|disable|halt)\s+(?:the\s+|all\s+|active\s+)?(?:fucking\s+|damn\s+)?(?:timers?|countdowns?|alarms?|lock[- ]?in|lock[- ]?ins|pomodoro|study\s+sessions?|focus\s+sessions?|focus\s+timers?|study\s+timers?)\b/i.test(p) ||
+        /^(?:stop|cancel|end|kill|clear)\s+(?:the\s+)?(?:timer|countdown|alarm|lockin|lock-in)$/i.test(p)) {
+      return { tool: 'stop_timer', args: {} };
+    }
+
+    // Fast Island Unlock Intent (Check unlock first): e.g. "lock mode off", "turn off lock mode", "disable lock mode", "unlock dynamic island", "unlock island"
+    if (/\b(?:turn\s+off|disable|deactivate|stop)\s+(?:the\s+)?lock\s+mode\b/i.test(p) ||
+        /\b(?:unlock\s+(?:the\s+)?(?:mode|island|notch|dynamic\s+island))\b/i.test(p) ||
+        /^lock\s+mode\s+off$/i.test(p) ||
+        /^unlock\s*(?:island|notch|mode)?$/i.test(p)) {
+      return { tool: 'toggle_island_lock_mode', args: { locked: false } };
+    }
+
+    // Fast Island Lock Mode Intent: e.g. "lock mode on", "turn on lock mode", "enable lock mode", "lock dynamic island", "lock island"
+    if (/\b(?:turn\s+on|enable|activate|set)\s+(?:the\s+)?lock\s+mode\b/i.test(p) ||
+        /\b(?:lock\s+(?:the\s+)?(?:mode|island|notch|dynamic\s+island))\b/i.test(p) ||
+        /^lock\s+mode\s+on$/i.test(p) ||
+        /^lock\s*(?:island|notch|mode)$/i.test(p)) {
+      return { tool: 'toggle_island_lock_mode', args: { locked: true } };
+    }
+
     // Fast Lock-In Study / Pomodoro / Focus Timer Intent
     if (/\b(lock[- ]?in|pomodoro|study\s+session|focus\s+session|focus\s+timer|study\s+timer)\b/i.test(p) ||
         /\b(set|start|begin|create|run)\s+(a\s+|an\s+)?(\d+(\.\d+)?\s*[- ]?(min|mins|minute|minutes|sec|secs|second|seconds|hr|hrs|hour|hours)\s+)?(timer|countdown|lock[- ]?in|pomodoro)\b/i.test(p) ||
@@ -1851,6 +1954,53 @@ class AgentBrain {
       }
     }
 
+    // 0. Fast WhatsApp Save Contact Alias Intent: e.g. "Mom is 9876543210", "Papa is +919876543210", "Save contact Papa 2 as 9876543210"
+    const saveAliasMatch = p.match(/^(?:save|set|add)?\s*(?:whatsapp\s+)?(?:contact\s+)?([a-zA-Z0-9_\-\s\(\)\']+?)(?:'s\s*(?:number|phone|whatsapp)|\s+is|\s+to|\s+as|\s+number\s+is|\s*:\s*|\s*=\s*|\s+)\s*(\+?\d[\d\s\-]{6,16}\d)$/i);
+    if (saveAliasMatch) {
+      let aliasName = saveAliasMatch[1].replace(/^(?:contact|save|set|add)\s+/i, '').replace(/['’]s\s*(?:number|phone|whatsapp)?$/i, '').trim();
+      const rawDigits = saveAliasMatch[2].replace(/[^\d+]/g, '');
+      const forbiddenNames = ['send', 'call', 'message', 'text', 'open', 'play', 'google', 'search', 'volume'];
+      if (aliasName && !forbiddenNames.includes(aliasName.toLowerCase()) && rawDigits.length >= 7) {
+        return {
+          tool: 'save_whatsapp_contact_alias',
+          args: { name: aliasName, phone: rawDigits },
+        };
+      }
+    }
+
+    // Fast WhatsApp Send Selected File or Attached File Intent:
+    // e.g. "Send it to Mom", "Send this to Papa", "Send this file to Papa 2 (Jio)", "Send to Mom", "Share this with Rajbir"
+    const sendSelectedMatch = p.match(/^(?:can\s+you\s+)?(?:send|share)\s+(?:it|this|this\s+file|the\s+file|selected\s+file)\s+to\s+([a-zA-Z0-9_\-\s\(\)\']+?)(?:\s+(?:on|via)\s+whatsapp)?(?:\s+(?:saying|that|with\s+message|with|message:?|:)\s*(.+))?$/i);
+    const shareWithMatch = p.match(/^(?:can\s+you\s+)?share\s+(?:it|this|this\s+file|the\s+file|selected\s+file)\s+with\s+([a-zA-Z0-9_\-\s\(\)\']+?)(?:\s+(?:on|via)\s+whatsapp)?(?:\s+(?:saying|that|with\s+message|with|message:?|:)\s*(.+))?$/i);
+    const sendToShortMatch = p.match(/^(?:can\s+you\s+)?send\s+(?:to\s+)([a-zA-Z0-9_\-\s\(\)\']+?)(?:\s+(?:on|via)\s+whatsapp)?$/i);
+
+    if (sendSelectedMatch || shareWithMatch || sendToShortMatch) {
+      const m = sendSelectedMatch || shareWithMatch || sendToShortMatch;
+      const targetContact = m[1].trim().replace(/^the\s+/i, '');
+      const forbiddenTargets = ['me', 'us', 'whatsapp', 'wa', 'google', 'drive', 'app', 'system', 'it', 'this'];
+      if (!forbiddenTargets.includes(targetContact.toLowerCase())) {
+        const customMsg = m[2] ? m[2].trim().replace(/^[\"\']|[\"\']$/g, '') : '';
+        let targetFilePath = (this.activeContext && this.activeContext.filePath) ||
+          (this.activeContext && this.activeContext.attachedFile && (this.activeContext.attachedFile.path || this.activeContext.attachedFile)) || null;
+
+        if (!targetFilePath || !fs.existsSync(targetFilePath)) {
+          const selected = this.getSelectedExplorerFiles();
+          if (selected && selected.length > 0 && fs.existsSync(selected[0])) {
+            targetFilePath = selected[0];
+          }
+        }
+
+        return {
+          tool: 'send_whatsapp_file_or_message',
+          args: {
+            contact_or_phone: targetContact,
+            file_path: targetFilePath || '',
+            message: customMsg,
+          },
+        };
+      }
+    }
+
     // 1. Fast WhatsApp Send File Intent: e.g. "Send C:\path\test.png to +919387661149 on WhatsApp with message Here is the file"
     const waFileSendMatch = p.match(/^send\s+(?:file\s+)?([a-zA-Z0-9_\-:\\\/\.]+?\.[a-zA-Z0-9]+)\s+to\s+(.+?)\s+(?:on|via)\s+(?:whatsapp|wa)(?:\s+(?:with\s+message|saying|with|:)\s+(.+))?$/i);
     if (waFileSendMatch) {
@@ -1878,28 +2028,39 @@ class AgentBrain {
       };
     }
 
-    // 3. Fast WhatsApp General check messages: e.g. "check my recent whatsapp messages", "who texted me on whatsapp", "read whatsapp messages"
-    if (/\b(check|read|get|show|view|fetch|see)\s+(my\s+)?(recent\s+|latest\s+)?(whatsapp|wa)\s*(messages?|chats?|texts?)?\b/i.test(p) ||
-        /\b(who\s+(texted|messaged)\s+me(\s+on\s+whatsapp)?)\b/i.test(p) ||
-        /\b(recent\s+whatsapp\s+messages?)\b/i.test(p) ||
-        /^(whatsapp|wa)\s+(messages?|chats?|texts?)$/i.test(p)) {
+    // 3. Fast WhatsApp General check messages:
+    // e.g. "Can you check any recent messages from WhatsApp?", "check my recent whatsapp messages", "who texted me on whatsapp", "read whatsapp messages"
+    if (
+      /\b(?:check|read|get|show|view|fetch|see)\s+(?:any\s+|my\s+)?(?:recent\s+|latest\s+)?(?:whatsapp|wa)\s*(?:messages?|chats?|texts?)?\b/i.test(p) ||
+      /\b(?:check|read|get|show|view|fetch|see)\s+(?:any\s+|my\s+)?(?:recent\s+|latest\s+)?(?:messages?|chats?|texts?)\s+(?:from|on|in)\s+(?:whatsapp|wa)\b/i.test(p) ||
+      /\b(?:who\s+(?:texted|messaged)\s+me(?:\s+on\s+whatsapp)?)\b/i.test(p) ||
+      /\b(?:recent\s+whatsapp\s+messages?)\b/i.test(p) ||
+      /\b(?:any\s+(?:new\s+|recent\s+)?messages?|did\s+i\s+get\s+any\s+messages?)\s+(?:from|on|in)\s+(?:whatsapp|wa)\b/i.test(p) ||
+      /^(?:whatsapp|wa)\s+(?:messages?|chats?|texts?)$/i.test(p) ||
+      /\bcheck\s+if\s+anyone\s+(?:texted|messaged)\s+me\s+on\s+whatsapp\b/i.test(p)
+    ) {
       return { tool: 'get_whatsapp_recent_messages', args: { limit: 5 } };
     }
 
     // 4. Fast WhatsApp Status intent: e.g. "whatsapp status", "is whatsapp connected"
-    if (/\b(whatsapp|wa)\s+status\b/i.test(p) || /\bis\s+whatsapp\s+(connected|linked)\b/i.test(p)) {
+    if (/\b(?:whatsapp|wa)\s+status\b/i.test(p) || /\bis\s+whatsapp\s+(?:connected|linked|active)\b/i.test(p)) {
       return { tool: 'get_whatsapp_status', args: {} };
     }
 
-    // 5. Fast Contact Specific Message Check: e.g. "what did rajbir send me", "check messages from alex"
-    const whatDidMatch = p.match(/^what\s+did\s+([a-zA-Z0-9_\-]+)\s+(?:send|sent|sended|text|texted|write|wrote|say)(?:\s+me)?(?:\s+on\s+whatsapp)?/i);
-    const checkFromMatch = p.match(/^(?:check|read|show|view|see)\s+(?:messages?|texts?|chats?)\s+from\s+([a-zA-Z0-9_\-]+)/i);
-    const checkPersonMatch = p.match(/^(?:check|read|show|view|see)\s+([a-zA-Z0-9_\-]+)'s\s*(?:messages?|texts?|chats?)/i);
-    const matchedContact = whatDidMatch?.[1] || checkFromMatch?.[1] || checkPersonMatch?.[1];
+    // 5. Fast Contact Specific Message Check:
+    // e.g. "Did Rajbir sended any message to me?", "Did Papa send anything?", "Has Rajbir sent any message?", "What did Rajbir send me?", "Check messages from Rajbir"
+    const didMatch = p.match(/^(?:can\s+you\s+)?(?:did|has)\s+([a-zA-Z0-9_\-\s]+?)\s+(?:send|sent|sended|text|texted|write|wrote|say|drop|leave|message|messaged)\s+(?:(?:to\s+)?(?:me|us)\s+)?(?:any|a\s+)?(?:messages?|texts?|chats?|anything)?(?:\s+(?:to\s+)?(?:me|us))?/i);
+    const didMsgMeMatch = p.match(/^(?:can\s+you\s+)?(?:did|has)\s+([a-zA-Z0-9_\-\s]+?)\s+(?:message|messaged)\s+(?:me|us)/i);
+    const whatDidMatch = p.match(/^(?:can\s+you\s+)?what\s+did\s+([a-zA-Z0-9_\-\s]+?)\s+(?:send|sent|sended|text|texted|write|wrote|say)(?:\s+me)?(?:\s+on\s+whatsapp)?/i);
+    const anyMsgFromMatch = p.match(/^(?:(?:are\s+there\s+)?any\s+(?:new\s+|recent\s+)?messages?\s+(?:from|by)\s+([a-zA-Z0-9_\-\s]+?))(?:\s+on\s+whatsapp|\s*\?|$)/i);
+    const checkFromMatch = p.match(/^(?:can\s+you\s+)?(?:check|read|show|view|see|get|find)\s+(?:messages?|texts?|chats?)\s+from\s+([a-zA-Z0-9_\-\s]+)/i);
+    const checkPersonMatch = p.match(/^(?:can\s+you\s+)?(?:check|read|show|view|see|get|find)\s+([a-zA-Z0-9_\-\s]+?)\x27s\s*(?:messages?|texts?|chats?)/i);
+
+    const matchedContact = didMatch?.[1] || didMsgMeMatch?.[1] || whatDidMatch?.[1] || anyMsgFromMatch?.[1] || checkFromMatch?.[1] || checkPersonMatch?.[1];
 
     if (matchedContact) {
-      const contactClean = matchedContact.trim();
-      const forbidden = ['you', 'the', 'my', 'recent', 'latest', 'whatsapp', 'wa', 'pc', 'system', 'it'];
+      const contactClean = matchedContact.trim().replace(/^(?:the\s+)/i, '');
+      const forbidden = ['you', 'the', 'my', 'recent', 'latest', 'whatsapp', 'wa', 'pc', 'system', 'it', 'anyone', 'someone', 'i', 'we', 'they'];
       if (!forbidden.includes(contactClean.toLowerCase())) {
         return { tool: 'get_whatsapp_recent_messages', args: { contact_name: contactClean } };
       }
@@ -1991,12 +2152,17 @@ class AgentBrain {
         p === 'play music' || p === 'plau some music') {
       return { tool: 'play_music', args: { song: 'lofi chill mix' } };
     }
-    const playSongMatch = p.match(/^(?:pla[yu]|pleay)\s+(?:the\s+song\s+|track\s+)?(.+?)(?:\s+(?:on|in)\s+(?:youtube\s*music|spotify|browser|youtube))?$/i);
+    const playSongMatch = p.match(/^(?:pla[yu]|pleay)\s+(?:the\s+song\s+|track\s+)?(.+?)(?:\s+(?:on|in)\s+(youtube\s*music|yt\s*music|spotify|browser|youtube))?$/i);
     if (playSongMatch) {
       const songQuery = playSongMatch[1].trim();
+      const platformRaw = (playSongMatch[2] || '').toLowerCase().replace(/\s+/g, '');
       const nonMusicTerms = ['game', 'games', 'around', 'with', 'store', 'it', 'video', 'rule', 'role', 'file'];
       if (!nonMusicTerms.includes(songQuery.toLowerCase())) {
-        return { tool: 'play_music', args: { song: songQuery } };
+        let platform = undefined;
+        if (platformRaw === 'spotify') platform = 'spotify';
+        else if (platformRaw === 'youtube') platform = 'youtube';
+        else if (platformRaw.includes('music')) platform = 'ytmusic';
+        return { tool: 'play_music', args: { song: songQuery, ...(platform ? { platform } : {}) } };
       }
     }
     if (/^(?:pause|stop)\s+(?:the\s+)?(?:music|song|playback|audio)$/i.test(p) || p === 'pause music' || p === 'stop music') {
@@ -2159,6 +2325,10 @@ User: ${config.userNickname || config.userName || 'Friend'}.
 Tone: ${config.userTone || 'warm, friendly, direct'}.
 Provide comprehensive, structured, in-depth responses like ChatGPT. When live web search grounding is provided, answer directly with the real-time facts, courses, figures, and details. Use clean Markdown formatting, Markdown tables (| Column 1 | Column 2 |) for lists and structured comparisons, and styled clickable Markdown links. Avoid robotic disclaimers.${groqMem ? `\n${groqMem}` : ''}`;
       historyToUse = rawHistory.slice(-6);
+    }
+
+    if (provider === 'ollama') {
+      systemContent += `\nSTRICT TOOL EXECUTION RULE: You have access to real Windows & WhatsApp tools. When the user asks you to check messages (e.g., "Did X send me any message", "Check messages from WhatsApp"), you MUST directly call get_whatsapp_recent_messages via tool call. NEVER output code snippets, never explain how to call functions in code, and never ask the user to run code. Always execute tools directly.`;
     }
 
     const messages = [
@@ -2663,6 +2833,9 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
           'send_whatsapp_file_or_message',
           'get_whatsapp_recent_messages',
           'get_whatsapp_status',
+          'save_whatsapp_contact_alias',
+          'stop_timer',
+          'toggle_island_lock_mode',
           'open_app',
           'desktop_click',
           'desktop_type',
@@ -3200,7 +3373,12 @@ Rules:
 
         if (platform === 'ytmusic' || platform === 'youtubemusic' || platform === 'youtube_music') {
           platformName = 'YouTube Music';
-          playUrl = `https://music.youtube.com/search?q=${encodeURIComponent(cleanSong)}`;
+          const videoId = await resolveYouTubeVideoId(cleanSong);
+          if (videoId) {
+            playUrl = `https://music.youtube.com/watch?v=${videoId}`;
+          } else {
+            playUrl = `https://music.youtube.com/search?q=${encodeURIComponent(cleanSong)}`;
+          }
         } else if (platform === 'spotify') {
           platformName = 'Spotify';
           playUrl = `https://open.spotify.com/search/${encodeURIComponent(cleanSong)}`;
@@ -3224,19 +3402,16 @@ Rules:
           }
         } else {
           platformName = 'YouTube Music';
-          playUrl = `https://music.youtube.com/search?q=${encodeURIComponent(cleanSong)}`;
+          const videoId = await resolveYouTubeVideoId(cleanSong);
+          if (videoId) {
+            playUrl = `https://music.youtube.com/watch?v=${videoId}`;
+          } else {
+            playUrl = `https://music.youtube.com/search?q=${encodeURIComponent(cleanSong)}`;
+          }
         }
 
         console.log(`[AgentBrain] Opening ${platformName} in browser: ${playUrl}`);
         await shell.openExternal(playUrl);
-
-        // Bring browser to front so user sees their song playing
-        setTimeout(async () => {
-          await runPowerShell('-action focus -app msedge');
-          await runPowerShell('-action focus -app chrome');
-          await runPowerShell('-action focus -app brave');
-          await runPowerShell('-action focus -app firefox');
-        }, 1200);
 
         return { success: true, message: `Playing "${cleanSong}" on ${platformName} in your browser 🎵` };
       }
@@ -3272,33 +3447,14 @@ Rules:
         const videoId = await resolveYouTubeVideoId(query);
 
         if (videoId) {
-          const directUrl = `https://www.youtube.com/watch?v=${videoId}`;
+          const directUrl = `https://www.youtube.com/watch?v=${videoId}&autoplay=1`;
           await shell.openExternal(directUrl);
-          setTimeout(async () => {
-            await runPowerShell('-action focus -app msedge');
-            await runPowerShell('-action focus -app chrome');
-            await runPowerShell('-action focus -app brave');
-            await runPowerShell('-action focus -app firefox');
-          }, 1500);
           return { success: true, message: `Opened and playing top video for "${query}" on YouTube 🎬` };
         }
 
         const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
         await shell.openExternal(url);
-
-        setTimeout(async () => {
-          await runPowerShell('-action focus -app chrome');
-          await runPowerShell('-action focus -app brave');
-          await runPowerShell('-action focus -app msedge');
-          await runPowerShell('-action focus -app firefox');
-
-          const display = screen.getPrimaryDisplay();
-          const targetX = Math.round(display.size.width * 0.42);
-          const targetY = Math.round(display.size.height * 0.36);
-          await runPowerShell(`-action click -x ${targetX} -y ${targetY} -durationMs 380`);
-        }, 1800);
-
-        return { success: true, message: `Searched "${query}" on YouTube and clicked first result.` };
+        return { success: true, message: `Opened search results for "${query}" on YouTube 🎬` };
       }
 
       case 'browser_search': {
@@ -3814,6 +3970,12 @@ Rules:
         if ((!filePath || !fs.existsSync(filePath)) && attachPath && fs.existsSync(attachPath)) {
           filePath = attachPath;
         }
+        if (!filePath || !fs.existsSync(filePath)) {
+          const selected = this.getSelectedExplorerFiles();
+          if (selected && selected.length > 0 && fs.existsSync(selected[0])) {
+            filePath = selected[0];
+          }
+        }
         return await this.handleWhatsAppSend({ contactOrPhone, message, filePath });
       }
 
@@ -3845,28 +4007,68 @@ Rules:
         }
 
         if (targetContact) {
+          let resolvedJid = null;
+          if (openwaWorkspace && openwaWorkspace.resolveTargetJid) {
+            try { resolvedJid = openwaWorkspace.resolveTargetJid(targetContact); } catch (_) {}
+          }
+          const cleanPhone = targetContact.replace(/[^0-9]/g, '');
+          const resolvedPhone = resolvedJid ? resolvedJid.replace(/[^0-9]/g, '') : null;
+
           const matched = allChats.filter((c) => {
             const name = (c.name || c.formattedTitle || '').toLowerCase();
             const id = (c.id || c.jid || '').toLowerCase();
             const msg = (c.lastMessage?.body || '').toLowerCase();
+
+            if (resolvedJid && (id === resolvedJid.toLowerCase() || (resolvedPhone && resolvedPhone.length >= 7 && id.includes(resolvedPhone)))) {
+              return true;
+            }
+            if (cleanPhone && cleanPhone.length >= 7 && id.includes(cleanPhone)) {
+              return true;
+            }
             return name.includes(targetContact) || id.includes(targetContact) || msg.includes(targetContact);
           });
 
           if (matched.length > 0) {
-            const formatted = matched.slice(0, limit).map((c, i) => {
-              const name = openwaWorkspace.formatChatName ? openwaWorkspace.formatChatName(c) : (c.name || c.formattedTitle || c.id || `Chat ${i + 1}`);
-              const lastMsg = c.lastMessage ? (typeof c.lastMessage === 'string' ? c.lastMessage : (c.lastMessage.body || c.lastMessage.type || '')) : '';
-              const timeStr = c.timestamp ? ` *(${formatRelativeTime(c.timestamp)})*` : '';
-              const unread = c.unreadCount ? ` [${c.unreadCount} unread]` : '';
-              return `${i + 1}. **${name}**${unread}${timeStr}:\n   "${lastMsg}"`;
-            }).join('\n\n');
+            const primary = matched[0];
+            const chatName = openwaWorkspace.formatChatName ? openwaWorkspace.formatChatName(primary) : (primary.name || primary.formattedTitle || args.contact_name);
+            const lastMsg = primary.lastMessage ? (typeof primary.lastMessage === 'string' ? primary.lastMessage : (primary.lastMessage.body || primary.lastMessage.type || '')) : '';
+            const isFromMe = !!primary.fromMe || !!primary.lastMessage?.fromMe;
+            const timeStr = primary.timestamp ? formatRelativeTime(primary.timestamp) : '';
+
+            let responseMsg = '';
+            if (isFromMe) {
+              responseMsg = `ℹ️ **${chatName}** has not sent any new messages recently.\n\nThe last message in this chat was sent by **You** *(${timeStr})*:\n> "${lastMsg}"`;
+            } else {
+              responseMsg = `📩 **New message from ${chatName}** *(${timeStr})*:\n> "${lastMsg}"`;
+            }
+
+            if (matched.length > 1) {
+              const others = matched.slice(1, limit).map((c, i) => {
+                const cName = openwaWorkspace.formatChatName ? openwaWorkspace.formatChatName(c) : (c.name || c.formattedTitle || `Chat ${i + 2}`);
+                const cMsg = c.lastMessage ? (typeof c.lastMessage === 'string' ? c.lastMessage : (c.lastMessage.body || '')) : '';
+                const cSender = c.fromMe ? 'You' : cName;
+                const cTime = c.timestamp ? ` *(${formatRelativeTime(c.timestamp)})*` : '';
+                return `• **${cName}** (${cSender}${cTime}): "${cMsg}"`;
+              }).join('\n');
+              responseMsg += `\n\n**Other matching conversations:**\n${others}`;
+            }
+
             return {
               success: true,
-              message: `📱 **WhatsApp Messages matching "${args.contact_name || args.contact_or_name || args.contact}":**\n\n${formatted}`,
+              message: responseMsg,
             };
           }
 
-          // If not in cache, do not launch native desktop app; show latest active conversations
+          // If not in cache, check if contact exists in contacts book
+          if (resolvedJid || (openwaWorkspace.contacts && Object.values(openwaWorkspace.contacts).some(n => (n || '').toLowerCase().trim() === targetContact))) {
+            const contactDisplayName = resolvedJid && openwaWorkspace.formatChatName ? openwaWorkspace.formatChatName(resolvedJid) : (args.contact_name || args.contact_or_name || targetContact);
+            return {
+              success: true,
+              message: `ℹ️ Found **${contactDisplayName}** in your WhatsApp contacts, but there are no recent messages or unread texts from them.`,
+            };
+          }
+
+          // If not found in contacts, show latest active conversations
           const topPreviews = allChats.slice(0, 3).map((c, i) => {
             const name = openwaWorkspace.formatChatName ? openwaWorkspace.formatChatName(c) : (c.name || c.formattedTitle || `Chat ${i + 1}`);
             const timeStr = c.timestamp ? ` *(${formatRelativeTime(c.timestamp)})*` : '';
@@ -3884,9 +4086,10 @@ Rules:
           const formatted = allChats.slice(0, limit).map((c, i) => {
             const name = openwaWorkspace.formatChatName ? openwaWorkspace.formatChatName(c) : (c.name || c.formattedTitle || c.id || `Chat ${i + 1}`);
             const lastMsg = c.lastMessage ? (typeof c.lastMessage === 'string' ? c.lastMessage : (c.lastMessage.body || c.lastMessage.type || '')) : '';
+            const sender = c.fromMe ? 'You' : name;
             const timeStr = c.timestamp ? ` *(${formatRelativeTime(c.timestamp)})*` : '';
             const unread = c.unreadCount ? ` [${c.unreadCount} unread]` : '';
-            return `${i + 1}. **${name}**${unread}${timeStr}:\n   "${lastMsg}"`;
+            return `${i + 1}. **${name}**${unread}${timeStr}:\n   *${sender}:* "${lastMsg}"`;
           }).join('\n\n');
           return { success: true, message: `📱 **Recent WhatsApp Chats:**\n\n${formatted}` };
         }
@@ -3931,6 +4134,37 @@ Rules:
           success: false,
           message: 'WhatsApp is currently not connected. Click **Link WhatsApp** in the Workspace tab to scan and link.',
         };
+      }
+
+      case 'stop_timer': {
+        return await this.stopAllTimers();
+      }
+
+      case 'toggle_island_lock_mode': {
+        return await this.toggleIslandLockMode(args.locked);
+      }
+
+      case 'save_whatsapp_contact_alias': {
+        let openwaWorkspace = null;
+        try { openwaWorkspace = require('./openwa_workspace'); } catch (e) {}
+        if (!openwaWorkspace) {
+          return { success: false, message: 'WhatsApp module is not available.' };
+        }
+        const name = args.name || args.contact || args.alias;
+        const phone = args.phone || args.phone_number || args.number;
+        if (!name || !phone) {
+          return { success: false, message: 'Please specify both the contact name and their phone number.' };
+        }
+        const ok = openwaWorkspace.setContactAlias(name, phone);
+        if (ok) {
+          const cleanDigits = String(phone).replace(/[^\d]/g, '');
+          const formatted = openwaWorkspace.formatPhoneNumber ? openwaWorkspace.formatPhoneNumber(cleanDigits.length === 10 ? '91' + cleanDigits : cleanDigits) : phone;
+          return {
+            success: true,
+            message: `🟢 **WhatsApp Contact Saved!**\n\nLinked **"${name}"** to **${formatted || phone}**.\nYou can now directly say: \"Send message to ${name}...\"`,
+          };
+        }
+        return { success: false, message: `Could not save alias for "${name}".` };
       }
 
       case 'open_app': {
@@ -4539,6 +4773,19 @@ Rules:
       (this.activeContext && this.activeContext.attachedFile && (this.activeContext.attachedFile.path || this.activeContext.attachedFile)) || null;
     if ((!resolvedFilePath || !fs.existsSync(resolvedFilePath)) && attachPath && fs.existsSync(attachPath)) {
       resolvedFilePath = attachPath;
+    }
+    if (!resolvedFilePath || !fs.existsSync(resolvedFilePath)) {
+      const selected = this.getSelectedExplorerFiles();
+      if (selected && selected.length > 0 && fs.existsSync(selected[0])) {
+        resolvedFilePath = selected[0];
+      }
+    }
+
+    if (!resolvedFilePath && (!message || !message.trim())) {
+      return {
+        success: false,
+        message: `❓ No file or message was found to send.\n\nPlease select a file in File Explorer with one left-click (or drag and drop it here into Grokki), then say: **"Send it to ${contactName || contactOrPhone}"**!`,
+      };
     }
 
     // 4. Primary: Send via background embedded engine (Zero desktop app popup)

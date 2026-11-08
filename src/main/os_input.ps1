@@ -50,6 +50,9 @@ public class OSInputEngine {
     public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
     public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     [DllImport("user32.dll")]
@@ -136,9 +139,26 @@ public class OSInputEngine {
 
     public static bool FocusProcess(string procName) {
         Process[] procs = Process.GetProcessesByName(procName);
+        // Priority 1: Window with a real non-empty title (skips background helper/worker handles)
+        foreach (var p in procs) {
+            if (p.MainWindowHandle != IntPtr.Zero && !string.IsNullOrEmpty(p.MainWindowTitle)) {
+                if (IsIconic(p.MainWindowHandle)) {
+                    ShowWindow(p.MainWindowHandle, 9); // SW_RESTORE only if actually minimized
+                } else {
+                    ShowWindow(p.MainWindowHandle, 5); // SW_SHOW
+                }
+                SetForegroundWindow(p.MainWindowHandle);
+                return true;
+            }
+        }
+        // Priority 2: Fallback to any non-zero handle
         foreach (var p in procs) {
             if (p.MainWindowHandle != IntPtr.Zero) {
-                ShowWindow(p.MainWindowHandle, 9); // SW_RESTORE
+                if (IsIconic(p.MainWindowHandle)) {
+                    ShowWindow(p.MainWindowHandle, 9);
+                } else {
+                    ShowWindow(p.MainWindowHandle, 5);
+                }
                 SetForegroundWindow(p.MainWindowHandle);
                 return true;
             }

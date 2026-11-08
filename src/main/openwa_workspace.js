@@ -112,9 +112,11 @@ class OpenWAWorkspaceManager {
     this.recentChatsFile = path.join(this.dataDir, 'whatsapp_recent_chats.json');
     this.groupsFile = path.join(this.dataDir, 'whatsapp_groups.json');
     this.contactsFile = path.join(this.dataDir, 'whatsapp_contacts.json');
+    this.customContactsFile = path.join(this.dataDir, 'whatsapp_custom_contacts.json');
 
     this.groupNames = this.loadGroupNames();
     this.contacts = this.loadContacts();
+    this.customContacts = this.loadCustomContacts();
 
     // Remote Gateway state
     this.client = null;
@@ -202,6 +204,45 @@ class OpenWAWorkspaceManager {
     } catch (e) {}
   }
 
+  loadCustomContacts() {
+    try {
+      if (fs.existsSync(this.customContactsFile)) {
+        const raw = JSON.parse(fs.readFileSync(this.customContactsFile, 'utf8'));
+        if (typeof raw === 'object' && raw !== null) {
+          for (const [key, jid] of Object.entries(raw)) {
+            if (typeof jid === 'string' && jid.includes('@') && this.contacts && !this.contacts[jid]) {
+              this.contacts[jid] = key.charAt(0).toUpperCase() + key.slice(1);
+            }
+          }
+          return raw;
+        }
+      }
+    } catch (e) {}
+    return {};
+  }
+
+  saveCustomContacts() {
+    try {
+      fs.writeFileSync(this.customContactsFile, JSON.stringify(this.customContacts, null, 2), 'utf8');
+    } catch (e) {}
+  }
+
+  setContactAlias(name, phoneOrJid) {
+    if (!name || !phoneOrJid) return false;
+    const cleanName = String(name).trim();
+    const lower = cleanName.toLowerCase();
+    const normName = lower.replace(/[()_.-]/g, ' ').replace(/\s+/g, ' ').trim();
+    const digits = String(phoneOrJid).replace(/[^\d]/g, '');
+    const jid = digits.length >= 7 ? `${digits.length === 10 ? '91' + digits : digits}@s.whatsapp.net` : String(phoneOrJid).trim();
+    this.customContacts[lower] = jid;
+    this.customContacts[normName] = jid;
+    if (this.contacts) {
+      this.contacts[jid] = cleanName;
+    }
+    this.saveCustomContacts();
+    return true;
+  }
+
   formatPhoneNumber(digits) {
     if (!digits) return '';
     const clean = String(digits).replace(/[^\d]/g, '');
@@ -234,14 +275,12 @@ class OpenWAWorkspaceManager {
 
   formatChatName(chatOrJid) {
     let jid = '';
-    let fromMe = false;
     let fallbackName = null;
 
     if (typeof chatOrJid === 'string') {
       jid = chatOrJid;
     } else if (chatOrJid && typeof chatOrJid === 'object') {
       jid = chatOrJid.jid || chatOrJid.id || '';
-      fromMe = !!chatOrJid.fromMe;
       fallbackName = chatOrJid.name || chatOrJid.formattedTitle || null;
     }
 
@@ -249,7 +288,7 @@ class OpenWAWorkspaceManager {
 
     // Group chat (@g.us)
     if (jid.endsWith('@g.us')) {
-      const subject = this.groupNames[jid];
+      const subject = (this.groupNames && this.groupNames[jid]);
       if (subject) return `👥 ${subject}`;
       return '👥 Group Chat';
     }
@@ -259,21 +298,29 @@ class OpenWAWorkspaceManager {
       return '🤖 Meta AI';
     }
 
-    // Outgoing from user
-    if (fromMe) {
-      return 'You';
+    // Only identify as user self if the remote JID is literally the user's own number
+    const ownPhone = this.localUserPhone || this.getSavedUserPhone();
+    if (ownPhone && jid.replace(/[^0-9]/g, '') === ownPhone.replace(/[^0-9]/g, '')) {
+      return 'You (Saved Messages)';
+    }
+
+    // Custom user contact alias
+    if (this.customContacts) {
+      for (const [alias, targetJid] of Object.entries(this.customContacts)) {
+        if (targetJid === jid) return alias;
+      }
     }
 
     // Saved contact name (direct or via LID->Phone reverse mapping)
-    if (this.contacts[jid]) {
+    if (this.contacts && this.contacts[jid]) {
       return this.contacts[jid];
     }
     const phoneJid = jid.endsWith('@lid') ? this.resolveLidToPhone(jid) : null;
-    if (phoneJid && this.contacts[phoneJid]) {
+    if (phoneJid && this.contacts && this.contacts[phoneJid]) {
       return this.contacts[phoneJid];
     }
 
-    // If a human name was supplied (not a formatted or raw phone number)
+    // If a human name was supplied (not a formatted or raw phone number or 'You')
     if (fallbackName && !fallbackName.startsWith('+') && !/^\d+$/.test(fallbackName) && fallbackName !== 'Contact' && fallbackName !== 'You') {
       return fallbackName;
     }
@@ -289,6 +336,14 @@ class OpenWAWorkspaceManager {
       if (fs.existsSync(this.recentChatsFile)) {
         const raw = JSON.parse(fs.readFileSync(this.recentChatsFile, 'utf8'));
         if (Array.isArray(raw)) {
+          raw.forEach((c) => {
+            const jid = c.id || c.jid;
+            const properName = this.formatChatName({ jid, name: (c.name !== 'You' ? c.name : null) });
+            if (properName && properName !== 'Unknown' && properName !== 'You') {
+              c.name = properName;
+              c.formattedTitle = properName;
+            }
+          });
           raw.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
           return raw;
         }
@@ -412,7 +467,7 @@ class OpenWAWorkspaceManager {
       }).catch(() => {});
     }
 
-    const title = this.formatChatName({ jid, fromMe: isFromMe, name: sender });
+    const title = this.formatChatName({ jid, name: sender });
 
     // Robust timestamp extraction supporting protobuf Long, Number, and BigInt
     const rawTs = m.messageTimestamp;
@@ -709,8 +764,20 @@ class OpenWAWorkspaceManager {
         }
       });
 
-      sock.ev.on('messaging-history.set', async ({ messages }) => {
+      sock.ev.on('messaging-history.set', async ({ messages, contacts: histContacts }) => {
         try {
+          if (Array.isArray(histContacts)) {
+            let changed = false;
+            for (const c of histContacts) {
+              // Prefer user's saved address book name (c.name) over public push name (c.notify)
+              const name = c.name || c.notify || c.verifiedName;
+              if (c.id && name) {
+                this.contacts[c.id] = name;
+                changed = true;
+              }
+            }
+            if (changed) this.saveContacts();
+          }
           if (Array.isArray(messages)) {
             for (const m of messages) {
               await this.processMessage(m, 'history');
@@ -720,13 +787,31 @@ class OpenWAWorkspaceManager {
         } catch (err) {}
       });
 
+      // Handle initial contacts set from phone
+      sock.ev.on('contacts.set', ({ contacts: newContacts }) => {
+        try {
+          if (Array.isArray(newContacts)) {
+            let changed = false;
+            for (const c of newContacts) {
+              const name = c.name || c.notify || c.verifiedName;
+              if (c.id && name) {
+                this.contacts[c.id] = name;
+                changed = true;
+              }
+            }
+            if (changed) this.saveContacts();
+          }
+        } catch (e) {}
+      });
+
       // Handle contacts updates
       sock.ev.on('contacts.upsert', (newContacts) => {
         try {
           if (Array.isArray(newContacts)) {
             let changed = false;
             for (const c of newContacts) {
-              const name = c.notify || c.name || c.verifiedName;
+              // Prefer address book name (c.name) so push names don't overwrite user saved names
+              const name = c.name || c.notify || c.verifiedName;
               if (c.id && name) {
                 this.contacts[c.id] = name;
                 changed = true;
@@ -742,7 +827,7 @@ class OpenWAWorkspaceManager {
           if (Array.isArray(updates)) {
             let changed = false;
             for (const c of updates) {
-              const name = c.notify || c.name || c.verifiedName;
+              const name = c.name || c.notify || c.verifiedName;
               if (c.id && name) {
                 this.contacts[c.id] = name;
                 changed = true;
@@ -1077,30 +1162,67 @@ class OpenWAWorkspaceManager {
     }
 
     const lower = clean.toLowerCase();
+    const normTarget = lower.replace(/[()_.-]/g, ' ').replace(/\s+/g, ' ').trim();
 
-    // 1. Check known WhatsApp groups
-    for (const [jid, groupTitle] of Object.entries(this.groupNames || {})) {
-      if (groupTitle && (groupTitle.toLowerCase() === lower || groupTitle.toLowerCase().includes(lower))) {
-        return jid;
-      }
+    // 0. User custom saved aliases (Highest Priority)
+    if (this.customContacts) {
+      if (this.customContacts[normTarget]) return this.customContacts[normTarget];
+      if (this.customContacts[lower]) return this.customContacts[lower];
     }
 
-    // 2. Check known contacts
+    // 1. Exact match on known contacts (Highest Priority)
     for (const [jid, contactName] of Object.entries(this.contacts || {})) {
-      if (contactName && (contactName.toLowerCase() === lower || contactName.toLowerCase().includes(lower))) {
+      if (!contactName) continue;
+      const cLower = contactName.toLowerCase().trim();
+      if (cLower === lower) {
+        return this.resolveLidToPhone(jid) || jid;
+      }
+      const normName = cLower.replace(/[()_.-]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (normName === normTarget) {
         return this.resolveLidToPhone(jid) || jid;
       }
     }
 
-    // 3. Check recent chats by title
+    // 2. Exact match on known WhatsApp groups
+    for (const [jid, groupTitle] of Object.entries(this.groupNames || {})) {
+      if (!groupTitle) continue;
+      const gLower = groupTitle.toLowerCase().trim();
+      if (gLower === lower) return jid;
+      const normGroup = gLower.replace(/[()_.-]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (normGroup === normTarget) return jid;
+    }
+
+    // 3. Exact match on recent chats
     for (const c of (this.recentChats || [])) {
-      const cName = (c.name || c.formattedTitle || '').toLowerCase();
-      if (cName && (cName === lower || cName.includes(lower))) {
+      const cName = (c.name || c.formattedTitle || '').toLowerCase().trim();
+      if (cName && (cName === lower || cName.replace(/[()_.-]/g, ' ').replace(/\s+/g, ' ').trim() === normTarget)) {
         return c.jid || c.id;
       }
     }
 
-    // 4. Check phone number digits
+    // 4. Contact starts with target name (e.g. 'Mom (Jio)', 'Mom Home', 'Papa 2' starts with 'Mom'/'Papa')
+    // CRITICAL: NEVER match when target appears AFTER another name (e.g. 'Ankur Mom' for query 'Mom' is STRICTLY REJECTED)
+    for (const [jid, contactName] of Object.entries(this.contacts || {})) {
+      if (!contactName) continue;
+      const cLower = contactName.toLowerCase().trim();
+      if (cLower.startsWith(lower + ' ') || cLower.startsWith(lower + '(') || cLower.startsWith(lower + '-') || cLower.startsWith(lower + '/')) {
+        return this.resolveLidToPhone(jid) || jid;
+      }
+    }
+
+    // 5. Multi-word exact query match (ONLY if user query has 2+ words, e.g. user literally asked for 'Ankur Mom' or 'Papa 2 (Jio)')
+    if (lower.split(/\s+/).length >= 2) {
+      for (const [jid, contactName] of Object.entries(this.contacts || {})) {
+        if (!contactName) continue;
+        const cLower = contactName.toLowerCase().trim();
+        const normName = cLower.replace(/[()_.-]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (normName === normTarget || normName.includes(normTarget)) {
+          return this.resolveLidToPhone(jid) || jid;
+        }
+      }
+    }
+
+    // 6. Check phone number digits
     const digits = clean.replace(/[^\d]/g, '');
     if (digits.length >= 7) {
       const normalized = digits.length === 10 ? `91${digits}` : digits;
