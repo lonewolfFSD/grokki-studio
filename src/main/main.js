@@ -1,8 +1,14 @@
+// Immediate environment & credential resolution before any modules are loaded
+try {
+  require('./env_loader').loadEnv();
+} catch (_) {}
+
 const { app, BrowserWindow, globalShortcut, ipcMain, shell, Tray, Menu, screen, nativeImage, desktopCapturer, session, clipboard, ClipboardItem } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { exec, spawn } = require('child_process');
+const { getPythonPath, resolveScriptPath } = require('./python_finder');
 
 process.on('uncaughtException', (err) => {
   console.error('[Main] Uncaught Exception:', err?.message || err);
@@ -36,14 +42,6 @@ const { getDataDir } = require('./data_dir');
 const grokkiDataDir = getDataDir();
 if (!app.isPackaged) {
   try { app.setPath('userData', grokkiDataDir); } catch (e) {}
-}
-
-// Robust multi-path environment & credential loader
-try {
-  const { loadEnv } = require('./env_loader');
-  loadEnv();
-} catch (e) {
-  console.warn('[Main] env_loader init error:', e?.message || e);
 }
 
 // Config file in userData
@@ -607,7 +605,7 @@ function toggleWindow() {
 }
 
 // --- HITODAMA: GLOBAL FILE DRAG & DROP DETECTION ---
-const dragWatcherScript = path.join(__dirname, 'drag_watcher.ps1');
+const dragWatcherScript = path.join(__dirname, 'drag_watcher.ps1').replace('app.asar', 'app.asar.unpacked');
 let dragWatcherProcess = null;
 let autoSpawnedByDrag = false;
 let dragHideTimer = null;
@@ -2410,8 +2408,8 @@ ipcMain.handle('jarvis:clear-clipboard-history', () => {
   return clipboardHistory;
 });
 
-const osControlsScript = path.join(__dirname, 'os_controls.ps1');
-const osVolumeScript = path.join(__dirname, 'os_volume.ps1');
+const osControlsScript = path.join(__dirname, 'os_controls.ps1').replace('app.asar', 'app.asar.unpacked');
+const osVolumeScript = path.join(__dirname, 'os_volume.ps1').replace('app.asar', 'app.asar.unpacked');
 
 // --- FAST OS MASTER VOLUME DAEMON (0ms Real-Time Windows Scalar Volume) ---
 let volumeDaemon = null;
@@ -3283,7 +3281,7 @@ ipcMain.handle('jarvis:launch-installed-game', async (event, game = {}) => {
 });
 
 // Real Windows GSMTC Media + Wi-Fi SSID + Bluetooth + Audio Output Device
-const mediaStatusScript = path.join(__dirname, 'get_media_status.ps1');
+const mediaStatusScript = path.join(__dirname, 'get_media_status.ps1').replace('app.asar', 'app.asar.unpacked');
 let cachedLiveMedia = null;
 let liveMediaInProgress = false;
 
@@ -3725,15 +3723,13 @@ agentBrain.onPresentationToggle = (active, mode = 'presentation') => {
 };
 
 function getPythonExecutable() {
-  const customPath = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Python', 'Python314', 'python.exe');
-  if (fs.existsSync(customPath)) return customPath;
-  return process.platform === 'win32' ? 'python' : 'python3';
+  return getPythonPath();
 }
 
 function startHandGestureDaemon(initialMode = 'presentation') {
   stopHandGestureDaemon();
 
-  const daemonPath = path.join(__dirname, 'hand_gesture_daemon.py');
+  const daemonPath = resolveScriptPath('hand_gesture_daemon.py');
   if (!fs.existsSync(daemonPath)) {
     console.warn('[Presentation] hand_gesture_daemon.py not found at', daemonPath);
     return;
@@ -3743,7 +3739,7 @@ function startHandGestureDaemon(initialMode = 'presentation') {
     const pythonExe = getPythonExecutable();
     // '-u' is critical: forces unbuffered binary stdout so gestures are delivered with 0ms delay!
     handGestureProcess = spawn(pythonExe, ['-u', daemonPath, '--mode', initialMode], {
-      cwd: path.join(__dirname, '../../'),
+      cwd: path.dirname(daemonPath),
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
       env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' },

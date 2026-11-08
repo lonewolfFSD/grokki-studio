@@ -66,7 +66,88 @@ function loadEnv() {
   // Ensure JSON credential files exist in userData and data/ for Google, GitHub, Notion
   syncJsonCredentials(userDataDir);
 
+  // If environment variables were still missing, parse credentials JSON files directly into process.env
+  recoverEnvFromCredentialFiles(userDataDir);
+
   isLoaded = true;
+}
+
+function recoverEnvFromCredentialFiles(userDataDir) {
+  // Google
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    const candidateFiles = [
+      userDataDir ? path.join(userDataDir, 'google_credentials.json') : null,
+      userDataDir ? path.join(userDataDir, 'data', 'google_credentials.json') : null,
+      path.resolve(__dirname, '../../data/google_credentials.json'),
+      path.resolve(__dirname, '../../../data/google_credentials.json'),
+      process.resourcesPath ? path.join(process.resourcesPath, 'data', 'google_credentials.json') : null,
+      'E:\\Grokki Studio\\data\\google_credentials.json',
+    ].filter(Boolean);
+
+    for (const f of candidateFiles) {
+      if (fs.existsSync(f)) {
+        try {
+          const raw = JSON.parse(fs.readFileSync(f, 'utf8'));
+          const creds = raw.installed || raw.web || raw;
+          if (creds && creds.client_id && creds.client_secret) {
+            if (!process.env.GOOGLE_CLIENT_ID) process.env.GOOGLE_CLIENT_ID = creds.client_id;
+            if (!process.env.GOOGLE_CLIENT_SECRET) process.env.GOOGLE_CLIENT_SECRET = creds.client_secret;
+            break;
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  // GitHub
+  if (!process.env.GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET) {
+    const candidateFiles = [
+      userDataDir ? path.join(userDataDir, 'github_credentials.json') : null,
+      userDataDir ? path.join(userDataDir, 'data', 'github_credentials.json') : null,
+      path.resolve(__dirname, '../../data/github_credentials.json'),
+      path.resolve(__dirname, '../../../data/github_credentials.json'),
+      process.resourcesPath ? path.join(process.resourcesPath, 'data', 'github_credentials.json') : null,
+      'E:\\Grokki Studio\\data\\github_credentials.json',
+    ].filter(Boolean);
+
+    for (const f of candidateFiles) {
+      if (fs.existsSync(f)) {
+        try {
+          const raw = JSON.parse(fs.readFileSync(f, 'utf8'));
+          if (raw && raw.client_id && raw.client_secret) {
+            if (!process.env.GITHUB_CLIENT_ID) process.env.GITHUB_CLIENT_ID = raw.client_id;
+            if (!process.env.GITHUB_CLIENT_SECRET) process.env.GITHUB_CLIENT_SECRET = raw.client_secret;
+            break;
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  // Notion
+  if (!process.env.NOTION_CLIENT_ID || !process.env.NOTION_CLIENT_SECRET) {
+    const candidateFiles = [
+      userDataDir ? path.join(userDataDir, 'notion_credentials.json') : null,
+      userDataDir ? path.join(userDataDir, 'data', 'notion_credentials.json') : null,
+      path.resolve(__dirname, '../../data/notion_credentials.json'),
+      path.resolve(__dirname, '../../../data/notion_credentials.json'),
+      process.resourcesPath ? path.join(process.resourcesPath, 'data', 'notion_credentials.json') : null,
+      'E:\\Grokki Studio\\data\\notion_credentials.json',
+    ].filter(Boolean);
+
+    for (const f of candidateFiles) {
+      if (fs.existsSync(f)) {
+        try {
+          const raw = JSON.parse(fs.readFileSync(f, 'utf8'));
+          if (raw && raw.client_id && raw.client_secret) {
+            if (!process.env.NOTION_CLIENT_ID) process.env.NOTION_CLIENT_ID = raw.client_id;
+            if (!process.env.NOTION_CLIENT_SECRET) process.env.NOTION_CLIENT_SECRET = raw.client_secret;
+            break;
+          }
+        } catch (_) {}
+      }
+    }
+  }
 }
 
 function syncJsonCredentials(userDataDir) {

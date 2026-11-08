@@ -60,6 +60,13 @@ class NotionWorkspaceManager {
           const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
           const creds = raw.installed || raw.web || raw;
           if (creds.client_id && creds.client_secret) {
+            process.env.NOTION_CLIENT_ID = creds.client_id;
+            process.env.NOTION_CLIENT_SECRET = creds.client_secret;
+            try {
+              if (!fs.existsSync(this.credentialsPath)) {
+                this.saveCredentials(creds.client_id, creds.client_secret);
+              }
+            } catch (_) {}
             return { clientId: creds.client_id, clientSecret: creds.client_secret };
           }
         } catch (e) {}

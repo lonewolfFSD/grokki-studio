@@ -6,7 +6,9 @@
 
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 const readline = require('readline');
+const { getPythonPath, resolveScriptPath } = require('./python_finder');
 
 class GrokkiVoiceTTSService {
   constructor() {
@@ -16,7 +18,7 @@ class GrokkiVoiceTTSService {
     this.pendingQueue = [];
     this.initPromise = null;
     this.defaultVoice = 'expr-voice-2-f'; // Bella
-    this.pythonPath = 'python';
+    this.pythonPath = getPythonPath();
 
     // Core Grokki Neural Voice list (8 voices)
     this.voices = [
@@ -140,8 +142,10 @@ class GrokkiVoiceTTSService {
 
     this.initPromise = new Promise((resolve) => {
       try {
-        const scriptPath = path.join(__dirname, 'grokki_voice_worker.py');
-        this.workerProcess = spawn(this.pythonPath, [scriptPath], {
+        const pythonExe = getPythonPath();
+        const scriptPath = resolveScriptPath('grokki_voice_worker.py');
+        this.pythonPath = pythonExe;
+        this.workerProcess = spawn(pythonExe, [scriptPath], {
           stdio: ['pipe', 'pipe', 'pipe'],
           windowsHide: true,
         });
