@@ -2359,10 +2359,19 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       historyToUse = rawHistory.slice(-6);
     }
 
+    // Ollama Local Model Optimization: keep prompt lean & concise to eliminate 30s prompt-eval delays
     if (provider === 'ollama') {
-      systemContent += `\nSTRICT TOOL EXECUTION RULE: You have access to real Windows & WhatsApp tools. When the user asks you to check messages (e.g., "Did X send me any message", "Check messages from WhatsApp"), you MUST directly call get_whatsapp_recent_messages via tool call. NEVER output code snippets, never explain how to call functions in code, and never ask the user to run code. Always execute tools directly.`;
-      if (isWebSearchActive) {
-        systemContent += `\nREAL-TIME WEB GROUNDING MANDATE: Fresh real-time search results are provided in the user message. You MUST answer directly from these live search results to state the latest confirmed facts, dates, storylines, and details. Do NOT rely on outdated pre-training knowledge when search results are present.`;
+      const isGreeting = /^(hi|hello|hey|yo|sup|good\s+(morning|afternoon|evening|night)|howdy)\b/i.test(prompt.trim()) && prompt.trim().split(/\s+/).length <= 4;
+      if (isGreeting) {
+        systemContent = `You are Grokki, a fast, friendly AI assistant for Windows. Greet the user warmly in 1 short sentence. User: ${config.userNickname || config.userName || 'Friend'}.`;
+        historyToUse = [];
+      } else {
+        const ollamaMem = memory.persistentMemory ? memory.persistentMemory.retrieveContext(fullPrompt, { projectId: config.activeProjectId }).formattedPromptSection : '';
+        systemContent = `You are Grokki, a fast, intelligent AI assistant for Windows. Answer directly and concisely in clean Markdown. User: ${config.userNickname || config.userName || 'Friend'}. Tone: ${config.userTone || 'warm, direct'}.${ollamaMem ? `\n${ollamaMem}` : ''}`;
+        if (isWebSearchActive) {
+          systemContent += `\nREAL-TIME WEB GROUNDING: Fresh real-time search results are provided in the user message. Answer directly from these results.`;
+        }
+        historyToUse = rawHistory.slice(-4);
       }
     }
 
