@@ -529,6 +529,17 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
   }, [activeModelPull?.completed, activeModelPull?.status, checkOllama]);
 
   useEffect(() => {
+    if (window.jarvisAPI?.getActiveOllamaPull) {
+      window.jarvisAPI.getActiveOllamaPull().then((active) => {
+        if (active && !active.completed) {
+          setLocalPullingModel(active.modelName);
+          setLocalPullProgress({ status: active.status, percent: active.percent });
+        }
+      }).catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
     if (window.jarvisAPI?.onOllamaPullProgress) {
       const unsub = window.jarvisAPI.onOllamaPullProgress((data) => {
         setLocalPullProgress({
@@ -1351,7 +1362,7 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
                     />
                   </div>
                 )}
-                {activePullProgress.status && (
+                {activePullProgress.status && !activePullProgress.status.startsWith('pulling') && (
                   <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate">
                     {activePullProgress.status}
                   </span>

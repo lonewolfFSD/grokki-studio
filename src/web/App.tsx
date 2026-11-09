@@ -535,6 +535,20 @@ export const App: React.FC = () => {
   const handlePullModel = useCallback(async (modelTag: string) => {
     const target = modelTag.trim();
     if (!target) return;
+
+    // Detect if an installation is already running in background
+    if (window.jarvisAPI?.getActiveOllamaPull) {
+      try {
+        const active = await window.jarvisAPI.getActiveOllamaPull();
+        if (active && !active.completed) {
+          setActiveModelPull(active);
+          if (active.modelName === target) {
+            return;
+          }
+        }
+      } catch (_) {}
+    }
+
     setActiveModelPull({
       modelName: target,
       status: 'Starting pull...',
@@ -543,10 +557,18 @@ export const App: React.FC = () => {
     });
     try {
       if (window.jarvisAPI?.pullOllamaModel) {
-        await window.jarvisAPI.pullOllamaModel({
+        const res = await window.jarvisAPI.pullOllamaModel({
           modelName: target,
           endpoint: config.ollamaEndpoint,
         });
+        if (res?.alreadyRunning && res?.runningModel) {
+          setActiveModelPull({
+            modelName: res.runningModel,
+            status: 'Downloading...',
+            percent: res.percent || 0,
+            completed: false,
+          });
+        }
       }
     } catch (err: any) {
       console.error('Failed to pull model:', err);

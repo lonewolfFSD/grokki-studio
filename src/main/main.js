@@ -4219,6 +4219,47 @@ ipcMain.handle('jarvis:launch-ollama', async () => {
 
 let activeOllamaPull = null;
 
+function getActivePullFile() {
+  try {
+    return path.join(app.getPath('userData'), 'active_ollama_pull.json');
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveActivePullState(state) {
+  try {
+    const file = getActivePullFile();
+    if (!file) return;
+    if (!state || state.completed || state.status === 'error') {
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    } else {
+      fs.writeFileSync(file, JSON.stringify({
+        modelName: state.modelName,
+        endpoint: state.endpoint || 'http://127.0.0.1:11434',
+        status: state.status,
+        percent: state.percent || 0,
+        completed: false,
+        timestamp: state.timestamp || Date.now(),
+      }, null, 2), 'utf-8');
+    }
+  } catch (_) {}
+}
+
+function loadSavedActivePull() {
+  try {
+    const file = getActivePullFile();
+    if (file && fs.existsSync(file)) {
+      const data = JSON.parse(fs.readFileSync(file, 'utf-8'));
+      if (data && data.modelName && !data.completed && (Date.now() - (data.timestamp || 0) < 2 * 3600 * 1000)) {
+        return data;
+      }
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    }
+  } catch (_) {}
+  return null;
+}
+
 function broadcastOllamaPullProgress(payload) {
   try {
     const { BrowserWindow } = require('electron');
@@ -4230,32 +4271,26 @@ function broadcastOllamaPullProgress(payload) {
   } catch (_) {}
 }
 
-ipcMain.handle('jarvis:get-active-ollama-pull', () => activeOllamaPull);
-
-ipcMain.handle('jarvis:pull-ollama-model', async (event, { modelName, endpoint } = {}) => {
-  const ep = (endpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
-  const name = (modelName || '').trim();
-  if (!name) return { success: false, error: 'Model name is required' };
-
-  if (activeOllamaPull && activeOllamaPull.modelName === name && !activeOllamaPull.completed) {
-    return { success: true, modelName: name, alreadyRunning: true };
-  }
+function startOllamaPullStream(name, ep) {
+  const http = require('http');
+  const url = new URL(`${ep}/api/pull`);
+  const postData = JSON.stringify({ name, stream: true });
 
   activeOllamaPull = {
     modelName: name,
-    status: 'Starting pull...',
+    endpoint: ep,
+    status: 'Connecting...',
     percent: 0,
     completed: false,
+    timestamp: Date.now(),
   };
+  saveActivePullState(activeOllamaPull);
   broadcastOllamaPullProgress(activeOllamaPull);
 
-  try {
-    const http = require('http');
-    const url = new URL(`${ep}/api/pull`);
-
-    return await new Promise((resolve) => {
-      const postData = JSON.stringify({ name, stream: true });
-      const req = http.request(
+  return new Promise((resolve) => {
+    let req;
+    try {
+      req = http.request(
         {
           hostname: url.hostname,
           port: url.port || 11434,
@@ -4282,12 +4317,15 @@ ipcMain.handle('jarvis:pull-ollama-model', async (event, { modelName, endpoint }
                 }
                 activeOllamaPull = {
                   modelName: name,
+                  endpoint: ep,
                   status: parsed.status || (percent > 0 ? `${percent}%` : 'Downloading...'),
                   percent,
                   completed: parsed.status === 'success' || percent >= 100,
                   completedBytes: parsed.completed,
                   totalBytes: parsed.total,
+                  timestamp: activeOllamaPull?.timestamp || Date.now(),
                 };
+                saveActivePullState(activeOllamaPull);
                 broadcastOllamaPullProgress(activeOllamaPull);
               } catch (_) {}
             }
@@ -4296,10 +4334,12 @@ ipcMain.handle('jarvis:pull-ollama-model', async (event, { modelName, endpoint }
           res.on('end', () => {
             activeOllamaPull = {
               modelName: name,
+              endpoint: ep,
               status: 'success',
               percent: 100,
               completed: true,
             };
+            saveActivePullState(null);
             broadcastOllamaPullProgress(activeOllamaPull);
             setTimeout(() => {
               if (activeOllamaPull && activeOllamaPull.modelName === name) {
@@ -4314,11 +4354,13 @@ ipcMain.handle('jarvis:pull-ollama-model', async (event, { modelName, endpoint }
       req.on('error', (err) => {
         activeOllamaPull = {
           modelName: name,
+          endpoint: ep,
           status: 'error',
           percent: 0,
           error: err.message,
           completed: false,
         };
+        saveActivePullState(null);
         broadcastOllamaPullProgress(activeOllamaPull);
         setTimeout(() => {
           if (activeOllamaPull && activeOllamaPull.modelName === name) {
@@ -4330,11 +4372,84 @@ ipcMain.handle('jarvis:pull-ollama-model', async (event, { modelName, endpoint }
 
       req.write(postData);
       req.end();
+    } catch (err) {
+      activeOllamaPull = null;
+      saveActivePullState(null);
+      resolve({ success: false, error: err.message });
+    }
+  });
+}
+
+function initBackgroundPullDetector() {
+  try {
+    const saved = loadSavedActivePull();
+    if (!saved || !saved.modelName) return;
+
+    activeOllamaPull = saved;
+    const ep = (saved.endpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+    const http = require('http');
+    const url = new URL(`${ep}/api/tags`);
+    const req = http.get(
+      {
+        hostname: url.hostname,
+        port: url.port || 11434,
+        path: '/api/tags',
+        timeout: 2500,
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (d) => { body += d; });
+        res.on('end', () => {
+          try {
+            const data = JSON.parse(body);
+            const isInstalled = (data.models || []).some(
+              (m) => m.name === saved.modelName || m.model === saved.modelName || (m.name && m.name.startsWith(saved.modelName))
+            );
+            if (isInstalled) {
+              activeOllamaPull = null;
+              saveActivePullState(null);
+              return;
+            }
+          } catch (_) {}
+          startOllamaPullStream(saved.modelName, ep);
+        });
+      }
+    );
+    req.on('error', () => {
+      activeOllamaPull = null;
+      saveActivePullState(null);
     });
-  } catch (err) {
+    req.on('timeout', () => {
+      req.destroy();
+      activeOllamaPull = null;
+      saveActivePullState(null);
+    });
+  } catch (_) {
     activeOllamaPull = null;
-    return { success: false, error: err.message };
   }
+}
+
+ipcMain.handle('jarvis:get-active-ollama-pull', () => activeOllamaPull);
+
+ipcMain.handle('jarvis:pull-ollama-model', async (event, { modelName, endpoint } = {}) => {
+  const ep = (endpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+  const name = (modelName || '').trim();
+  if (!name) return { success: false, error: 'Model name is required' };
+
+  if (activeOllamaPull && !activeOllamaPull.completed) {
+    if (activeOllamaPull.modelName === name) {
+      return { success: true, modelName: name, alreadyRunning: true };
+    }
+    return {
+      success: false,
+      alreadyRunning: true,
+      runningModel: activeOllamaPull.modelName,
+      percent: activeOllamaPull.percent,
+      error: `Another model (${activeOllamaPull.modelName}) is currently installing`,
+    };
+  }
+
+  return await startOllamaPullStream(name, ep);
 });
 
 ipcMain.handle('jarvis:delete-ollama-model', async (event, { modelName, endpoint } = {}) => {
@@ -5551,6 +5666,7 @@ app.whenReady().then(() => {
   createTopNotchWindow();
   createTray();
   registerShortcuts();
+  initBackgroundPullDetector();
 
   // Auto-connect WhatsApp background listener if authenticated
   try {

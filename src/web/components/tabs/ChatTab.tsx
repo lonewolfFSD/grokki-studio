@@ -5007,45 +5007,36 @@ export const ChatTab = React.memo<ChatTabProps>(({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 p-3 min-w-[260px] max-w-xs rounded-xl bg-white dark:bg-[#121318] border border-gray-200 dark:border-[#22232b] shadow-md select-none pointer-events-auto"
+            className="fixed bottom-6 right-6 z-40 flex flex-col gap-2.5 p-3.5 w-[360px] max-w-[calc(100vw-3rem)] rounded-xl bg-white dark:bg-[#121318] border border-gray-200 dark:border-[#22232b] shadow-md select-none pointer-events-auto"
           >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100 ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 stroke-[2.5]" />
-                ) : effectiveModelPull.status === 'error' ? (
-                  <X className="w-3.5 h-3.5 text-red-500 shrink-0 stroke-[2.5]" />
-                ) : (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500 dark:text-gray-400 shrink-0" />
-                )}
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[12px] font-medium text-gray-900 dark:text-gray-100 truncate">
-                    {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100
-                      ? `Installed ${effectiveModelPull.modelName}`
-                      : effectiveModelPull.status === 'error'
-                      ? `Failed: ${effectiveModelPull.modelName}`
-                      : `Downloading ${effectiveModelPull.modelName}`}
-                  </span>
-                  <span className="text-[10.5px] text-gray-500 dark:text-gray-400 font-mono truncate">
-                    {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100
-                      ? 'Ready'
-                      : effectiveModelPull.status || (effectiveModelPull.percent > 0 ? `${effectiveModelPull.percent}%` : 'Connecting...')}
-                  </span>
-                </div>
-              </div>
-              {effectiveModelPull.percent > 0 && effectiveModelPull.percent < 100 && (
-                <span className="text-[11px] font-mono font-medium text-gray-700 dark:text-gray-300 shrink-0">
-                  {effectiveModelPull.percent}%
-                </span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100 ? (
+                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 stroke-[2.5]" />
+              ) : effectiveModelPull.status === 'error' ? (
+                <X className="w-3.5 h-3.5 text-red-500 shrink-0 stroke-[2.5]" />
+              ) : (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500 dark:text-gray-400 shrink-0" />
               )}
+              <span className="text-[12.5px] font-medium text-gray-900 dark:text-gray-100 truncate">
+                {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100
+                  ? `Installed ${effectiveModelPull.modelName}`
+                  : effectiveModelPull.status === 'error'
+                  ? `Failed: ${effectiveModelPull.modelName}`
+                  : `Downloading ${effectiveModelPull.modelName}`}
+              </span>
             </div>
 
-            {effectiveModelPull.percent > 0 && effectiveModelPull.percent < 100 && (
-              <div className="w-full h-1 rounded-full bg-gray-100 dark:bg-[#20222b] overflow-hidden">
-                <div
-                  className="h-full bg-gray-900 dark:bg-white rounded-full transition-all duration-150"
-                  style={{ width: `${Math.min(100, Math.max(0, effectiveModelPull.percent))}%` }}
-                />
+            {effectiveModelPull.status !== 'success' && effectiveModelPull.status !== 'error' && effectiveModelPull.percent < 100 && (
+              <div className="flex items-center gap-3 w-full">
+                <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-[#20222b] overflow-hidden">
+                  <div
+                    className="h-full bg-gray-900 dark:bg-white rounded-full transition-all duration-150"
+                    style={{ width: `${Math.min(100, Math.max(0, effectiveModelPull.percent || 0))}%` }}
+                  />
+                </div>
+                <span className="text-[11px] font-mono font-medium text-gray-700 dark:text-gray-300 shrink-0">
+                  {effectiveModelPull.percent || 0}%
+                </span>
               </div>
             )}
           </motion.div>
