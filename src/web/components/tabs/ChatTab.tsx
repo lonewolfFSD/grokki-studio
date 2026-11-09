@@ -3599,7 +3599,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
               );
             })()
           ) : (
-            <div style={{ width: '100%', height: '600px', position: 'relative' }}>
+            <div className="w-full h-full relative" style={{ width: '100%', height: '100%', position: 'relative' }}>
               <Threads
                 color="#4769c8"
                 lineCount={90}
@@ -3619,6 +3619,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 fade={0}
                 opacity={1}
                 seed={0}
+                className="w-full h-full"
               />
             </div>
           )}
