@@ -7,6 +7,7 @@ import {
 } from 'motion/react';
 import grokkiLogo from '../assets/grokki_logo.png';
 import grokkiWordmark from '../assets/grokki_wordmark.png';
+import grokkiVoice from '../assets/grokki-intro.webm';
 
 interface PreloaderProps {
   onComplete: () => void;
@@ -19,7 +20,7 @@ interface PreloaderProps {
 
 const LOGO = grokkiLogo;
 const WORDMARK = grokkiWordmark;
-const GROKKI_VOICE = './audio/grokki-intro.webm';
+const GROKKI_VOICE = grokkiVoice;
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 /* ── Web Audio Synthesizers & Sound FX ────────── */
@@ -104,7 +105,7 @@ const playTechBeepsSound = (ctx: AudioContext) => {
 const playWhooshSound = (ctx: AudioContext) => {
   try {
     const now = ctx.currentTime;
-    const duration = 0.75;
+    const duration = 0.85;
     const bufferSize = Math.floor(ctx.sampleRate * duration);
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -147,7 +148,7 @@ const playWhooshSound = (ctx: AudioContext) => {
 export const Preloader: React.FC<PreloaderProps> = ({
   onComplete,
   onReveal,
-  duration = 2100,
+  duration = 2200,
   maxWait = 4500,
 }) => {
   const reduce = !!useReducedMotion();
@@ -273,29 +274,29 @@ export const Preloader: React.FC<PreloaderProps> = ({
     }
 
     if (!reduce) {
-      // 1. Cute Grokki chirp sound when the logo enters (synced at 0.15s)
+      // 1. Cute Grokki chirp sound when the logo zooms in (synced with delay 0.2s)
       cuteTimer = window.setTimeout(() => {
         if (!cancelled) {
           const aCtx = getAudioContext();
           if (aCtx) playCuteGrokkiSound(aCtx);
         }
-      }, 150);
+      }, 200);
 
-      // 2. Technical data beeps as wordmark unfolds (synced at 0.65s)
+      // 2. Short technical data beeps as wordmark begins unfolding (synced with delay 0.75s)
       beepsTimer = window.setTimeout(() => {
         if (!cancelled) {
           const aCtx = getAudioContext();
           if (aCtx) playTechBeepsSound(aCtx);
         }
-      }, 650);
+      }, 750);
 
-      // 3. Play Grokki voice when wordmark reveals (synced at 0.65s)
+      // 3. Play Grokki voice when the second image (wordmark) starts revealing (synced with delay 0.75s)
       voiceTimer = window.setTimeout(() => {
         if (!cancelled) {
           wordmarkStartedRef.current = true;
           playGrokkiVoice();
         }
-      }, 650);
+      }, 750);
     }
 
     const minTimer = window.setTimeout(() => {
@@ -359,7 +360,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
           draggable={false}
           initial={reduce ? false : { scale: 0, opacity: 0, rotate: -15 }}
           animate={{ scale: 1, opacity: 1, rotate: 0 }}
-          transition={{ duration: 0.55, delay: 0.15, ease: EASE }}
+          transition={{ duration: 0.6, delay: 0.2, ease: EASE }}
           className="h-16 w-16 md:h-20 md:w-20 shrink-0 object-contain select-none -mt-1"
         />
 
@@ -367,7 +368,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
         <motion.div
           initial={reduce ? false : { width: 0, opacity: 0, marginLeft: 0 }}
           animate={{ width: 'auto', opacity: 1, marginLeft: 22 }}
-          transition={{ duration: 0.65, delay: 0.65, ease: EASE }}
+          transition={{ duration: 0.7, delay: 0.75, ease: EASE }}
           className="overflow-hidden flex items-center"
         >
           <img

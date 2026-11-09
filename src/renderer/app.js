@@ -2731,21 +2731,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     islandContainer.classList.add('is-launching');
 
-    // Rule #1: Squash on impact sound at center (~410ms)
-    impactSoundTimer = setTimeout(() => {
-      sound.playPoke();
-    }, 410);
-
-    // Grokki stays in center & does joyful motion "Hi!" animation (~520ms)
+    // Grokki stays in center & does joyful motion "Hi!" animation (~520ms) (Old startup sounds removed; audio handled cleanly by preloader)
     hiGreetingTimer = setTimeout(() => {
       grokbot.sayHi();
-      sound.playSuccess();
     }, 520);
-
-    // Pill expands outward chime as Grokki slides into left slot (~1460ms)
-    chimeTimer = setTimeout(() => {
-      sound.playSummon();
-    }, 1460);
 
     // Complete transition and return to normal interactive state (~1900ms)
     launchTimer = setTimeout(() => {
