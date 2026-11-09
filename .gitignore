@@ -72,3 +72,5 @@ data/pocket_paired_devices.json
 data/mem0_local_store.json
 data/grokki_memory_history.json
 data/memory/
+
+scripts/publish_release.js

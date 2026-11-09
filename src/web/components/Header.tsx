@@ -44,7 +44,7 @@ export const Header = React.memo<HeaderProps>(({
   const [updateState, setUpdateState] = useState<'idle' | 'checking' | 'ready' | 'up-to-date'>('idle');
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [appVersion, setAppVersion] = useState<string>('1.52.328');
+  const [appVersion, setAppVersion] = useState<string>('1.52.329');
 
   React.useEffect(() => {
     if (window.jarvisAPI?.getAppVersion) {
