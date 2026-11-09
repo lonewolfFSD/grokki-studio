@@ -5003,55 +5003,47 @@ export const ChatTab = React.memo<ChatTabProps>(({
       <AnimatePresence>
         {effectiveModelPull && (
           <motion.div
-            initial={{ opacity: 0, y: 24, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.94 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 28 }}
-            className="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 p-3.5 min-w-[280px] max-w-sm rounded-2xl bg-white/95 dark:bg-[#12131a]/95 backdrop-blur-xl border border-gray-200/90 dark:border-white/10 shadow-2xl shadow-black/25 select-none pointer-events-auto"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 p-3 min-w-[260px] max-w-xs rounded-xl bg-white dark:bg-[#121318] border border-gray-200 dark:border-[#22232b] shadow-md select-none pointer-events-auto"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                    effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100
-                      ? 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-500'
-                      : effectiveModelPull.status === 'error'
-                      ? 'bg-red-500/10 dark:bg-red-500/20 text-red-500'
-                      : 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-500'
-                  }`}
-                >
-                  {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100 ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  ) : effectiveModelPull.status === 'error' ? (
-                    <AlertCircle className="w-4 h-4 text-red-500" />
-                  ) : (
-                    <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                  )}
-                </div>
+                {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100 ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 stroke-[2.5]" />
+                ) : effectiveModelPull.status === 'error' ? (
+                  <X className="w-3.5 h-3.5 text-red-500 shrink-0 stroke-[2.5]" />
+                ) : (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500 dark:text-gray-400 shrink-0" />
+                )}
                 <div className="flex flex-col min-w-0">
-                  <span className="text-[12.5px] font-semibold text-gray-900 dark:text-gray-100 truncate">
+                  <span className="text-[12px] font-medium text-gray-900 dark:text-gray-100 truncate">
                     {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100
                       ? `Installed ${effectiveModelPull.modelName}`
                       : effectiveModelPull.status === 'error'
                       ? `Failed: ${effectiveModelPull.modelName}`
                       : `Downloading ${effectiveModelPull.modelName}`}
                   </span>
-                  <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate">
+                  <span className="text-[10.5px] text-gray-500 dark:text-gray-400 font-mono truncate">
                     {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100
-                      ? 'Ready to use locally'
+                      ? 'Ready'
                       : effectiveModelPull.status || (effectiveModelPull.percent > 0 ? `${effectiveModelPull.percent}%` : 'Connecting...')}
                   </span>
                 </div>
               </div>
-              <span className="text-[12px] font-mono font-bold text-blue-600 dark:text-blue-400 shrink-0">
-                {effectiveModelPull.percent > 0 && effectiveModelPull.percent < 100 ? `${effectiveModelPull.percent}%` : ''}
-              </span>
+              {effectiveModelPull.percent > 0 && effectiveModelPull.percent < 100 && (
+                <span className="text-[11px] font-mono font-medium text-gray-700 dark:text-gray-300 shrink-0">
+                  {effectiveModelPull.percent}%
+                </span>
+              )}
             </div>
 
             {effectiveModelPull.percent > 0 && effectiveModelPull.percent < 100 && (
-              <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-white/10 overflow-hidden">
+              <div className="w-full h-1 rounded-full bg-gray-100 dark:bg-[#20222b] overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-300 rounded-full"
+                  className="h-full bg-gray-900 dark:bg-white rounded-full transition-all duration-150"
                   style={{ width: `${Math.min(100, Math.max(0, effectiveModelPull.percent))}%` }}
                 />
               </div>
