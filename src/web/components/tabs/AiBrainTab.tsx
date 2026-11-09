@@ -455,6 +455,68 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
   const [customModelInput, setCustomModelInput] = useState('');
   const [deletingModel, setDeletingModel] = useState<string | null>(null);
 
+  const checkOllama = useCallback(async () => {
+    setOllamaStatus((prev) => ({ ...prev, loading: true }));
+    try {
+      if (window.jarvisAPI?.checkOllamaStatus) {
+        const res = await window.jarvisAPI.checkOllamaStatus(config.ollamaEndpoint);
+        const modelsList = res?.models || [];
+        setOllamaStatus({
+          loading: false,
+          checked: true,
+          installed: Boolean(res?.installed),
+          running: Boolean(res?.running),
+          models: modelsList,
+          detailedModels: res?.detailedModels || [],
+          exePath: res?.exePath,
+        });
+        if (Array.isArray(modelsList)) {
+          const prev = config.cachedProviderModels?.ollama;
+          const isSame = Array.isArray(prev) &&
+            prev.length === modelsList.length &&
+            prev.every((m, idx) => m === modelsList[idx]);
+          if (!isSame) {
+            onChangeConfig({
+              cachedProviderModels: {
+                ...(config.cachedProviderModels || {}),
+                ollama: modelsList,
+              },
+            });
+          }
+        }
+      } else {
+        const ep = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+        const res = await fetch(`${ep}/api/tags`, { method: 'GET' });
+        if (res.ok) {
+          const data = await res.json();
+          setOllamaStatus({
+            loading: false,
+            checked: true,
+            installed: true,
+            running: true,
+            models: (data.models || []).map((m: any) => m.name || m.model),
+          });
+        } else {
+          setOllamaStatus({
+            loading: false,
+            checked: true,
+            installed: false,
+            running: false,
+            models: [],
+          });
+        }
+      }
+    } catch (_) {
+      setOllamaStatus({
+        loading: false,
+        checked: true,
+        installed: false,
+        running: false,
+        models: [],
+      });
+    }
+  }, [config.ollamaEndpoint, config.cachedProviderModels, onChangeConfig]);
+
   const activePullingModel = activeModelPull?.modelName || localPullingModel;
   const activePullProgress = activeModelPull
     ? { status: activeModelPull.status, percent: activeModelPull.percent }
@@ -525,68 +587,6 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       setDeletingModel(null);
     }
   };
-
-  const checkOllama = useCallback(async () => {
-    setOllamaStatus((prev) => ({ ...prev, loading: true }));
-    try {
-      if (window.jarvisAPI?.checkOllamaStatus) {
-        const res = await window.jarvisAPI.checkOllamaStatus(config.ollamaEndpoint);
-        const modelsList = res?.models || [];
-        setOllamaStatus({
-          loading: false,
-          checked: true,
-          installed: Boolean(res?.installed),
-          running: Boolean(res?.running),
-          models: modelsList,
-          detailedModels: res?.detailedModels || [],
-          exePath: res?.exePath,
-        });
-        if (Array.isArray(modelsList)) {
-          const prev = config.cachedProviderModels?.ollama;
-          const isSame = Array.isArray(prev) &&
-            prev.length === modelsList.length &&
-            prev.every((m, idx) => m === modelsList[idx]);
-          if (!isSame) {
-            onChangeConfig({
-              cachedProviderModels: {
-                ...(config.cachedProviderModels || {}),
-                ollama: modelsList,
-              },
-            });
-          }
-        }
-      } else {
-        const ep = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
-        const res = await fetch(`${ep}/api/tags`, { method: 'GET' });
-        if (res.ok) {
-          const data = await res.json();
-          setOllamaStatus({
-            loading: false,
-            checked: true,
-            installed: true,
-            running: true,
-            models: (data.models || []).map((m: any) => m.name || m.model),
-          });
-        } else {
-          setOllamaStatus({
-            loading: false,
-            checked: true,
-            installed: false,
-            running: false,
-            models: [],
-          });
-        }
-      }
-    } catch (_) {
-      setOllamaStatus({
-        loading: false,
-        checked: true,
-        installed: false,
-        running: false,
-        models: [],
-      });
-    }
-  }, [config.ollamaEndpoint]);
 
   useEffect(() => {
     if (config.provider === 'ollama') {

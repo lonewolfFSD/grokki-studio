@@ -17,6 +17,7 @@ import { Brain } from 'lucide-react';
 import { VoiceModelsTab } from './tabs/VoiceModelsTab';
 import { AiBrainTab } from './tabs/AiBrainTab';
 import { GoogleWorkspaceTab } from './tabs/GoogleWorkspaceTab';
+import { ErrorBoundary } from './ErrorBoundary';
 import WarmTooltip from './WarmTooltip';
 
 export type SettingsSection =
@@ -252,66 +253,68 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Right Content Pane */}
           <main className="flex-1 h-full min-w-0 overflow-y-auto px-8 py-6 bg-white dark:bg-[#070709] select-text">
-            {activeSection === 'settings' && (
-              <StudioSettingsTab
-                config={config}
-                onChangeConfig={onChangeConfig}
-                onClearConversations={onClearConversations}
-              />
-            )}
+            <ErrorBoundary fallbackTabName={activeSection}>
+              {activeSection === 'settings' && (
+                <StudioSettingsTab
+                  config={config}
+                  onChangeConfig={onChangeConfig}
+                  onClearConversations={onClearConversations}
+                />
+              )}
 
-            {activeSection === 'memory' && (
-              <MemoryTab />
-            )}
+              {activeSection === 'memory' && (
+                <MemoryTab />
+              )}
 
-            {activeSection === 'ai' && (
-              <AiBrainTab
-                config={config}
-                onChangeConfig={onChangeConfig}
-                activeModelPull={activeModelPull}
-                onPullModel={onPullModel}
-              />
-            )}
+              {activeSection === 'ai' && (
+                <AiBrainTab
+                  config={config}
+                  onChangeConfig={onChangeConfig}
+                  activeModelPull={activeModelPull}
+                  onPullModel={onPullModel}
+                />
+              )}
 
-            {activeSection === 'voice' && (
-              <VoiceModelsTab
-                config={config}
-                onChangeConfig={onChangeConfig}
-                playingVoice={playingVoice || null}
-                onPreviewVoice={onPreviewVoice || (() => {})}
-              />
-            )}
+              {activeSection === 'voice' && (
+                <VoiceModelsTab
+                  config={config}
+                  onChangeConfig={onChangeConfig}
+                  playingVoice={playingVoice || null}
+                  onPreviewVoice={onPreviewVoice || (() => {})}
+                />
+              )}
 
-            {activeSection === 'google' && (
-              <GoogleWorkspaceTab
-                config={config}
-                onChangeConfig={onChangeConfig}
-                connected={Boolean(googleConnected)}
-                profile={googleProfile || null}
-                onRefreshStatus={onRefreshGoogleStatus || (() => {})}
-              />
-            )}
+              {activeSection === 'google' && (
+                <GoogleWorkspaceTab
+                  config={config}
+                  onChangeConfig={onChangeConfig}
+                  connected={Boolean(googleConnected)}
+                  profile={googleProfile || null}
+                  onRefreshStatus={onRefreshGoogleStatus || (() => {})}
+                />
+              )}
 
-            {activeSection === 'appearance' && (
-              <AppearanceTab
-                config={config}
-                onChangeConfig={onChangeConfig}
-              />
-            )}
+              {activeSection === 'appearance' && (
+                <AppearanceTab
+                  config={config}
+                  onChangeConfig={onChangeConfig}
+                />
+              )}
 
-            {activeSection === 'profile' && (
-              <PersonalizationTab
-                config={config}
-                onChangeConfig={onChangeConfig}
-              />
-            )}
+              {activeSection === 'profile' && (
+                <PersonalizationTab
+                  config={config}
+                  onChangeConfig={onChangeConfig}
+                />
+              )}
 
-            {activeSection === 'about' && (
-              <AboutTab
-                systemInfo={systemInfo}
-                hotkey={config.hotkey || 'Alt+Q'}
-              />
-            )}
+              {activeSection === 'about' && (
+                <AboutTab
+                  systemInfo={systemInfo}
+                  hotkey={config.hotkey || 'Alt+Q'}
+                />
+              )}
+            </ErrorBoundary>
           </main>
         </div>
       </div>
