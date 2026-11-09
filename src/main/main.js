@@ -637,7 +637,9 @@ function startDragWatcher() {
         if (trimmed.startsWith('DRAG_START')) {
           const filesStr = trimmed.substring('DRAG_START'.length).trim();
           lastDetectedDragFiles = filesStr ? filesStr.split('|||').filter(Boolean) : [];
-          handleGlobalDragStart(lastDetectedDragFiles);
+          if (lastDetectedDragFiles.length > 0) {
+            handleGlobalDragStart(lastDetectedDragFiles);
+          }
         } else if (trimmed === 'DRAG_END') {
           handleGlobalDragEnd();
         }
@@ -665,6 +667,12 @@ function stopDragWatcher() {
 }
 
 function handleGlobalDragStart(files = []) {
+  // STRICT: Only auto-spawn Grokki Island if actual files are detected!
+  // Prevents text selection, line highlights, or empty drags from triggering the island.
+  if (!Array.isArray(files) || files.length === 0) {
+    return;
+  }
+
   if (dragHideTimer) {
     clearTimeout(dragHideTimer);
     dragHideTimer = null;

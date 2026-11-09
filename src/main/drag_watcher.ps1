@@ -56,6 +56,17 @@ function Get-SelectedExplorerFiles() {
             }
         }
     } catch {}
+    try {
+        $d = $shell.Windows().FindWindowSW(0, 0, 8, 0, 1)
+        if ($d -and $d.Document) {
+            $dsel = $d.Document.SelectedItems()
+            if ($dsel -and $dsel.Count -gt 0) {
+                foreach ($item in $dsel) {
+                    if ($item.Path) { $paths += $item.Path }
+                }
+            }
+        }
+    } catch {}
     return $paths
 }
 
@@ -79,20 +90,18 @@ while ($true) {
             $dy = [Math]::Abs($pos.Y - $downPos.Y)
             $dist = [Math]::Sqrt($dx * $dx + $dy * $dy)
 
-            if (-not $isDragging -and $dist -ge 16) {
-                # Check if dragging in Explorer / Desktop or dragging towards top notch
+            # STRICT: Only trigger if the drag originates in Windows Explorer / Desktop
+            # and actual files are actively selected. Never trigger on text highlight,
+            # line selection in code editors, browsers, or other apps.
+            if (-not $isDragging -and $dist -ge 24) {
                 $isExplorer = ($lastActiveProc -eq "explorer")
-                $isMovingToTop = ($pos.Y -lt 250 -and $pos.Y -lt $downPos.Y)
-                
-                $files = @()
                 if ($isExplorer) {
                     $files = Get-SelectedExplorerFiles
-                }
-
-                if (($isExplorer -and $files.Count -gt 0) -or ($isMovingToTop -and $dist -ge 30)) {
-                    $isDragging = $true
-                    $fileJson = if ($files.Count -gt 0) { $files -join "|||" } else { "" }
-                    [Console]::Out.WriteLine("DRAG_START $fileJson")
+                    if ($files -and $files.Count -gt 0) {
+                        $isDragging = $true
+                        $fileJson = $files -join "|||"
+                        [Console]::Out.WriteLine("DRAG_START $fileJson")
+                    }
                 }
             }
         }

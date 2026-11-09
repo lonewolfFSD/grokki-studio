@@ -1409,8 +1409,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     return true;
   }
 
+  function isFileTransfer(e) {
+    if (!e.dataTransfer) return false;
+    const types = Array.from(e.dataTransfer.types || []);
+    return types.includes('Files');
+  }
+
   window.addEventListener('dragenter', (e) => {
-    if (!isIslandAcceptingDrops() || !isEventOverIsland(e)) return;
+    if (!isIslandAcceptingDrops() || !isEventOverIsland(e) || !isFileTransfer(e)) return;
     e.preventDefault();
     dragCounter++;
     islandContainer.classList.add('drag-active');
@@ -1418,7 +1424,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   window.addEventListener('dragover', (e) => {
-    if (!isIslandAcceptingDrops() || !isEventOverIsland(e)) {
+    if (!isIslandAcceptingDrops() || !isEventOverIsland(e) || !isFileTransfer(e)) {
       if (islandContainer.classList.contains('drag-active')) {
         islandContainer.classList.remove('drag-active');
       }
@@ -1503,7 +1509,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (window.jarvisAPI && window.jarvisAPI.onWindowDragActive) {
     window.jarvisAPI.onWindowDragActive((data) => {
       if (!isIslandAcceptingDrops()) return;
-      if (data && data.active) {
+      if (data && data.active && Array.isArray(data.files) && data.files.length > 0) {
         if (!islandContainer.classList.contains('drag-active')) {
           islandContainer.classList.add('drag-active');
           if (grokbot) grokbot.setState('happy');
