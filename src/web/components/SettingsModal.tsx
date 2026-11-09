@@ -7,7 +7,7 @@ import { InfoIcon } from '@animateicons/react/lucide/info-icon';
 import { MicIcon } from '@animateicons/react/lucide/mic-icon';
 import { CpuIcon } from '@animateicons/react/lucide/cpu-icon';
 import { GlobeIcon } from '@animateicons/react/lucide/globe-icon';
-import { JarvisConfig, SystemInfo, StudioHotkeys, GoogleProfile } from '../types/jarvis';
+import { JarvisConfig, SystemInfo, StudioHotkeys, GoogleProfile, ActiveModelPull } from '../types/jarvis';
 import { StudioSettingsTab } from './tabs/StudioSettingsTab';
 import { AppearanceTab } from './tabs/AppearanceTab';
 import { PersonalizationTab } from './tabs/PersonalizationTab';
@@ -113,6 +113,8 @@ interface SettingsModalProps {
   googleConnected?: boolean;
   googleProfile?: GoogleProfile | null;
   onRefreshGoogleStatus?: () => void;
+  activeModelPull?: ActiveModelPull | null;
+  onPullModel?: (tag: string) => Promise<void>;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -130,6 +132,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   googleConnected,
   googleProfile,
   onRefreshGoogleStatus,
+  activeModelPull,
+  onPullModel,
 }) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
 
@@ -264,6 +268,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <AiBrainTab
                 config={config}
                 onChangeConfig={onChangeConfig}
+                activeModelPull={activeModelPull}
+                onPullModel={onPullModel}
               />
             )}
 

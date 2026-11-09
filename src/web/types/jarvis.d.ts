@@ -48,6 +48,15 @@ export interface LeftHandGestureItem {
   enabled?: boolean;
 }
 
+export interface ActiveModelPull {
+  modelName: string;
+  status: string;
+  percent: number;
+  completed?: boolean;
+  total?: number;
+  error?: string;
+}
+
 export interface InstalledAppItem {
   name: string;
   path: string;
@@ -440,6 +449,7 @@ export interface JarvisAPI {
   launchOllama?: () => Promise<{ success: boolean; exePath?: string; error?: string }>;
   pullOllamaModel?: (options: { modelName: string; endpoint?: string }) => Promise<{ success: boolean; modelName?: string; error?: string }>;
   deleteOllamaModel?: (options: { modelName: string; endpoint?: string }) => Promise<{ success: boolean; modelName?: string; error?: string }>;
+  getActiveOllamaPull?: () => Promise<ActiveModelPull | null>;
   onOllamaPullProgress?: (callback: (data: { modelName: string; status: string; percent: number; completed?: number; total?: number }) => void) => () => void;
   getSystemInfo: () => Promise<SystemInfo>;
   speakText: (text: string, voice: string, options?: { provider?: 'grokki' | 'grokki_voice' | 'elevenlabs' | 'voicestudio'; apiKey?: string; model?: string; endpoint?: string; speed?: number }) => Promise<{ success: boolean; base64Audio?: string; mimeType?: string; cleanText?: string; error?: string }>;

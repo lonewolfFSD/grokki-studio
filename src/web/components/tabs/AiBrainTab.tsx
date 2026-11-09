@@ -15,7 +15,7 @@ import {
   Trash2,
   HardDrive,
 } from 'lucide-react';
-import { JarvisConfig, AiProvider } from '../../types/jarvis';
+import { JarvisConfig, AiProvider, ActiveModelPull } from '../../types/jarvis';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
 
 import geminiLogo from '../../assets/logos/gemini.png';
@@ -108,6 +108,8 @@ export const OmniRouterLogo = OmniRouteLogo;
 interface AiBrainTabProps {
   config: JarvisConfig;
   onChangeConfig: (patch: Partial<JarvisConfig>) => void;
+  activeModelPull?: ActiveModelPull | null;
+  onPullModel?: (modelTag: string) => Promise<void>;
 }
 
 export const CURATED_MODELS: Record<string, { value: string; label: string; tag?: string }[]> = {
@@ -369,7 +371,7 @@ const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   </h3>
 );
 
-export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig }) => {
+export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig, activeModelPull, onPullModel }) => {
   // Auto-fetch models on mount for dynamic providers if not cached yet
   React.useEffect(() => {
     const p = config.provider;
@@ -448,15 +450,26 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
     detailedModels: [],
   });
 
-  const [pullingModel, setPullingModel] = useState<string | null>(null);
-  const [pullProgress, setPullProgress] = useState<{ status: string; percent: number }>({ status: '', percent: 0 });
+  const [localPullingModel, setLocalPullingModel] = useState<string | null>(null);
+  const [localPullProgress, setLocalPullProgress] = useState<{ status: string; percent: number }>({ status: '', percent: 0 });
   const [customModelInput, setCustomModelInput] = useState('');
   const [deletingModel, setDeletingModel] = useState<string | null>(null);
+
+  const activePullingModel = activeModelPull?.modelName || localPullingModel;
+  const activePullProgress = activeModelPull
+    ? { status: activeModelPull.status, percent: activeModelPull.percent }
+    : localPullProgress;
+
+  useEffect(() => {
+    if (activeModelPull?.completed && activeModelPull?.status === 'success') {
+      checkOllama();
+    }
+  }, [activeModelPull?.completed, activeModelPull?.status, checkOllama]);
 
   useEffect(() => {
     if (window.jarvisAPI?.onOllamaPullProgress) {
       const unsub = window.jarvisAPI.onOllamaPullProgress((data) => {
-        setPullProgress({
+        setLocalPullProgress({
           status: data.status,
           percent: data.percent,
         });
@@ -468,8 +481,12 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
   const handlePullModel = async (modelTag: string) => {
     const target = modelTag.trim();
     if (!target) return;
-    setPullingModel(target);
-    setPullProgress({ status: 'Starting pull...', percent: 0 });
+    if (onPullModel) {
+      await onPullModel(target);
+      return;
+    }
+    setLocalPullingModel(target);
+    setLocalPullProgress({ status: 'Starting pull...', percent: 0 });
 
     try {
       if (window.jarvisAPI?.pullOllamaModel) {
@@ -486,8 +503,8 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
     } catch (err: any) {
       console.error('Failed to pull model:', err);
     } finally {
-      setPullingModel(null);
-      setPullProgress({ status: '', percent: 0 });
+      setLocalPullingModel(null);
+      setLocalPullProgress({ status: '', percent: 0 });
     }
   };
 
@@ -1313,30 +1330,30 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
             )}
 
             {/* Active Pull Progress Banner */}
-            {pullingModel && (
+            {activePullingModel && (
               <div className="rounded-xl p-3.5 border border-blue-500/30 bg-blue-500/10 dark:bg-blue-500/[0.08] flex flex-col gap-2">
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
                     <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      Downloading {pullingModel}...
+                      Downloading {activePullingModel}...
                     </span>
                   </div>
                   <span className="font-mono text-blue-600 dark:text-blue-400 text-[11px]">
-                    {pullProgress.percent > 0 ? `${pullProgress.percent}%` : pullProgress.status || 'Starting...'}
+                    {activePullProgress.percent > 0 ? `${activePullProgress.percent}%` : activePullProgress.status || 'Starting...'}
                   </span>
                 </div>
-                {pullProgress.percent > 0 && (
+                {activePullProgress.percent > 0 && (
                   <div className="w-full h-1.5 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">
                     <div
                       className="h-full bg-blue-600 transition-all duration-300 rounded-full"
-                      style={{ width: `${pullProgress.percent}%` }}
+                      style={{ width: `${activePullProgress.percent}%` }}
                     />
                   </div>
                 )}
-                {pullProgress.status && (
+                {activePullProgress.status && (
                   <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate">
-                    {pullProgress.status}
+                    {activePullProgress.status}
                   </span>
                 )}
               </div>
@@ -1357,7 +1374,7 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
                   { tag: 'moondream', name: 'Moondream 2', size: '1.8B (~1.7 GB)', desc: 'Local vision model for image inspection' },
                 ].map((item) => {
                   const isInstalled = ollamaStatus.models.some((m) => m === item.tag || m.startsWith(item.tag.split(':')[0]));
-                  const isThisPulling = pullingModel === item.tag;
+                  const isThisPulling = activePullingModel === item.tag || (activePullingModel ? activePullingModel.startsWith(item.tag.split(':')[0]) : false);
 
                   return (
                     <div
@@ -1387,19 +1404,20 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>Installed</span>
                           </span>
+                        ) : isThisPulling ? (
+                          <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold bg-blue-600 dark:bg-blue-500 text-white select-none">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Installing {activePullProgress.percent > 0 ? `${activePullProgress.percent}%` : ''}</span>
+                          </span>
                         ) : (
                           <button
                             type="button"
                             onClick={() => handlePullModel(item.tag)}
-                            disabled={!!pullingModel}
+                            disabled={!!activePullingModel}
                             className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold bg-gray-900 dark:bg-white hover:bg-black dark:hover:bg-gray-100 text-white dark:text-gray-900 border-none cursor-pointer transition-all disabled:opacity-50"
                           >
-                            {isThisPulling ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Download className="w-3 h-3" />
-                            )}
-                            <span>{isThisPulling ? 'Installing...' : 'Install'}</span>
+                            <Download className="w-3 h-3" />
+                            <span>Install</span>
                           </button>
                         )}
                       </div>
@@ -1416,16 +1434,16 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig 
                 value={customModelInput}
                 onChange={(e) => setCustomModelInput(e.target.value)}
                 placeholder="Enter any custom model tag from ollama.com (e.g. codellama, gemma2:9b)..."
-                disabled={!!pullingModel}
+                disabled={!!activePullingModel}
                 className="flex-1 w-full h-9 px-3 rounded-xl border border-gray-200 dark:border-[#252836] bg-gray-50/50 dark:bg-[#161820] text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 transition-all"
               />
               <button
                 type="button"
                 onClick={() => handlePullModel(customModelInput)}
-                disabled={!customModelInput.trim() || !!pullingModel}
+                disabled={!customModelInput.trim() || !!activePullingModel}
                 className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white border-none cursor-pointer transition-all disabled:opacity-50 whitespace-nowrap w-full sm:w-auto"
               >
-                {pullingModel === customModelInput.trim() ? (
+                {activePullingModel === customModelInput.trim() ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
                   <Download className="w-3.5 h-3.5" />

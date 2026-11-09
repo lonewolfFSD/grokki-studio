@@ -4217,10 +4217,37 @@ ipcMain.handle('jarvis:launch-ollama', async () => {
   }
 });
 
+let activeOllamaPull = null;
+
+function broadcastOllamaPullProgress(payload) {
+  try {
+    const { BrowserWindow } = require('electron');
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed() && win.webContents) {
+        win.webContents.send('ollama:pull-progress', payload);
+      }
+    });
+  } catch (_) {}
+}
+
+ipcMain.handle('jarvis:get-active-ollama-pull', () => activeOllamaPull);
+
 ipcMain.handle('jarvis:pull-ollama-model', async (event, { modelName, endpoint } = {}) => {
   const ep = (endpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
   const name = (modelName || '').trim();
   if (!name) return { success: false, error: 'Model name is required' };
+
+  if (activeOllamaPull && activeOllamaPull.modelName === name && !activeOllamaPull.completed) {
+    return { success: true, modelName: name, alreadyRunning: true };
+  }
+
+  activeOllamaPull = {
+    modelName: name,
+    status: 'Starting pull...',
+    percent: 0,
+    completed: false,
+  };
+  broadcastOllamaPullProgress(activeOllamaPull);
 
   try {
     const http = require('http');
@@ -4253,24 +4280,51 @@ ipcMain.handle('jarvis:pull-ollama-model', async (event, { modelName, endpoint }
                 if (parsed.total && parsed.completed) {
                   percent = Math.round((parsed.completed / parsed.total) * 100);
                 }
-                event.sender.send('ollama:pull-progress', {
+                activeOllamaPull = {
                   modelName: name,
-                  status: parsed.status,
+                  status: parsed.status || (percent > 0 ? `${percent}%` : 'Downloading...'),
                   percent,
-                  completed: parsed.completed,
-                  total: parsed.total,
-                });
+                  completed: parsed.status === 'success' || percent >= 100,
+                  completedBytes: parsed.completed,
+                  totalBytes: parsed.total,
+                };
+                broadcastOllamaPullProgress(activeOllamaPull);
               } catch (_) {}
             }
           });
 
           res.on('end', () => {
+            activeOllamaPull = {
+              modelName: name,
+              status: 'success',
+              percent: 100,
+              completed: true,
+            };
+            broadcastOllamaPullProgress(activeOllamaPull);
+            setTimeout(() => {
+              if (activeOllamaPull && activeOllamaPull.modelName === name) {
+                activeOllamaPull = null;
+              }
+            }, 3500);
             resolve({ success: true, modelName: name });
           });
         }
       );
 
       req.on('error', (err) => {
+        activeOllamaPull = {
+          modelName: name,
+          status: 'error',
+          percent: 0,
+          error: err.message,
+          completed: false,
+        };
+        broadcastOllamaPullProgress(activeOllamaPull);
+        setTimeout(() => {
+          if (activeOllamaPull && activeOllamaPull.modelName === name) {
+            activeOllamaPull = null;
+          }
+        }, 4000);
         resolve({ success: false, error: err.message });
       });
 
@@ -4278,6 +4332,7 @@ ipcMain.handle('jarvis:pull-ollama-model', async (event, { modelName, endpoint }
       req.end();
     });
   } catch (err) {
+    activeOllamaPull = null;
     return { success: false, error: err.message };
   }
 });

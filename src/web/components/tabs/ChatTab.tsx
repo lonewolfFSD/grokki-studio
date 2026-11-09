@@ -42,6 +42,9 @@ import {
   ExternalLink,
   Swords,
   ChevronDown,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 
 const BATTLE_BRAIN_OPTIONS = [
@@ -151,7 +154,7 @@ import { GroundingMetadata, GroundingImage, WorkspaceMention } from '../../types
 import { highlightCode } from '../../utils/syntaxHighlight';
 import { AnimatePresence, motion } from 'motion/react';
 import { marked } from 'marked';
-import { JarvisConfig, AiProvider, Conversation, ChatMessage, AttachedFileInfo } from '../../types/jarvis';
+import { JarvisConfig, AiProvider, Conversation, ChatMessage, AttachedFileInfo, ActiveModelPull } from '../../types/jarvis';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
 import {
   CURATED_MODELS,
@@ -189,6 +192,7 @@ interface ChatTabProps {
   onUpdateMessages: (updater: (prevMessages: ChatMessage[]) => ChatMessage[]) => void;
   onNewChat: () => void;
   onChangeConfig?: (patch: Partial<JarvisConfig>) => void;
+  activeModelPull?: ActiveModelPull | null;
 }
 
 interface SlashCommand {
@@ -1137,6 +1141,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
   onUpdateMessages,
   onNewChat,
   onChangeConfig,
+  activeModelPull,
 }) => {
   const messages = activeConversation.messages;
   const [inputValue, setInputValue] = useState('');
@@ -1153,6 +1158,53 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState<string>('');
   const [canScrollDown, setCanScrollDown] = useState<boolean>(false);
+  const [localModelPull, setLocalModelPull] = useState<ActiveModelPull | null>(null);
+
+  useEffect(() => {
+    if (activeModelPull !== undefined) return;
+    if (window.jarvisAPI?.getActiveOllamaPull) {
+      window.jarvisAPI.getActiveOllamaPull().then((pull) => {
+        if (pull && !pull.completed) setLocalModelPull(pull);
+      }).catch(() => {});
+    }
+    if (window.jarvisAPI?.onOllamaPullProgress) {
+      const unsub = window.jarvisAPI.onOllamaPullProgress((data: any) => {
+        if (!data) return;
+        if (data.status === 'success' || data.percent >= 100 || data.completed === true) {
+          setLocalModelPull({
+            modelName: data.modelName,
+            status: 'success',
+            percent: 100,
+            completed: true,
+          });
+          setTimeout(() => {
+            setLocalModelPull((curr) => (curr?.modelName === data.modelName ? null : curr));
+          }, 3500);
+        } else if (data.status === 'error' || data.error) {
+          setLocalModelPull({
+            modelName: data.modelName,
+            status: 'error',
+            percent: 0,
+            error: data.error || 'Failed to download model',
+          });
+          setTimeout(() => {
+            setLocalModelPull((curr) => (curr?.modelName === data.modelName ? null : curr));
+          }, 4000);
+        } else {
+          setLocalModelPull({
+            modelName: data.modelName,
+            status: data.status,
+            percent: data.percent,
+            completed: false,
+            total: data.total,
+          });
+        }
+      });
+      return () => unsub();
+    }
+  }, [activeModelPull]);
+
+  const effectiveModelPull = activeModelPull !== undefined ? activeModelPull : localModelPull;
 
   // Monitor scroll distance to bottom to conditionally reveal down chevron button above input
   useEffect(() => {
@@ -4946,6 +4998,67 @@ export const ChatTab = React.memo<ChatTabProps>(({
         fallbackSrc={lightboxState.fallbackSrc}
         onClose={closeLightbox}
       />
+
+      {/* Floating Bottom-Right Toast for Local Model Downloads */}
+      <AnimatePresence>
+        {effectiveModelPull && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.94 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+            className="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 p-3.5 min-w-[280px] max-w-sm rounded-2xl bg-white/95 dark:bg-[#12131a]/95 backdrop-blur-xl border border-gray-200/90 dark:border-white/10 shadow-2xl shadow-black/25 select-none pointer-events-auto"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100
+                      ? 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-500'
+                      : effectiveModelPull.status === 'error'
+                      ? 'bg-red-500/10 dark:bg-red-500/20 text-red-500'
+                      : 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-500'
+                  }`}
+                >
+                  {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100 ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  ) : effectiveModelPull.status === 'error' ? (
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                  ) : (
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                  )}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[12.5px] font-semibold text-gray-900 dark:text-gray-100 truncate">
+                    {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100
+                      ? `Installed ${effectiveModelPull.modelName}`
+                      : effectiveModelPull.status === 'error'
+                      ? `Failed: ${effectiveModelPull.modelName}`
+                      : `Downloading ${effectiveModelPull.modelName}`}
+                  </span>
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate">
+                    {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100
+                      ? 'Ready to use locally'
+                      : effectiveModelPull.status || (effectiveModelPull.percent > 0 ? `${effectiveModelPull.percent}%` : 'Connecting...')}
+                  </span>
+                </div>
+              </div>
+              <span className="text-[12px] font-mono font-bold text-blue-600 dark:text-blue-400 shrink-0">
+                {effectiveModelPull.percent > 0 && effectiveModelPull.percent < 100 ? `${effectiveModelPull.percent}%` : ''}
+              </span>
+            </div>
+
+            {effectiveModelPull.percent > 0 && effectiveModelPull.percent < 100 && (
+              <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-white/10 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-300 rounded-full"
+                  style={{ width: `${Math.min(100, Math.max(0, effectiveModelPull.percent))}%` }}
+                />
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </WarmTooltipGroup>
   );
 });

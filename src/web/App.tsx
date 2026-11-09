@@ -14,7 +14,7 @@ import { StudioSettingsTab } from './components/tabs/StudioSettingsTab';
 import { AboutTab } from './components/tabs/AboutTab';
 import { SettingsModal, SettingsSection } from './components/SettingsModal';
 import { ChatLockModal, LockedChatScreen } from './components/ChatLockModal';
-import { JarvisConfig, GoogleProfile, SystemInfo, Conversation, ChatLockMethod } from './types/jarvis';
+import { JarvisConfig, GoogleProfile, SystemInfo, Conversation, ChatLockMethod, ActiveModelPull } from './types/jarvis';
 import { useConversations } from './hooks/useConversations';
 import { useSmoothScroll } from './hooks/useSmoothScroll';
 import { DEFAULT_HOTKEYS, getEffectiveHotkeys, matchesHotkey } from './utils/hotkeys';
@@ -470,6 +470,96 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  // Global Local Model Download State (persists across SettingsModal close/open & updates ChatTab)
+  const [activeModelPull, setActiveModelPull] = useState<ActiveModelPull | null>(null);
+
+  useEffect(() => {
+    if (window.jarvisAPI?.getActiveOllamaPull) {
+      window.jarvisAPI.getActiveOllamaPull().then((active) => {
+        if (active && !active.completed) {
+          setActiveModelPull(active);
+        }
+      }).catch(() => {});
+    }
+
+    if (window.jarvisAPI?.onOllamaPullProgress) {
+      const unsub = window.jarvisAPI.onOllamaPullProgress((data: any) => {
+        if (!data) return;
+        if (data.status === 'success' || data.percent >= 100 || data.completed === true) {
+          setActiveModelPull({
+            modelName: data.modelName,
+            status: 'success',
+            percent: 100,
+            completed: true,
+          });
+          if (window.jarvisAPI?.checkOllamaStatus) {
+            window.jarvisAPI.checkOllamaStatus(config.ollamaEndpoint).then((res) => {
+              if (res?.models) {
+                handleConfigChange({
+                  ollamaModel: data.modelName,
+                  cachedProviderModels: {
+                    ...(config.cachedProviderModels || {}),
+                    ollama: res.models,
+                  },
+                });
+              }
+            }).catch(() => {});
+          }
+          setTimeout(() => {
+            setActiveModelPull((curr) => (curr?.modelName === data.modelName ? null : curr));
+          }, 3500);
+        } else if (data.status === 'error' || data.error) {
+          setActiveModelPull({
+            modelName: data.modelName,
+            status: 'error',
+            percent: 0,
+            error: data.error || 'Failed to download model',
+          });
+          setTimeout(() => {
+            setActiveModelPull((curr) => (curr?.modelName === data.modelName ? null : curr));
+          }, 4000);
+        } else {
+          setActiveModelPull({
+            modelName: data.modelName,
+            status: data.status,
+            percent: data.percent,
+            completed: false,
+            total: data.total,
+          });
+        }
+      });
+      return () => unsub();
+    }
+  }, [config.ollamaEndpoint, config.cachedProviderModels, handleConfigChange]);
+
+  const handlePullModel = useCallback(async (modelTag: string) => {
+    const target = modelTag.trim();
+    if (!target) return;
+    setActiveModelPull({
+      modelName: target,
+      status: 'Starting pull...',
+      percent: 0,
+      completed: false,
+    });
+    try {
+      if (window.jarvisAPI?.pullOllamaModel) {
+        await window.jarvisAPI.pullOllamaModel({
+          modelName: target,
+          endpoint: config.ollamaEndpoint,
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to pull model:', err);
+      setActiveModelPull({
+        modelName: target,
+        status: 'error',
+        percent: 0,
+        error: err.message || 'Download failed',
+      });
+      setTimeout(() => setActiveModelPull(null), 4000);
+    }
+  }, [config.ollamaEndpoint]);
+
   const handleToggleTheme = useCallback(() => {
     // When custom theme from theme list is active, theme is managed by custom palette
     if (isCustomThemeActive) return;
@@ -865,6 +955,7 @@ export const App: React.FC = () => {
                 activeConversation={activeConversation}
                 onUpdateMessages={updateActiveMessages}
                 onNewChat={createConversation}
+                activeModelPull={activeModelPull}
               />
             )}
           </div>
@@ -967,6 +1058,8 @@ export const App: React.FC = () => {
         googleConnected={googleConnected}
         googleProfile={googleProfile}
         onRefreshGoogleStatus={loadGoogleStatus}
+        activeModelPull={activeModelPull}
+        onPullModel={handlePullModel}
       />
 
       {/* Chat Lock Modal */}

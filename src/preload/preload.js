@@ -237,6 +237,7 @@ try {
     launchOllama: () => ipcRenderer.invoke('jarvis:launch-ollama'),
     pullOllamaModel: (options) => ipcRenderer.invoke('jarvis:pull-ollama-model', options),
     deleteOllamaModel: (options) => ipcRenderer.invoke('jarvis:delete-ollama-model', options),
+    getActiveOllamaPull: () => ipcRenderer.invoke('jarvis:get-active-ollama-pull'),
     onOllamaPullProgress: (callback) => {
       const handler = (event, data) => callback(data);
       ipcRenderer.on('ollama:pull-progress', handler);
