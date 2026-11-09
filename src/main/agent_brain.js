@@ -32,31 +32,39 @@ function shouldAutoSearchWeb(prompt = '', history = []) {
   const raw = prompt.trim();
   const p = raw.toLowerCase();
 
-  // Never auto search web for desktop actions, Google Workspace, WhatsApp, local tools, or file operations
+  // 1. NEVER auto search web for desktop actions, Google Workspace, WhatsApp, local tools, or file operations
   if (/\b(google\s+(drive|doc|docs|sheet|sheets|slides|calendar|task|tasks|contacts?|workspace|account|mail)|drive|gmail|whatsapp|spotify|word|excel|powerpoint|calculator|notepad|screenshot|snip|volume|brightness|pc\s+health|folder|file|upload|download|save|create|delete|open|close|lock|sleep|shutdown|mute|unmute)\b/i.test(p)) {
     return false;
   }
 
-  // Never auto search for simple conversational greetings or social acknowledgments
-  if (/^(hi|hello|hey|yo|sup|greetings|good\s+(morning|afternoon|evening|night)|thanks|thank\s+you|ok|okay|bye|cool|nice|who\s+are\s+you|what\s+is\s+your\s+name|how\s+are\s+you)\b/i.test(p) && p.split(/\s+/).length <= 4) {
+  // 2. NEVER auto search for conversational chit-chat, greetings, questions about the AI, and casual remarks
+  if (/^(hi|hello|hey|yo|sup|wassup|wazzup|whats?\s*up|what\s+is\s+up|how\s*('?s|is)\s*(it\s*going|everything|life)|how\s+are\s+you|how\s+do\s+you\s+do|howdy|greetings|good\s+(morning|afternoon|evening|night|day)|thanks|thank\s+you|thx|ok|okay|k|bye|goodbye|see\s+ya|cool|nice|great|awesome|wonderful|sweet|neat|fine|who\s+are\s+you|what\s+is\s+your\s+name|what\s+can\s+you\s+do|tell\s+me\s+(a\s+joke|something|about\s+yourself)|what\s+are\s+you\s+doing|what\s+do\s+you\s+think|help\s*me?|can\s+you\s+help|i\s*('?m|am)\s+(bored|sad|happy|tired|here)|you\s+there|are\s+you\s+(there|alive|awake|ready|real)|what\s+time\s+is\s+it|how\s+old\s+are\s+you)\b/i.test(p)) {
     return false;
   }
 
-  // Image / photo / picture / gallery queries
+  // 3. NEVER auto search for standard coding, math, general science, or creative requests
+  if (/^(write|code|implement|create|give\s+me|generate)\s+(a\s+)?(function|script|program|code|algorithm|class|regex|component|sql|query|poem|story|essay|summary|joke)\b/i.test(p)) {
+    return false;
+  }
+  if (/^(solve|calculate|evaluate|what\s+is)\s+[\d\s\+\-\*\/\^\(\)\.\=]+$/i.test(p)) {
+    return false;
+  }
+
+  // 4. Image / photo / picture / gallery queries
   if (/\b(images?|photos?|pics?|pictures?|views?|gallery|wallpaper|look\s+like|appearance)\b/i.test(p)) {
     return true;
   }
 
-  // Explicit web search keywords
+  // 5. Explicit web search keywords
   if (/\b(search\s+(the\s+)?web|deep\s+search|web\s+search|live\s+search|browse\s+web)\b/i.test(p)) return true;
   if (/^google\s+(.+)/i.test(p)) return true;
 
-  // University / College / Institution / Campus queries (e.g. Assam Don Bosco University, ADBU, IIT, etc.)
+  // 6. University / College / Institution / Campus queries (e.g. Assam Don Bosco University, ADBU, IIT, etc.)
   if (/\b(university|college|institute|campus|adbu|assam\s+don\s+bosco|don\s+bosco|iit|nit|bits|aiims|iim|oxford|harvard|stanford|cambridge|mit)\b/i.test(p)) {
     return true;
   }
 
-  // Current events, protests, conflicts, happenings
+  // 7. Current events, protests, conflicts, happenings
   if (/\b(what('?s|\s+is)\s+(the\s+)?(protest|protests|strike|war|conflict|situation|news|happening|going\s+on))\b/i.test(p)) return true;
   if (/\b(going\s+on\s+in|happening\s+in|protests?\s+in)\b/i.test(p)) return true;
   if (/\b(right\s+now|currently|current\s+news|today'?s\s+news|latest\s+news|breaking\s+news|recent\s+news)\b/i.test(p)) return true;
@@ -65,16 +73,16 @@ function shouldAutoSearchWeb(prompt = '', history = []) {
   // High-frequency factual questions: who won, who is the current, winner of, stock price of, etc.
   if (/\b(exchange\s*rate|currency|forex|fx\s*rate|who\s+won|who\s+is\s+the\s+current|winner\s+of|champions?\s+of|score\s+of|release\s+date\s+of|when\s+is\s+the\s+next|price\s+of|stock\s+price|crypto\s+price|weather\s*(in|for)?|nobel\s+prize|election|president\s+of|ceo\s+of)\b/i.test(p)) return true;
 
-  // If recent conversation history is grounded in an entity and prompt is a follow-up inquiry
+  // 8. If recent conversation history is grounded in an entity and prompt is a follow-up inquiry
   if (history && history.length > 0) {
-    const isFollowUp = /^(what\s+about|how\s+about|and|more|details?|list|all|where|when|who|fees?|courses?|admission|rankings?|placement|eligibility)\b/i.test(p) || p.split(/\s+/).length <= 5;
+    const isFollowUp = /^(what\s+about|how\s+about|tell\s+me\s+more\s+about|more\s+details?\s+(on|about)?|what\s+are\s+the\s+(fees|courses|rankings|placements|eligibility))\b/i.test(p);
     if (isFollowUp) {
-      const lastTexts = history.slice(-4).map(t => {
+      const lastTexts = history.slice(-3).map(t => {
         if (typeof t === 'string') return t;
         if (t.parts && Array.isArray(t.parts)) return t.parts.map(pt => pt.text || '').join(' ');
         return t.text || t.content || '';
       }).join(' ').toLowerCase();
-      if (/\b(university|college|campus|adbu|assam|don\s+bosco|iit|nit|institute|school|company|brand|product|place|country|city)\b/i.test(lastTexts)) {
+      if (/\b(university|college|campus|adbu|assam|don\s+bosco|iit|nit|institute|school)\b/i.test(lastTexts)) {
         return true;
       }
     }
@@ -458,52 +466,67 @@ class AgentBrain {
     const p = (prompt || '').toLowerCase().trim();
 
     // 1. If purely conversational greeting or factual/informational query with no action verbs, omit tools
+    const isConversationalGreeting = /^(hi|hello|hey|yo|sup|wassup|wazzup|whats?\s*up|what\s+is\s+up|how\s*('?s|is)\s*(it|everything|life)|how\s+are\s+you|how\s+do\s+you\s+do|howdy|greetings|good\s+(morning|afternoon|evening|night|day)|thanks|thank\s+you|thx|ok|okay|k|bye|goodbye|see\s+ya|cool|nice|great|awesome|who\s+are\s+you|what\s+is\s+your\s+name|what\s+can\s+you\s+do|tell\s+me\s+(a\s+joke|something)|what\s+are\s+you\s+doing|what\s+do\s+you\s+think|help\s*me?|can\s+you\s+help)\b/i.test(p);
     const isPureInformational = /^(what (is|are|was|were)|why (is|are|do|does|did)|how (does|do|did|can)|who (is|was|were)|explain|tell me about|define|summarize|translate|write (a|an)? (code|script|poem|story|function)|calculate|solve)\b/i.test(p) &&
       !/\b(app|application|software|window|notepad|screen|volume|brightness|sound|song|music|play|click|type|drive|email|gmail|calendar|sheet|doc|classroom|attendance|save|file|folder|wifi|bluetooth|whatsapp|wa|message|messages|chat|chats|text)\b/i.test(p);
 
-    const isSimpleGreeting = /^(hi|hello|hey|yo|sup|good (morning|afternoon|evening)|how are you|thanks|thank you|ok|bye)\b/i.test(p) && p.split(/\s+/).length <= 4;
+    if (isConversationalGreeting || isPureInformational) {
+      return undefined;
+    }
 
-    if (isPureInformational || isSimpleGreeting) {
+    const hasActionIntent = /\b(open|launch|start|run|close|quit|kill|click|press|type|find|locate|search\s+for\s+file|volume|sound|mute|unmute|brightness|screenshot|screen\s*shot|snip|capture|record\s*screen|window|minimize|maximize|snap\s*window|shutdown|restart|reboot|sleep|lock\s*pc|wifi|bluetooth|clean\s*up|cleanup|organize|timer|alarm|lock\s*mode|island|whatsapp|send\s*(message|wa|text|file|email)|check\s*(email|emails|mail|inbox)|gmail|drive|calendar|agenda|schedule|meeting|attendance|adbu|roll\s*no|portal|viva|quiz|play\s*(music|song|youtube)|pause\s*music|spotify)\b/i.test(p);
+
+    // Ollama Local Models: Small local models MUST NEVER receive 40+ tool definitions on non-action queries!
+    // Non-action queries (conversational, coding, reasoning, general knowledge) get 0 tools for instant (<1s) replies.
+    if (provider === 'ollama' && !hasActionIntent) {
       return undefined;
     }
 
     const allDeclarations = this.getToolsDeclaration();
     const allTools = allDeclarations[0]?.functionDeclarations || [];
 
-    // If provider is Groq (has strict 8000 TPM limit) or Ollama (local model), filter to relevant tools (<25 tools)
+    // If provider is Groq (has strict 8000 TPM limit) or Ollama (local model), filter strictly to relevant tools
     if (provider === 'groq' || provider === 'ollama') {
-      const isDesktop = /\b(open|launch|start|click|type|find|locate|window|software|app|desktop|notepad|spotify|chrome|calc|calculator|volume|brightness|close|minimize|maximize|snap|shutdown|restart|sleep|lock|pc|wifi|bluetooth)\b/i.test(p);
+      const isDesktop = /\b(open|launch|start|click|type|find|locate|window|software|app|desktop|notepad|spotify|chrome|calc|calculator|volume|brightness|close|minimize|maximize|snap|shutdown|restart|sleep|lock|pc|wifi|bluetooth|cleanup|clean\s+up|organize|timer|alarm|island)\b/i.test(p);
       const isGoogle = /\b(google|drive|sheet|doc|gmail|email|mail|calendar|task|tasks|classroom|course|assignment|announcement)\b/i.test(p);
       const isUni = /\b(attendance|university|college|portal|adbu|roll|profile|exam|viva|quiz|notes|study)\b/i.test(p);
       const isMedia = /\b(music|song|songs|play|pause|next|youtube|video|spotify)\b/i.test(p);
       const isWhatsApp = /\b(whatsapp|wa|message|messages|chat|chats|text|texts|contact|contacts|phone)\b/i.test(p);
 
-      const selectedNames = new Set([
-        // Always include core desktop & quick actions
-        'open_app', 'desktop_click', 'desktop_type', 'desktop_find', 'desktop_snapshot',
-        'close_active_window', 'system_volume', 'window_manager', 'system_power', 'system_brightness',
-        'storage_and_cleanup', 'screen_capture_and_recorder', 'connectivity_control', 'power_and_theme_control',
-        'pc_health_and_optimizer', 'organize_folder', 'stop_timer', 'toggle_island_lock_mode'
-      ]);
+      const selectedNames = new Set();
 
-      if (isWhatsApp || (!isDesktop && !isMedia && !isGoogle && !isUni)) {
+      if (isDesktop) {
+        ['open_app', 'desktop_click', 'desktop_type', 'desktop_find', 'desktop_snapshot',
+         'close_active_window', 'system_volume', 'window_manager', 'system_power', 'system_brightness',
+         'storage_and_cleanup', 'screen_capture_and_recorder', 'connectivity_control', 'power_and_theme_control',
+         'pc_health_and_optimizer', 'organize_folder', 'stop_timer', 'toggle_island_lock_mode'
+        ].forEach(n => selectedNames.add(n));
+      }
+
+      if (isWhatsApp) {
         ['send_whatsapp_file_or_message', 'get_whatsapp_recent_messages', 'get_whatsapp_status', 'save_whatsapp_contact_alias'].forEach(n => selectedNames.add(n));
       }
 
-      if (isGoogle || (!isDesktop && !isMedia)) {
+      if (isGoogle) {
         ['get_classroom_assignments', 'get_classroom_announcements', 'check_emails', 'send_email_gmail', 'get_calendar_agenda', 'search_google_drive', 'upload_to_google_drive', 'read_google_sheet', 'append_to_google_sheet', 'create_google_doc', 'get_google_tasks'].forEach(n => selectedNames.add(n));
       }
 
-      if (isUni || (!isDesktop && !isMedia)) {
+      if (isUni) {
         ['get_university_attendance', 'get_university_profile', 'sync_university_portal', 'create_study_revision_document', 'viva_voice_quiz', 'snap_and_solve_screen', 'search_research_papers'].forEach(n => selectedNames.add(n));
       }
 
-      if (isMedia || (!isGoogle && !isUni)) {
+      if (isMedia) {
         ['play_youtube_music', 'control_music', 'search_youtube'].forEach(n => selectedNames.add(n));
       }
 
+      if (selectedNames.size === 0) {
+        if (!hasActionIntent) return undefined;
+        // Default core actions fallback
+        ['open_app', 'desktop_click', 'desktop_type', 'window_manager', 'system_volume'].forEach(n => selectedNames.add(n));
+      }
+
       const filtered = allTools.filter(t => selectedNames.has(t.name));
-      return [{ functionDeclarations: filtered }];
+      return filtered.length > 0 ? [{ functionDeclarations: filtered }] : undefined;
     }
 
     return allDeclarations;
@@ -2321,7 +2344,8 @@ class AgentBrain {
     const conversationHistory = (context && Array.isArray(context.conversationHistory) && context.conversationHistory.length > 0)
       ? context.conversationHistory
       : memory.getHistory();
-    const isWebSearchActive = Boolean(
+    const isConversationalPrompt = /^(hi|hello|hey|yo|sup|wassup|wazzup|whats?\s*up|what\s+is\s+up|how\s*('?s|is)\s*(it|everything|life)|how\s+are\s+you|how\s+do\s+you\s+do|howdy|greetings|good\s+(morning|afternoon|evening|night|day)|thanks|thank\s+you|ok|okay|bye|cool|nice)\b/i.test(prompt.trim()) && prompt.trim().split(/\s+/).length <= 7;
+    const isWebSearchActive = !isConversationalPrompt && Boolean(
       context && (context.webSearch || context.webSearchEnabled) ||
       shouldAutoSearchWeb(prompt, conversationHistory)
     );
@@ -2361,10 +2385,9 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
 
     // Ollama Local Model Optimization: keep prompt lean & concise to eliminate 30s prompt-eval delays
     if (provider === 'ollama') {
-      const isGreeting = /^(hi|hello|hey|yo|sup|good\s+(morning|afternoon|evening|night)|howdy)\b/i.test(prompt.trim()) && prompt.trim().split(/\s+/).length <= 4;
-      if (isGreeting) {
-        systemContent = `You are Grokki, a fast, friendly AI assistant for Windows. Greet the user warmly in 1 short sentence. User: ${config.userNickname || config.userName || 'Friend'}.`;
-        historyToUse = [];
+      if (isConversationalPrompt) {
+        systemContent = `You are Grokki, a fast, friendly AI assistant for Windows. Reply naturally in 1-2 conversational sentences. User: ${config.userNickname || config.userName || 'Friend'}.`;
+        historyToUse = rawHistory.slice(-2);
       } else {
         const ollamaMem = memory.persistentMemory ? memory.persistentMemory.retrieveContext(fullPrompt, { projectId: config.activeProjectId }).formattedPromptSection : '';
         systemContent = `You are Grokki, a fast, intelligent AI assistant for Windows. Answer directly and concisely in clean Markdown. User: ${config.userNickname || config.userName || 'Friend'}. Tone: ${config.userTone || 'warm, direct'}.${ollamaMem ? `\n${ollamaMem}` : ''}`;
@@ -2389,6 +2412,10 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       } else if (typeof turn.content === 'string') {
         content = turn.content;
       }
+      // Compact prior turns for Ollama to prevent massive prompt-eval latency
+      if (provider === 'ollama' && i < historyToUse.length - 1 && content.length > 350) {
+        content = content.slice(0, 350) + '...';
+      }
       // CRITICAL: Ensure the active current user prompt carries fullPrompt
       // (which includes live web search grounding, attached files, and project context)
       if (i === historyToUse.length - 1 && role === 'user') {
@@ -2403,14 +2430,14 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       messages.push({ role: 'user', content: fullPrompt });
     }
 
-    // When Deep Search / Live Grounding is active, omit desktop tools so model synthesizes search results
+    // When Deep Search / Live Grounding is active or query is non-action, omit desktop tools
     const toolsDecl = isWebSearchActive ? undefined : this.getRelevantTools(prompt, provider);
     let tools = toolsDecl ? convertGeminiToolsToOpenAI(toolsDecl) : undefined;
-    if (!isWebSearchActive) {
+    if (tools && !isWebSearchActive && provider !== 'ollama') {
       try {
         const mcpTools = mcpManager.getOpenAIToolDefinitions();
         if (mcpTools && mcpTools.length > 0) {
-          tools = (tools || []).concat(mcpTools);
+          tools = tools.concat(mcpTools);
         }
       } catch (_) {}
     }
