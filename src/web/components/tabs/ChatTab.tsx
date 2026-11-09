@@ -1161,7 +1161,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const [localModelPull, setLocalModelPull] = useState<ActiveModelPull | null>(null);
 
   useEffect(() => {
-    if (activeModelPull !== undefined) return;
+    if (activeModelPull) return;
     if (window.jarvisAPI?.getActiveOllamaPull) {
       window.jarvisAPI.getActiveOllamaPull().then((pull) => {
         if (pull && !pull.completed) setLocalModelPull(pull);
@@ -1204,7 +1204,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }
   }, [activeModelPull]);
 
-  const effectiveModelPull = activeModelPull !== undefined ? activeModelPull : localModelPull;
+  const effectiveModelPull = activeModelPull || localModelPull;
 
   // Monitor scroll distance to bottom to conditionally reveal down chevron button above input
   useEffect(() => {

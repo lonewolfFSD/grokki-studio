@@ -893,6 +893,9 @@ function openDashboardWindow(showImmediately = true) {
     if (splashWindow && !splashWindow.isDestroyed() && splashWindow.webContents) {
       splashWindow.webContents.send('app:ready');
     }
+    if (activeOllamaPull && !activeOllamaPull.completed && dashboardWindow.webContents) {
+      dashboardWindow.webContents.send('ollama:pull-progress', activeOllamaPull);
+    }
     if (showImmediately) {
       if (launchMode === 'fullscreen') {
         dashboardWindow.setFullScreen(true);
@@ -4217,7 +4220,68 @@ ipcMain.handle('jarvis:launch-ollama', async () => {
   }
 });
 
-let activeOllamaPull = null;
+function detectActiveOllamaDiskPull() {
+  try {
+    const blobsDir = path.join(os.homedir(), '.ollama', 'models', 'blobs');
+    if (!fs.existsSync(blobsDir)) return null;
+
+    const files = fs.readdirSync(blobsDir);
+    const partials = files
+      .filter((f) => f.endsWith('-partial'))
+      .map((f) => {
+        try {
+          const stat = fs.statSync(path.join(blobsDir, f));
+          return { name: f, size: stat.size, mtime: stat.mtimeMs };
+        } catch (_) {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .filter((f) => Date.now() - f.mtime < 180000); // 3 minutes
+
+    if (!partials.length) return null;
+    const activePartial = partials.sort((a, b) => b.mtime - a.mtime)[0];
+    const layerHash = activePartial.name.replace('-partial', '').replace(/^sha256-/, 'sha256:');
+
+    let detectedModel = null;
+    for (const f of files) {
+      if (f.endsWith('-partial')) continue;
+      try {
+        const p = path.join(blobsDir, f);
+        const stat = fs.statSync(p);
+        if (stat.size < 8192) {
+          const content = fs.readFileSync(p, 'utf-8');
+          if (content.startsWith('{') && content.includes(layerHash)) {
+            const manifest = JSON.parse(content);
+            const fam = (manifest.model_family || '').toLowerCase();
+            const type = (manifest.model_type || '').toLowerCase();
+            if (fam === 'llama' && type.includes('3.2')) detectedModel = 'llama3.2';
+            else if (fam.includes('qwen') || type.includes('coder')) detectedModel = 'qwen2.5-coder:7b';
+            else if (fam.includes('deepseek')) detectedModel = 'deepseek-r1:8b';
+            else if (fam.includes('mistral')) detectedModel = 'mistral';
+            else if (fam.includes('phi')) detectedModel = 'phi4';
+            else if (fam.includes('moondream')) detectedModel = 'moondream';
+            else if (fam) detectedModel = `${fam}:${type}`.replace(/:$/, '');
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+
+    return {
+      modelName: detectedModel || 'llama3.2',
+      endpoint: 'http://127.0.0.1:11434',
+      status: 'Downloading...',
+      percent: 0,
+      completed: false,
+      timestamp: Date.now(),
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+let activeOllamaPull = loadSavedActivePull() || detectActiveOllamaDiskPull();
 
 function getActivePullFile() {
   try {
@@ -4276,14 +4340,16 @@ function startOllamaPullStream(name, ep) {
   const url = new URL(`${ep}/api/pull`);
   const postData = JSON.stringify({ name, stream: true });
 
-  activeOllamaPull = {
-    modelName: name,
-    endpoint: ep,
-    status: 'Connecting...',
-    percent: 0,
-    completed: false,
-    timestamp: Date.now(),
-  };
+  if (!activeOllamaPull || activeOllamaPull.modelName !== name) {
+    activeOllamaPull = {
+      modelName: name,
+      endpoint: ep,
+      status: 'Connecting...',
+      percent: 0,
+      completed: false,
+      timestamp: Date.now(),
+    };
+  }
   saveActivePullState(activeOllamaPull);
   broadcastOllamaPullProgress(activeOllamaPull);
 
@@ -4352,21 +4418,23 @@ function startOllamaPullStream(name, ep) {
       );
 
       req.on('error', (err) => {
-        activeOllamaPull = {
-          modelName: name,
-          endpoint: ep,
-          status: 'error',
-          percent: 0,
-          error: err.message,
-          completed: false,
-        };
-        saveActivePullState(null);
-        broadcastOllamaPullProgress(activeOllamaPull);
-        setTimeout(() => {
-          if (activeOllamaPull && activeOllamaPull.modelName === name) {
-            activeOllamaPull = null;
-          }
-        }, 4000);
+        if (activeOllamaPull && activeOllamaPull.modelName === name) {
+          activeOllamaPull = {
+            modelName: name,
+            endpoint: ep,
+            status: 'error',
+            percent: 0,
+            error: err.message,
+            completed: false,
+          };
+          saveActivePullState(null);
+          broadcastOllamaPullProgress(activeOllamaPull);
+          setTimeout(() => {
+            if (activeOllamaPull && activeOllamaPull.modelName === name) {
+              activeOllamaPull = null;
+            }
+          }, 4000);
+        }
         resolve({ success: false, error: err.message });
       });
 
@@ -4382,11 +4450,18 @@ function startOllamaPullStream(name, ep) {
 
 function initBackgroundPullDetector() {
   try {
-    const saved = loadSavedActivePull();
-    if (!saved || !saved.modelName) return;
+    const pull = activeOllamaPull || loadSavedActivePull() || detectActiveOllamaDiskPull();
+    if (!pull || !pull.modelName || pull.completed) {
+      activeOllamaPull = null;
+      saveActivePullState(null);
+      return;
+    }
 
-    activeOllamaPull = saved;
-    const ep = (saved.endpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+    activeOllamaPull = pull;
+    saveActivePullState(activeOllamaPull);
+    broadcastOllamaPullProgress(activeOllamaPull);
+
+    const ep = (pull.endpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
     const http = require('http');
     const url = new URL(`${ep}/api/tags`);
     const req = http.get(
@@ -4394,7 +4469,7 @@ function initBackgroundPullDetector() {
         hostname: url.hostname,
         port: url.port || 11434,
         path: '/api/tags',
-        timeout: 2500,
+        timeout: 3000,
       },
       (res) => {
         let body = '';
@@ -4403,30 +4478,29 @@ function initBackgroundPullDetector() {
           try {
             const data = JSON.parse(body);
             const isInstalled = (data.models || []).some(
-              (m) => m.name === saved.modelName || m.model === saved.modelName || (m.name && m.name.startsWith(saved.modelName))
+              (m) => m.name === pull.modelName || m.model === pull.modelName || (m.name && m.name.startsWith(pull.modelName))
             );
             if (isInstalled) {
               activeOllamaPull = null;
               saveActivePullState(null);
+              broadcastOllamaPullProgress({ modelName: pull.modelName, status: 'success', percent: 100, completed: true });
               return;
             }
           } catch (_) {}
-          startOllamaPullStream(saved.modelName, ep);
+          startOllamaPullStream(pull.modelName, ep);
         });
       }
     );
     req.on('error', () => {
-      activeOllamaPull = null;
-      saveActivePullState(null);
+      setTimeout(() => {
+        const diskPull = detectActiveOllamaDiskPull();
+        if (diskPull) startOllamaPullStream(diskPull.modelName, ep);
+      }, 2000);
     });
     req.on('timeout', () => {
       req.destroy();
-      activeOllamaPull = null;
-      saveActivePullState(null);
     });
-  } catch (_) {
-    activeOllamaPull = null;
-  }
+  } catch (_) {}
 }
 
 ipcMain.handle('jarvis:get-active-ollama-pull', () => activeOllamaPull);

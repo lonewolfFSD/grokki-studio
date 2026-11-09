@@ -534,22 +534,36 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
         if (active && !active.completed) {
           setLocalPullingModel(active.modelName);
           setLocalPullProgress({ status: active.status, percent: active.percent });
+        } else if (!activeModelPull) {
+          setLocalPullingModel(null);
+          setLocalPullProgress({ status: '', percent: 0 });
         }
       }).catch(() => {});
     }
-  }, []);
+  }, [activeModelPull]);
 
   useEffect(() => {
     if (window.jarvisAPI?.onOllamaPullProgress) {
       const unsub = window.jarvisAPI.onOllamaPullProgress((data) => {
-        setLocalPullProgress({
-          status: data.status,
-          percent: data.percent,
-        });
+        if (!data) return;
+        if (data.status === 'success' || data.percent >= 100 || data.completed === true) {
+          setLocalPullingModel(null);
+          setLocalPullProgress({ status: '', percent: 0 });
+          checkOllama();
+        } else if (data.status === 'error' || data.error) {
+          setLocalPullingModel(null);
+          setLocalPullProgress({ status: '', percent: 0 });
+        } else {
+          setLocalPullingModel(data.modelName);
+          setLocalPullProgress({
+            status: data.status,
+            percent: data.percent,
+          });
+        }
       });
       return () => unsub();
     }
-  }, []);
+  }, [checkOllama]);
 
   const handlePullModel = async (modelTag: string) => {
     const target = modelTag.trim();
@@ -1385,7 +1399,10 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
                   { tag: 'moondream', name: 'Moondream 2', size: '1.8B (~1.7 GB)', desc: 'Local vision model for image inspection' },
                 ].map((item) => {
                   const isInstalled = ollamaStatus.models.some((m) => m === item.tag || m.startsWith(item.tag.split(':')[0]));
-                  const isThisPulling = activePullingModel === item.tag || (activePullingModel ? activePullingModel.startsWith(item.tag.split(':')[0]) : false);
+                  const isThisPulling = !!activePullingModel && (
+                    activePullingModel === item.tag ||
+                    activePullingModel.split(':')[0] === item.tag.split(':')[0]
+                  );
 
                   return (
                     <div
