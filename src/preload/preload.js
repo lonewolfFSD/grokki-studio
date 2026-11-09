@@ -245,6 +245,12 @@ try {
     getSystemInfo: () => ipcRenderer.invoke('dashboard:get-system-info'),
     getAppVersion: () => ipcRenderer.invoke('app:get-version'),
     checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
+    downloadUpdate: (data) => ipcRenderer.invoke('app:download-update', data),
+    onUpdateDownloadProgress: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('app:update-download-progress', handler);
+      return () => ipcRenderer.removeListener('app:update-download-progress', handler);
+    },
     restartAndInstallUpdate: (data) => ipcRenderer.send('app:restart-and-install', data),
     openConfigFolder: () => ipcRenderer.invoke('app:open-config-folder'),
     notifySplashFinished: () => ipcRenderer.send('splash:finished'),

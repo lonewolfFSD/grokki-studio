@@ -502,7 +502,14 @@ export interface JarvisAPI {
     releaseNotes?: string;
     message?: string;
     error?: string;
+    assetId?: number;
+    fileName?: string;
+    assetSize?: number;
+    alreadyDownloaded?: boolean;
+    browserDownloadUrl?: string;
   }>;
+  downloadUpdate?: (data: { assetId?: number; fileName?: string; assetSize?: number; downloadUrl?: string }) => Promise<{ success: boolean; downloadedPath?: string; error?: string }>;
+  onUpdateDownloadProgress?: (callback: (progress: { percent: number; downloaded: number; total: number }) => void) => () => void;
   restartAndInstallUpdate?: (data?: any) => void;
   openConfigFolder?: () => Promise<{ success: boolean; path?: string }>;
   startCircleToAsk?: () => Promise<{ success: boolean }>;

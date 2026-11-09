@@ -4921,8 +4921,20 @@ ipcMain.handle('app:check-for-updates', async () => {
 
     // Identify binary asset if attached
     const asset = latestRelease.assets?.find((a) =>
-      a.name.endsWith('.exe') || a.name.endsWith('.msi') || a.name.endsWith('.zip')
+      a.name.endsWith('.exe') || a.name.endsWith('.msi')
     ) || latestRelease.assets?.[0];
+
+    const targetFileName = asset?.name || `Grokki.Studio-Setup-${latestTag.replace(/^v/, '')}.exe`;
+    const tempDir = app.getPath('temp');
+    const localInstallerPath = path.join(tempDir, targetFileName);
+
+    let alreadyDownloaded = false;
+    if (fs.existsSync(localInstallerPath)) {
+      const stat = fs.statSync(localInstallerPath);
+      if (asset?.size && stat.size === asset.size) {
+        alreadyDownloaded = true;
+      }
+    }
 
     const downloadTargetUrl = asset?.browser_download_url || latestRelease.html_url || releasesWebUrl;
 
@@ -4932,7 +4944,13 @@ ipcMain.handle('app:check-for-updates', async () => {
       latestVersion: latestTag,
       name: latestRelease.name || latestTag,
       releasesUrl: releasesWebUrl,
-      downloadUrl: downloadTargetUrl,
+      downloadUrl: asset?.id ? `https://api.github.com/repos/${officialRepo}/releases/assets/${asset.id}` : downloadTargetUrl,
+      browserDownloadUrl: downloadTargetUrl,
+      assetId: asset?.id,
+      fileName: targetFileName,
+      assetSize: asset?.size,
+      alreadyDownloaded,
+      downloadedPath: alreadyDownloaded ? localInstallerPath : null,
       releaseNotes: latestRelease.body || '',
       repo: officialRepo,
     };
@@ -4945,23 +4963,102 @@ ipcMain.handle('app:check-for-updates', async () => {
   }
 });
 
+ipcMain.handle('app:download-update', async (event, { assetId, fileName, assetSize, downloadUrl }) => {
+  try {
+    const targetFileName = fileName || 'Grokki.Studio-Setup-Update.exe';
+    const tempDir = app.getPath('temp');
+    const localInstallerPath = path.join(tempDir, targetFileName);
+
+    if (fs.existsSync(localInstallerPath) && assetSize) {
+      const stat = fs.statSync(localInstallerPath);
+      if (stat.size === assetSize) {
+        console.log('[Main] Update installer already downloaded:', localInstallerPath);
+        return { success: true, downloadedPath: localInstallerPath };
+      }
+    }
+
+    const targetUrl = assetId
+      ? `https://api.github.com/repos/lonewolfFSD/grokki-studio/releases/assets/${assetId}`
+      : downloadUrl;
+
+    console.log('[Main] Downloading update installer from:', targetUrl, 'to:', localInstallerPath);
+
+    const res = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'Grokki-Studio-Desktop',
+        'Accept': 'application/octet-stream',
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to download update installer (HTTP ${res.status})`);
+    }
+
+    const totalBytes = Number(res.headers.get('content-length')) || assetSize || 0;
+    let downloadedBytes = 0;
+    const fileStream = fs.createWriteStream(localInstallerPath);
+
+    const reader = res.body.getReader();
+    let lastProgressTime = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      fileStream.write(Buffer.from(value));
+      downloadedBytes += value.length;
+
+      const now = Date.now();
+      if (now - lastProgressTime > 250) {
+        lastProgressTime = now;
+        const percent = totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0;
+        event.sender.send('app:update-download-progress', {
+          percent,
+          downloaded: downloadedBytes,
+          total: totalBytes,
+        });
+      }
+    }
+
+    fileStream.end();
+    await new Promise((resolve, reject) => {
+      fileStream.on('finish', resolve);
+      fileStream.on('error', reject);
+    });
+
+    console.log('[Main] Update installer downloaded successfully:', localInstallerPath);
+    return { success: true, downloadedPath: localInstallerPath };
+  } catch (err) {
+    console.error('[Main] download-update error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.on('app:restart-and-install', (event, data) => {
   try {
     console.log('[Main] Restarting Grokki Studio to apply update...', data);
-    if (data?.downloadedPath && fs.existsSync(data.downloadedPath)) {
-      if (data.downloadedPath.endsWith('.exe') || data.downloadedPath.endsWith('.msi')) {
-        const cp = require('child_process');
-        cp.spawn(data.downloadedPath, [], { detached: true, stdio: 'ignore' }).unref();
+    const installerPath = data?.downloadedPath;
+    if (installerPath && fs.existsSync(installerPath)) {
+      console.log('[Main] Launching update installer executable:', installerPath);
+      const cp = require('child_process');
+      const child = cp.spawn(installerPath, [], {
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.unref();
+
+      setTimeout(() => {
         app.exit(0);
-        return;
-      }
+      }, 700);
+      return;
     }
-    app.relaunch();
-    app.exit(0);
+
+    // Fallback: If no downloaded file was present, open official releases page
+    if (data?.releasesUrl || data?.downloadUrl || data?.browserDownloadUrl) {
+      const { shell } = require('electron');
+      shell.openExternal(data.browserDownloadUrl || data.downloadUrl || data.releasesUrl);
+    }
   } catch (err) {
     console.error('[Main] Failed to relaunch app:', err);
-    app.relaunch();
-    app.exit(0);
   }
 });
 

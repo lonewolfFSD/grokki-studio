@@ -41,14 +41,20 @@ export const Header = React.memo<HeaderProps>(({
   isMaximized = false,
   onClose,
 }) => {
-  const [updateState, setUpdateState] = useState<'idle' | 'checking' | 'ready' | 'up-to-date'>('idle');
+  const [updateState, setUpdateState] = useState<'idle' | 'checking' | 'downloading' | 'ready' | 'up-to-date'>('idle');
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [appVersion, setAppVersion] = useState<string>('1.52.329');
+  const [appVersion, setAppVersion] = useState<string>('1.52.330');
 
   React.useEffect(() => {
     if (window.jarvisAPI?.getAppVersion) {
       window.jarvisAPI.getAppVersion().then(v => { if (v) setAppVersion(v); }).catch(() => {});
+    }
+    if (window.jarvisAPI?.onUpdateDownloadProgress) {
+      const unsub = window.jarvisAPI.onUpdateDownloadProgress((prog: any) => {
+        setToastMsg(`Downloading update ${prog.percent || 0}%...`);
+      });
+      return () => unsub();
     }
   }, []);
 
@@ -137,10 +143,44 @@ export const Header = React.memo<HeaderProps>(({
       }
 
       if (result && result.updateAvailable) {
-        setUpdateState('ready');
-        setUpdateInfo(result);
-        setToastMsg(`Update ${result.latestVersion || ''} ready!`);
-        setTimeout(() => setToastMsg(null), 3500);
+        if (result.alreadyDownloaded && result.downloadedPath) {
+          setUpdateState('ready');
+          setUpdateInfo(result);
+          setToastMsg(`Update ${result.latestVersion || ''} ready to install!`);
+          setTimeout(() => setToastMsg(null), 3500);
+        } else if (window.jarvisAPI?.downloadUpdate) {
+          setUpdateState('downloading');
+          setToastMsg(`Downloading update ${result.latestVersion || ''} (0%)...`);
+          try {
+            const dlRes = await window.jarvisAPI.downloadUpdate({
+              assetId: result.assetId,
+              fileName: result.fileName,
+              assetSize: result.assetSize,
+              downloadUrl: result.downloadUrl,
+            });
+            if (dlRes?.success && dlRes?.downloadedPath) {
+              setUpdateState('ready');
+              setUpdateInfo({
+                ...result,
+                downloadedPath: dlRes.downloadedPath,
+              });
+              setToastMsg(`Update ${result.latestVersion || ''} ready! Click Restart & Install.`);
+            } else {
+              setUpdateState('ready');
+              setUpdateInfo(result);
+              setToastMsg(`Auto-download interrupted. Click to open installer in browser.`);
+            }
+          } catch (dlErr: any) {
+            setUpdateState('ready');
+            setUpdateInfo(result);
+            setToastMsg(`Download error. Click to open installer in browser.`);
+          }
+        } else {
+          setUpdateState('ready');
+          setUpdateInfo(result);
+          setToastMsg(`Update ${result.latestVersion || ''} available!`);
+          setTimeout(() => setToastMsg(null), 3500);
+        }
       } else {
         setUpdateState('up-to-date');
         setToastMsg(result?.message || `You're on the latest version (v${appVersion}).`);
@@ -220,10 +260,17 @@ export const Header = React.memo<HeaderProps>(({
             </button>
           </WarmTooltip>
 
-          {/* Check for Updates / Restart to Update Button (Beside Minimize) */}
-          {updateState === 'ready' ? (
+          {/* Check for Updates / Downloading / Restart & Install Button */}
+          {updateState === 'downloading' ? (
+            <div className="h-8 px-2.5 rounded-lg border border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center gap-1.5 shadow-xs select-none">
+              <RefreshCw className="w-3.5 h-3.5 flex-shrink-0 animate-spin text-blue-500" />
+              <span className="text-xs font-semibold whitespace-nowrap font-mono">
+                Downloading installer...
+              </span>
+            </div>
+          ) : updateState === 'ready' ? (
             <WarmTooltip
-              content={`Update ${updateInfo?.latestVersion || ''} ready — Click to restart`}
+              content={`Update ${updateInfo?.latestVersion || ''} ready — Click to install and restart`}
               side="bottom"
               surfaceColor="#f5f5f5"
               inkColor="#18181b"
@@ -243,7 +290,7 @@ export const Header = React.memo<HeaderProps>(({
               >
                 <RotateCcw className="w-3.5 h-3.5 flex-shrink-0 animate-pulse text-emerald-500 group-hover:rotate-180 transition-transform duration-300" />
                 <span className="text-xs font-semibold whitespace-nowrap">
-                  Restart to update
+                  Restart & Install
                 </span>
               </button>
             </WarmTooltip>
