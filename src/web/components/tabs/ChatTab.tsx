@@ -1152,7 +1152,13 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const messages = activeConversation.messages;
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
-  const isChatThinking = Boolean(thinkingConvoIds?.has(activeConversation.id)) || loading;
+  const isChatThinking = Boolean(thinkingConvoIds ? thinkingConvoIds.has(activeConversation.id) : loading);
+
+  useEffect(() => {
+    setLoading(false);
+    setEditingMessageId(null);
+    setEditingContent('');
+  }, [activeConversation.id]);
   const [activeArtifact, setActiveArtifact] = useState<Artifact | null>(null);
   const [attachedFile, setAttachedFile] = useState<AttachedFileInfo | null>(null);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
