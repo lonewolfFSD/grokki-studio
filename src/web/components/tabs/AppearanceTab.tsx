@@ -5,7 +5,7 @@ import GlideSelect, { GlideSelectOption } from './GlideSelect';
 import { GrainientCustomizerModal } from '../GrainientCustomizerModal';
 
 const GRADIENT_EFFECT_OPTIONS: GlideSelectOption[] = [
-  { value: 'grokki-blue', label: 'Grokki Blue', tag: 'ASCII' },
+  { value: 'grokki-threads', label: 'Grokki Threads', tag: 'Threads' },
   { value: 'grainient', label: 'Grainient', tag: 'Fluid' },
 ];
 
@@ -301,13 +301,13 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
                 Gradient Style Effect
               </strong>
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                Choose the ambient background visual: Grokki Blue ASCII wave or Grainient fluid mesh.
+                Choose the ambient background visual: Grokki Threads wave or Grainient fluid mesh.
               </span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <GlideSelect
                 options={GRADIENT_EFFECT_OPTIONS}
-                value={config.chatBackgroundEffect || 'grokki-blue'}
+                value={config.chatBackgroundEffect === 'grainient' ? 'grainient' : 'grokki-threads'}
                 onChange={(val) => onChangeConfig({ chatBackgroundEffect: val })}
                 showTags
                 size="md"
@@ -323,7 +323,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
               />
 
               {/* Customize Pencil Button - Only appears when Grainient is selected */}
-              {(config.chatBackgroundEffect || 'grokki-blue') === 'grainient' && (
+              {config.chatBackgroundEffect === 'grainient' && (
                 <button
                   type="button"
                   onClick={() => setIsCustomizerOpen(true)}

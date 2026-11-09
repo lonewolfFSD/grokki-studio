@@ -166,7 +166,7 @@ import {
   QwenLogo,
 } from './AiBrainTab';
 import { Sliders } from 'lucide-react';
-import GradientASCII from './GradientASCII';
+import Threads from './Threads';
 import Grainient from './Grainient';
 import Noise from './Noise';
 import LatticeLoader from './LatticeLoader';
@@ -3560,14 +3560,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
       />
       {renderCameraModal()}
 
-      {/* Background Gradient Effect (Grokki Blue ASCII or Grainient Fluid Mesh) */}
+      {/* Background Gradient Effect (Grokki Threads or Grainient Fluid Mesh) */}
       {!!config.chatBackgroundGradient && (
         <div
-          key={`chat-bg-${config.chatBackgroundEffect || 'grokki-blue'}`}
+          key={`chat-bg-${config.chatBackgroundEffect === 'grainient' ? 'grainient' : 'grokki-threads'}`}
           className="absolute inset-0 pointer-events-none overflow-hidden z-0"
           style={{ width: '100%', height: '100%', position: 'absolute' }}
         >
-          {(config.chatBackgroundEffect || 'grokki-blue') === 'grainient' ? (
+          {config.chatBackgroundEffect === 'grainient' ? (
             (() => {
               const gSettings = {
                 ...DEFAULT_GRAINIENT_SETTINGS,
@@ -3599,29 +3599,28 @@ export const ChatTab = React.memo<ChatTabProps>(({
               );
             })()
           ) : (
-            <GradientASCII
-              colors={GRADIENT_ASCII_COLORS}
-              shape="horizon"
-              characters=" =GROKKIBYITZAJX@#"
-              cellSize={18}
-              density={0.56}
-              glyphOpacity={0.3}
-              glow={0.2}
-              depthOfField={0.8}
-              flicker={0.2}
-              softness={0.5}
-              scale={1}
-              flow={0.5}
-              speed={1}
-              gradientOpacity={0.9}
-              grain={0.08}
-              variation={0}
-              mouseInteraction
-              scrambleRadius={0.1}
-              clickEffect="wave"
-              intro
-              lightMode={!isDarkTheme}
-            />
+            <div style={{ width: '100%', height: '600px', position: 'relative' }}>
+              <Threads
+                color="#4769c8"
+                lineCount={90}
+                thickness={0.6}
+                softness={1.3}
+                amplitude={1.7}
+                distance={0.4}
+                waves={1.05}
+                speed={0.6}
+                split={0.04}
+                fray={0.5}
+                angle={25}
+                taper={0.85}
+                brightness={1.4}
+                parting={0}
+                enableMouseInteraction={false}
+                fade={0}
+                opacity={1}
+                seed={0}
+              />
+            </div>
           )}
         </div>
       )}

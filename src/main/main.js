@@ -188,7 +188,7 @@ function loadConfig() {
       if (data.autoCheckUpdates === undefined) data.autoCheckUpdates = true;
       if (data.hardwareAcceleration === undefined) data.hardwareAcceleration = true;
       if (data.chatBackgroundGradient === undefined) data.chatBackgroundGradient = false;
-      if (!data.chatBackgroundEffect) data.chatBackgroundEffect = 'grokki-blue';
+      if (!data.chatBackgroundEffect || data.chatBackgroundEffect === 'grokki-blue') data.chatBackgroundEffect = 'grokki-threads';
       if (data.grainientSettings === undefined) data.grainientSettings = null;
       if (data.chatBackgroundNoise === undefined) data.chatBackgroundNoise = false;
       if (data.glowCursorEnabled === undefined) data.glowCursorEnabled = false;
@@ -280,7 +280,7 @@ function loadConfig() {
     autoCheckUpdates: true,
     hardwareAcceleration: true,
     chatBackgroundGradient: false,
-    chatBackgroundEffect: 'grokki-blue',
+    chatBackgroundEffect: 'grokki-threads',
     chatBackgroundNoise: false,
     glowCursorEnabled: false,
     smoothCursorEnabled: false,

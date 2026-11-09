@@ -82,7 +82,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
   autoCheckUpdates: true,
   hardwareAcceleration: true,
   chatBackgroundGradient: false,
-  chatBackgroundEffect: 'grokki-blue',
+  chatBackgroundEffect: 'grokki-threads',
   chatBackgroundNoise: false,
   glowCursorEnabled: false,
   smoothCursorEnabled: false,
