@@ -241,6 +241,30 @@ function loadConfig() {
     omnirouterApiKey: envOmniRouterKey,
     omnirouterModel: 'auto',
     omnirouterEndpoint: 'http://localhost:20128/v1',
+    litellmApiKey: '',
+    litellmModel: 'gpt-4o',
+    litellmEndpoint: 'http://localhost:4000/v1',
+    bifrostApiKey: '',
+    bifrostModel: 'auto',
+    bifrostEndpoint: 'http://localhost:8080/v1',
+    portkeyApiKey: '',
+    portkeyModel: 'auto',
+    portkeyEndpoint: 'https://api.portkey.ai/v1',
+    heliconeApiKey: '',
+    heliconeModel: 'gpt-4o',
+    heliconeEndpoint: 'https://oai.helicone.ai/v1',
+    routellmApiKey: '',
+    routellmModel: 'router-mf',
+    routellmEndpoint: 'http://localhost:6060/v1',
+    newapiApiKey: '',
+    newapiModel: 'auto',
+    newapiEndpoint: 'http://localhost:3000/v1',
+    higressApiKey: '',
+    higressModel: 'auto',
+    higressEndpoint: 'http://localhost:8080/v1',
+    clawrouterApiKey: '',
+    clawrouterModel: 'auto',
+    clawrouterEndpoint: 'http://localhost:8000/v1',
     wakeWord: 'Hey Grokki',
     hotkey: 'Alt+Q',
     voiceEnabled: true,
@@ -3553,6 +3577,28 @@ ipcMain.handle('jarvis:get-today-data', async () => {
   return result;
 });
 
+ipcMain.handle('jarvis:detect-location', async () => {
+  try {
+    const res = await fetch('http://ip-api.com/json/?fields=status,message,country,countryCode,regionName,city,lat,lon,timezone');
+    const data = await res.json();
+    if (data && data.status === 'success') {
+      return {
+        success: true,
+        city: data.city || '',
+        region: data.regionName || '',
+        country: data.country || '',
+        countryCode: data.countryCode || '',
+        lat: data.lat,
+        lon: data.lon,
+        timezone: data.timezone || '',
+      };
+    }
+    return { success: false, error: data?.message || 'Failed to detect location' };
+  } catch (err) {
+    return { success: false, error: err.message || 'Network error detecting location' };
+  }
+});
+
 ipcMain.handle('jarvis:open-settings-page', (event, page) => {
   const pageMap = {
     wifi: 'ms-settings:network-wifi',
@@ -5506,24 +5552,46 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
       return { success: true, latencyMs, reply: data.choices?.[0]?.message?.content?.trim() || 'READY' };
     }
 
-    if (provider === 'omniroute' || provider === 'omnirouter') {
-      const ep = (endpoint || 'http://localhost:20128/v1').replace(/\/+$/, '');
+    const provKey = (provider || '').trim().toLowerCase();
+    const OPENAI_GATEWAY_CONFIGS = {
+      omniroute: { defaultEndpoint: 'http://localhost:20128/v1', defaultModel: 'auto', name: 'OmniRoute' },
+      omnirouter: { defaultEndpoint: 'http://localhost:20128/v1', defaultModel: 'auto', name: 'OmniRoute' },
+      litellm: { defaultEndpoint: 'http://localhost:4000/v1', defaultModel: 'gpt-4o', name: 'LiteLLM' },
+      bifrost: { defaultEndpoint: 'http://localhost:8080/v1', defaultModel: 'auto', name: 'Bifrost' },
+      portkey: { defaultEndpoint: 'https://api.portkey.ai/v1', defaultModel: 'auto', name: 'Portkey' },
+      helicone: { defaultEndpoint: 'https://oai.helicone.ai/v1', defaultModel: 'gpt-4o', name: 'Helicone' },
+      routellm: { defaultEndpoint: 'http://localhost:6060/v1', defaultModel: 'router-mf', name: 'RouteLLM' },
+      newapi: { defaultEndpoint: 'http://localhost:3000/v1', defaultModel: 'auto', name: 'New API' },
+      higress: { defaultEndpoint: 'http://localhost:8080/v1', defaultModel: 'auto', name: 'Higress' },
+      clawrouter: { defaultEndpoint: 'http://localhost:8000/v1', defaultModel: 'auto', name: 'ClawRouter' },
+    };
+
+    if (OPENAI_GATEWAY_CONFIGS[provKey] || OPENAI_GATEWAY_CONFIGS[provider]) {
+      const g = OPENAI_GATEWAY_CONFIGS[provKey] || OPENAI_GATEWAY_CONFIGS[provider];
+      const ep = (endpoint || g.defaultEndpoint).replace(/\/+$/, '');
       const apiKey = (key || '').trim();
       const fetch = global.fetch || require('node-fetch');
       const headers = { 'Content-Type': 'application/json' };
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+      if (provKey === 'portkey' || ep.includes('portkey.ai')) {
+        if (apiKey) headers['x-portkey-api-key'] = apiKey;
+        headers['x-portkey-provider'] = 'openai';
+      }
+      if (provKey === 'helicone' || ep.includes('helicone.ai')) {
+        if (apiKey) headers['Helicone-Auth'] = `Bearer ${apiKey}`;
+      }
       const res = await fetch(`${ep}/chat/completions`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: model || 'auto',
+          model: model || g.defaultModel,
           messages: [{ role: 'user', content: 'Respond with ONLY "READY".' }],
           max_tokens: 10,
         }),
       });
       if (!res.ok) {
         const errText = await res.text();
-        return { success: false, error: `OmniRoute error (${res.status}): ${errText.slice(0, 150)}` };
+        return { success: false, error: `${g.name} error (${res.status}): ${errText.slice(0, 150)}` };
       }
       const data = await res.json();
       const latencyMs = Date.now() - startTime;
@@ -5634,11 +5702,33 @@ ipcMain.handle('dashboard:fetch-provider-models', async (event, { provider, key,
       return { success: true, models };
     }
 
-    if (provider === 'omniroute' || provider === 'omnirouter') {
-      const ep = (endpoint || 'http://localhost:20128/v1').replace(/\/+$/, '');
+    const provKey = (provider || '').trim().toLowerCase();
+    const OPENAI_GATEWAY_CONFIGS = {
+      omniroute: { defaultEndpoint: 'http://localhost:20128/v1' },
+      omnirouter: { defaultEndpoint: 'http://localhost:20128/v1' },
+      litellm: { defaultEndpoint: 'http://localhost:4000/v1' },
+      bifrost: { defaultEndpoint: 'http://localhost:8080/v1' },
+      portkey: { defaultEndpoint: 'https://api.portkey.ai/v1' },
+      helicone: { defaultEndpoint: 'https://oai.helicone.ai/v1' },
+      routellm: { defaultEndpoint: 'http://localhost:6060/v1' },
+      newapi: { defaultEndpoint: 'http://localhost:3000/v1' },
+      higress: { defaultEndpoint: 'http://localhost:8080/v1' },
+      clawrouter: { defaultEndpoint: 'http://localhost:8000/v1' },
+    };
+
+    if (OPENAI_GATEWAY_CONFIGS[provKey] || OPENAI_GATEWAY_CONFIGS[provider]) {
+      const g = OPENAI_GATEWAY_CONFIGS[provKey] || OPENAI_GATEWAY_CONFIGS[provider];
+      const ep = (endpoint || g.defaultEndpoint).replace(/\/+$/, '');
       const apiKey = (key || '').trim();
       const headers = {};
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+      if (provKey === 'portkey' || ep.includes('portkey.ai')) {
+        if (apiKey) headers['x-portkey-api-key'] = apiKey;
+        headers['x-portkey-provider'] = 'openai';
+      }
+      if (provKey === 'helicone' || ep.includes('helicone.ai')) {
+        if (apiKey) headers['Helicone-Auth'] = `Bearer ${apiKey}`;
+      }
       const res = await fetch(`${ep}/models`, { headers });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();

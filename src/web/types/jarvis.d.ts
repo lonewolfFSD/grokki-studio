@@ -19,7 +19,15 @@ export type AiProvider =
   | 'openai'
   | 'grok'
   | 'deepseek'
-  | 'qwen';
+  | 'qwen'
+  | 'litellm'
+  | 'bifrost'
+  | 'portkey'
+  | 'helicone'
+  | 'routellm'
+  | 'newapi'
+  | 'higress'
+  | 'clawrouter';
 
 export interface GrainientCustomSettings {
   colors?: string[];
@@ -92,6 +100,30 @@ export interface JarvisConfig {
   omnirouterApiKey?: string;
   omnirouterModel?: string;
   omnirouterEndpoint?: string;
+  litellmApiKey?: string;
+  litellmModel?: string;
+  litellmEndpoint?: string;
+  bifrostApiKey?: string;
+  bifrostModel?: string;
+  bifrostEndpoint?: string;
+  portkeyApiKey?: string;
+  portkeyModel?: string;
+  portkeyEndpoint?: string;
+  heliconeApiKey?: string;
+  heliconeModel?: string;
+  heliconeEndpoint?: string;
+  routellmApiKey?: string;
+  routellmModel?: string;
+  routellmEndpoint?: string;
+  newapiApiKey?: string;
+  newapiModel?: string;
+  newapiEndpoint?: string;
+  higressApiKey?: string;
+  higressModel?: string;
+  higressEndpoint?: string;
+  clawrouterApiKey?: string;
+  clawrouterModel?: string;
+  clawrouterEndpoint?: string;
   wakeWord?: string;
   hotkey?: string;
   hotkeys?: StudioHotkeys;
@@ -149,6 +181,12 @@ export interface JarvisConfig {
   openwaEngine?: 'whatsapp-web.js' | 'baileys';
   openwaEnabled?: boolean;
   openwaPreferGateway?: boolean;
+  shareLocation?: boolean;
+  locationCity?: string;
+  locationRegion?: string;
+  locationCountry?: string;
+  locationLat?: number;
+  locationLon?: number;
 }
 
 export interface GoogleProfile {
@@ -449,6 +487,17 @@ export interface JarvisAPI {
   launchOllama?: () => Promise<{ success: boolean; exePath?: string; error?: string }>;
   optimizeOllamaHardware?: (enabled?: boolean) => Promise<{ success: boolean; enabled?: boolean; error?: string }>;
   getOllamaHardwareStatus?: () => Promise<{ flashAttention: boolean; keepAlive: string; optimized: boolean }>;
+  detectLocation?: () => Promise<{
+    success: boolean;
+    city?: string;
+    region?: string;
+    country?: string;
+    countryCode?: string;
+    lat?: number;
+    lon?: number;
+    timezone?: string;
+    error?: string;
+  }>;
   pullOllamaModel?: (options: { modelName: string; endpoint?: string }) => Promise<{ success: boolean; modelName?: string; error?: string }>;
   deleteOllamaModel?: (options: { modelName: string; endpoint?: string }) => Promise<{ success: boolean; modelName?: string; error?: string }>;
   getActiveOllamaPull?: () => Promise<ActiveModelPull | null>;

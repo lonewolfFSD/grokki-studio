@@ -146,6 +146,7 @@ const formatTokenNumber = (num: number): string => {
 import { ArtifactCanvasPane, Artifact } from '../ArtifactCanvasPane';
 import { PerplexitySourcesBar } from '../PerplexitySourcesBar';
 import { RelatedImagesCarousel } from '../RelatedImagesCarousel';
+import { WeatherCarousel, parseWeatherForecastFromMarkdown, stripWeatherTableFromMarkdown } from '../WeatherCarousel';
 import { WorkspaceMentionMenu } from '../WorkspaceMentionMenu';
 import { WorkspaceMentionPill } from '../WorkspaceMentionPill';
 import SpecularButton from '@/effects/SpecularButton';
@@ -167,6 +168,14 @@ import {
   GrokLogo,
   DeepSeekLogo,
   QwenLogo,
+  LiteLLMLogo,
+  BifrostLogo,
+  PortkeyLogo,
+  HeliconeLogo,
+  RouteLLMLogo,
+  NewApiLogo,
+  HigressLogo,
+  ClawRouterLogo,
 } from './AiBrainTab';
 import { Sliders } from 'lucide-react';
 import Threads from './Threads';
@@ -1272,6 +1281,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
     grok: { name: 'Grok', modelField: 'grokModel', defaultModel: 'grok-2-1212', Logo: GrokLogo },
     deepseek: { name: 'DeepSeek', modelField: 'deepseekModel', defaultModel: 'deepseek-chat', Logo: DeepSeekLogo },
     qwen: { name: 'Qwen', modelField: 'qwenModel', defaultModel: 'qwen-max', Logo: QwenLogo },
+    litellm: { name: 'LiteLLM', modelField: 'litellmModel', defaultModel: 'gpt-4o', Logo: LiteLLMLogo },
+    bifrost: { name: 'Bifrost', modelField: 'bifrostModel', defaultModel: 'auto', Logo: BifrostLogo },
+    portkey: { name: 'Portkey', modelField: 'portkeyModel', defaultModel: 'auto', Logo: PortkeyLogo },
+    helicone: { name: 'Helicone', modelField: 'heliconeModel', defaultModel: 'gpt-4o', Logo: HeliconeLogo },
+    routellm: { name: 'RouteLLM', modelField: 'routellmModel', defaultModel: 'router-mf', Logo: RouteLLMLogo },
+    newapi: { name: 'New API', modelField: 'newapiModel', defaultModel: 'auto', Logo: NewApiLogo },
+    higress: { name: 'Higress', modelField: 'higressModel', defaultModel: 'auto', Logo: HigressLogo },
+    clawrouter: { name: 'ClawRouter', modelField: 'clawrouterModel', defaultModel: 'auto', Logo: ClawRouterLogo },
   }), []);
 
   const currentBrainInfo = brainMeta[activeBrain] || brainMeta.gemini;
@@ -1291,7 +1308,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
   // Auto-fetch provider models for ChatTab if not cached yet (guarded to never re-trigger infinite loop)
   useEffect(() => {
-    const dynamicProviders = ['omniroute', 'omnirouter', 'ollama', 'openrouter', 'groq'];
+    const dynamicProviders = [
+      'omniroute', 'omnirouter', 'litellm', 'bifrost', 'portkey', 'helicone',
+      'routellm', 'newapi', 'higress', 'clawrouter', 'ollama', 'openrouter', 'groq'
+    ];
     if (!dynamicProviders.includes(activeBrain)) return;
 
     // Check if already cached in config
@@ -1322,20 +1342,68 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }
 
     if (window.jarvisAPI?.fetchProviderModels) {
-      const ep = activeBrain === 'omniroute' || activeBrain === 'omnirouter'
-        ? (config.omnirouteEndpoint || 'http://localhost:20128/v1')
-        : undefined;
-      const key = activeBrain === 'omniroute' || activeBrain === 'omnirouter'
-        ? (config.omnirouteApiKey || config.omnirouterApiKey)
-        : (activeBrain === 'groq' ? config.groqApiKey : config.openrouterApiKey);
+      let ep: string | undefined = undefined;
+      let key: string | undefined = undefined;
+
+      if (activeBrain === 'omniroute' || activeBrain === 'omnirouter') {
+        ep = config.omnirouteEndpoint || 'http://localhost:20128/v1';
+        key = config.omnirouteApiKey || config.omnirouterApiKey;
+      } else if (activeBrain === 'litellm') {
+        ep = config.litellmEndpoint || 'http://localhost:4000/v1';
+        key = config.litellmApiKey;
+      } else if (activeBrain === 'bifrost') {
+        ep = config.bifrostEndpoint || 'http://localhost:8080/v1';
+        key = config.bifrostApiKey;
+      } else if (activeBrain === 'portkey') {
+        ep = config.portkeyEndpoint || 'https://api.portkey.ai/v1';
+        key = config.portkeyApiKey;
+      } else if (activeBrain === 'helicone') {
+        ep = config.heliconeEndpoint || 'https://oai.helicone.ai/v1';
+        key = config.heliconeApiKey;
+      } else if (activeBrain === 'routellm') {
+        ep = config.routellmEndpoint || 'http://localhost:6060/v1';
+        key = config.routellmApiKey;
+      } else if (activeBrain === 'newapi') {
+        ep = config.newapiEndpoint || 'http://localhost:3000/v1';
+        key = config.newapiApiKey;
+      } else if (activeBrain === 'higress') {
+        ep = config.higressEndpoint || 'http://localhost:8080/v1';
+        key = config.higressApiKey;
+      } else if (activeBrain === 'clawrouter') {
+        ep = config.clawrouterEndpoint || 'http://localhost:8000/v1';
+        key = config.clawrouterApiKey;
+      } else if (activeBrain === 'groq') {
+        key = config.groqApiKey;
+      } else if (activeBrain === 'openrouter') {
+        key = config.openrouterApiKey;
+      }
 
       window.jarvisAPI.fetchProviderModels({ provider: activeBrain, endpoint: ep, key })
-        .then((res) => {
-          if (res?.success && Array.isArray(res.models)) {
+        .then(async (res) => {
+          let models = (res?.success && Array.isArray(res.models)) ? res.models : null;
+          if (!models && ep) {
+            try {
+              const headers: Record<string, string> = {};
+              if (key) headers['Authorization'] = `Bearer ${key}`;
+              if (activeBrain === 'portkey') {
+                if (key) headers['x-portkey-api-key'] = key;
+                headers['x-portkey-provider'] = 'openai';
+              } else if (activeBrain === 'helicone') {
+                if (key) headers['Helicone-Auth'] = `Bearer ${key}`;
+              }
+              const r = await fetch(`${ep.replace(/\/+$/, '')}/models`, { headers });
+              if (r.ok) {
+                const d = await r.json();
+                const list = Array.isArray(d.data) ? d.data : Array.isArray(d.models) ? d.models : Array.isArray(d) ? d : [];
+                models = list.map((m: any) => typeof m === 'string' ? m : (m.id || m.name || m.model)).filter(Boolean);
+              }
+            } catch (_) {}
+          }
+          if (Array.isArray(models) && models.length > 0) {
             onChangeConfig?.({
               cachedProviderModels: {
                 ...(config.cachedProviderModels || {}),
-                [activeBrain]: res.models,
+                [activeBrain]: models,
               },
             });
           }
@@ -2577,7 +2645,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
         const modelA = modelAParts.join(':');
         const modelB = modelBParts.join(':');
 
-        const context: any = { conversationId: targetConvoId };
+        const context: any = {
+          conversationId: targetConvoId,
+          conversationTitle: activeConversation.title,
+        };
         if (currentAttachment) {
           context.filePath = currentAttachment.path;
           context.attachedFile = currentAttachment;
@@ -2617,7 +2688,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
       }
 
       if (window.jarvisAPI?.executeAI) {
-        const context: any = { conversationId: targetConvoId };
+        const context: any = {
+          conversationId: targetConvoId,
+          conversationTitle: activeConversation.title,
+        };
         if (currentAttachment) {
           context.filePath = currentAttachment.path;
           context.attachedFile = currentAttachment;
@@ -2638,6 +2712,13 @@ export const ChatTab = React.memo<ChatTabProps>(({
         const res = await window.jarvisAPI.executeAI(text, context);
         if (cancelledConvosRef.current.has(targetConvoId)) return;
         let replyContent = res.reply || res.message;
+        if (res.cancelled || replyContent === 'Cancelled.') {
+          if (!cancelledConvosRef.current.has(targetConvoId)) {
+            replyContent = '⚠️ **The provider request timed out or was interrupted.** Please try sending again, or switch to Groq or Gemini in the brain switcher for faster responses.';
+          } else {
+            return;
+          }
+        }
         if (!replyContent) {
           if (res.error) {
             replyContent = `⚠️ **Could not generate response**: ${res.error}\n\nTip: You can switch model/provider in the dropdown below or check API keys in **AI Brain**.`;
@@ -2946,7 +3027,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
       }
 
       if (window.jarvisAPI?.executeAI) {
-        const context: any = { conversationId: targetConvoId };
+        const context: any = {
+          conversationId: targetConvoId,
+          conversationTitle: activeConversation.title,
+        };
         if (oldMsg.attachedFile) {
           context.filePath = oldMsg.attachedFile.path;
           context.attachedFile = oldMsg.attachedFile;
@@ -4336,6 +4420,13 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           );
                         })()}
 
+                        {/* Weather Forecast Horizontal Carousel */}
+                        {msg.role === 'assistant' && !msg.dualBattle && (() => {
+                          const weatherData = parseWeatherForecastFromMarkdown(msg.content);
+                          if (!weatherData || !weatherData.items || weatherData.items.length === 0) return null;
+                          return <WeatherCarousel data={weatherData} />;
+                        })()}
+
                         {/* Phase 4: Multi-Brain Dual-Battle Comparative Render */}
                         {msg.role === 'assistant' && msg.dualBattle && (
                           <div className="w-full my-2">
@@ -4479,9 +4570,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
                         {!msg.dualBattle && (() => {
                           const hasCarousel = (msg.grounding?.relatedImages && msg.grounding.relatedImages.length > 0) ||
                             extractImagesFromMarkdown(msg.content).length > 0;
-                          const cleanBodyContent = hasCarousel && msg.content
-                            ? msg.content.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)/g, '').replace(/\n{3,}/g, '\n\n').trim()
-                            : msg.content;
+                          const weatherData = parseWeatherForecastFromMarkdown(msg.content);
+                          let cleanBodyContent = msg.content;
+                          if (hasCarousel && cleanBodyContent) {
+                            cleanBodyContent = cleanBodyContent.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)/g, '').replace(/\n{3,}/g, '\n\n').trim();
+                          }
+                          if (weatherData && cleanBodyContent) {
+                            cleanBodyContent = stripWeatherTableFromMarkdown(cleanBodyContent, weatherData);
+                          }
 
                           return config.streamingAnimation !== false && msg.isAnimated ? (
                             <AnimatedMessageContent

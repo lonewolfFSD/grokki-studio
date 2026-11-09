@@ -118,6 +118,7 @@ try {
     launchInstalledGame: (game) => ipcRenderer.invoke('jarvis:launch-installed-game', game),
     getLiveMedia: () => ipcRenderer.invoke('jarvis:get-live-media'),
     getTodayData: () => ipcRenderer.invoke('jarvis:get-today-data'),
+    detectLocation: () => ipcRenderer.invoke('jarvis:detect-location'),
     openSettingsPage: (page) => ipcRenderer.invoke('jarvis:open-settings-page', page),
     getWallpapers: () => ipcRenderer.invoke('jarvis:get-wallpapers'),
     browseWallpaper: () => ipcRenderer.invoke('jarvis:browse-wallpaper'),

@@ -22,5 +22,119 @@
     "memory": "User's dog's name is Lucky",
     "category": "fact",
     "created_at": 1794141831741
+  },
+  {
+    "id": "mem_1794235218007_rc65",
+    "memory": "ADBU is a private university located in Assam, India",
+    "category": "fact",
+    "created_at": 1794235218007
+  },
+  {
+    "id": "mem_1794235218007_pmi4",
+    "memory": "ADBU was established in 2009",
+    "category": "fact",
+    "created_at": 1794235218007
+  },
+  {
+    "id": "mem_1794235218007_9lgj",
+    "memory": "ADBU has partnerships with organizations like Dhruva Space and LACHIT-1",
+    "category": "fact",
+    "created_at": 1794235218007
+  },
+  {
+    "id": "mem_1794235521768_ku3c",
+    "memory": "Elon Musk is a South African-born entrepreneur, inventor, and business magnate.",
+    "category": "fact",
+    "created_at": 1794235521768
+  },
+  {
+    "id": "mem_1794235521768_j5mt",
+    "memory": "Elon Musk is known for his ambitious goals in revolutionizing transportation, energy, and space exploration.",
+    "category": "fact",
+    "created_at": 1794235521768
+  },
+  {
+    "id": "mem_1794235521768_pmo2",
+    "memory": "Elon Musk is known for his innovative ideas and vision for the future.",
+    "category": "fact",
+    "created_at": 1794235521768
+  },
+  {
+    "id": "mem_1794238286656_jfe1",
+    "memory": "User name is not feeling good emotionally",
+    "category": "fact",
+    "created_at": 1794238286656
+  },
+  {
+    "id": "mem_1794239092881_ngfe",
+    "memory": "User is interested in finding a complete list of courses offered by Assam Don Bosco University (ADBU).",
+    "category": "fact",
+    "created_at": 1794239092881
+  },
+  {
+    "id": "mem_1794240019863_xaik",
+    "memory": "User's name is Ajx",
+    "category": "fact",
+    "created_at": 1794240019863
+  },
+  {
+    "id": "mem_1794240019863_0z9l",
+    "memory": "User lives in Guwahati, Assam, India",
+    "category": "fact",
+    "created_at": 1794240019863
+  },
+  {
+    "id": "mem_1794240346739_yfev",
+    "memory": "User lives in Mangaldai, Darrang District, Assam, India",
+    "category": "fact",
+    "created_at": 1794240346739
+  },
+  {
+    "id": "mem_1794242651377_33nd",
+    "memory": "User studies Computer Science at Assam Don Bosco University (ADBU)",
+    "category": "fact",
+    "created_at": 1794242651377
+  },
+  {
+    "id": "mem_1794242651377_ijkc",
+    "memory": "User prefers dark mode",
+    "category": "fact",
+    "created_at": 1794242651377
+  },
+  {
+    "id": "mem_1794242748978_t9kd",
+    "memory": "User is interested in the full list of courses offered by Assam Don Bosco University (ADBU)",
+    "category": "fact",
+    "created_at": 1794242748978
+  },
+  {
+    "id": "mem_1794242748978_9y75",
+    "memory": "User may be a prospective or current student of ADBU",
+    "category": "fact",
+    "created_at": 1794242748978
+  },
+  {
+    "id": "mem_1794242748978_ng53",
+    "memory": "User showed interest in engineering and agriculture programs at ADBU",
+    "category": "fact",
+    "created_at": 1794242748978
+  },
+  {
+    "id": "mem_1794242789522_e2wd",
+    "memory": "User is interested in a BCA (Bachelor of Computer Applications) program at Assam Don Bosco University (ADBU)",
+    "category": "fact",
+    "created_at": 1794242789522
+  },
+  {
+    "id": "mem_1794242789522_dw08",
+    "memory": "User is exploring alternative computer‑science related undergraduate options such as B.Tech CSE or B.Sc. Computer Science",
+    "category": "fact",
+    "created_at": 1794242789522
+  },
+  {
+    "id": "mem_1794242789522_n3ly",
+    "memory": "User prefers a curriculum focused on computer applications and software development",
+    "category": "fact",
+    "created_at": 1794242789522
   }
 ]

@@ -335,7 +335,19 @@ CRITICAL GROUNDING & PRESENTATION INSTRUCTIONS:
      ### 🔗 Sources & References
      - [Title of Source 1 ↗](URL)
      - [Title of Source 2 ↗](URL)
-5. Be helpful, articulate, insightful, and comprehensive.`;
+5. WEATHER & FORECAST STRUCTURE:
+   - When presenting a weather forecast (hourly or daily), always include a structured Markdown table with standard columns:
+     | TIME / DAY | CONDITION | TEMPERATURE | CHANCE OF RAIN | WIND SPEED |
+   - Use standard condition names (e.g. "Sunny", "Partly Cloudy", "Patchy Rain", "Heavy Rain", "Thunderstorm", "Clear").
+   - Include clear values for temperature (e.g. "29 °C"), chance of rain (e.g. "40%"), and wind speed (e.g. "12 km/h").
+   - This empowers Grokki's visual weather engine to render an interactive horizontal forecast carousel with weather icons for the user.
+6. UNIVERSITY & ACADEMIC COURSE OFFERINGS:
+   - When answering queries about courses, programs, degrees, or departments offered by a university:
+   - Organize the complete curriculum breakdown into a comprehensive Markdown table with standard columns:
+     | SCHOOL / DISCIPLINE | DEGREE LEVEL | PROGRAMS OFFERED | SPECIALIZATIONS / HIGHLIGHTS |
+   - Cover all academic levels: Undergraduate (UG, e.g. B.Tech 4 Years, BCA), Postgraduate (PG, e.g. M.Tech, MCA, MBA), and Doctoral (Ph.D.).
+   - Detail program durations and prominent specializations (AI/ML, Data Science, Cloud, Cybersecurity, etc.).
+7. Be helpful, articulate, insightful, and comprehensive.`;
 }
 
 module.exports = {

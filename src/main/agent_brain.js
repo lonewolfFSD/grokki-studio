@@ -75,100 +75,187 @@ function shouldAutoSearchWeb(prompt = '', history = []) {
 
   // 8. If recent conversation history is grounded in an entity and prompt is a follow-up inquiry
   if (history && history.length > 0) {
-    const isFollowUp = /^(what\s+about|how\s+about|tell\s+me\s+more\s+about|more\s+details?\s+(on|about)?|what\s+are\s+the\s+(fees|courses|rankings|placements|eligibility))\b/i.test(p);
+    const isFollowUp = /\b(courses?|programs?|degrees?|b\.?tech|bca|mca|mba|m\.?tech|b\.?sc|m\.?sc|b\.?com|bba|ph\.?d|curriculum|syllabus|admissions?|eligibility|fees?|fee\s+structure|tuition|scholarships?|placements?|package|salary|cutoffs?|rankings?|campuses?|hostels?|campus\s+life|faculty|professors?|vice\s+chancellor|chancellor|dean|departments?|schools?|accreditation|naac|nirf|aicte|ugc|reviews?|contact|address|location|how\s+to\s+apply|entrance\s+exam)\b/i.test(p) ||
+      /^(what\s+about|how\s+about|tell\s+me\s+more|more\s+details|show\s+me|list\s+all|list\s+every|list\s+of|give\s+me|can\s+you\s+give|can\s+you\s+list|can\s+you\s+show|all\s+courses|what\s+are\s+the|details\s+on|no\s+[a-z]+|is\s+there\b)\b/i.test(p);
     if (isFollowUp) {
-      const lastTexts = history.slice(-3).map(t => {
+      const lastTexts = history.slice(-5).map(t => {
         if (typeof t === 'string') return t;
         if (t.parts && Array.isArray(t.parts)) return t.parts.map(pt => pt.text || '').join(' ');
         return t.text || t.content || '';
       }).join(' ').toLowerCase();
-      if (/\b(university|college|campus|adbu|assam|don\s+bosco|iit|nit|institute|school)\b/i.test(lastTexts)) {
+      if (/\b(university|college|campus|adbu|assam|don\s+bosco|iit|nit|bits|institute|school|academy)\b/i.test(lastTexts)) {
         return true;
       }
     }
   }
 
+  // 9. If user has a linked academic portal and asks an academic/course inquiry
+  try {
+    const academicPortal = require('./academic_portal');
+    const cfg = academicPortal.loadConfig();
+    if (cfg && cfg.linked && cfg.universityName) {
+      if (/\b(courses?|programs?|degrees?|b\.?tech|bca|mca|mba|m\.?tech|b\.?sc|m\.?sc|b\.?com|bba|ph\.?d|curriculum|syllabus|admissions?|eligibility|fees?|fee\s+structure|tuition|scholarships?|placements?|package|salary|cutoffs?|rankings?|campuses?|hostels?|campus\s+life|faculty|professors?|vice\s+chancellor|chancellor|dean|departments?|schools?|how\s+to\s+apply|entrance\s+exam)\b/i.test(p)) {
+        return true;
+      }
+    }
+  } catch (_) {}
+
   return false;
 }
 
-function resolveSearchQuery(prompt = '', history = []) {
+function resolveSearchQuery(prompt = '', history = [], config = {}, context = {}) {
   if (!prompt || typeof prompt !== 'string') return '';
   const raw = prompt.trim();
   const p = raw.toLowerCase();
 
   if (!raw) return '';
 
-  // 1. Check if the user query is an explicit follow-up that lacks an independent subject
-  const isExplicitFollowUpPhrase = /^(what\s+about|how\s+about|more\s+details|tell\s+me\s+more|all\s+courses|courses|fees|location|reviews|specs|specifications|price|pricing|release\s+date|requirements)\b/i.test(p);
-  const hasPronounRef = /\b(it|its|this|that|there|they|them|his|her)\b/i.test(p);
-  const isImageRequest = /^(show\s+me\s+)?(images?|photos?|pics?|pictures?|views?|gallery|wallpaper)\b/i.test(p);
-
-  // If the query is an independent topic (e.g. "Update on GTA VI", "Latest iPhone price", "Weather in Paris"),
-  // NEVER prepend previous entities or memories!
-  const isFollowUp = isExplicitFollowUpPhrase || hasPronounRef || isImageRequest;
-  if (!isFollowUp || !history || history.length === 0) {
-    return raw;
+  // Location Grounding: If user enabled location sharing in Grokki settings and query is a local inquiry (weather, restaurants, nearby places)
+  if (config && config.shareLocation && (config.locationCity || config.locationCountry)) {
+    const isLocalInquiry = /\b(weather|forecast|temperature|temp|rain|raining|umbrella|snow|restaurants?|cafes?|food\s+(place|spot|joint)s?|dining|eatery|eateries|places\s+to\s+eat|hotels?|supermarkets?|malls?|hospitals?|pharmacies|pharmacy|clinics?|places\s+to\s+visit|things\s+to\s+do|sunset|sunrise|traffic|near\s+me|nearby|around\s+here|local)\b/i.test(p);
+    const hasExplicitLocation = /\b(in|at|around|for)\s+([A-Z][a-z]+|[a-z]{3,})\b/i.test(raw);
+    if (isLocalInquiry && !hasExplicitLocation) {
+      const locTarget = [config.locationCity, config.locationCountry].filter(Boolean).join(', ');
+      return `${raw} in ${locTarget}`;
+    }
   }
 
-  // If the prompt already has a strong specific subject, return raw
+  // Independent topic guard: NEVER prepend prior entities if the user explicitly switched to a strong topic
   if (/\b(gta|grand theft auto|call of duty|minecraft|fortnite|cyberpunk|witcher|apple|microsoft|google|nvidia|intel|amd|tesla|bitcoin|ethereum|crypto|ps5|xbox|nintendo|switch|iphone|samsung|pixel|windows|linux|macos|android|ios|react|node|python|java|c\+\+|javascript|typescript)\b/i.test(p)) {
     return raw;
   }
-
-  // 2. Extract clean past user queries (STRIP OUT any injected [Mem0...], [LIVE WEB SEARCH...], or system blocks)
-  const recentUserQueries = [];
-  for (let i = history.length - 1; i >= 0; i--) {
-    const item = history[i];
-    let text = '';
-    if (typeof item === 'string') text = item;
-    else if (item.parts && Array.isArray(item.parts)) text = item.parts.map(pt => pt.text || '').join(' ');
-    else text = item.text || item.content || '';
-
-    if (!text || (item.role && item.role !== 'user')) continue;
-
-    const cleanUserText = text
-      .replace(/\[Mem0 Personalized Long-Term Memory Context\]:[\s\S]*?(?=\n\n|$)/gi, '')
-      .replace(/\[LIVE WEB SEARCH GROUNDING\][\s\S]*$/gi, '')
-      .replace(/\[User Profile & Long-Term Memory Context\]:[\s\S]*?(?=\n\n|$)/gi, '')
-      .replace(/\[Project Context:[\s\S]*?\]/gi, '')
-      .trim();
-
-    if (cleanUserText.length > 2) {
-      recentUserQueries.push(cleanUserText);
-      if (recentUserQueries.length >= 4) break;
-    }
-  }
-
-  if (recentUserQueries.length === 0) {
+  if (/\b(weather|forecast)\b/i.test(p) && /\b(in|at|for)\s+([a-z]{3,})\b/i.test(p)) {
     return raw;
   }
 
-  // 3. Find the last meaningful subject from recent user queries
-  let previousSubject = '';
-  for (const query of recentUserQueries) {
-    const cleaned = query
-      .replace(/^(search\s+for|what\s+is|tell\s+me\s+about|show\s+me|find|look\s+up|give\s+me|can\s+you\s+find|update\s+on)\s+/i, '')
+  // 1. Follow-up inquiry detection:
+  const isAttributeQuery = /\b(courses?|programs?|degrees?|b\.?tech|bca|mca|mba|m\.?tech|b\.?sc|m\.?sc|b\.?com|bba|ph\.?d|curriculum|syllabus|admissions?|eligibility|fees?|fee\s+structure|tuition|scholarships?|placements?|package|salary|cutoffs?|rankings?|campuses?|hostels?|campus\s+life|faculty|professors?|vice\s+chancellor|chancellor|dean|departments?|schools?|accreditation|naac|nirf|aicte|ugc|reviews?|contact|address|location|how\s+to\s+apply|entrance\s+exam)\b/i.test(p);
+  const hasPronounRef = /\b(it|its|this|that|there|they|them|their|his|her|here|the\s+university|the\s+college|the\s+institute|the\s+campus)\b/i.test(p);
+  const isFollowUpOpener = /^(what\s+about|how\s+about|tell\s+me\s+more|more\s+details|show\s+me|list\s+all|list\s+every|list\s+of|give\s+me|can\s+you\s+give|can\s+you\s+list|can\s+you\s+show|all\s+courses|what\s+are\s+the|details\s+on|no\s+[a-z]+|is\s+there\b)\b/i.test(p);
+  const isImageRequest = /^(show\s+me\s+)?(images?|photos?|pics?|pictures?|views?|gallery|wallpaper)\b/i.test(p);
+
+  // 2. Multi-tier Entity Detection Strategy:
+  let detectedEntity = '';
+
+  // 2a. Direct match in current prompt
+  const directMatch = raw.match(/\b(Assam\s+Don\s+Bosco(?:\s+University)?|ADBU(?:\s+Azara|\s+Tapesia)?|Don\s+Bosco\s+University|IIT\s+[A-Za-z]+|NIT\s+[A-Za-z]+|BITS\s+[A-Za-z]+|[A-Z][a-zA-Z0-9&.\s]{2,40}(?:University|College|Institute|Campus|Academy))\b/);
+  if (directMatch) {
+    detectedEntity = directMatch[1].trim();
+  }
+
+  // 2b. Check conversationTitle from context (e.g. "Assam Don Bosco University...")
+  if (!detectedEntity && context && context.conversationTitle) {
+    const titleMatch = context.conversationTitle.match(/\b(Assam\s+Don\s+Bosco(?:\s+University)?|ADBU(?:\s+Azara|\s+Tapesia)?|Don\s+Bosco\s+University|IIT\s+[A-Za-z]+|NIT\s+[A-Za-z]+|BITS\s+[A-Za-z]+|[A-Z][a-zA-Z0-9&.\s]{2,40}(?:University|College|Institute|Campus|Academy))\b/);
+    if (titleMatch) {
+      detectedEntity = titleMatch[1].trim();
+    }
+  }
+
+  // 2c. Search conversation history (both user AND assistant turns in reverse order)
+  if (!detectedEntity && Array.isArray(history) && history.length > 0) {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const item = history[i];
+      const text = typeof item === 'string' ? item : (item.parts ? item.parts.map(pt => pt.text || '').join(' ') : (item.text || item.content || ''));
+      if (!text) continue;
+      const m = text.match(/\b(Assam\s+Don\s+Bosco(?:\s+University)?|ADBU(?:\s+Azara|\s+Tapesia)?|Don\s+Bosco\s+University|IIT\s+[A-Za-z]+|NIT\s+[A-Za-z]+|BITS\s+[A-Za-z]+|[A-Z][a-zA-Z0-9&.\s]{2,40}(?:University|College|Institute|Campus|Academy))\b/);
+      if (m) {
+        detectedEntity = m[1].trim();
+        break;
+      }
+    }
+  }
+
+  // 2d. Check linked academic portal config (e.g. Assam Don Bosco University)
+  if (!detectedEntity && (isAttributeQuery || hasPronounRef || isFollowUpOpener)) {
+    try {
+      const academicPortal = require('./academic_portal');
+      const cfg = academicPortal.loadConfig();
+      if (cfg && cfg.linked && cfg.universityName) {
+        detectedEntity = cfg.universityName;
+      }
+    } catch (_) {}
+  }
+
+  // Normalize acronyms
+  if (detectedEntity && /^ADBU\b/i.test(detectedEntity)) {
+    detectedEntity = 'Assam Don Bosco University';
+  }
+
+  // 3. Grounded query formatting
+  if (detectedEntity) {
+    const entityLower = detectedEntity.toLowerCase();
+    const containsEntity = p.includes(entityLower) || (entityLower.includes('assam don bosco') && (p.includes('adbu') || p.includes('don bosco')));
+
+    let cleanInquiry = raw
+      .replace(/^(show\s+me|tell\s+me|give\s+me|can\s+you\s+(show|tell|give|list)|list\s+of|list\s+every|list\s+all|please|can\s+you)\s+/gi, '')
+      .replace(/\bplease\b/gi, '')
       .replace(/[?!.]+$/, '')
       .trim();
-    if (cleaned.length >= 3 && !/^(hello|hi|hey|thanks|thank\s+you|ok|okay|yes|no)$/i.test(cleaned)) {
-      previousSubject = cleaned;
-      break;
+
+    // Specific degree inquiry handling: "No BCA?", "Is there BCA?", "Any BCA?" -> Clean academic search
+    if (/\bno\s+bca\b/i.test(p) || /\bis\s+there\s+bca\b/i.test(p) || /\bany\s+bca\b/i.test(p) || p === 'bca' || p === 'bca?') {
+      return `${detectedEntity} BCA Bachelor of Computer Applications course admission dbuniversity`;
+    }
+
+    if (/\b(all\s+courses|every\s+courses?|list\s+of\s+courses|course\s+offerings?)\b/i.test(p)) {
+      return `${detectedEntity} all courses programs offered degrees list dbuniversity.ac.in`;
+    }
+
+    if (isImageRequest) {
+      return `${detectedEntity} campus images photos`;
+    }
+
+    if (hasPronounRef) {
+      cleanInquiry = cleanInquiry.replace(/\b(it|this|that|there|the\s+university|the\s+college)\b/gi, detectedEntity);
+    }
+
+    if (containsEntity) {
+      return cleanInquiry;
+    }
+
+    return `${detectedEntity} ${cleanInquiry}`;
+  }
+
+  // Fallback: Check past user queries
+  const recentUserQueries = [];
+  if (Array.isArray(history) && history.length > 0) {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const item = history[i];
+      let text = typeof item === 'string' ? item : (item.text || item.content || '');
+      if (!text || (item.role && item.role !== 'user')) continue;
+      const cleanUserText = text
+        .replace(/\[Mem0 Personalized Long-Term Memory Context\]:[\s\S]*?(?=\n\n|$)/gi, '')
+        .replace(/\[LIVE WEB SEARCH GROUNDING\][\s\S]*$/gi, '')
+        .replace(/\[User Profile & Long-Term Memory Context\]:[\s\S]*?(?=\n\n|$)/gi, '')
+        .replace(/\[Project Context:[\s\S]*?\]/gi, '')
+        .trim();
+      if (cleanUserText.length > 2) {
+        recentUserQueries.push(cleanUserText);
+        if (recentUserQueries.length >= 3) break;
+      }
+    }
+
+    if (recentUserQueries.length > 0) {
+      let previousSubject = '';
+      for (const query of recentUserQueries) {
+        const cleaned = query
+          .replace(/^(search\s+for|what\s+is|tell\s+me\s+about|show\s+me|find|look\s+up|give\s+me|can\s+you\s+find|update\s+on)\s+/i, '')
+          .replace(/[?!.]+$/, '')
+          .trim();
+        if (cleaned.length >= 3 && !/^(hello|hi|hey|thanks|thank\s+you|ok|okay|yes|no)$/i.test(cleaned)) {
+          previousSubject = cleaned;
+          break;
+        }
+      }
+      if (previousSubject && !p.includes(previousSubject.toLowerCase())) {
+        if (isImageRequest) return `${previousSubject} images photos`;
+        if (hasPronounRef) return raw.replace(/\b(it|this|that)\b/gi, previousSubject);
+        return `${previousSubject} ${raw}`;
+      }
     }
   }
 
-  if (!previousSubject || p.includes(previousSubject.toLowerCase())) {
-    return raw;
-  }
-
-  if (isImageRequest) {
-    return `${previousSubject} images photos`;
-  }
-
-  if (hasPronounRef) {
-    return raw.replace(/\b(it|this|that)\b/gi, previousSubject);
-  }
-
-  return `${previousSubject} ${raw}`;
+  return raw;
 }
 
 const { searchWeb, buildGroundingPrompt } = require('./web_search');
@@ -229,6 +316,38 @@ function resolveOpenAIEndpointAndKey(provider, config = {}) {
     endpoint = base;
     apiKey = (config.omnirouteApiKey || config.omnirouterApiKey || process.env.OMNIROUTE_API_KEY || process.env.OMNIROUTER_API_KEY || '').trim();
     model = config.omnirouteModel || config.omnirouterModel || 'auto';
+  } else if (provider === 'litellm') {
+    endpoint = (config.litellmEndpoint || 'http://localhost:4000/v1').replace(/\/+$/, '');
+    apiKey = (config.litellmApiKey || process.env.LITELLM_API_KEY || '').trim();
+    model = config.litellmModel || 'gpt-4o';
+  } else if (provider === 'bifrost') {
+    endpoint = (config.bifrostEndpoint || 'http://localhost:8080/v1').replace(/\/+$/, '');
+    apiKey = (config.bifrostApiKey || process.env.BIFROST_API_KEY || '').trim();
+    model = config.bifrostModel || 'auto';
+  } else if (provider === 'portkey') {
+    endpoint = (config.portkeyEndpoint || 'https://api.portkey.ai/v1').replace(/\/+$/, '');
+    apiKey = (config.portkeyApiKey || process.env.PORTKEY_API_KEY || '').trim();
+    model = config.portkeyModel || 'auto';
+  } else if (provider === 'helicone') {
+    endpoint = (config.heliconeEndpoint || 'https://oai.helicone.ai/v1').replace(/\/+$/, '');
+    apiKey = (config.heliconeApiKey || process.env.HELICONE_API_KEY || '').trim();
+    model = config.heliconeModel || 'gpt-4o';
+  } else if (provider === 'routellm') {
+    endpoint = (config.routellmEndpoint || 'http://localhost:6060/v1').replace(/\/+$/, '');
+    apiKey = (config.routellmApiKey || process.env.ROUTELLM_API_KEY || '').trim();
+    model = config.routellmModel || 'router-mf';
+  } else if (provider === 'newapi') {
+    endpoint = (config.newapiEndpoint || 'http://localhost:3000/v1').replace(/\/+$/, '');
+    apiKey = (config.newapiApiKey || process.env.NEWAPI_API_KEY || '').trim();
+    model = config.newapiModel || 'auto';
+  } else if (provider === 'higress') {
+    endpoint = (config.higressEndpoint || 'http://localhost:8080/v1').replace(/\/+$/, '');
+    apiKey = (config.higressApiKey || process.env.HIGRESS_API_KEY || '').trim();
+    model = config.higressModel || 'auto';
+  } else if (provider === 'clawrouter') {
+    endpoint = (config.clawrouterEndpoint || 'http://localhost:8000/v1').replace(/\/+$/, '');
+    apiKey = (config.clawrouterApiKey || process.env.CLAWROUTER_API_KEY || '').trim();
+    model = config.clawrouterModel || 'auto';
   }
 
   return { endpoint, apiKey, model };
@@ -2256,13 +2375,20 @@ class AgentBrain {
   async runOpenAICompatible(prompt, config, context = {}) {
     if (!this.abortControllers) this.abortControllers = new Map();
     const convoId = (context && (context.conversationId || context.convoId)) || 'default';
-    if (this.abortControllers.has(convoId)) {
-      try { this.abortControllers.get(convoId).abort(); } catch (e) {}
+    let controller;
+    let signal;
+    if (context && context.isFailover && this.abortControllers.has(convoId)) {
+      controller = this.abortControllers.get(convoId);
+      signal = controller.signal;
+    } else {
+      if (this.abortControllers.has(convoId)) {
+        try { this.abortControllers.get(convoId).abort(); } catch (e) {}
+      }
+      controller = new AbortController();
+      this.abortControllers.set(convoId, controller);
+      this.abortController = controller;
+      signal = controller.signal;
     }
-    const controller = new AbortController();
-    this.abortControllers.set(convoId, controller);
-    this.abortController = controller;
-    const { signal } = controller;
 
     const provider = powerTools.airgapForced ? 'ollama' : (config.provider || 'groq');
     let endpoint = 'https://api.groq.com/openai/v1';
@@ -2312,9 +2438,50 @@ class AgentBrain {
       apiKey = (config.omnirouteApiKey || config.omnirouterApiKey || process.env.OMNIROUTE_API_KEY || process.env.OMNIROUTER_API_KEY || '').trim();
       model = config.omnirouteModel || config.omnirouterModel || 'auto';
       modelCandidates = [model];
+    } else if (provider === 'litellm') {
+      endpoint = (config.litellmEndpoint || 'http://localhost:4000/v1').replace(/\/+$/, '');
+      apiKey = (config.litellmApiKey || process.env.LITELLM_API_KEY || '').trim();
+      model = config.litellmModel || 'gpt-4o';
+      modelCandidates = [model];
+    } else if (provider === 'bifrost') {
+      endpoint = (config.bifrostEndpoint || 'http://localhost:8080/v1').replace(/\/+$/, '');
+      apiKey = (config.bifrostApiKey || process.env.BIFROST_API_KEY || '').trim();
+      model = config.bifrostModel || 'auto';
+      modelCandidates = [model];
+    } else if (provider === 'portkey') {
+      endpoint = (config.portkeyEndpoint || 'https://api.portkey.ai/v1').replace(/\/+$/, '');
+      apiKey = (config.portkeyApiKey || process.env.PORTKEY_API_KEY || '').trim();
+      model = config.portkeyModel || 'auto';
+      modelCandidates = [model];
+    } else if (provider === 'helicone') {
+      endpoint = (config.heliconeEndpoint || 'https://oai.helicone.ai/v1').replace(/\/+$/, '');
+      apiKey = (config.heliconeApiKey || process.env.HELICONE_API_KEY || '').trim();
+      model = config.heliconeModel || 'gpt-4o';
+      modelCandidates = [model];
+    } else if (provider === 'routellm') {
+      endpoint = (config.routellmEndpoint || 'http://localhost:6060/v1').replace(/\/+$/, '');
+      apiKey = (config.routellmApiKey || process.env.ROUTELLM_API_KEY || '').trim();
+      model = config.routellmModel || 'router-mf';
+      modelCandidates = [model];
+    } else if (provider === 'newapi') {
+      endpoint = (config.newapiEndpoint || 'http://localhost:3000/v1').replace(/\/+$/, '');
+      apiKey = (config.newapiApiKey || process.env.NEWAPI_API_KEY || '').trim();
+      model = config.newapiModel || 'auto';
+      modelCandidates = [model];
+    } else if (provider === 'higress') {
+      endpoint = (config.higressEndpoint || 'http://localhost:8080/v1').replace(/\/+$/, '');
+      apiKey = (config.higressApiKey || process.env.HIGRESS_API_KEY || '').trim();
+      model = config.higressModel || 'auto';
+      modelCandidates = [model];
+    } else if (provider === 'clawrouter') {
+      endpoint = (config.clawrouterEndpoint || 'http://localhost:8000/v1').replace(/\/+$/, '');
+      apiKey = (config.clawrouterApiKey || process.env.CLAWROUTER_API_KEY || '').trim();
+      model = config.clawrouterModel || 'auto';
+      modelCandidates = [model];
     }
 
-    if (provider !== 'ollama' && provider !== 'omniroute' && provider !== 'omnirouter' && !apiKey) {
+    const isApiKeyOptional = ['ollama', 'omniroute', 'omnirouter', 'litellm', 'bifrost', 'portkey', 'helicone', 'routellm', 'newapi', 'higress', 'clawrouter'].includes(provider);
+    if (!isApiKeyOptional && !apiKey) {
       return { success: false, error: `NO_${provider.toUpperCase()}_API_KEY` };
     }
 
@@ -2373,7 +2540,7 @@ class AgentBrain {
     let resolvedQuery = prompt;
     if (isWebSearchActive) {
       try {
-        resolvedQuery = resolveSearchQuery(prompt, conversationHistory);
+        resolvedQuery = resolveSearchQuery(prompt, conversationHistory, config, context);
         console.log(`[AgentBrain] Performing live web grounding for: "${resolvedQuery}" (prompt: "${prompt}")...`);
         groundingSources = await searchWeb(resolvedQuery, 5);
         if (groundingSources.length > 0) {
@@ -2479,14 +2646,14 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
             messages,
             tools,
             signal,
-            timeout: provider === 'ollama' ? 180000 : 25000,
+            timeout: provider === 'ollama' ? 180000 : 45000,
           });
           if (data && data.choices && data.choices.length > 0) {
             break;
           }
         } catch (mErr) {
           lastModelErr = mErr;
-          if (mErr.message === 'TASK_CANCELLED' || (signal && signal.aborted)) {
+          if (signal && signal.aborted) {
             throw mErr;
           }
           console.warn(`[AgentBrain] Provider model ${candModel} error: ${mErr.message}. Trying next fallback...`);
@@ -2499,7 +2666,7 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
         if (groqKey && provider !== 'groq' && provider !== 'ollama' && (!signal || !signal.aborted)) {
           console.log('[AgentBrain] Provider failed or rate limited, fast-failing over to Groq (500ms)...');
           try {
-            return await this.runOpenAICompatible(prompt, { ...config, provider: 'groq', groqApiKey: groqKey }, context);
+            return await this.runOpenAICompatible(prompt, { ...config, provider: 'groq', groqApiKey: groqKey }, { ...context, isFailover: true });
           } catch (e) {}
         }
 
@@ -2507,8 +2674,8 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
         if (lastModelErr && (lastModelErr.message.includes('413') || lastModelErr.message.includes('Limit') || lastModelErr.message.includes('tokens per minute'))) {
           console.log('[AgentBrain] Groq token limit hit. Seamlessly falling back to Gemini Flash...');
           const gemKey = (config.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
-          if (gemKey) {
-            return await this.run(prompt, { ...config, provider: 'gemini', geminiApiKey: gemKey }, context);
+          if (gemKey && (!signal || !signal.aborted)) {
+            return await this.run(prompt, { ...config, provider: 'gemini', geminiApiKey: gemKey }, { ...context, isFailover: true });
           }
         }
         throw lastModelErr || new Error('No response from provider');
@@ -2768,7 +2935,7 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
 
     const provider = config.provider || 'gemini';
 
-    if (['groq', 'ollama', 'openrouter', 'omniroute', 'omnirouter', 'openai', 'grok', 'deepseek', 'qwen'].includes(provider)) {
+    if (['groq', 'ollama', 'openrouter', 'omniroute', 'omnirouter', 'openai', 'grok', 'deepseek', 'qwen', 'litellm', 'bifrost', 'portkey', 'helicone', 'routellm', 'newapi', 'higress', 'clawrouter'].includes(provider)) {
       return await this.runOpenAICompatible(prompt, config, context);
     }
 
@@ -2779,13 +2946,20 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
 
     if (!this.abortControllers) this.abortControllers = new Map();
     const convoId = (context && (context.conversationId || context.convoId)) || 'default';
-    if (this.abortControllers.has(convoId)) {
-      try { this.abortControllers.get(convoId).abort(); } catch (e) {}
+    let controller;
+    let signal;
+    if (context && context.isFailover && this.abortControllers.has(convoId)) {
+      controller = this.abortControllers.get(convoId);
+      signal = controller.signal;
+    } else {
+      if (this.abortControllers.has(convoId)) {
+        try { this.abortControllers.get(convoId).abort(); } catch (e) {}
+      }
+      controller = new AbortController();
+      this.abortControllers.set(convoId, controller);
+      this.abortController = controller;
+      signal = controller.signal;
     }
-    const controller = new AbortController();
-    this.abortControllers.set(convoId, controller);
-    this.abortController = controller;
-    const { signal } = controller;
 
     // If an attached file is present in context, append to prompt for awareness
     let fullPrompt = prompt || '';
@@ -2824,7 +2998,7 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
     let resolvedQuery = prompt;
     if (isWebSearchActive) {
       try {
-        resolvedQuery = resolveSearchQuery(prompt, conversationHistory);
+        resolvedQuery = resolveSearchQuery(prompt, conversationHistory, config, context);
         console.log(`[AgentBrain] Performing live web grounding for: "${resolvedQuery}" (prompt: "${prompt}")...`);
         groundingSources = await searchWeb(resolvedQuery, 5);
         if (groundingSources.length > 0) {
@@ -2888,7 +3062,7 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
             maxOutputTokens: 4000,
             temperature: 0.1,
           },
-        }), 25000), signal);
+        }), 45000), signal);
 
         const functionCalls = response.functionCalls || [];
         const executed = [];
@@ -3057,7 +3231,7 @@ Rules:
         } : undefined,
         };
       } catch (err) {
-        if (err.message === 'TASK_CANCELLED' || (signal && signal.aborted)) {
+        if (signal && signal.aborted) {
           console.log('[AgentBrain] Task cancelled by user (Alt+Q). Halting generation immediately.');
           this.abortController = null;
           return { success: false, cancelled: true, reply: 'Cancelled.' };
@@ -3155,13 +3329,20 @@ Rules:
 
     if (!this.abortControllers) this.abortControllers = new Map();
     const convoId = (context && (context.conversationId || context.convoId)) || 'default';
-    if (this.abortControllers.has(convoId)) {
-      try { this.abortControllers.get(convoId).abort(); } catch (e) {}
+    let controller;
+    let signal;
+    if (context && context.isFailover && this.abortControllers.has(convoId)) {
+      controller = this.abortControllers.get(convoId);
+      signal = controller.signal;
+    } else {
+      if (this.abortControllers.has(convoId)) {
+        try { this.abortControllers.get(convoId).abort(); } catch (e) {}
+      }
+      controller = new AbortController();
+      this.abortControllers.set(convoId, controller);
+      this.abortController = controller;
+      signal = controller.signal;
     }
-    const controller = new AbortController();
-    this.abortControllers.set(convoId, controller);
-    this.abortController = controller;
-    const { signal } = controller;
 
     const ai = new GoogleGenAI({ apiKey });
     const tools = this.getToolsDeclaration();
@@ -6728,7 +6909,7 @@ Write-Output "CPU:$cpu|RAM:$usedGB/$totalGB GB ($ramPct%)|BAT:$batStr|TOP:$topSt
 
     if (isWebSearchActive) {
       try {
-        resolvedQuery = resolveSearchQuery(prompt, conversationHistory);
+        resolvedQuery = resolveSearchQuery(prompt, conversationHistory, config, context);
         groundingSources = await searchWeb(resolvedQuery, 5);
         if (groundingSources.length > 0) {
           fullPrompt = `${fullPrompt}${buildGroundingPrompt(groundingSources, resolvedQuery)}`;

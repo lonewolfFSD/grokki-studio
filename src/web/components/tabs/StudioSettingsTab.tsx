@@ -45,6 +45,8 @@ import {
   Search,
   AppWindow,
   X,
+  MapPin,
+  LocateFixed,
 } from 'lucide-react';
 import { JarvisConfig, StudioHotkeys, LeftHandGestureItem, InstalledAppItem } from '../../types/jarvis';
 import grokkiLogo from '../../assets/grokki_icon.svg';
@@ -357,6 +359,132 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
 
   const [installedApps, setInstalledApps] = useState<InstalledAppItem[]>([]);
   const [isLoadingApps, setIsLoadingApps] = useState(false);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [locationStatusMsg, setLocationStatusMsg] = useState<string | null>(null);
+
+  const handleDetectLocation = async () => {
+    setIsDetectingLocation(true);
+    setLocationStatusMsg(null);
+    try {
+      let detected: {
+        city?: string;
+        region?: string;
+        country?: string;
+        lat?: number;
+        lon?: number;
+      } | null = null;
+
+      // 1. Try Electron preload IPC if available
+      if (typeof window.jarvisAPI?.detectLocation === 'function') {
+        try {
+          const res = await window.jarvisAPI.detectLocation();
+          if (res && res.success) {
+            detected = {
+              city: res.city,
+              region: res.region,
+              country: res.country,
+              lat: res.lat,
+              lon: res.lon,
+            };
+          }
+        } catch {
+          // ignore and fall through to web fetch
+        }
+      }
+
+      // 2. Direct network detection fallback (works seamlessly across all sessions)
+      if (!detected) {
+        try {
+          const r = await fetch('http://ip-api.com/json/?fields=status,message,country,countryCode,regionName,city,lat,lon,timezone', {
+            signal: AbortSignal.timeout(5000),
+          });
+          const d = await r.json();
+          if (d && d.status === 'success') {
+            detected = {
+              city: d.city || '',
+              region: d.regionName || '',
+              country: d.country || '',
+              lat: d.lat,
+              lon: d.lon,
+            };
+          }
+        } catch {
+          // try secondary HTTPS provider
+        }
+      }
+
+      // 3. Secondary HTTPS fallback
+      if (!detected) {
+        try {
+          const r = await fetch('https://ipwhois.app/json/', {
+            signal: AbortSignal.timeout(5000),
+          });
+          const d = await r.json();
+          if (d && d.success !== false && (d.city || d.country)) {
+            detected = {
+              city: d.city || '',
+              region: d.region || '',
+              country: d.country || '',
+              lat: d.latitude,
+              lon: d.longitude,
+            };
+          }
+        } catch {
+          // continue to next fallback
+        }
+      }
+
+      // 4. Fallback to existing getTodayData IPC if available
+      if (!detected && typeof window.jarvisAPI?.getTodayData === 'function') {
+        try {
+          const today = await window.jarvisAPI.getTodayData();
+          if (today?.weather?.city && today.weather.city !== 'Local') {
+            detected = {
+              city: today.weather.city,
+            };
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // 5. Browser geolocation fallback
+      if (!detected && typeof navigator !== 'undefined' && navigator.geolocation) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 4000 });
+          });
+          if (pos && pos.coords) {
+            detected = {
+              lat: pos.coords.latitude,
+              lon: pos.coords.longitude,
+            };
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (detected && (detected.city || detected.country || detected.lat !== undefined)) {
+        onChangeConfig({
+          shareLocation: true,
+          locationCity: detected.city || config.locationCity || '',
+          locationRegion: detected.region || config.locationRegion || '',
+          locationCountry: detected.country || config.locationCountry || '',
+          locationLat: detected.lat !== undefined ? detected.lat : config.locationLat,
+          locationLon: detected.lon !== undefined ? detected.lon : config.locationLon,
+        });
+        const summary = [detected.city, detected.country].filter(Boolean).join(', ');
+        setLocationStatusMsg(`Detected: ${summary || 'Location updated'}`);
+      } else {
+        setLocationStatusMsg('Unable to determine location from network');
+      }
+    } catch (err: any) {
+      setLocationStatusMsg(err?.message || 'Error detecting location');
+    } finally {
+      setIsDetectingLocation(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -1550,6 +1678,103 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* 4.5. Location & Geolocation Services */}
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+        <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#1e2029]">
+          <div className="flex items-center gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                  Location & Geolocation Services
+                </h3>
+              </div>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                Share your geographic location with Grokki for accurate local weather forecasts, restaurant recommendations, directions, and time zone calculations.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onChangeConfig({ shareLocation: !config.shareLocation })}
+            className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out border-none shrink-0 ${
+              config.shareLocation ? 'bg-sky-600' : 'bg-gray-300 dark:bg-[#252836]'
+            }`}
+          >
+            <div
+              className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                config.shareLocation ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* When Location Sharing is active */}
+        {config.shareLocation && (
+          <div className="flex flex-col gap-3.5 pt-1 animate-in fade-in duration-200">
+            {/* Quick Auto-Detect & Status Row */}
+            <div className="flex items-center justify-between flex-wrap gap-2 p-4 rounded-lg bg-gray-50 dark:bg-[#141620] border border-gray-200/70 dark:border-white/5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDetectLocation}
+                  disabled={isDetectingLocation}
+                  className="h-10 px-6 rounded-lg bg-white dark:bg-[#1c1f2e] border border-gray-200 dark:border-[#2a2d3d] hover:border-sky-500 text-gray-800 dark:text-gray-200 text-xs font-medium flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  {/* <LocateFixed className={`w-3.5 h-3.5 text-white ${isDetectingLocation ? 'animate-spin' : ''}`} /> */}
+                  <span>{isDetectingLocation ? 'Detecting Location...' : 'Auto-Detect via Network'}</span>
+                </button>
+                {locationStatusMsg && (
+                  <span className="text-xs text-sky-600 dark:text-sky-400 font-medium">
+                    {locationStatusMsg}
+                  </span>
+                )}
+              </div>
+
+              {(config.locationCity || config.locationCountry) && (
+                <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-600 dark:text-gray-300">
+                  <span className="w-[5px] h-[5px] hidden rounded-full bg-emerald-500" />
+                  <span>Active Anchor: <strong className="font-bold underline">{[config.locationCity, config.locationCountry].filter(Boolean).join(', ')}</strong></span>
+                </div>
+              )}
+            </div>
+
+            {/* City & Country Manual Inputs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                  City / Locality
+                </label>
+                <input
+                  type="text"
+                  value={config.locationCity || ''}
+                  onChange={(e) => onChangeConfig({ locationCity: e.target.value })}
+                  placeholder="e.g, London, New York"
+                  className="h-9 px-3 rounded-lg text-xs bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none transition-all"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                  Country / Region
+                </label>
+                <input
+                  type="text"
+                  value={config.locationCountry || ''}
+                  onChange={(e) => onChangeConfig({ locationCountry: e.target.value })}
+                  placeholder="e.g. Indonesia, India, United Kingdom"
+                  className="h-9 px-3 rounded-lg text-xs bg-white dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 focus:border-sky-500 focus:outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="text-[11px] text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+              <span> Location data is stored 100% locally on your machine and only utilized to anchor local queries like "what's the weather" or "good restaurants near me".</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 5. Updates & Storage Utilities */}

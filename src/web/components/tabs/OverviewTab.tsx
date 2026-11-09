@@ -306,6 +306,14 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
       grok: `xAI Grok (${config.grokModel || 'grok-2'})`,
       deepseek: `DeepSeek (${config.deepseekModel || 'chat'})`,
       qwen: `Qwen (${config.qwenModel || 'max'})`,
+      litellm: `LiteLLM (${config.litellmModel || 'gpt-4o'})`,
+      bifrost: `Bifrost (${config.bifrostModel || 'auto'})`,
+      portkey: `Portkey (${config.portkeyModel || 'auto'})`,
+      helicone: `Helicone (${config.heliconeModel || 'gpt-4o'})`,
+      routellm: `RouteLLM (${config.routellmModel || 'router-mf'})`,
+      newapi: `New API (${config.newapiModel || 'auto'})`,
+      higress: `Higress (${config.higressModel || 'auto'})`,
+      clawrouter: `ClawRouter (${config.clawrouterModel || 'auto'})`,
     }[config.provider] || config.provider;
 
   const hotkeyParts = (config.hotkey || 'Alt+Q').split('+').map((k) => k.trim());

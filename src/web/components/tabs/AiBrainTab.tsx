@@ -106,6 +106,104 @@ export const OmniRouteLogo: React.FC<{ className?: string }> = ({ className = 'w
 );
 export const OmniRouterLogo = OmniRouteLogo;
 
+// Official LiteLLM Brand Logo (BerriAI)
+export const LiteLLMLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 512 512" className={`${className} object-contain`} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M511.9 82.5c-.8-.1-1.4-.1-1.9-.1-81.6 0-163.2 0-244.8.1-8.5 0-16.6 2-24.4 5.4-15.7 6.9-27.4 18.8-39 30.7 10.8 0 21.6.1 32.4.1h126.3c1.5 0 2.9 0 4.9 1l-11.7 11.7c-18.7 18.6-37.5 37.1-56.1 55.8-3.4 3.4-6.8 4.9-11.7 4.9-50.7-.2-101.3-.1-152-.1-1.8 0-3.6-.1-5.5-.1-18.4 9.3-36.9 18.7-55.3 28 0 49.8 0 99.7-.1 149.5 0 1.8-.1 3.6-.2 5.5 36.8 0 73.5-.1 110.3-.1 12.5-12.5 24.9-25.1 37.4-37.6 10.7-10.7 21.5-21.4 32.1-32.2 2.3-2.4 4.7-3.4 8.1-3.4 81.6.1 163.2 0 244.7 0 2.1 0 4.2-.1 6.3-.1.1-.8.1-1.7.1-2.5V85c.2-.8.1-1.6.1-2.5"
+      fill="#d2d3d4"
+    />
+    <path
+      d="M183.2 374.8c12.5-12.5 24.9-25.1 37.4-37.6 10.7-10.7 21.5-21.4 32.1-32.2 2.3-2.4 4.7-3.4 8.1-3.4 81.6.1 163.2 0 244.7 0 2.1 0 4.2-.1 6.3-.1 0 24.4.1 48.8.1 73.2-1.8 0-3.6.1-5.5.1H296.7c-19.8 0-39.6 0-59.4.1-18 0-36.1-.1-54.1-.1M30.5 243.1C4.4 260.5-4 286.2 1.7 316.2c6.5 34.3 36.1 58 71.2 58.7.1-1.8.2-3.6.2-5.5 0-49.8.1-99.7.1-149.5-14.4 7.6-29.3 14.3-42.7 23.2m137.9-91.5c-13.4 13.4-26.6 26.8-40 40.2 1.8 0 3.6.1 5.5.1 50.7 0 101.3-.1 152 .1 4.9 0 8.3-1.4 11.7-4.9 17.2-17.4 34.7-34.6 52.1-51.9H184.8z"
+      fill="#6da7da"
+    />
+    <path
+      d="M511.8 411.3c0 6.1 0 12.2.1 18.3H24c-1.7 0-3.4-.1-5-.1 18-18.2 35.9-36.4 53.9-54.6 36.8 0 73.6-.1 110.4-.1 18.1.1 36.1.1 54.2.2 19.8 0 39.6-.1 59.4-.1h209.7c1.8 0 3.6-.1 5.5-.1-.2 12.1-.2 24.3-.3 36.5M365.4 119.6c-2-1-3.4-1-4.9-1H234.2c-10.8 0-21.6-.1-32.4-.1-5.6 5.6-11.3 11.2-17 16.8h164.8c1.3-1.3 2.7-2.6 4-4 4-3.8 7.9-7.8 11.8-11.7"
+      fill="#306599"
+    />
+  </svg>
+);
+
+// Official Bifrost Brand Icon (Maxim AI)
+const BIFROST_OFFICIAL_ICON = 'data:image/webp;base64,UklGRkQBAABXRUJQVlA4WAoAAAAQAAAAVwAAbQAAQUxQSOEAAAABgBxb2/Lkk7hrAZ59OtBCGOqARrwBGoinCBwacI3bkjt5/+WfmYiYgK34dS+s2D0cXcfqU4/y25VCESxkY+Ljrfcf8rOrxJvaeEsuR/Js448Z7AXQ1JgZQZ5CES0YxFTvnh/B+ytGF15+0OsYomyMDUPF3y36DO20Ln4zj651T07ws179f72mtEWNgXKdfo88CSE6WW+gVUaZSBgNacTUP/7I7x6007Yx3pLLkRP8MQP3Oq94T2O8WoLzwYH8w9Nz8OLseCJ+3EkEUf9W/LofVqwD9Nz2ZuLnHepC/OVRAAIAVlA4IDwAAADwBACdASpYAG4APpFIoUylpCMiIMgAsBIJaQAABje6m+jahzjKAe6m+jahzjKAeeAA/vjO7u4AAAAAAAA=';
+export const BifrostLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <img src={BIFROST_OFFICIAL_ICON} alt="Bifrost" className={`${className} object-contain rounded-sm`} />
+);
+
+// Official Portkey AI Gateway Brand Logo
+export const PortkeyLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 32 32" className={`${className} object-contain`} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="32" height="32" rx="7" fill="#8B5CF6" />
+    <path d="M16 6L24.6603 11V21L16 26L7.33975 21V11L16 6Z" stroke="white" strokeWidth="2" strokeLinejoin="round" />
+    <circle cx="16" cy="14" r="3.2" fill="white" />
+    <path d="M14.5 15.5L13 22H19L17.5 15.5" fill="white" />
+  </svg>
+);
+
+// Official Helicone 3D Observability Cube Prism Logo
+export const HeliconeLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="620 450 595 600" className={`${className} object-contain`} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path fill="#0ca4e8" d="M 913.5,458.5 C 917.247,458.392 920.914,458.892 924.5,460C 1017.83,501 1111.17,542 1204.5,583C 1205.46,584.419 1206.29,585.919 1207,587.5C 1207.67,695.167 1207.67,802.833 1207,910.5C 1204.54,919.631 1198.7,925.465 1189.5,928C 1098.82,966.227 1007.98,1004.06 917,1041.5C 822.603,1002.59 728.436,963.089 634.5,923C 630.619,920.072 628.119,916.239 627,911.5C 626.333,803.5 626.333,695.5 627,587.5C 627.667,586.167 628.333,584.833 629,583.5C 723.742,541.373 818.575,499.707 913.5,458.5 Z" />
+    <path fill="#0ca4e8" d="M 914.5,479.5 C 919.428,480.128 924.095,481.628 928.5,484C 1009.65,519.409 1090.65,555.076 1171.5,591C 1087.05,627.725 1002.72,664.725 918.5,702C 833.045,665.614 747.712,628.614 662.5,591C 746.609,553.915 830.609,516.748 914.5,479.5 Z" />
+    <path fill="#156082" d="M 647.5,606.5 C 709.626,633.397 771.626,660.563 833.5,688C 771.955,733.052 710.288,777.885 648.5,822.5C 647.501,750.669 647.167,678.669 647.5,606.5 Z" />
+    <path fill="#c0faf4" d="M 1184.5,606.5 C 1185.5,606.5 1186.5,606.5 1187.5,606.5C 1187.67,622.17 1187.5,637.837 1187,653.5C 1115.5,767.833 1044,882.167 972.5,996.5C 957.418,1002.64 942.418,1008.97 927.5,1015.5C 926.334,990.507 926.167,965.507 927,940.5C 994.393,838.103 1061.39,735.437 1128,632.5C 1146.84,623.726 1165.67,615.059 1184.5,606.5 Z" />
+    <path fill="#0ca4e8" d="M 928.5,902.5 C 927.501,841.669 927.168,780.669 927.5,719.5C 983.308,694.629 1039.31,670.462 1095.5,647C 1039.61,732.049 983.944,817.216 928.5,902.5 Z" />
+  </svg>
+);
+
+// Official LMSYS RouteLLM Matrix-Factorization Router Logo
+export const RouteLLMLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 32 32" className={`${className} object-contain`} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="32" height="32" rx="7" fill="#0F172A" />
+    <path d="M8 16H14L19 9H24" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M14 16L19 23H24" stroke="#38BDF8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="8" cy="16" r="2.5" fill="#F97316" />
+    <circle cx="24" cy="9" r="2.5" fill="#F97316" />
+    <circle cx="24" cy="23" r="2.5" fill="#38BDF8" />
+  </svg>
+);
+
+// Official New API Gateway Cubic Token Node Logo (Calcium-Ion / QuantumNous)
+export const NewApiLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 32 32" className={`${className} object-contain`} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="32" height="32" rx="7" fill="#059669" />
+    <path d="M16 7L24 11.5V20.5L16 25L8 20.5V11.5L16 7Z" stroke="white" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M16 7V25M8 11.5L24 20.5M8 20.5L24 11.5" stroke="white" strokeWidth="1.2" strokeOpacity="0.75" />
+    <circle cx="16" cy="16" r="3" fill="#34D399" />
+  </svg>
+);
+
+// Official CNCF Higress Cloud-Native AI Gateway Logo
+export const HigressLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 59.59 53.62" className={`${className} object-contain`} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="higress-grad-color-1" x1=".06" y1="17.82" x2="29.43" y2="17.82" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stopColor="#0418ff" />
+        <stop offset="1" stopColor="#1e8cfe" />
+      </linearGradient>
+      <linearGradient id="higress-grad-color-2" x1="39.29" y1="35.8" x2="9.91" y2="35.8" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stopColor="#0418ff" />
+        <stop offset="1" stopColor="#1e8cfe" />
+      </linearGradient>
+    </defs>
+    <path d="M29.43,35.4c-.79,.17-1.61,.25-2.46,.25h-7.27c-3.68,0-7.15-1.03-10.11-2.81-.53-.32-1.04-.65-1.53-1.01-2.72-2.02-4.91-4.71-6.31-7.83-.25-.57-.47-1.14-.68-1.74C.42,20.3,.06,18.19,.06,16V0H8.12V16c0,.38,.01,.74,.06,1.1,.04,.53,.12,1.03,.25,1.53,.74,3.16,2.78,5.84,5.52,7.41,1.68,.96,3.63,1.52,5.7,1.53h.06c4.75,.03,8.73,3.36,9.73,7.83Z" fill="url(#higress-grad-color-1)" />
+    <path d="M8.06,33.66v19.96H0V23.23c.26,.97,.68,2.07,.9,2.5,1.65,3.22,4.14,5.95,7.16,7.94Z" fill="#1e8cfe" />
+    <path d="M39.29,37.62v16h-8.06v-16c0-.38-.01-.75-.06-1.11-.04-.51-.13-1.03-.25-1.52-.74-3.17-2.77-5.84-5.51-7.42-1.7-.96-3.64-1.52-5.71-1.53h-.06c-4.74-.03-8.73-3.36-9.73-7.81,.79-.17,1.61-.25,2.46-.25h7.27c3.68,0,7.15,1.03,10.11,2.81,.53,.31,1.04,.65,1.53,1.01,2.72,2.02,4.91,4.7,6.3,7.83,.26,.56,.49,1.14,.68,1.72,.67,1.97,1.03,4.09,1.03,6.27Z" fill="url(#higress-grad-color-2)" />
+    <path d="M49.42,7.12c0-1.37,.5-2.55,1.49-3.54,.99-1,2.19-1.49,3.58-1.49s2.62,.5,3.61,1.49c1,.97,1.49,2.17,1.49,3.58s-.5,2.62-1.49,3.61c-.97,1-2.16,1.49-3.58,1.49s-2.62-.5-3.61-1.49c-1-1-1.49-2.21-1.49-3.65Zm9.26,12.68V53.62h-8.34V19.79h8.34Z" fill="#0418ff" />
+    <path d="M31.23,19.96V0h8.06V30.39c-.26-.97-.68-2.07-.9-2.5-1.65-3.22-4.14-5.95-7.16-7.94Z" fill="#1e8cfe" />
+  </svg>
+);
+
+// Official ClawRouter Lobster Claw Smart Router Logo (BlockRun.AI)
+export const ClawRouterLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 32 32" className={`${className} object-contain`} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="32" height="32" rx="7" fill="#CC2028" />
+    <path d="M9 11C11.5 8 16 8 18 10C18 12 16 14 14 14.5L11 15.5C9.5 16 9 14 9 11Z" fill="white" />
+    <path d="M23 11C20.5 8 16 8 14 10C14 12 16 14 18 14.5L21 15.5C22.5 16 23 14 23 11Z" fill="white" />
+    <path d="M16 14V25M16 25L12 21M16 25L20 21" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 interface AiBrainTabProps {
   config: JarvisConfig;
   onChangeConfig: (patch: Partial<JarvisConfig>) => void;
@@ -161,6 +259,56 @@ export const CURATED_MODELS: Record<string, { value: string; label: string; tag?
     { value: 'anthropic/claude-3.7-sonnet', label: 'anthropic/claude-3.7-sonnet', tag: 'Hybrid Thinking' },
     { value: 'openai/gpt-4o', label: 'openai/gpt-4o', tag: 'Flagship' },
     { value: 'deepseek/deepseek-r1', label: 'deepseek/deepseek-r1', tag: 'Reasoning' },
+  ],
+  litellm: [
+    { value: 'gpt-4o', label: 'gpt-4o (Proxy)', tag: 'OpenAI' },
+    { value: 'claude-3-7-sonnet', label: 'claude-3-7-sonnet', tag: 'Anthropic' },
+    { value: 'deepseek-r1', label: 'deepseek-r1', tag: 'Reasoning' },
+    { value: 'llama3.3', label: 'llama3.3', tag: 'Meta' },
+    { value: 'qwen2.5-coder-32b', label: 'qwen2.5-coder-32b', tag: 'Coding' },
+  ],
+  bifrost: [
+    { value: 'auto', label: 'auto (Fast Route)', tag: 'Smart Route' },
+    { value: 'gpt-4o', label: 'gpt-4o', tag: 'Flagship' },
+    { value: 'deepseek-chat', label: 'deepseek-chat', tag: 'DeepSeek' },
+    { value: 'llama-3.3-70b', label: 'llama-3.3-70b', tag: 'Open Weight' },
+  ],
+  portkey: [
+    { value: 'auto', label: 'auto (Gateway Route)', tag: 'Gateway Config' },
+    { value: 'gpt-4o', label: 'gpt-4o', tag: 'OpenAI' },
+    { value: 'claude-3-5-sonnet', label: 'claude-3-5-sonnet', tag: 'Anthropic' },
+    { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash', tag: 'Google' },
+  ],
+  helicone: [
+    { value: 'gpt-4o', label: 'gpt-4o (Observed)', tag: 'Monitored' },
+    { value: 'gpt-4o-mini', label: 'gpt-4o-mini', tag: 'Fast' },
+    { value: 'o3-mini', label: 'o3-mini', tag: 'Reasoning' },
+    { value: 'claude-3-5-sonnet', label: 'claude-3-5-sonnet', tag: 'Anthropic' },
+  ],
+  routellm: [
+    { value: 'router-mf', label: 'router-mf (Matrix Factorization)', tag: 'Recommended' },
+    { value: 'router-bert', label: 'router-bert (BERT Classifier)', tag: 'Fast Classifier' },
+    { value: 'router-causal-llm', label: 'router-causal-llm (LLM Judge)', tag: 'LLM Evaluator' },
+    { value: 'gpt-4o', label: 'gpt-4o (Direct Fallback)', tag: 'Strong Model' },
+  ],
+  newapi: [
+    { value: 'auto', label: 'auto (Dynamic Channel)', tag: 'Channel Route' },
+    { value: 'gpt-4o', label: 'gpt-4o', tag: 'Channel' },
+    { value: 'claude-3-7-sonnet', label: 'claude-3-7-sonnet', tag: 'Channel' },
+    { value: 'deepseek-r1', label: 'deepseek-r1', tag: 'Reasoning' },
+    { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash', tag: 'Channel' },
+  ],
+  higress: [
+    { value: 'auto', label: 'auto (CNCF AI Gateway)', tag: 'Cloud-Native' },
+    { value: 'qwen-max', label: 'qwen-max', tag: 'Alibaba Cloud' },
+    { value: 'deepseek-chat', label: 'deepseek-chat', tag: 'DeepSeek' },
+    { value: 'gpt-4o', label: 'gpt-4o', tag: 'OpenAI' },
+  ],
+  clawrouter: [
+    { value: 'auto', label: 'auto (Intelligent Multi-Route)', tag: 'Smart Route' },
+    { value: 'deepseek-r1', label: 'deepseek-r1', tag: 'DeepSeek' },
+    { value: 'claude-3-7-sonnet', label: 'claude-3-7-sonnet', tag: 'Anthropic' },
+    { value: 'gpt-4o', label: 'gpt-4o', tag: 'OpenAI' },
   ],
   grok: [
     { value: 'grok-2-1212', label: 'grok-2-1212', tag: 'Flagship Grok 2' },
@@ -359,6 +507,146 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
       { label: 'OmniRoute GitHub', url: 'https://github.com/cheaper-inference/OmniRoute' },
     ],
   },
+  litellm: {
+    title: 'LiteLLM',
+    description: 'Lightweight OpenAI-compatible proxy gateway for 100+ LLMs with unified input/output formatting.',
+    endpointField: 'litellmEndpoint',
+    endpointLabel: 'Proxy Endpoint',
+    endpointPlaceholder: 'http://localhost:4000/v1',
+    endpointDefault: 'http://localhost:4000/v1',
+    endpointHint: 'Default local port: 4000 (http://localhost:4000/v1)',
+    keyField: 'litellmApiKey',
+    keyLabel: 'API key (optional for local proxy)',
+    keyPlaceholder: 'sk-litellm... or master key',
+    modelField: 'litellmModel',
+    defaultModel: 'gpt-4o',
+    links: [
+      { label: 'LiteLLM GitHub', url: 'https://github.com/BerriAI/litellm' },
+      { label: 'Documentation', url: 'https://docs.litellm.ai/' },
+    ],
+  },
+  bifrost: {
+    title: 'Bifrost',
+    description: 'Blazing-fast open-source LLM router & reverse proxy with sub-millisecond overhead and load balancing.',
+    endpointField: 'bifrostEndpoint',
+    endpointLabel: 'Gateway Endpoint',
+    endpointPlaceholder: 'http://localhost:8080/v1',
+    endpointDefault: 'http://localhost:8080/v1',
+    endpointHint: 'Default local port: 8080 (http://localhost:8080/v1)',
+    keyField: 'bifrostApiKey',
+    keyLabel: 'API key (optional for local gateway)',
+    keyPlaceholder: 'Leave empty for local Bifrost or enter gateway token',
+    modelField: 'bifrostModel',
+    defaultModel: 'auto',
+    links: [
+      { label: 'Bifrost GitHub', url: 'https://github.com/maximhq/bifrost' },
+    ],
+  },
+  portkey: {
+    title: 'Portkey',
+    description: 'Production-ready open-source AI gateway with intelligent routing, load balancing, and multi-provider fallbacks.',
+    endpointField: 'portkeyEndpoint',
+    endpointLabel: 'Gateway Endpoint',
+    endpointPlaceholder: 'https://api.portkey.ai/v1 or http://localhost:8787/v1',
+    endpointDefault: 'https://api.portkey.ai/v1',
+    endpointHint: 'Cloud: https://api.portkey.ai/v1 | Local docker: http://localhost:8787/v1',
+    keyField: 'portkeyApiKey',
+    keyLabel: 'Portkey API key / Gateway Token',
+    keyPlaceholder: 'pk-... or leave empty for local container',
+    modelField: 'portkeyModel',
+    defaultModel: 'auto',
+    links: [
+      { label: 'Portkey Gateway GitHub', url: 'https://github.com/Portkey-AI/gateway' },
+      { label: 'Portkey App', url: 'https://portkey.ai/' },
+    ],
+  },
+  helicone: {
+    title: 'Helicone',
+    description: 'Open-source LLM observability, caching proxy, and routing gateway.',
+    endpointField: 'heliconeEndpoint',
+    endpointLabel: 'Helicone Proxy Endpoint',
+    endpointPlaceholder: 'https://oai.helicone.ai/v1',
+    endpointDefault: 'https://oai.helicone.ai/v1',
+    endpointHint: 'Default: https://oai.helicone.ai/v1',
+    keyField: 'heliconeApiKey',
+    keyLabel: 'Helicone API key / Upstream Token',
+    keyPlaceholder: 'sk-helicone-... or upstream OpenAI key',
+    modelField: 'heliconeModel',
+    defaultModel: 'gpt-4o',
+    links: [
+      { label: 'Helicone GitHub', url: 'https://github.com/Helicone/helicone' },
+      { label: 'Helicone Console', url: 'https://www.helicone.ai/' },
+    ],
+  },
+  routellm: {
+    title: 'RouteLLM',
+    description: 'LMSYS open-source cost & quality routing framework using trained matrix-factorization classifiers.',
+    endpointField: 'routellmEndpoint',
+    endpointLabel: 'RouteLLM Server Endpoint',
+    endpointPlaceholder: 'http://localhost:6060/v1',
+    endpointDefault: 'http://localhost:6060/v1',
+    endpointHint: 'Default local server: http://localhost:6060/v1',
+    keyField: 'routellmApiKey',
+    keyLabel: 'API key (optional)',
+    keyPlaceholder: 'Optional router bearer token',
+    modelField: 'routellmModel',
+    defaultModel: 'router-mf',
+    links: [
+      { label: 'RouteLLM GitHub', url: 'https://github.com/lmsys/routellm' },
+    ],
+  },
+  newapi: {
+    title: 'New API',
+    description: 'Next-generation unified multi-provider AI gateway and token management system supporting all major LLMs.',
+    endpointField: 'newapiEndpoint',
+    endpointLabel: 'New API Endpoint',
+    endpointPlaceholder: 'http://localhost:3000/v1',
+    endpointDefault: 'http://localhost:3000/v1',
+    endpointHint: 'Default: http://localhost:3000/v1 or custom domain',
+    keyField: 'newapiApiKey',
+    keyLabel: 'Access Token / API Key',
+    keyPlaceholder: 'sk-... (Token created in New API console)',
+    modelField: 'newapiModel',
+    defaultModel: 'auto',
+    links: [
+      { label: 'New API GitHub', url: 'https://github.com/Calcium-Ion/new-api' },
+    ],
+  },
+  higress: {
+    title: 'Higress',
+    description: 'Cloud-native AI gateway and reverse proxy built on Envoy and WebAssembly (CNCF/Alibaba).',
+    endpointField: 'higressEndpoint',
+    endpointLabel: 'Gateway Endpoint',
+    endpointPlaceholder: 'http://localhost:8080/v1',
+    endpointDefault: 'http://localhost:8080/v1',
+    endpointHint: 'Default local port: 8080 (http://localhost:8080/v1)',
+    keyField: 'higressApiKey',
+    keyLabel: 'API key (optional for local gateway)',
+    keyPlaceholder: 'Leave empty for local instance or enter API key',
+    modelField: 'higressModel',
+    defaultModel: 'auto',
+    links: [
+      { label: 'Higress GitHub', url: 'https://github.com/alibaba/higress' },
+      { label: 'Higress AI', url: 'https://higress.ai/' },
+    ],
+  },
+  clawrouter: {
+    title: 'ClawRouter',
+    description: 'Intelligent multi-model AI routing engine with dynamic load-balancing and auto-failover.',
+    endpointField: 'clawrouterEndpoint',
+    endpointLabel: 'Router Endpoint',
+    endpointPlaceholder: 'http://localhost:8000/v1',
+    endpointDefault: 'http://localhost:8000/v1',
+    endpointHint: 'Default local server: http://localhost:8000/v1',
+    keyField: 'clawrouterApiKey',
+    keyLabel: 'API key (optional)',
+    keyPlaceholder: 'ClawRouter bearer token',
+    modelField: 'clawrouterModel',
+    defaultModel: 'auto',
+    links: [
+      { label: 'ClawRouter GitHub', url: 'https://github.com/ClawRouter' },
+    ],
+  },
 };
 
 const SURFACE = 'bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22]';
@@ -376,15 +664,18 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
   // Auto-fetch models on mount for dynamic providers if not cached yet
   React.useEffect(() => {
     const p = config.provider;
-    if (['omniroute', 'omnirouter', 'ollama', 'openrouter'].includes(p)) {
+    const dynamicGateways = [
+      'omniroute', 'omnirouter', 'litellm', 'bifrost', 'portkey', 'helicone',
+      'routellm', 'newapi', 'higress', 'clawrouter', 'ollama', 'openrouter'
+    ];
+    if (dynamicGateways.includes(p)) {
       const cached = config.cachedProviderModels?.[p] || [];
       if (cached.length === 0 && window.jarvisAPI?.fetchProviderModels) {
-        const ep = p === 'omniroute' || p === 'omnirouter'
-          ? (config.omnirouteEndpoint || 'http://localhost:20128/v1')
-          : (p === 'ollama' ? (config.ollamaEndpoint || 'http://127.0.0.1:11434') : undefined);
-        const k = p === 'omniroute' || p === 'omnirouter'
-          ? (config.omnirouteApiKey || config.omnirouterApiKey)
-          : config.openrouterApiKey;
+        const detail = PROVIDER_DETAILS[p];
+        const ep = detail?.endpointField
+          ? ((config as any)[detail.endpointField] || detail.endpointDefault)
+          : undefined;
+        const k = detail?.keyField ? ((config as any)[detail.keyField] as string) : undefined;
         window.jarvisAPI.fetchProviderModels({ provider: p, endpoint: ep, key: k })
           .then((res) => {
             if (res?.success && Array.isArray(res.models) && res.models.length > 0) {
@@ -401,7 +692,6 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
   // Category toggle: 'paid' vs 'free'
   const [category, setCategory] = useState<Category>(() => {
     if (['grok', 'openai', 'deepseek', 'qwen'].includes(config.provider)) return 'paid';
-    if (['groq', 'ollama', 'openrouter', 'omniroute', 'omnirouter'].includes(config.provider)) return 'free';
     if (config.provider === 'gemini') {
       return (config.geminiModel && config.geminiModel.includes('pro')) ? 'paid' : 'free';
     }
@@ -657,13 +947,101 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
     }
   };
 
+  const testGatewayDirectly = async (provider: string, key?: string, model?: string, endpoint?: string) => {
+    const detail = PROVIDER_DETAILS[provider];
+    const ep = (endpoint || detail?.endpointDefault || 'http://localhost:8080/v1').replace(/\/+$/, '');
+    const apiKey = (key || '').trim();
+    const startTime = Date.now();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+    if (provider === 'portkey' || ep.includes('portkey.ai')) {
+      if (apiKey) headers['x-portkey-api-key'] = apiKey;
+      headers['x-portkey-provider'] = 'openai';
+    }
+    if (provider === 'helicone' || ep.includes('helicone.ai')) {
+      if (apiKey) headers['Helicone-Auth'] = `Bearer ${apiKey}`;
+    }
+
+    const chosenModel = model || detail?.defaultModel || 'auto';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const resp = await fetch(`${ep}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: chosenModel,
+          messages: [{ role: 'user', content: 'Respond with ONLY "READY".' }],
+          max_tokens: 10,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (!resp.ok) {
+        const errText = await resp.text();
+        return { success: false, error: `${detail?.title || provider} error (${resp.status}): ${errText.slice(0, 150)}` };
+      }
+      const data = await resp.json();
+      const latencyMs = Date.now() - startTime;
+      return { success: true, latencyMs, reply: data.choices?.[0]?.message?.content?.trim() || 'READY' };
+    } catch (err: any) {
+      clearTimeout(timeout);
+      return {
+        success: false,
+        error: `Could not reach ${detail?.title || provider} at ${ep}. Ensure the router/gateway is running. (${err.message})`,
+      };
+    }
+  };
+
+  const fetchModelsDirectly = async (providerId: string, endpoint?: string, key?: string) => {
+    const detail = PROVIDER_DETAILS[providerId];
+    const ep = (endpoint || detail?.endpointDefault || 'http://localhost:8080/v1').replace(/\/+$/, '');
+    const apiKey = (key || '').trim();
+    const headers: Record<string, string> = {};
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+    if (providerId === 'portkey' || ep.includes('portkey.ai')) {
+      if (apiKey) headers['x-portkey-api-key'] = apiKey;
+      headers['x-portkey-provider'] = 'openai';
+    }
+    if (providerId === 'helicone' || ep.includes('helicone.ai')) {
+      if (apiKey) headers['Helicone-Auth'] = `Bearer ${apiKey}`;
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      const resp = await fetch(`${ep}/models`, { headers, signal: controller.signal });
+      clearTimeout(timeout);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      let models: string[] = [];
+      if (Array.isArray(data.data)) {
+        models = data.data.map((m: any) => (typeof m === 'string' ? m : (m.id || m.name || m.model)));
+      } else if (Array.isArray(data.models)) {
+        models = data.models.map((m: any) => (typeof m === 'string' ? m : (m.id || m.name || m.model)));
+      } else if (Array.isArray(data)) {
+        models = data.map((m: any) => (typeof m === 'string' ? m : (m.id || m.name || m.model)));
+      }
+      return { success: true, models: models.filter(Boolean) };
+    } catch (err: any) {
+      clearTimeout(timeout);
+      return { success: false, error: `Discovery failed at ${ep}: ${err.message}` };
+    }
+  };
+
   const handleTestKey = async (provider: string, key?: string, model?: string, endpoint?: string) => {
-    if (!window.jarvisAPI?.testAiKey) return;
     setTesting(provider);
     setTestResult((prev) => ({ ...prev, [provider]: undefined as any }));
 
     try {
-      const res = await window.jarvisAPI.testAiKey({ provider, key, model, endpoint });
+      let res: any = null;
+      if (window.jarvisAPI?.testAiKey) {
+        res = await window.jarvisAPI.testAiKey({ provider, key, model, endpoint });
+      }
+      // If Electron IPC returned "Unknown provider" or IPC wasn't present, fall back to direct fetch
+      if (!res || (!res.success && (res.error?.includes('Unknown provider') || !window.jarvisAPI?.testAiKey))) {
+        res = await testGatewayDirectly(provider, key, model, endpoint);
+      }
       if (res && res.success) {
         setTestResult((prev) => ({
           ...prev,
@@ -695,12 +1073,18 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
   };
 
   const handleFetchModels = async (providerId: string, endpoint?: string, key?: string) => {
-    if (!window.jarvisAPI?.fetchProviderModels) return;
     setFetchingModels(providerId);
     setTestResult((prev) => ({ ...prev, [providerId]: undefined as any }));
 
     try {
-      const res = await window.jarvisAPI.fetchProviderModels({ provider: providerId, key, endpoint });
+      let res: any = null;
+      if (window.jarvisAPI?.fetchProviderModels) {
+        res = await window.jarvisAPI.fetchProviderModels({ provider: providerId, key, endpoint });
+      }
+      // Fallback to direct fetch if IPC returns unknown provider
+      if (!res || (!res.success && (res.error?.includes('Unknown provider') || !window.jarvisAPI?.fetchProviderModels))) {
+        res = await fetchModelsDirectly(providerId, endpoint, key);
+      }
       if (res && res.success && Array.isArray(res.models)) {
         setFetchedModels((prev) => ({ ...prev, [providerId]: res.models || [] }));
         const updatedCache = {
@@ -901,6 +1285,70 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       tag: 'Local / Remote Gateway',
       Logo: OmniRouteLogo,
     },
+    {
+      id: 'litellm',
+      label: 'LiteLLM',
+      subLabel: 'OpenAI-Compatible Proxy',
+      badge: config.litellmModel || 'gpt-4o',
+      tag: 'Open-Source Gateway',
+      Logo: LiteLLMLogo,
+    },
+    {
+      id: 'bifrost',
+      label: 'Bifrost',
+      subLabel: 'Ultra-Fast Sub-ms Router',
+      badge: config.bifrostModel || 'auto',
+      tag: 'Sub-ms Proxy',
+      Logo: BifrostLogo,
+    },
+    {
+      id: 'portkey',
+      label: 'Portkey',
+      subLabel: 'AI Gateway & Fallbacks',
+      badge: config.portkeyModel || 'auto',
+      tag: 'Open-Source Gateway',
+      Logo: PortkeyLogo,
+    },
+    {
+      id: 'helicone',
+      label: 'Helicone',
+      subLabel: 'LLM Proxy & Caching',
+      badge: config.heliconeModel || 'gpt-4o',
+      tag: 'Observability Gateway',
+      Logo: HeliconeLogo,
+    },
+    {
+      id: 'routellm',
+      label: 'RouteLLM',
+      subLabel: 'LMSYS Cost & Quality Router',
+      badge: config.routellmModel || 'router-mf',
+      tag: 'Smart Classifier',
+      Logo: RouteLLMLogo,
+    },
+    {
+      id: 'newapi',
+      label: 'New API',
+      subLabel: 'Unified Channel Gateway',
+      badge: config.newapiModel || 'auto',
+      tag: 'Multi-Channel Proxy',
+      Logo: NewApiLogo,
+    },
+    {
+      id: 'higress',
+      label: 'Higress',
+      subLabel: 'CNCF Cloud-Native AI Proxy',
+      badge: config.higressModel || 'auto',
+      tag: 'Cloud-Native Gateway',
+      Logo: HigressLogo,
+    },
+    {
+      id: 'clawrouter',
+      label: 'ClawRouter',
+      subLabel: 'Intelligent AI Router',
+      badge: config.clawrouterModel || 'auto',
+      tag: 'Smart Multi-Route',
+      Logo: ClawRouterLogo,
+    },
   ];
 
   const currentProviders = category === 'paid' ? paidProviders : freeProviders;
@@ -923,6 +1371,22 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       patch.qwenModel = 'qwen-max';
     } else if ((providerId === 'omniroute' || providerId === 'omnirouter') && !config.omnirouteModel) {
       patch.omnirouteModel = config.omnirouterModel || 'auto';
+    } else if (providerId === 'litellm' && !config.litellmModel) {
+      patch.litellmModel = 'gpt-4o';
+    } else if (providerId === 'bifrost' && !config.bifrostModel) {
+      patch.bifrostModel = 'auto';
+    } else if (providerId === 'portkey' && !config.portkeyModel) {
+      patch.portkeyModel = 'auto';
+    } else if (providerId === 'helicone' && !config.heliconeModel) {
+      patch.heliconeModel = 'gpt-4o';
+    } else if (providerId === 'routellm' && !config.routellmModel) {
+      patch.routellmModel = 'router-mf';
+    } else if (providerId === 'newapi' && !config.newapiModel) {
+      patch.newapiModel = 'auto';
+    } else if (providerId === 'higress' && !config.higressModel) {
+      patch.higressModel = 'auto';
+    } else if (providerId === 'clawrouter' && !config.clawrouterModel) {
+      patch.clawrouterModel = 'auto';
     }
     onChangeConfig(patch);
   };
@@ -1297,19 +1761,16 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
         {providerId === 'ollama' && ollamaStatus.installed && (
           <div className="pt-5 border-t border-[#e4e4eb] dark:border-[#1e2029] flex flex-col gap-4">
             {/* Hardware Turbo Boost Card */}
-            <div className="p-3.5 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.06] flex items-center justify-between gap-3">
+            <div className="p-5 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.06] flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <Zap className="w-4 h-4 stroke-[2.2]" />
-                </div>
                 <div className="flex flex-col min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
                       Ollama Hardware Turbo Mode
                     </span>
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 shrink-0">
+                    {/* <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 shrink-0">
                       {turboOptimized ? 'Active (Flash Attention)' : 'Standard'}
-                    </span>
+                    </span> */}
                   </div>
                   <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
                     Cuts VRAM usage by ~50%, accelerates token replies, and unloads idle models automatically.
@@ -1320,7 +1781,7 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
                 type="button"
                 onClick={handleToggleTurbo}
                 disabled={turboApplying}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white border-none cursor-pointer shrink-0 transition-all disabled:opacity-50"
+                className="px-6 py-2.5 rounded-lg text-[12px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white border-none cursor-pointer shrink-0 transition-all disabled:opacity-50"
               >
                 {turboApplying ? 'Applying...' : turboOptimized ? 'Turbo Active' : 'Enable Turbo'}
               </button>

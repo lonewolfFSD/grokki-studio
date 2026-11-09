@@ -67,11 +67,15 @@ async function callOpenAICompatible({
   tools = null,
   temperature = 0.2,
   signal = null,
-  timeout = 15000,
+  timeout = 45000,
   max_tokens = 4000,
 }) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  let isTimedOut = false;
+  const timeoutId = setTimeout(() => {
+    isTimedOut = true;
+    controller.abort();
+  }, timeout);
 
   if (signal) {
     signal.addEventListener('abort', () => controller.abort());
@@ -89,6 +93,17 @@ async function callOpenAICompatible({
   if (endpoint && endpoint.includes('openrouter.ai')) {
     headers['HTTP-Referer'] = 'https://github.com/assistant-ai/grokki';
     headers['X-Title'] = 'Grokki Assistant';
+  }
+
+  // Portkey headers
+  if (endpoint && (endpoint.includes('portkey.ai') || endpoint.includes('8787'))) {
+    if (apiKey) headers['x-portkey-api-key'] = apiKey.trim();
+    headers['x-portkey-provider'] = 'openai';
+  }
+
+  // Helicone headers
+  if (endpoint && (endpoint.includes('helicone.ai') || endpoint.includes('oai.helicone.ai'))) {
+    if (apiKey) headers['Helicone-Auth'] = `Bearer ${apiKey.trim()}`;
   }
 
   const payload = {
@@ -136,8 +151,11 @@ async function callOpenAICompatible({
     return data;
   } catch (err) {
     clearTimeout(timeoutId);
-    if (controller.signal.aborted || err.name === 'AbortError') {
+    if (signal && signal.aborted) {
       throw new Error('TASK_CANCELLED');
+    }
+    if (isTimedOut) {
+      throw new Error(`Request timed out after ${Math.round(timeout / 1000)}s`);
     }
     throw err;
   }

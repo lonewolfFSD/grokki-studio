@@ -186,6 +186,13 @@ class MemoryManager {
     if (userBio) {
       personalContext += `\n- User Background & Notes: "${userBio}". Use this context to personalize your suggestions and solutions.`;
     }
+    if (config.shareLocation) {
+      const locParts = [config.locationCity, config.locationRegion, config.locationCountry].filter(Boolean);
+      if (locParts.length > 0) {
+        const locStr = locParts.join(', ');
+        personalContext += `\n- Current User Location & Geolocation: ${locStr}${config.locationLat && config.locationLon ? ` (Lat: ${config.locationLat}, Lon: ${config.locationLon})` : ''}. Location sharing is actively enabled by the user in Grokki settings. Use this location automatically for local queries (such as weather, dining/restaurant searches, nearby cafes, local sunset/sunrise, directions) without asking the user where they are.`;
+      }
+    }
 
     // Retrieve persistent memory context for active prompt
     let memoryContext = '';
