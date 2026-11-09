@@ -20,7 +20,7 @@ try {
       ipcRenderer.on('open:settings', () => callback());
     },
     toggleWindow: () => ipcRenderer.invoke('jarvis:toggle-window'),
-    cancelTask: () => ipcRenderer.invoke('jarvis:cancel-task'),
+    cancelTask: (convoId) => ipcRenderer.invoke('jarvis:cancel-task', convoId),
     onHotkeyTrigger: (callback) => {
       ipcRenderer.on('hotkey:trigger', (event, data) => callback(data));
     },

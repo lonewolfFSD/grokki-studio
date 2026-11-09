@@ -190,6 +190,9 @@ interface ChatTabProps {
   onNavigateTab: (tabId: any) => void;
   activeConversation: Conversation;
   onUpdateMessages: (updater: (prevMessages: ChatMessage[]) => ChatMessage[]) => void;
+  onUpdateConvoMessages?: (convoId: string, updater: (prevMessages: ChatMessage[]) => ChatMessage[]) => void;
+  thinkingConvoIds?: Set<string>;
+  onSetConvoThinking?: (convoId: string, isThinking: boolean) => void;
   onNewChat: () => void;
   onChangeConfig?: (patch: Partial<JarvisConfig>) => void;
   activeModelPull?: ActiveModelPull | null;
@@ -1139,6 +1142,9 @@ export const ChatTab = React.memo<ChatTabProps>(({
   onNavigateTab,
   activeConversation,
   onUpdateMessages,
+  onUpdateConvoMessages,
+  thinkingConvoIds,
+  onSetConvoThinking,
   onNewChat,
   onChangeConfig,
   activeModelPull,
@@ -1146,6 +1152,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const messages = activeConversation.messages;
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
+  const isChatThinking = Boolean(thinkingConvoIds?.has(activeConversation.id)) || loading;
   const [activeArtifact, setActiveArtifact] = useState<Artifact | null>(null);
   const [attachedFile, setAttachedFile] = useState<AttachedFileInfo | null>(null);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
@@ -2037,7 +2044,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     if (messages.length > 0) {
       scrollToBottom(false);
     }
-  }, [messages, loading, scrollToBottom]);
+  }, [messages, isChatThinking, scrollToBottom]);
 
   // Big-Scale Image Lightbox Zoom Modal State
   const [lightboxState, setLightboxState] = useState<{
@@ -2409,13 +2416,15 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }
   };
 
-  const isInterruptedRef = useRef(false);
+  const cancelledConvosRef = useRef<Set<string>>(new Set());
 
   const handleStopGeneration = useCallback(() => {
-    isInterruptedRef.current = true;
+    const targetId = activeConversation.id;
+    cancelledConvosRef.current.add(targetId);
+    onSetConvoThinking?.(targetId, false);
     try {
       if (window.jarvisAPI?.cancelTask) {
-        window.jarvisAPI.cancelTask();
+        window.jarvisAPI.cancelTask(targetId);
       }
       if (window.jarvisAPI?.cancelBrowserAgent) {
         window.jarvisAPI.cancelBrowserAgent();
@@ -2434,8 +2443,12 @@ export const ChatTab = React.memo<ChatTabProps>(({
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isAnimated: false,
     };
-    onUpdateMessages((prev) => [...prev, cancelMsg]);
-  }, [onUpdateMessages]);
+    if (onUpdateConvoMessages) {
+      onUpdateConvoMessages(targetId, (prev) => [...prev, cancelMsg]);
+    } else {
+      onUpdateMessages((prev) => [...prev, cancelMsg]);
+    }
+  }, [activeConversation.id, onSetConvoThinking, onUpdateConvoMessages, onUpdateMessages]);
 
   const handleSendMessage = async (textToSend?: string) => {
     if (isRecording) {
@@ -2443,6 +2456,15 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }
     let text = (textToSend || inputValue).trim();
     if (!text && !attachedFile) return;
+
+    const targetConvoId = activeConversation.id;
+    const updateTargetMessages = (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
+      if (onUpdateConvoMessages) {
+        onUpdateConvoMessages(targetConvoId, updater);
+      } else {
+        onUpdateMessages(updater);
+      }
+    };
 
     const currentAttachment = attachedFile;
     const isVideo = isVideoAttachment(currentAttachment);
@@ -2498,7 +2520,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           content: '⚠️ **No Ollama models are installed on your PC yet.**\n\nTo chat with Ollama offline, please download a local model:\n1. Open **Settings** (or press `Ctrl+,`) and select **AI Models**.\n2. Scroll to the **Ollama** section to install top models like **Llama 3.2**, **DeepSeek R1**, or **Qwen 2.5 Coder** with one click.\n\n*Alternatively, you can switch to Gemini or Groq from the brain switcher above.*',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
-        onUpdateMessages((prev) => [...prev, userMsg, noModelMsg]);
+        updateTargetMessages((prev) => [...prev, userMsg, noModelMsg]);
         setInputValue('');
         setAttachedFile(null);
         setStagedMentions([]);
@@ -2515,14 +2537,15 @@ export const ChatTab = React.memo<ChatTabProps>(({
       mentions: currentMentions.length > 0 ? currentMentions : undefined,
     };
 
-    onUpdateMessages((prev) => [...prev, userMsg]);
+    updateTargetMessages((prev) => [...prev, userMsg]);
     setInputValue('');
     setAttachedFile(null);
     setStagedMentions([]);
     setSlashDismissed(false);
     setMentionDismissed(false);
+    onSetConvoThinking?.(targetConvoId, true);
     setLoading(true);
-    isInterruptedRef.current = false;
+    cancelledConvosRef.current.delete(targetConvoId);
 
     try {
       // Strict Video Token Guard: Videos cannot be watched/analyzed (saves tokens), only sent on WhatsApp or uploaded to Drive
@@ -2535,7 +2558,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           isAnimated: true,
         };
-        onUpdateMessages((prev) => [...prev, videoGuardMsg]);
+        updateTargetMessages((prev) => [...prev, videoGuardMsg]);
+        onSetConvoThinking?.(targetConvoId, false);
         setLoading(false);
         return;
       }
@@ -2547,7 +2571,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         const modelA = modelAParts.join(':');
         const modelB = modelBParts.join(':');
 
-        const context: any = {};
+        const context: any = { conversationId: targetConvoId };
         if (currentAttachment) {
           context.filePath = currentAttachment.path;
           context.attachedFile = currentAttachment;
@@ -2567,6 +2591,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
           context
         );
 
+        if (cancelledConvosRef.current.has(targetConvoId)) return;
+
         const dualMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -2578,13 +2604,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
           },
         };
 
-        onUpdateMessages((prev) => [...prev, dualMsg]);
+        updateTargetMessages((prev) => [...prev, dualMsg]);
+        onSetConvoThinking?.(targetConvoId, false);
         setLoading(false);
         return;
       }
 
       if (window.jarvisAPI?.executeAI) {
-        const context: any = {};
+        const context: any = { conversationId: targetConvoId };
         if (currentAttachment) {
           context.filePath = currentAttachment.path;
           context.attachedFile = currentAttachment;
@@ -2603,7 +2630,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           }));
         }
         const res = await window.jarvisAPI.executeAI(text, context);
-        if (isInterruptedRef.current) return;
+        if (cancelledConvosRef.current.has(targetConvoId)) return;
         let replyContent = res.reply || res.message;
         if (!replyContent) {
           if (res.error) {
@@ -2712,7 +2739,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           grounding: res.grounding,
           isAnimated: true,
         };
-        onUpdateMessages((prev) => [...prev, assistantMsg]);
+        updateTargetMessages((prev) => [...prev, assistantMsg]);
       } else {
         setTimeout(() => {
           const assistantMsg: ChatMessage = {
@@ -2722,13 +2749,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             isAnimated: true,
           };
-          onUpdateMessages((prev) => [...prev, assistantMsg]);
+          updateTargetMessages((prev) => [...prev, assistantMsg]);
+          onSetConvoThinking?.(targetConvoId, false);
           setLoading(false);
         }, 500);
         return;
       }
     } catch (err: any) {
-      if (isInterruptedRef.current) return;
+      if (cancelledConvosRef.current.has(targetConvoId)) return;
       const errorMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -2736,14 +2764,15 @@ export const ChatTab = React.memo<ChatTabProps>(({
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isAnimated: true,
       };
-      onUpdateMessages((prev) => [...prev, errorMsg]);
+      updateTargetMessages((prev) => [...prev, errorMsg]);
     } finally {
+      onSetConvoThinking?.(targetConvoId, false);
       setLoading(false);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
-    if (loading && e.key === 'Escape') {
+    if (isChatThinking && e.key === 'Escape') {
       e.preventDefault();
       handleStopGeneration();
       return;
@@ -2848,11 +2877,21 @@ export const ChatTab = React.memo<ChatTabProps>(({
       mentions: oldMsg.mentions,
     };
 
-    onUpdateMessages(() => [...historyBefore, newUserMsg]);
+    const targetConvoId = activeConversation.id;
+    const updateTargetMessages = (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
+      if (onUpdateConvoMessages) {
+        onUpdateConvoMessages(targetConvoId, updater);
+      } else {
+        onUpdateMessages(updater);
+      }
+    };
+
+    updateTargetMessages(() => [...historyBefore, newUserMsg]);
     setEditingMessageId(null);
     setEditingContent('');
+    onSetConvoThinking?.(targetConvoId, true);
     setLoading(true);
-    isInterruptedRef.current = false;
+    cancelledConvosRef.current.delete(targetConvoId);
 
     try {
       if (dualBattleEnabled && window.jarvisAPI?.executeDualAI) {
@@ -2878,8 +2917,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
           trimmed,
           { provider: providerA, model: modelA },
           { provider: providerB, model: modelB },
-          context
+          { ...context, conversationId: targetConvoId }
         );
+
+        if (cancelledConvosRef.current.has(targetConvoId)) return;
 
         const dualMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
@@ -2892,13 +2933,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
           },
         };
 
-        onUpdateMessages((prev) => [...prev, dualMsg]);
+        updateTargetMessages((prev) => [...prev, dualMsg]);
+        onSetConvoThinking?.(targetConvoId, false);
         setLoading(false);
         return;
       }
 
       if (window.jarvisAPI?.executeAI) {
-        const context: any = {};
+        const context: any = { conversationId: targetConvoId };
         if (oldMsg.attachedFile) {
           context.filePath = oldMsg.attachedFile.path;
           context.attachedFile = oldMsg.attachedFile;
@@ -2918,6 +2960,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         }
 
         const res = await window.jarvisAPI.executeAI(trimmed, context);
+        if (cancelledConvosRef.current.has(targetConvoId)) return;
         let replyContent = res.reply || res.message;
         if (!replyContent) {
           if (res.error) {
@@ -2936,7 +2979,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
           grounding: res.grounding,
           isAnimated: true,
         };
-        onUpdateMessages((prev) => [...prev, assistantMsg]);
+        updateTargetMessages((prev) => [...prev, assistantMsg]);
+        onSetConvoThinking?.(targetConvoId, false);
         setLoading(false);
       } else {
         setTimeout(() => {
@@ -2947,20 +2991,23 @@ export const ChatTab = React.memo<ChatTabProps>(({
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             isAnimated: true,
           };
-          onUpdateMessages((prev) => [...prev, assistantMsg]);
+          updateTargetMessages((prev) => [...prev, assistantMsg]);
+          onSetConvoThinking?.(targetConvoId, false);
           setLoading(false);
         }, 500);
       }
     } catch (err: any) {
-      if (isInterruptedRef.current) return;
+      if (cancelledConvosRef.current.has(targetConvoId)) return;
       const errorMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `⚠️ **Execution Error**: ${err.message || 'Failed to communicate with Agent Brain.'}`,
+        content: `⚠️ **Edit Re-query Error**: ${err.message || 'Failed to update response.'}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isAnimated: true,
       };
-      onUpdateMessages((prev) => [...prev, errorMsg]);
+      updateTargetMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      onSetConvoThinking?.(targetConvoId, false);
       setLoading(false);
     }
   };
@@ -3979,8 +4026,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
                   {/* Send / Stop Button */}
                   <WarmTooltip
-                    content={loading ? 'Stop task / generation' : 'Send message'}
-                    shortcut={loading ? 'ESC' : '↵'}
+                    content={isChatThinking ? 'Stop task / generation' : 'Send message'}
+                    shortcut={isChatThinking ? 'ESC' : '↵'}
                     side="top"
                     surfaceColor="#f5f5f5"
                     inkColor="#18181b"
@@ -3994,24 +4041,24 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   >
                     <button
                       type="button"
-                      aria-label={loading ? 'Stop generation' : 'Send message'}
+                      aria-label={isChatThinking ? 'Stop generation' : 'Send message'}
                       onClick={() => {
-                        if (loading) {
+                        if (isChatThinking) {
                           handleStopGeneration();
                         } else {
                           handleSendMessage();
                         }
                       }}
-                      disabled={!loading && !inputValue.trim() && !attachedFile}
+                      disabled={!isChatThinking && !inputValue.trim() && !attachedFile}
                       className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
-                        loading
+                        isChatThinking
                           ? 'bg-red-500 hover:bg-red-600 text-white dark:bg-red-500 dark:hover:bg-red-600 shadow-md ring-2 ring-red-500/20'
                           : inputValue.trim() || attachedFile
                           ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
                           : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      {loading ? (
+                      {isChatThinking ? (
                         <Square className="w-3 h-3 fill-current" />
                       ) : (
                         <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -4131,7 +4178,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           <button
                             type="button"
                             onClick={() => handleSaveEditedMessage(msg.id)}
-                            disabled={!editingContent.trim() || loading}
+                            disabled={!editingContent.trim() || isChatThinking}
                             className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-gray-100 active:scale-95 text-gray-900 font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs border border-gray-200/90 flex items-center gap-1.5"
                           >
                             <span>Send</span>
@@ -4558,7 +4605,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
             })}
 
             {/* Thinking / Running Indicator */}
-            {loading && (
+            {isChatThinking && (
               <div className="flex items-start gap-3 max-w-[92%] w-full animate-in fade-in duration-200">
                 <img
                   src={grokkiIcon}
@@ -4919,8 +4966,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
                   {/* Send / Stop Button */}
                   <WarmTooltip
-                    content={loading ? 'Stop task / generation' : 'Send message'}
-                    shortcut={loading ? 'ESC' : '↵'}
+                    content={isChatThinking ? 'Stop task / generation' : 'Send message'}
+                    shortcut={isChatThinking ? 'ESC' : '↵'}
                     side="top"
                     surfaceColor="#f5f5f5"
                     inkColor="#18181b"
@@ -4935,24 +4982,24 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   >
                     <button
                       type="button"
-                      aria-label={loading ? 'Stop generation' : 'Send message'}
+                      aria-label={isChatThinking ? 'Stop generation' : 'Send message'}
                       onClick={() => {
-                        if (loading) {
+                        if (isChatThinking) {
                           handleStopGeneration();
                         } else {
                           handleSendMessage();
                         }
                       }}
-                      disabled={!loading && !inputValue.trim() && !attachedFile}
+                      disabled={!isChatThinking && !inputValue.trim() && !attachedFile}
                       className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
-                        loading
+                        isChatThinking
                           ? 'bg-red-500 hover:bg-red-600 text-white dark:bg-red-500 dark:hover:bg-red-600 shadow-md ring-2 ring-red-500/20'
                           : inputValue.trim() || attachedFile
                           ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
                           : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      {loading ? (
+                      {isChatThinking ? (
                         <Square className="w-3 h-3 fill-current" />
                       ) : (
                         <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />

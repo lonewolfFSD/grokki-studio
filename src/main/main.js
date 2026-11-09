@@ -5660,10 +5660,10 @@ ipcMain.handle('dashboard:fetch-provider-models', async (event, { provider, key,
   }
 });
 
-ipcMain.handle('jarvis:cancel-task', () => {
+ipcMain.handle('jarvis:cancel-task', (event, convoId) => {
   let cancelled = false;
   if (agentBrain && typeof agentBrain.cancelCurrentTask === 'function') {
-    cancelled = agentBrain.cancelCurrentTask() || cancelled;
+    cancelled = agentBrain.cancelCurrentTask(convoId) || cancelled;
   }
   try {
     const browserAgent = require('./browser_agent');

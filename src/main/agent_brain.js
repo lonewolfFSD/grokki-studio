@@ -422,6 +422,7 @@ class AgentBrain {
 
   constructor() {
     this.abortController = null;
+    this.abortControllers = new Map();
     this.models = [
       'gemini-flash-latest',
       'gemini-flash-lite-latest',
@@ -431,12 +432,28 @@ class AgentBrain {
     ];
   }
 
-  cancelCurrentTask() {
+  cancelCurrentTask(conversationId) {
     let cancelled = false;
-    if (this.abortController) {
-      console.log('[AgentBrain] Killer activated: Aborting AI request and halting tokens!');
-      try { this.abortController.abort(); } catch (_) {}
-      this.abortController = null;
+    if (!this.abortControllers) this.abortControllers = new Map();
+    if (conversationId) {
+      const ctrl = this.abortControllers.get(conversationId);
+      if (ctrl) {
+        console.log(`[AgentBrain] Killer activated for conversation ${conversationId}: Aborting AI request!`);
+        try { ctrl.abort(); } catch (_) {}
+        this.abortControllers.delete(conversationId);
+        cancelled = true;
+      }
+    } else {
+      if (this.abortController) {
+        console.log('[AgentBrain] Killer activated: Aborting AI request and halting tokens!');
+        try { this.abortController.abort(); } catch (_) {}
+        this.abortController = null;
+        cancelled = true;
+      }
+      for (const [id, ctrl] of this.abortControllers.entries()) {
+        try { ctrl.abort(); } catch (_) {}
+      }
+      this.abortControllers.clear();
       cancelled = true;
     }
     try {
@@ -2237,11 +2254,15 @@ class AgentBrain {
   }
 
   async runOpenAICompatible(prompt, config, context = {}) {
-    if (this.abortController) {
-      try { this.abortController.abort(); } catch (e) {}
+    if (!this.abortControllers) this.abortControllers = new Map();
+    const convoId = (context && (context.conversationId || context.convoId)) || 'default';
+    if (this.abortControllers.has(convoId)) {
+      try { this.abortControllers.get(convoId).abort(); } catch (e) {}
     }
-    this.abortController = new AbortController();
-    const { signal } = this.abortController;
+    const controller = new AbortController();
+    this.abortControllers.set(convoId, controller);
+    this.abortController = controller;
+    const { signal } = controller;
 
     const provider = powerTools.airgapForced ? 'ollama' : (config.provider || 'groq');
     let endpoint = 'https://api.groq.com/openai/v1';
@@ -2756,11 +2777,15 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       return { success: false, error: 'NO_API_KEY' };
     }
 
-    if (this.abortController) {
-      try { this.abortController.abort(); } catch (e) {}
+    if (!this.abortControllers) this.abortControllers = new Map();
+    const convoId = (context && (context.conversationId || context.convoId)) || 'default';
+    if (this.abortControllers.has(convoId)) {
+      try { this.abortControllers.get(convoId).abort(); } catch (e) {}
     }
-    this.abortController = new AbortController();
-    const { signal } = this.abortController;
+    const controller = new AbortController();
+    this.abortControllers.set(convoId, controller);
+    this.abortController = controller;
+    const { signal } = controller;
 
     // If an attached file is present in context, append to prompt for awareness
     let fullPrompt = prompt || '';
@@ -3128,11 +3153,15 @@ Rules:
       return { success: false, error: 'NO_API_KEY' };
     }
 
-    if (this.abortController) {
-      try { this.abortController.abort(); } catch (e) {}
+    if (!this.abortControllers) this.abortControllers = new Map();
+    const convoId = (context && (context.conversationId || context.convoId)) || 'default';
+    if (this.abortControllers.has(convoId)) {
+      try { this.abortControllers.get(convoId).abort(); } catch (e) {}
     }
-    this.abortController = new AbortController();
-    const { signal } = this.abortController;
+    const controller = new AbortController();
+    this.abortControllers.set(convoId, controller);
+    this.abortController = controller;
+    const { signal } = controller;
 
     const ai = new GoogleGenAI({ apiKey });
     const tools = this.getToolsDeclaration();

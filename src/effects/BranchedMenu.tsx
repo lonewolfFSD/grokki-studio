@@ -14,14 +14,14 @@ import {
 } from '@hugeicons/core-free-icons';
 export interface BranchedMenuChild {
   value: string;
-  label: string;
+  label: ReactNode;
   icon?: ReactNode | IconSvgElement;
   actions?: ReactNode;
   onDoubleClick?: (e: React.MouseEvent) => void;
 }
 
 export interface BranchedMenuItem {
-  label: string;
+  label: ReactNode;
   value?: string;
   icon?: ReactNode | IconSvgElement;
   rightSlot?: ReactNode;

@@ -27,6 +27,7 @@ import { PanelLeftOpenIcon } from '@animateicons/react/lucide/panel-left-open-ic
 import { GoogleProfile, Conversation, StudioHotkeys } from '../types/jarvis';
 import { SettingsSection } from './SettingsModal';
 import BranchedMenu, { BranchedMenuItem } from './BranchedMenu';
+import ShinyText from '../../effects/ShinyText';
 import WarmTooltip, { WarmTooltipGroup, type WarmTooltipSide } from './WarmTooltip';
 import { DEFAULT_HOTKEYS } from '../utils/hotkeys';
 import grokkiLogo from '../assets/grokki_logo.png';
@@ -176,6 +177,7 @@ interface SidebarProps {
   onSwitchGoogle?: () => Promise<void> | void;
   onDisconnectGoogle?: () => Promise<void> | void;
   onOpenSettings?: (section?: SettingsSection) => void;
+  thinkingConvoIds?: Set<string>;
 }
 
 export const Sidebar = React.memo<SidebarProps>(({
@@ -200,6 +202,7 @@ export const Sidebar = React.memo<SidebarProps>(({
   onSwitchGoogle,
   onDisconnectGoogle,
   onOpenSettings,
+  thinkingConvoIds,
 }) => {
   const effectiveHotkeys: StudioHotkeys = { ...DEFAULT_HOTKEYS, ...(hotkeys || {}) };
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -567,6 +570,37 @@ export const Sidebar = React.memo<SidebarProps>(({
 
   const isNewChatActive = activeTab === 'chat' && (!activeConvo || !activeConvo.messages || activeConvo.messages.length === 0);
 
+  const renderConvoLabel = useCallback(
+    (convo: Conversation) => {
+      const isThinking = Boolean(thinkingConvoIds?.has(convo.id));
+      const title = convo.title || 'New Chat';
+      if (!isThinking) return title;
+      return (
+        <ShinyText
+          text={title}
+          color="#b5b5b5"
+          shineColor="#ffffff"
+          speed={2}
+          shineWidth={40}
+          softness={0.8}
+          trigger="loop"
+          delay={0}
+          angle={120}
+          bands={1}
+          glow={0}
+          direction="left"
+          easing="smooth"
+          yoyo={false}
+          followPointer={false}
+          pauseOnHover={false}
+          disabled={false}
+          className="font-inherit text-inherit tracking-inherit leading-inherit"
+        />
+      );
+    },
+    [thinkingConvoIds]
+  );
+
   const dateBranchedItems: BranchedMenuItem[] = useMemo(() => {
     if (!sortedConversations || sortedConversations.length === 0) {
       return [];
@@ -584,7 +618,7 @@ export const Sidebar = React.memo<SidebarProps>(({
           headerClassName: 'group flex items-center justify-between w-full px-2.5 py-1 text-[11px] font-semibold text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors select-none cursor-pointer',
           children: sortedConversations.map((convo) => ({
             value: convo.id,
-            label: convo.title || 'New Chat',
+            label: renderConvoLabel(convo),
             icon: convo.isLocked ? (
               unlockedConvoIds?.has(convo.id) ? (
                 <Unlock size={12} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
@@ -643,7 +677,7 @@ export const Sidebar = React.memo<SidebarProps>(({
       headerClassName: 'group flex items-center justify-between w-full px-2.5 py-1 text-[11px] font-semibold text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors select-none cursor-pointer',
       children: group.convos.map((convo) => ({
         value: convo.id,
-        label: convo.title || 'New Chat',
+        label: renderConvoLabel(convo),
         icon: convo.isLocked ? (
           unlockedConvoIds?.has(convo.id) ? (
             <Unlock size={12} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
@@ -661,7 +695,7 @@ export const Sidebar = React.memo<SidebarProps>(({
         actions: renderConvoActions(convo),
       })),
     }));
-  }, [sortedConversations, groupBy, renderConvoActions, unlockedConvoIds]);
+  }, [sortedConversations, groupBy, renderConvoActions, unlockedConvoIds, renderConvoLabel]);
 
   const defaultOpenIndices = useMemo(
     () => dateBranchedItems.map((_, i) => i),
@@ -1272,9 +1306,19 @@ export const Sidebar = React.memo<SidebarProps>(({
                       }`}
                     >
                       {convo.isPinned ? (
-                        <Pin size={13} fill="currentColor" className="rotate-45 text-gray-700 dark:text-white" />
+                        <div className="relative flex items-center justify-center">
+                          <Pin size={13} fill="currentColor" className="rotate-45 text-gray-700 dark:text-white" />
+                          {thinkingConvoIds?.has(convo.id) && (
+                            <span className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+                          )}
+                        </div>
                       ) : (
-                        <MessageSquareIcon size={15} />
+                        <div className="relative flex items-center justify-center">
+                          <MessageSquareIcon size={15} />
+                          {thinkingConvoIds?.has(convo.id) && (
+                            <span className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+                          )}
+                        </div>
                       )}
                     </button>
                   </WarmTooltip>

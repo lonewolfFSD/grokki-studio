@@ -233,9 +233,10 @@ export function useConversations() {
     []
   );
 
-  const updateActiveMessages = useCallback((updater: (prevMessages: ChatMessage[]) => ChatMessage[]) => {
+  const updateConversationMessages = useCallback((convoId: string, updater: (prevMessages: ChatMessage[]) => ChatMessage[]) => {
     setConversations((prev) => {
-      const existing = prev.find((c) => c.id === activeId);
+      const targetId = convoId || activeId;
+      const existing = prev.find((c) => c.id === targetId);
       if (!existing) {
         const nextMsgs = updater([]);
         if (!nextMsgs || nextMsgs.length === 0) return prev;
@@ -249,7 +250,7 @@ export function useConversations() {
         }
         const now = Date.now();
         const newConvo: Conversation = {
-          id: activeId || generateId(),
+          id: targetId || generateId(),
           title: nextTitle,
           createdAt: now,
           updatedAt: now,
@@ -259,7 +260,7 @@ export function useConversations() {
       }
 
       return prev.map((convo) => {
-        if (convo.id !== activeId) return convo;
+        if (convo.id !== targetId) return convo;
         const nextMsgs = updater(convo.messages);
         let nextTitle = convo.title;
         // If title is default 'New Chat', derive from first user message
@@ -282,6 +283,10 @@ export function useConversations() {
     });
   }, [activeId]);
 
+  const updateActiveMessages = useCallback((updater: (prevMessages: ChatMessage[]) => ChatMessage[]) => {
+    updateConversationMessages(activeId, updater);
+  }, [activeId, updateConversationMessages]);
+
   const activeConversation = useMemo(() => {
     return conversations.find((c) => c.id === activeId) || {
       id: activeId || 'default',
@@ -303,5 +308,6 @@ export function useConversations() {
     toggleArchiveConversation,
     setConversationLock,
     updateActiveMessages,
+    updateConversationMessages,
   };
 }

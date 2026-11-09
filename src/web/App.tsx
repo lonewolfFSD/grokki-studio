@@ -147,7 +147,22 @@ export const App: React.FC = () => {
     toggleArchiveConversation,
     setConversationLock,
     updateActiveMessages,
+    updateConversationMessages,
   } = useConversations();
+
+  const [thinkingConvoIds, setThinkingConvoIds] = useState<Set<string>>(() => new Set());
+
+  const handleSetConvoThinking = useCallback((convoId: string, isThinking: boolean) => {
+    setThinkingConvoIds((prev) => {
+      const next = new Set(prev);
+      if (isThinking) {
+        next.add(convoId);
+      } else {
+        next.delete(convoId);
+      }
+      return next;
+    });
+  }, []);
 
   const [unlockedConvoIds, setUnlockedConvoIds] = useState<Set<string>>(() => new Set());
   const [lockModalState, setLockModalState] = useState<{
@@ -930,6 +945,7 @@ export const App: React.FC = () => {
         googleConnected={googleConnected}
         conversations={conversations}
         activeConversationId={activeConversationId}
+        thinkingConvoIds={thinkingConvoIds}
         onSelectConversation={selectConversation}
         onCreateConversation={createConversation}
         onDeleteConversation={deleteConversation}
@@ -976,6 +992,9 @@ export const App: React.FC = () => {
                 onNavigateTab={handleSelectTab}
                 activeConversation={activeConversation}
                 onUpdateMessages={updateActiveMessages}
+                onUpdateConvoMessages={updateConversationMessages}
+                thinkingConvoIds={thinkingConvoIds}
+                onSetConvoThinking={handleSetConvoThinking}
                 onNewChat={createConversation}
                 activeModelPull={activeModelPull}
               />
