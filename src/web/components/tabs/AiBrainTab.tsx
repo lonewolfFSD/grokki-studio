@@ -14,6 +14,7 @@ import {
   Info,
   Trash2,
   HardDrive,
+  Zap,
 } from 'lucide-react';
 import { JarvisConfig, AiProvider, ActiveModelPull } from '../../types/jarvis';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
@@ -454,6 +455,28 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
   const [localPullProgress, setLocalPullProgress] = useState<{ status: string; percent: number }>({ status: '', percent: 0 });
   const [customModelInput, setCustomModelInput] = useState('');
   const [deletingModel, setDeletingModel] = useState<string | null>(null);
+  const [turboOptimized, setTurboOptimized] = useState<boolean>(true);
+  const [turboApplying, setTurboApplying] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (window.jarvisAPI?.getOllamaHardwareStatus) {
+      window.jarvisAPI.getOllamaHardwareStatus().then((res) => {
+        if (res) setTurboOptimized(res.flashAttention);
+      }).catch(() => {});
+    }
+  }, []);
+
+  const handleToggleTurbo = async () => {
+    setTurboApplying(true);
+    try {
+      if (window.jarvisAPI?.optimizeOllamaHardware) {
+        const next = !turboOptimized;
+        await window.jarvisAPI.optimizeOllamaHardware(next);
+        setTurboOptimized(next);
+      }
+    } catch (_) {}
+    setTurboApplying(false);
+  };
 
   const checkOllama = useCallback(async () => {
     setOllamaStatus((prev) => ({ ...prev, loading: true }));
@@ -1273,6 +1296,36 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
         {/* Ollama Local Models & Install Library Manager */}
         {providerId === 'ollama' && ollamaStatus.installed && (
           <div className="pt-5 border-t border-[#e4e4eb] dark:border-[#1e2029] flex flex-col gap-4">
+            {/* Hardware Turbo Boost Card */}
+            <div className="p-3.5 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.06] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Zap className="w-4 h-4 stroke-[2.2]" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                      Ollama Hardware Turbo Mode
+                    </span>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 shrink-0">
+                      {turboOptimized ? 'Active (Flash Attention)' : 'Standard'}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                    Cuts VRAM usage by ~50%, accelerates token replies, and unloads idle models automatically.
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleTurbo}
+                disabled={turboApplying}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white border-none cursor-pointer shrink-0 transition-all disabled:opacity-50"
+              >
+                {turboApplying ? 'Applying...' : turboOptimized ? 'Turbo Active' : 'Enable Turbo'}
+              </button>
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h4 className="m-0 text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">

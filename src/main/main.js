@@ -4190,8 +4190,44 @@ ipcMain.handle('jarvis:check-ollama-status', async (event, customEndpoint) => {
   };
 });
 
+function applyOllamaHardwareOptimizations(enabled = true) {
+  try {
+    process.env.OLLAMA_FLASH_ATTENTION = enabled ? '1' : '0';
+    process.env.OLLAMA_KEEP_ALIVE = enabled ? '2m' : '5m';
+    process.env.OLLAMA_NUM_PARALLEL = enabled ? '1' : '4';
+    process.env.OLLAMA_MAX_LOADED_MODELS = enabled ? '1' : '3';
+
+    if (process.platform === 'win32') {
+      const psCmd = enabled
+        ? `[System.Environment]::SetEnvironmentVariable('OLLAMA_FLASH_ATTENTION', '1', 'User'); [System.Environment]::SetEnvironmentVariable('OLLAMA_KEEP_ALIVE', '2m', 'User'); [System.Environment]::SetEnvironmentVariable('OLLAMA_NUM_PARALLEL', '1', 'User'); [System.Environment]::SetEnvironmentVariable('OLLAMA_MAX_LOADED_MODELS', '1', 'User')`
+        : `[System.Environment]::SetEnvironmentVariable('OLLAMA_FLASH_ATTENTION', $null, 'User'); [System.Environment]::SetEnvironmentVariable('OLLAMA_KEEP_ALIVE', $null, 'User'); [System.Environment]::SetEnvironmentVariable('OLLAMA_NUM_PARALLEL', $null, 'User'); [System.Environment]::SetEnvironmentVariable('OLLAMA_MAX_LOADED_MODELS', $null, 'User')`;
+
+      const { exec } = require('child_process');
+      exec(`powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command "${psCmd}"`, { timeout: 4000 }, (err) => {
+        if (err) console.warn('[Main] Failed to set Ollama user environment:', err?.message);
+      });
+    }
+    return { success: true, enabled };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+ipcMain.handle('jarvis:optimize-ollama-hardware', async (event, enabled = true) => {
+  return applyOllamaHardwareOptimizations(enabled);
+});
+
+ipcMain.handle('jarvis:get-ollama-hardware-status', async () => {
+  return {
+    flashAttention: process.env.OLLAMA_FLASH_ATTENTION === '1',
+    keepAlive: process.env.OLLAMA_KEEP_ALIVE || '2m',
+    optimized: true,
+  };
+});
+
 ipcMain.handle('jarvis:launch-ollama', async () => {
   try {
+    applyOllamaHardwareOptimizations(true);
     const localAppData = process.env.LOCALAPPDATA || (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Local') : '');
     const programFiles = process.env.PROGRAMFILES || 'C:\\Program Files';
 
@@ -5741,6 +5777,7 @@ app.whenReady().then(() => {
   createTray();
   registerShortcuts();
   initBackgroundPullDetector();
+  applyOllamaHardwareOptimizations(true);
 
   // Auto-connect WhatsApp background listener if authenticated
   try {

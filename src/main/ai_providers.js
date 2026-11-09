@@ -7,6 +7,8 @@
  * 4. OpenRouter (Free Community Models - Llama 3.3, DeepSeek R1)
  */
 
+const os = require('os');
+
 function convertSchemaToLowercase(schema, parentKey = '', isRequired = true) {
   if (!schema || typeof schema !== 'object') return schema;
   const out = Array.isArray(schema) ? [] : {};
@@ -99,6 +101,16 @@ async function callOpenAICompatible({
   if (tools && tools.length > 0) {
     payload.tools = tools;
     payload.tool_choice = 'auto';
+  }
+
+  // If connecting to local Ollama, pass optimized hardware options to cut VRAM and eliminate memory thrashing
+  if (endpoint && (endpoint.includes('127.0.0.1') || endpoint.includes('localhost') || endpoint.includes('11434'))) {
+    payload.options = {
+      num_ctx: 2048,
+      num_predict: max_tokens || 1024,
+      num_thread: Math.max(1, Math.min(8, Math.floor((os.cpus()?.length || 4) / 2) || 4)),
+      use_mmap: true,
+    };
   }
 
   try {

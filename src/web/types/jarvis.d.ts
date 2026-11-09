@@ -447,6 +447,8 @@ export interface JarvisAPI {
     error?: string;
   }>;
   launchOllama?: () => Promise<{ success: boolean; exePath?: string; error?: string }>;
+  optimizeOllamaHardware?: (enabled?: boolean) => Promise<{ success: boolean; enabled?: boolean; error?: string }>;
+  getOllamaHardwareStatus?: () => Promise<{ flashAttention: boolean; keepAlive: string; optimized: boolean }>;
   pullOllamaModel?: (options: { modelName: string; endpoint?: string }) => Promise<{ success: boolean; modelName?: string; error?: string }>;
   deleteOllamaModel?: (options: { modelName: string; endpoint?: string }) => Promise<{ success: boolean; modelName?: string; error?: string }>;
   getActiveOllamaPull?: () => Promise<ActiveModelPull | null>;

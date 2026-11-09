@@ -235,6 +235,8 @@ try {
     fetchProviderModels: (options) => ipcRenderer.invoke('dashboard:fetch-provider-models', options),
     checkOllamaStatus: (endpoint) => ipcRenderer.invoke('jarvis:check-ollama-status', endpoint),
     launchOllama: () => ipcRenderer.invoke('jarvis:launch-ollama'),
+    optimizeOllamaHardware: (enabled) => ipcRenderer.invoke('jarvis:optimize-ollama-hardware', enabled),
+    getOllamaHardwareStatus: () => ipcRenderer.invoke('jarvis:get-ollama-hardware-status'),
     pullOllamaModel: (options) => ipcRenderer.invoke('jarvis:pull-ollama-model', options),
     deleteOllamaModel: (options) => ipcRenderer.invoke('jarvis:delete-ollama-model', options),
     getActiveOllamaPull: () => ipcRenderer.invoke('jarvis:get-active-ollama-pull'),
