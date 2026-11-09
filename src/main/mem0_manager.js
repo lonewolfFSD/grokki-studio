@@ -10,6 +10,13 @@ const fs = require('fs');
 const path = require('path');
 const lanceDbStore = require('./vector_db_lancedb');
 
+const STOP_WORDS = new Set([
+  'the', 'is', 'at', 'which', 'on', 'and', 'a', 'an', 'in', 'to', 'for', 'of', 'or', 'by', 'with',
+  'from', 'as', 'about', 'what', 'who', 'how', 'when', 'where', 'why', 'can', 'you', 'tell', 'me',
+  'give', 'show', 'please', 'update', 'latest', 'news', 'info', 'information', 'all', 'more',
+  'some', 'this', 'that', 'there', 'their', 'they', 'them', 'my', 'your', 'his', 'her', 'it', 'its'
+]);
+
 class Mem0Manager {
   constructor() {
     this.dataDir = path.join(__dirname, '../../data');
@@ -154,8 +161,7 @@ Example: ["User's dad name is Arjun", "User studies BCA at ADBU University", "Us
 
     return added;
   }
-
-  async searchMemories(query, limit = 5) {
+  async searchMemories(query, limit = 4) {
     if (this.cloudClient) {
       try {
         const res = await this.cloudClient.search(query, { user_id: this.userId, limit });
@@ -166,30 +172,38 @@ Example: ["User's dad name is Arjun", "User studies BCA at ADBU University", "Us
     }
 
     const q = String(query || '').toLowerCase().trim();
-    if (!q) return this.localMemories.slice(0, limit);
+    if (!q) return [];
 
-    // Vector search via LanceDB
+    const qWords = q.split(/[^a-zA-Z0-9]+/).filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+    if (qWords.length === 0) return [];
+
+    // Vector search via LanceDB (Strict similarity threshold >= 0.65)
     try {
       const vectorHits = await lanceDbStore.search(q, limit);
-      const memHits = vectorHits.filter((h) => h.source === 'mem0_memory');
+      const memHits = vectorHits.filter((h) => h.source === 'mem0_memory' && (h.score === undefined || h.score >= 0.65));
       if (memHits.length > 0) {
         return memHits.map((h) => ({ id: h.id, memory: h.text, score: h.score }));
       }
     } catch (_) {}
 
-    // Word match fallback
-    const words = q.split(/\s+/).filter((w) => w.length > 2);
+    // Precise whole-word match fallback on meaningful non-stopwords
     return this.localMemories
-      .filter((m) => words.some((w) => m.memory.toLowerCase().includes(w)))
+      .filter((m) => {
+        const mLower = m.memory.toLowerCase();
+        return qWords.some((w) => {
+          const reg = new RegExp(`\\b${w}\\b`, 'i');
+          return reg.test(mLower);
+        });
+      })
       .slice(0, limit);
   }
 
   async getMemoriesContext(userQuery) {
     try {
-      const hits = await this.searchMemories(userQuery, 4);
+      const hits = await this.searchMemories(userQuery, 3);
       if (!Array.isArray(hits) || hits.length === 0) return '';
       const list = hits.map((h) => `- ${h.memory || h.text}`).join('\n');
-      return `\n[Mem0 Personalized Long-Term Memory Context]:\n${list}\n`;
+      return `\n[User Profile & Long-Term Memory Context]:\n${list}\n(CRITICAL INSTRUCTION: The above facts describe the user's personal profile. ONLY utilize them if directly relevant to what the user explicitly asks. NEVER force or hallucinate these personal facts into unrelated queries like video games, entertainment, news, general facts, or web searches.)\n`;
     } catch (_) {
       return '';
     }

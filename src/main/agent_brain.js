@@ -88,60 +88,79 @@ function resolveSearchQuery(prompt = '', history = []) {
   const raw = prompt.trim();
   const p = raw.toLowerCase();
 
-  const isImageRequest = /\b(images?|photos?|pics?|pictures?|views?|gallery|wallpaper)\b/i.test(p);
-  const isShortFollowUp = p.split(/\s+/).length <= 6 || isImageRequest || /^(what\s+about|how\s+about|more\s+details|all\s+courses|courses|fees|location|show\s+me)\b/i.test(p);
+  if (!raw) return '';
 
-  if (!isShortFollowUp || !history || history.length === 0) {
+  // 1. Check if the user query is an explicit follow-up that lacks an independent subject
+  const isExplicitFollowUpPhrase = /^(what\s+about|how\s+about|more\s+details|tell\s+me\s+more|all\s+courses|courses|fees|location|reviews|specs|specifications|price|pricing|release\s+date|requirements)\b/i.test(p);
+  const hasPronounRef = /\b(it|its|this|that|there|they|them|his|her)\b/i.test(p);
+  const isImageRequest = /^(show\s+me\s+)?(images?|photos?|pics?|pictures?|views?|gallery|wallpaper)\b/i.test(p);
+
+  // If the query is an independent topic (e.g. "Update on GTA VI", "Latest iPhone price", "Weather in Paris"),
+  // NEVER prepend previous entities or memories!
+  const isFollowUp = isExplicitFollowUpPhrase || hasPronounRef || isImageRequest;
+  if (!isFollowUp || !history || history.length === 0) {
     return raw;
   }
 
-  // Look back through history for the primary entity/subject
-  const recentTexts = history.slice(-6).map(t => {
-    if (typeof t === 'string') return t;
-    if (t.parts && Array.isArray(t.parts)) return t.parts.map(pt => pt.text || '').join(' ');
-    return t.text || t.content || '';
-  }).filter(Boolean);
+  // If the prompt already has a strong specific subject, return raw
+  if (/\b(gta|grand theft auto|call of duty|minecraft|fortnite|cyberpunk|witcher|apple|microsoft|google|nvidia|intel|amd|tesla|bitcoin|ethereum|crypto|ps5|xbox|nintendo|switch|iphone|samsung|pixel|windows|linux|macos|android|ios|react|node|python|java|c\+\+|javascript|typescript)\b/i.test(p)) {
+    return raw;
+  }
 
-  let detectedEntity = '';
+  // 2. Extract clean past user queries (STRIP OUT any injected [Mem0...], [LIVE WEB SEARCH...], or system blocks)
+  const recentUserQueries = [];
+  for (let i = history.length - 1; i >= 0; i--) {
+    const item = history[i];
+    let text = '';
+    if (typeof item === 'string') text = item;
+    else if (item.parts && Array.isArray(item.parts)) text = item.parts.map(pt => pt.text || '').join(' ');
+    else text = item.text || item.content || '';
 
-  // Look for university / college / institution / entity names in recent turns
-  for (let i = recentTexts.length - 1; i >= 0; i--) {
-    const text = recentTexts[i];
-    const m = text.match(/\b([A-Z][a-zA-Z0-9&.\s]{2,40}(?:University|College|Institute|Campus|Academy|Hospital|Center))\b/);
-    if (m) {
-      detectedEntity = m[1].trim();
+    if (!text || (item.role && item.role !== 'user')) continue;
+
+    const cleanUserText = text
+      .replace(/\[Mem0 Personalized Long-Term Memory Context\]:[\s\S]*?(?=\n\n|$)/gi, '')
+      .replace(/\[LIVE WEB SEARCH GROUNDING\][\s\S]*$/gi, '')
+      .replace(/\[User Profile & Long-Term Memory Context\]:[\s\S]*?(?=\n\n|$)/gi, '')
+      .replace(/\[Project Context:[\s\S]*?\]/gi, '')
+      .trim();
+
+    if (cleanUserText.length > 2) {
+      recentUserQueries.push(cleanUserText);
+      if (recentUserQueries.length >= 4) break;
+    }
+  }
+
+  if (recentUserQueries.length === 0) {
+    return raw;
+  }
+
+  // 3. Find the last meaningful subject from recent user queries
+  let previousSubject = '';
+  for (const query of recentUserQueries) {
+    const cleaned = query
+      .replace(/^(search\s+for|what\s+is|tell\s+me\s+about|show\s+me|find|look\s+up|give\s+me|can\s+you\s+find|update\s+on)\s+/i, '')
+      .replace(/[?!.]+$/, '')
+      .trim();
+    if (cleaned.length >= 3 && !/^(hello|hi|hey|thanks|thank\s+you|ok|okay|yes|no)$/i.test(cleaned)) {
+      previousSubject = cleaned;
       break;
     }
-    const m2 = text.match(/\b(Assam\s+Don\s+Bosco(?:\s+University)?|ADBU(?:\s+Azara|\s+Tapesia)?|IIT\s+[A-Za-z]+|NIT\s+[A-Za-z]+)\b/i);
-    if (m2) {
-      detectedEntity = m2[1].trim();
-      break;
-    }
   }
 
-  if (!detectedEntity) {
-    for (let i = recentTexts.length - 1; i >= 0; i--) {
-      const text = recentTexts[i].trim();
-      if (text.length > 4 && text.length < 80 && !/\b(hello|hi|hey|thanks|ok|okay|what|why|how|show\s+me\s+some\s+images)\b/i.test(text)) {
-        detectedEntity = text.replace(/^(search\s+for|what\s+is|tell\s+me\s+about|show\s+me|all\s+courses\s+list\s+please\s+all)\s+/i, '').trim();
-        if (detectedEntity.length > 3) break;
-      }
-    }
+  if (!previousSubject || p.includes(previousSubject.toLowerCase())) {
+    return raw;
   }
 
-  if (detectedEntity) {
-    if (isImageRequest) {
-      if (p.includes(detectedEntity.toLowerCase())) {
-        return raw;
-      }
-      return `${detectedEntity} campus images photos`;
-    }
-    if (!p.includes(detectedEntity.toLowerCase())) {
-      return `${detectedEntity} ${raw}`;
-    }
+  if (isImageRequest) {
+    return `${previousSubject} images photos`;
   }
 
-  return raw;
+  if (hasPronounRef) {
+    return raw.replace(/\b(it|this|that)\b/gi, previousSubject);
+  }
+
+  return `${previousSubject} ${raw}`;
 }
 
 const { searchWeb, buildGroundingPrompt } = require('./web_search');
@@ -2311,7 +2330,7 @@ class AgentBrain {
       memory.syncFromExternalHistory(context.conversationHistory);
     }
 
-    memory.addTurn('user', fullPrompt);
+    memory.addTurn('user', prompt);
 
     const rawHistory = memory.getHistory();
     let systemContent = memory.buildSystemPrompt(config, fullPrompt);
@@ -2751,7 +2770,7 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       memory.syncFromExternalHistory(context.conversationHistory);
     }
 
-    memory.addTurn('user', fullPrompt);
+    memory.addTurn('user', prompt);
 
     let lastError = null;
     const selectedGeminiModel = config.geminiModel || 'gemini-3.5-flash';
@@ -6709,6 +6728,8 @@ Your Mission:
     };
   }
 }
+
+AgentBrain.prototype.resolveSearchQuery = resolveSearchQuery;
 
 module.exports = new AgentBrain();
 
