@@ -1232,7 +1232,7 @@ class AgentBrain {
           },
           {
             name: 'highlight_to_action',
-            description: 'Highlight-to-Action ("Act on Whatever I Selected"): Automatically grabs the user\'s currently highlighted/selected text from any active app via Ctrl+C, transforms it with AI (rewrite, fix code, summarize, explain, translate), copies the result to the clipboard, and optionally pastes (Ctrl+V) it back in place.',
+            description: 'Highlight-to-Action ("Act on Whatever I Selected"): Automatically grabs the user\'s currently highlighted/selected text from any active app, reads what it says, answers questions about it, or transforms it with AI (rewrite, fix code, summarize, explain, translate), copies the result to the clipboard, and optionally pastes (Ctrl+V) it back in place. Use this tool WHENEVER the user asks about "highlighted text", "selected text", "what did I select", or "what does this text say".',
             parameters: {
               type: 'OBJECT',
               properties: {
@@ -1471,7 +1471,7 @@ class AgentBrain {
           },
           {
             name: 'ui_tars_desktop_agent',
-            description: 'UI-TARS Vision Desktop Computer-Use Agent (bytedance/UI-TARS-desktop): Autonomous visual loop that captures screenshots, grounds GUI coordinates, and executes pixel-level Windows mouse/keyboard actions to accomplish complex desktop workflows.',
+            description: 'UI-TARS Vision Desktop Computer-Use Agent (bytedance/UI-TARS-desktop): Autonomous visual loop that captures screenshots, grounds GUI coordinates, and executes pixel-level Windows mouse/keyboard actions to accomplish complex desktop workflows. NEVER use this tool for reading or answering questions about highlighted or selected text.',
             parameters: {
               type: 'OBJECT',
               properties: {
@@ -1647,6 +1647,19 @@ class AgentBrain {
     // Hitodama Voice Dictation fast intent
     if (/\b(voice\s+dictation|dictate\s+(text|speech)?|type\s+with\s+(my\s+)?voice)\b/i.test(p)) {
       return { tool: 'voice_dictation', args: {} };
+    }
+
+    // Fast Highlight-to-Action / Selection Perception Intent
+    // Matches: "What does the highlighted text says??", "explain the highlighted text", "summarize selected text", "read highlighted", "what did I highlight", etc.
+    if (
+      /\b(?:highlighted|selected)\s+(?:text|code|selection|paragraph|sentence|word|lines?|snippet)\b/i.test(p) ||
+      /\b(?:what\s+(?:does\s+)?(?:the\s+)?(?:highlighted|selected)\s+(?:text|part|section|code|snippet)?\s*(?:say|says|mean|is|state))\b/i.test(p) ||
+      /\b(?:explain|summarize|read|tell\s+me\s+about|translate|rewrite|fix|check|debug)\s+(?:the\s+|this\s+|my\s+|what\s+i\s+)?(?:highlighted|selected)\b/i.test(p) ||
+      /\bwhat\s+did\s+i\s+(?:highlight|select)\b/i.test(p) ||
+      /\bwhat\s+is\s+(?:highlighted|selected)\b/i.test(p) ||
+      /\bact\s+on\s+(?:what\s+i\s+)?(?:highlighted|selected)\b/i.test(p)
+    ) {
+      return { tool: 'highlight_to_action', args: { instruction: prompt } };
     }
 
     // Fast Folder Auto-Organizer (Downloads / Desktop)
@@ -4542,7 +4555,18 @@ Rules:
 
       // bytedance/UI-TARS-desktop Vision Computer-Use Agent
       case 'ui_tars_desktop_agent': {
-        const goal = args.goal || args.task || args.instruction || 'Perform visual desktop task';
+        const goal = (args.goal || args.task || args.instruction || '').trim();
+        if (/\b(?:highlighted|selected)\s+(?:text|code|selection|paragraph|sentence|snippet)\b/i.test(goal) ||
+            /\b(?:what\s+does\s+the\s+text\s+say|read\s+selection|explain\s+selected)\b/i.test(goal)) {
+          console.log('[AgentBrain] Redirecting ui_tars_desktop_agent to handleHighlightToAction for text query');
+          return await this.handleHighlightToAction({ instruction: goal });
+        }
+        if (!goal || goal === 'Perform visual desktop task' || goal === 'Perform desktop automation') {
+          return {
+            success: false,
+            message: 'No specific visual desktop task was provided. What would you like UI-TARS to do on your desktop?',
+          };
+        }
         const res = await uiTarsAgent.runTask(goal, (sys, usr, img) => this.generateVisionLLM(sys, usr, img));
         return {
           ...res,
@@ -5732,15 +5756,36 @@ Guidelines:
 
   // Automation #1: Highlight-to-Action ("Act on Whatever I Selected")
   async handleHighlightToAction(args = {}) {
-    const instruction = (args.instruction || 'Improve, summarize, or fix this selected text').trim();
-    const replaceInPlace = Boolean(args.replace_in_place) || /\b(replace|paste\s+it|overwrite|in\s+place)\b/i.test(instruction);
+    const instruction = (args.instruction || 'Improve, summarize, or explain this selected text').trim();
+    const isQuestionOrExplain = /\b(?:what\s+does|say|says|mean|means|explain|summarize|read|tell\s+me|understand)\b/i.test(instruction);
+    const replaceInPlace = !isQuestionOrExplain && (Boolean(args.replace_in_place) || /\b(replace|paste\s+it|overwrite|in\s+place)\b/i.test(instruction));
 
-    // 1. Grab currently highlighted selection from active app via os_input.ps1
-    const grabRes = await runPowerShell('-action grab-selection');
-    let selectedText = (grabRes.stdout || '').trim();
+    // 1. Check if text is currently highlighted inside any open Electron window
+    let selectedText = '';
+    try {
+      const { BrowserWindow } = require('electron');
+      const allWins = BrowserWindow.getAllWindows();
+      for (const win of allWins) {
+        if (!win.isDestroyed() && win.webContents) {
+          const sel = win.webContents.getSelectedText();
+          if (sel && sel.trim()) {
+            selectedText = sel.trim();
+            break;
+          }
+        }
+      }
+    } catch (_) {}
 
+    // 2. If not in Electron, grab active OS selection via os_input.ps1
     if (!selectedText) {
-      // Fallback: check existing clipboard
+      try {
+        const grabRes = await runPowerShell('-action grab-selection');
+        selectedText = (grabRes.stdout || '').trim();
+      } catch (_) {}
+    }
+
+    // 3. Fallback: check existing clipboard
+    if (!selectedText) {
       try {
         selectedText = await new Promise((resolve) => {
           exec('powershell.exe -NoProfile -Command "Get-Clipboard -Raw"', { timeout: 3000 }, (err, stdout) => {
@@ -5753,43 +5798,72 @@ Guidelines:
     if (!selectedText) {
       return {
         success: false,
-        message: 'Could not detect any highlighted text or clipboard content. Highlight any text or code in your active window first, then ask Grokki!',
+        reply: "I couldn't detect any highlighted text on your screen. Highlight any text or code with your mouse first, then ask me!",
+        message: "I couldn't detect any highlighted text on your screen. Highlight any text or code with your mouse first, then ask me!",
       };
     }
 
-    const systemPrompt = replaceInPlace
-      ? 'You are Grokki\'s Highlight-to-Action engine. Return ONLY the clean transformed text or code ready to be pasted directly in place—no conversational intro, no markdown fences unless part of the original text.'
-      : 'You are Grokki\'s Highlight-to-Action engine. Perform the requested transformation on the user\'s selected text with high-yield clarity.';
+    const systemPrompt = isQuestionOrExplain
+      ? "You are Grokki's High-Yield Reading & Perception Assistant. The user highlighted text on their screen and asked a question or asked to read/explain it. Answer directly, accurately, and clearly based on the highlighted selection."
+      : replaceInPlace
+      ? "You are Grokki's Highlight-to-Action engine. Return ONLY the clean transformed text or code ready to be pasted directly in place—no conversational intro, no markdown fences unless part of the original text."
+      : "You are Grokki's Highlight-to-Action engine. Perform the requested transformation on the user's selected text with high-yield clarity.";
 
-    const userPrompt = `User Instruction: "${instruction}"\n\nHighlighted Selection:\n"""\n${selectedText.substring(0, 6000)}\n"""`;
+    const userPrompt = `User Question / Instruction: "${instruction}"\n\nHighlighted Selection:\n"""\n${selectedText.substring(0, 8000)}\n"""`;
 
     try {
       const resultText = await this.generateAcademicLLM(systemPrompt, userPrompt, 1400);
       if (!resultText) {
-        return { success: false, message: 'Could not transform the highlighted selection.' };
+        return {
+          success: false,
+          reply: 'Could not process the highlighted selection.',
+          message: 'Could not process the highlighted selection.',
+        };
       }
 
-      // Copy transformed result to Windows clipboard safely via temp file
+      if (replaceInPlace) {
+        // Copy transformed result to Windows clipboard safely and paste
+        const tmpClipFile = path.join(os.tmpdir(), 'grokki_clipboard_out.txt');
+        fs.writeFileSync(tmpClipFile, resultText, 'utf8');
+        await new Promise((resolve) => {
+          exec(`powershell.exe -NoProfile -Command "Get-Content -LiteralPath '${tmpClipFile}' -Raw -Encoding UTF8 | Set-Clipboard"`, () => resolve());
+        });
+        await runPowerShell('-action paste-selection');
+        return {
+          success: true,
+          reply: resultText,
+          message: `### 📋 Highlight-to-Action (Replaced in Place!)\n✅ **Auto-pasted directly into your active window** & copied to clipboard:\n\n${resultText}`,
+        };
+      }
+
+      // Informational reading query: return clean response directly
+      if (isQuestionOrExplain) {
+        const preview = selectedText.length > 120 ? `${selectedText.slice(0, 120)}...` : selectedText;
+        return {
+          success: true,
+          reply: resultText,
+          message: `### 📋 Highlighted Text\n> "${preview}"\n\n${resultText}`,
+          selectedText,
+          result: resultText,
+        };
+      }
+
+      // Copy transformed result to clipboard for manual paste
       const tmpClipFile = path.join(os.tmpdir(), 'grokki_clipboard_out.txt');
       fs.writeFileSync(tmpClipFile, resultText, 'utf8');
       await new Promise((resolve) => {
         exec(`powershell.exe -NoProfile -Command "Get-Content -LiteralPath '${tmpClipFile}' -Raw -Encoding UTF8 | Set-Clipboard"`, () => resolve());
       });
 
-      if (replaceInPlace) {
-        await runPowerShell('-action paste-selection');
-        return {
-          success: true,
-          message: `### 📋 Highlight-to-Action (Replaced in Place!)\n✅ **Auto-pasted directly into your active window** & copied to clipboard:\n\n${resultText}`,
-        };
-      }
-
       return {
         success: true,
+        reply: resultText,
         message: `### 📋 Highlight-to-Action\n*(Copied result to your clipboard — press \`Ctrl+V\` anywhere to paste!)*\n\n${resultText}`,
+        selectedText,
+        result: resultText,
       };
     } catch (err) {
-      return { success: false, message: `Highlight-to-Action error: ${err.message}` };
+      return { success: false, reply: `Highlight error: ${err.message}`, message: `Highlight-to-Action error: ${err.message}` };
     }
   }
 

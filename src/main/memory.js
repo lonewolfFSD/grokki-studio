@@ -130,8 +130,14 @@ class MemoryManager {
 
   getHistory() {
     // Sanitize conversation history: ensure purely clean textual parts with valid roles
-    // Strips any legacy functionCall/args objects that could contain null or corrupt Protobuf Struct
-    return this.conversationHistory.map((turn) => {
+    // Filter out stale raw /uitars automation commands so they don't infect future conversation
+    const raw = (this.conversationHistory || []).filter((turn) => {
+      const t = (turn.parts?.[0]?.text || '').trim();
+      return !t.startsWith('/uitars') && !t.startsWith('/tars');
+    });
+
+    const result = [];
+    for (const turn of raw) {
       const cleanParts = [];
       for (const p of turn.parts || []) {
         if (p && p.text && typeof p.text === 'string' && p.text.trim()) {
@@ -141,11 +147,16 @@ class MemoryManager {
       if (cleanParts.length === 0) {
         cleanParts.push({ text: 'Ready.' });
       }
-      return {
-        role: turn.role === 'assistant' ? 'model' : (turn.role || 'user'),
-        parts: cleanParts,
-      };
-    });
+      const role = turn.role === 'assistant' ? 'model' : (turn.role || 'user');
+
+      // Ensure strict alternating roles for Gemini / LLM multi-turn APIs
+      if (result.length > 0 && result[result.length - 1].role === role) {
+        result[result.length - 1].parts[0].text += `\n\n${cleanParts[0].text}`;
+      } else {
+        result.push({ role, parts: cleanParts });
+      }
+    }
+    return result;
   }
 
   clearHistory() {

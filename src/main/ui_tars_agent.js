@@ -129,10 +129,26 @@ class UiTarsAgent {
     // Action: finished(result='Task done')
     const text = String(responseContent || '').trim();
 
-    // 1. Check finished
-    const finishMatch = text.match(/finished\s*\(\s*(?:result\s*=\s*)?["']?([^"')]+)["']?\s*\)/i);
-    if (finishMatch) {
-      return { type: 'finished', result: finishMatch[1] };
+    // 1. Check finished (handles nested quotes, parentheses, multiline text)
+    if (/\bfinished\b/i.test(text)) {
+      const finishIdx = text.search(/\bfinished\b/i);
+      const afterFinished = text.substring(finishIdx);
+      const openParen = afterFinished.indexOf('(');
+      let res = '';
+      if (openParen !== -1) {
+        const lastParen = afterFinished.lastIndexOf(')');
+        let inner = (lastParen > openParen)
+          ? afterFinished.substring(openParen + 1, lastParen).trim()
+          : afterFinished.substring(openParen + 1).trim();
+        inner = inner.replace(/^result\s*=\s*/i, '').trim();
+        if ((inner.startsWith("'") && inner.endsWith("'")) || (inner.startsWith('"') && inner.endsWith('"'))) {
+          inner = inner.slice(1, -1).trim();
+        } else {
+          inner = inner.replace(/^['"]+|['"]+$/g, '').trim();
+        }
+        res = inner;
+      }
+      return { type: 'finished', result: res || 'Task completed successfully.' };
     }
 
     // 2. Check click / double_click / right_click
@@ -145,16 +161,30 @@ class UiTarsAgent {
       };
     }
 
-    // 3. Check type
-    const typeMatch = text.match(/type\s*\(\s*(?:content\s*=\s*)?["']([^"']+)["']\s*\)/i);
-    if (typeMatch) {
-      return { type: 'type', content: typeMatch[1] };
+    // 3. Check type (handles nested quotes and apostrophes)
+    if (/\btype\s*\(/i.test(text)) {
+      const typeIdx = text.search(/\btype\s*\(/i);
+      const afterType = text.substring(typeIdx);
+      const openParen = afterType.indexOf('(');
+      if (openParen !== -1) {
+        const closeParen = afterType.lastIndexOf(')');
+        let inner = (closeParen > openParen)
+          ? afterType.substring(openParen + 1, closeParen).trim()
+          : afterType.substring(openParen + 1).trim();
+        inner = inner.replace(/^content\s*=\s*/i, '').trim();
+        if ((inner.startsWith("'") && inner.endsWith("'")) || (inner.startsWith('"') && inner.endsWith('"'))) {
+          inner = inner.slice(1, -1);
+        } else {
+          inner = inner.replace(/^['"]+|['"]+$/g, '');
+        }
+        return { type: 'type', content: inner };
+      }
     }
 
     // 4. Check press / hotkey
-    const pressMatch = text.match(/(press|hotkey)\s*\(\s*(?:key\s*=\s*)?["']([^"']+)["']\s*\)/i);
+    const pressMatch = text.match(/(press|hotkey)\s*\(\s*(?:key\s*=\s*)?["']?([a-zA-Z0-9_+ -]+)["']?\s*\)/i);
     if (pressMatch) {
-      return { type: pressMatch[1].toLowerCase(), key: pressMatch[2] };
+      return { type: pressMatch[1].toLowerCase(), key: pressMatch[2].trim() };
     }
 
     // 5. Check scroll
@@ -167,6 +197,18 @@ class UiTarsAgent {
     const waitMatch = text.match(/wait\s*\(\s*(?:seconds\s*=\s*)?(\d+)/i);
     if (waitMatch) {
       return { type: 'wait', seconds: parseInt(waitMatch[1], 10) };
+    }
+
+    // 7. Check drag
+    const dragMatch = text.match(/drag\s*\(\s*(?:start\s*=\s*)?\[\s*(\d+)\s*,\s*(\d+)\s*\]\s*,\s*(?:end\s*=\s*)?\[\s*(\d+)\s*,\s*(\d+)\s*\]\s*\)/i);
+    if (dragMatch) {
+      return {
+        type: 'drag',
+        startX: parseInt(dragMatch[1], 10),
+        startY: parseInt(dragMatch[2], 10),
+        endX: parseInt(dragMatch[3], 10),
+        endY: parseInt(dragMatch[4], 10),
+      };
     }
 
     return null;
@@ -361,6 +403,17 @@ Do not hallucinate coordinates. Look closely at the screenshot.`;
         // 4. Parse action
         const action = this.parseAction(modelResponse);
         if (!action) {
+          if (/\b(completed the task|goal (?:is )?achieved|task is complete|already completed)\b/i.test(modelResponse)) {
+            console.log('[UI-TARS] Detected completion phrasing in response without explicit finished syntax.');
+            const summary = modelResponse.slice(0, 300).trim();
+            this.broadcastFinished(summary, true);
+            return {
+              success: true,
+              steps: this.stepCount,
+              summary,
+              history: this.actionHistory,
+            };
+          }
           console.warn(`[UI-TARS] Could not parse valid action from response: "${modelResponse}"`);
           this.actionHistory.push(`Thought: Could not parse action. Retrying visual check.`);
           continue;
