@@ -2348,13 +2348,18 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
 
     if (provider === 'ollama') {
       systemContent += `\nSTRICT TOOL EXECUTION RULE: You have access to real Windows & WhatsApp tools. When the user asks you to check messages (e.g., "Did X send me any message", "Check messages from WhatsApp"), you MUST directly call get_whatsapp_recent_messages via tool call. NEVER output code snippets, never explain how to call functions in code, and never ask the user to run code. Always execute tools directly.`;
+      if (isWebSearchActive) {
+        systemContent += `\nREAL-TIME WEB GROUNDING MANDATE: Fresh real-time search results are provided in the user message. You MUST answer directly from these live search results to state the latest confirmed facts, dates, storylines, and details. Do NOT rely on outdated pre-training knowledge when search results are present.`;
+      }
     }
 
     const messages = [
       { role: 'system', content: systemContent },
     ];
 
-    for (const turn of historyToUse) {
+    let hasActiveTurn = false;
+    for (let i = 0; i < historyToUse.length; i++) {
+      const turn = historyToUse[i];
       const role = turn.role === 'model' ? 'assistant' : turn.role;
       let content = '';
       if (Array.isArray(turn.parts)) {
@@ -2362,9 +2367,18 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       } else if (typeof turn.content === 'string') {
         content = turn.content;
       }
+      // CRITICAL: Ensure the active current user prompt carries fullPrompt
+      // (which includes live web search grounding, attached files, and project context)
+      if (i === historyToUse.length - 1 && role === 'user') {
+        content = fullPrompt;
+        hasActiveTurn = true;
+      }
       if (content) {
         messages.push({ role, content });
       }
+    }
+    if (!hasActiveTurn) {
+      messages.push({ role: 'user', content: fullPrompt });
     }
 
     // When Deep Search / Live Grounding is active, omit desktop tools so model synthesizes search results
@@ -2780,9 +2794,20 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       try {
         if (signal.aborted) throw new Error('TASK_CANCELLED');
 
+        const rawHistory = memory.getHistory();
+        const geminiHistory = rawHistory.map((turn, idx) => {
+          if (idx === rawHistory.length - 1 && turn.role === 'user') {
+            return {
+              role: 'user',
+              parts: [{ text: fullPrompt }],
+            };
+          }
+          return turn;
+        });
+
         const response = await withAbort(withTimeout(ai.models.generateContent({
           model: modelName,
-          contents: memory.getHistory(),
+          contents: geminiHistory,
           config: {
             systemInstruction,
             tools,

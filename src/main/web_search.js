@@ -317,12 +317,11 @@ ${sourcesFormatted}
 ${imageSection}
 CRITICAL GROUNDING & PRESENTATION INSTRUCTIONS:
 1. You HAVE ACTIVE REAL-TIME INTERNET SEARCH ACCESS. Use the live data above to answer authoritatively and thoroughly.
-2. COMPREHENSIVE & IN-DEPTH ANSWERS (ChatGPT-Quality):
-   - Provide a complete, thorough, well-organized response. NEVER artificially truncate information, omit details, or write only 1-2 vague sentences.
-   - When the user asks about an organization, university, campus, course list, or topic:
-     * Provide a rich overview (established year, location, background, schools/faculties).
-     * If courses, degrees, or programs are discussed, provide a clear, structured Markdown Table (| School / Department | Programs Offered | Level | Details |) breaking down undergraduate, postgraduate, and doctoral offerings.
-     * Clearly distinguish multiple campuses if applicable (e.g. Azara Campus, Tapesia Campus, Kharguli Campus).
+2. COMPREHENSIVE & UP-TO-DATE ANSWERS (ChatGPT-Quality):
+   - Provide a complete, thorough, well-organized response based directly on the live real-time web sources and excerpts above.
+   - Ground all dates, names, locations, release timelines, specifications, and details directly in the provided search results.
+   - Prioritize the newest verified announcements and confirmed facts from the retrieved sources over your pre-training memory.
+   - Use clear headings, bullet points, and clean Markdown tables (| Column 1 | Column 2 |) whenever presenting structured information.
 3. VISUAL / PHOTO REQUESTS & PRESENTATION:
    - When the user asks for photos, images, campus views, or pictures:
      * Acknowledge the photos concisely and describe what is visible across the campuses, departments, facilities, or landmarks.
