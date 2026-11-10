@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Pencil, Sun, Moon } from 'lucide-react';
 import { JarvisConfig } from '../../types/jarvis';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
 import { GrainientCustomizerModal } from '../GrainientCustomizerModal';
@@ -9,37 +9,6 @@ const GRADIENT_EFFECT_OPTIONS: GlideSelectOption[] = [
   { value: 'grainient', label: 'Grainient', tag: 'Fluid' },
 ];
 
-export const THEMES_CATALOG = [
-  {
-    id: 'none',
-    name: 'None',
-    accent: '#a1a1aa',
-    deep: '#27272a',
-    desc: 'Default Studio mode (enables Clean Light & Midnight Obsidian)',
-    isNone: true,
-  },
-  { id: 'grokki-blue', name: 'Grokki Blue', accent: '#5b9bf8', deep: '#2563eb', desc: 'Signature electric sky blue' },
-  { id: 'cream', name: 'Cream', accent: '#efeac6', deep: '#cbbd82', desc: 'Warm vintage ivory accent' },
-  { id: 'jungle', name: 'Jungle', accent: '#34d399', deep: '#059669', desc: 'Deep forest & emerald mint' },
-  { id: 'sakura', name: 'Sakura', accent: '#f472b6', deep: '#db2777', desc: 'Soft cherry blossom rose' },
-  { id: 'cyber', name: 'Cyber', accent: '#a855f7', deep: '#7e22ce', desc: 'Neon amethyst & deep violet' },
-  { id: 'sunset', name: 'Sunset', accent: '#fb923c', deep: '#ea580c', desc: 'Warm solar amber glow' },
-  { id: 'arctic', name: 'Arctic', accent: '#22d3ee', deep: '#0891b2', desc: 'Crisp glacier cyan ice' },
-  { id: 'crimson', name: 'Crimson', accent: '#f87171', deep: '#dc2626', desc: 'Bold scarlet blood moon' },
-];
-
-export const THEME_NAMES: Record<string, string> = {
-  none: 'None (Default)',
-  'grokki-blue': 'Grokki Blue',
-  cream: 'Cream',
-  jungle: 'Jungle',
-  sakura: 'Sakura',
-  cyber: 'Cyber',
-  sunset: 'Sunset',
-  arctic: 'Arctic',
-  crimson: 'Crimson',
-};
-
 interface AppearanceTabProps {
   config: JarvisConfig;
   onChangeConfig: (patch: Partial<JarvisConfig>) => void;
@@ -47,64 +16,16 @@ interface AppearanceTabProps {
 
 export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeConfig }) => {
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
-
-  const activeThemeId = (config.pillTheme === 'none' || config.pillTheme === 'default')
-    ? 'none'
-    : (config.pillTheme || 'none');
-  const activeThemeIdx = Math.max(0, THEMES_CATALOG.findIndex((t) => t.id === activeThemeId));
-  const currentThemeObj = THEMES_CATALOG[activeThemeIdx] || THEMES_CATALOG[0];
-  const isCustomThemeActive = Boolean(config.pillTheme && config.pillTheme !== 'none' && config.pillTheme !== 'default');
-
-  const handlePrevTheme = () => {
-    const nextIdx = (activeThemeIdx - 1 + THEMES_CATALOG.length) % THEMES_CATALOG.length;
-    onChangeConfig({ pillTheme: THEMES_CATALOG[nextIdx].id as any });
-  };
-
-  const handleNextTheme = () => {
-    const nextIdx = (activeThemeIdx + 1) % THEMES_CATALOG.length;
-    onChangeConfig({ pillTheme: THEMES_CATALOG[nextIdx].id as any });
-  };
-
-  // Horizontal mouse / pointer drag handling (Zero vertical wheel scroll hijacking!)
-  const dragStartX = React.useRef<number | null>(null);
-  const [isDragging, setIsDragging] = React.useState(false);
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    dragStartX.current = e.clientX;
-    setIsDragging(true);
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch (_) {}
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging || dragStartX.current === null) return;
-    const diff = e.clientX - dragStartX.current;
-    if (diff > 45) {
-      handlePrevTheme();
-      dragStartX.current = e.clientX;
-    } else if (diff < -45) {
-      handleNextTheme();
-      dragStartX.current = e.clientX;
-    }
-  };
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    dragStartX.current = null;
-    setIsDragging(false);
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch (_) {}
-  };
+  const isDark = config.dashboardTheme === 'dark';
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-16">
       <div>
         <h2 className="text-xl font-bold mt-6 tracking-tight text-gray-900 dark:text-gray-100">
-          Appearance &amp; Hotkey
+          Appearance & Hotkey
         </h2>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          Customize your desktop theme, Grokki Studio palette, and global hotkey.
+          Customize your harness theme, canvas effects, and global summoned hotkey.
         </p>
       </div>
 
@@ -113,155 +34,59 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
-              Studio Theme Mode
+              Harness Theme Mode
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Standard light and dark mode selection.
+              High-contrast studio theme mode: Clean Light vs Midnight Obsidian Dark.
             </p>
           </div>
-          {isCustomThemeActive ? (
-            <span className="text-[11px] font-semibold px-4 py-2 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/25 flex items-center gap-1.5 select-none">
-              Controlled by Active Theme ({currentThemeObj.name})
-            </span>
-          ) : (
-            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 flex items-center gap-1.5 select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Standard Mode Active
-            </span>
-          )}
-        </div>
-        <div className={`grid grid-cols-2 gap-3.5 w-full ${isCustomThemeActive ? 'opacity-40 pointer-events-none' : ''}`}>
-          <div
-            onClick={() => !isCustomThemeActive && onChangeConfig({ dashboardTheme: 'light' })}
-            className={`flex flex-col gap-1 p-4 rounded-xl cursor-pointer transition-all ${
-              (config.dashboardTheme || 'light') === 'light'
-                ? 'border-2 border-gray-900 dark:border-white bg-white dark:bg-[#13141a] shadow-xs'
-                : 'border border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#13141a] hover:border-gray-400'
-            }`}
-          >
-            <strong className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-              Clean Light (Default)
-            </strong>
-            <p className="text-xs text-gray-500 dark:text-gray-400 m-0">
-              High-contrast studio paper aesthetic.
-            </p>
-          </div>
-
-          <div
-            onClick={() => !isCustomThemeActive && onChangeConfig({ dashboardTheme: 'dark' })}
-            className={`flex flex-col gap-1 p-4 rounded-xl cursor-pointer transition-all ${
-              config.dashboardTheme === 'dark'
-                ? 'border-2 border-gray-900 dark:border-white bg-white dark:bg-[#13141a] shadow-xs'
-                : 'border border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#13141a] hover:border-gray-400'
-            }`}
-          >
-            <strong className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-              Midnight Obsidian
-            </strong>
-            <p className="text-xs text-gray-500 dark:text-gray-400 m-0">
-              Pure dark mode for night workflows.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Unified Grokki Studio, Island & Control Panel Theme Carousel */}
-      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
-              Studio, Island &amp; Control Panel Theme
-            </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Shared color palette applied across Grokki Studio, Grokki Island, and the Top Notch Control Centre.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20 select-none">
-              9 THEMES
-            </span>
-            <button
-              type="button"
-              onClick={handlePrevTheme}
-              className="w-7 h-7 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-gray-50 dark:bg-[#181a22] hover:bg-gray-100 dark:hover:bg-[#202330] text-gray-600 dark:text-gray-300 flex items-center justify-center transition-all cursor-pointer"
-              title="Previous Theme"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={handleNextTheme}
-              className="w-7 h-7 rounded-lg border border-gray-200 dark:border-[#1e2029] bg-gray-50 dark:bg-[#181a22] hover:bg-gray-100 dark:hover:bg-[#202330] text-gray-600 dark:text-gray-300 flex items-center justify-center transition-all cursor-pointer"
-              title="Next Theme"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Skewed Parallelogram Theme Carousel (Horizontal drag or buttons, no wheel hijacking) */}
-        <div
-          className="studio-carousel-stage cursor-grab active:cursor-grabbing"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-        >
-          {THEMES_CATALOG.map((theme, idx) => {
-            const diff = idx - activeThemeIdx;
-            const slot = (diff >= -2 && diff <= 2) ? String(diff) : 'hidden';
-            return (
-              <div
-                key={theme.id}
-                className="studio-theme-slot"
-                data-slot={slot}
-                onClick={() => onChangeConfig({ pillTheme: theme.id as any })}
-                title={`Apply ${theme.name} Theme`}
-              >
-                <div
-                  className="studio-theme-square"
-                  style={{
-                    background: theme.isNone
-                      ? 'linear-gradient(135deg, #27272a 0%, #18181b 50%, #3f3f46 100%)'
-                      : `linear-gradient(145deg, ${theme.accent} 0%, ${theme.deep} 100%)`,
-                  }}
-                >
-                  {theme.isNone && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-zinc-300 transform skew-x-[9deg]">
-                      <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-zinc-300">
-                        <span>Light</span>
-                        <span className="text-zinc-500">/</span>
-                        <span>Dark</span>
-                      </div>
-                      <span className="text-[10px] text-zinc-400 font-medium">Standard</span>
-                    </div>
-                  )}
-                  <div className="studio-theme-sheen" />
-                  <div className="studio-theme-grain" />
-                </div>
-                <div className="studio-theme-name">{theme.name}</div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Active Theme Description Footer */}
-        <div className="pt-3 border-t border-gray-100 dark:border-[#1e2029] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span
-              className="w-3 h-3 rounded-full shrink-0 border border-black/10 dark:border-white/20"
-              style={{ backgroundColor: currentThemeObj.accent }}
-            />
-            <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-              Active: {currentThemeObj.name}
-            </span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              — {currentThemeObj.desc}
-            </span>
-          </div>
-          <span className="text-[11px] text-gray-400 dark:text-gray-500 font-mono select-none">
-            Drag horizontally or use arrow buttons to navigate
+          <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 flex items-center gap-1.5 select-none">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            {isDark ? 'Obsidian Dark' : 'Clean Light'} Active
           </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3.5 w-full">
+          <div
+            onClick={() => onChangeConfig({ dashboardTheme: 'light' })}
+            className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all ${
+              !isDark
+                ? 'border-2 border-gray-900 dark:border-white bg-slate-50/80 dark:bg-[#13141a] shadow-xs'
+                : 'border border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#13141a] hover:border-gray-400'
+            }`}
+          >
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0 border border-amber-500/20">
+              <Sun className="w-4 h-4" />
+            </div>
+            <div>
+              <strong className="text-xs font-semibold text-gray-900 dark:text-gray-100 block">
+                Clean Light (Studio Paper)
+              </strong>
+              <p className="text-xs text-gray-500 dark:text-gray-400 m-0 mt-0.5 leading-relaxed">
+                Crisp white contrast with deep dark typography for daylight engineering.
+              </p>
+            </div>
+          </div>
+
+          <div
+            onClick={() => onChangeConfig({ dashboardTheme: 'dark' })}
+            className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all ${
+              isDark
+                ? 'border-2 border-gray-900 dark:border-white bg-slate-50/80 dark:bg-[#13141a] shadow-xs'
+                : 'border border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#13141a] hover:border-gray-400'
+            }`}
+          >
+            <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center shrink-0 border border-sky-500/20">
+              <Moon className="w-4 h-4" />
+            </div>
+            <div>
+              <strong className="text-xs font-semibold text-gray-900 dark:text-gray-100 block">
+                Midnight Obsidian (Deep Dark)
+              </strong>
+              <p className="text-xs text-gray-500 dark:text-gray-400 m-0 mt-0.5 leading-relaxed">
+                Pure high-contrast obsidian surface optimized for late-night workflows.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -322,7 +147,6 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
                 className="[&>button]:border [&>button]:border-gray-200 [&>button]:dark:border-[#1e2029] [&>button]:shadow-xs font-mono text-xs"
               />
 
-              {/* Customize Pencil Button - Only appears when Grainient is selected */}
               {config.chatBackgroundEffect === 'grainient' && (
                 <button
                   type="button"
@@ -365,7 +189,6 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
         </button>
       </div>
 
-      
       {/* Smooth Physics Custom Cursor */}
       <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl px-5 py-4 flex items-center justify-between shadow-xs">
         <div>
@@ -420,7 +243,6 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
         </button>
       </div>
 
-      
       {/* Smooth Scrolling Toggle & Intensity Slider */}
       <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center justify-between">
@@ -483,7 +305,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
             Global Summon Hotkey
           </strong>
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            Toggles Grokki Dynamic Island from anywhere in Windows.
+            Toggles Grokki Studio from anywhere in Windows.
           </span>
         </div>
         <input
@@ -500,7 +322,7 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
         onClose={() => setIsCustomizerOpen(false)}
         currentSettings={config.grainientSettings}
         onSave={(settings) => onChangeConfig({ grainientSettings: settings })}
-        isDark={config.dashboardTheme === 'dark'}
+        isDark={isDark}
       />
     </div>
   );

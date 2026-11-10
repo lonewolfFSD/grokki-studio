@@ -136,5 +136,59 @@
     "memory": "User prefers a curriculum focused on computer applications and software development",
     "category": "fact",
     "created_at": 1794242789522
+  },
+  {
+    "id": "mem_1794318524777_j2kp",
+    "memory": "User is working on Grokki Studio, an Electron app (v1.52.331)",
+    "category": "fact",
+    "created_at": 1794318524777
+  },
+  {
+    "id": "mem_1794318524777_46of",
+    "memory": "Grokki Studio's GitHub repository is lonewolfFSD/grokki-studio",
+    "category": "fact",
+    "created_at": 1794318524777
+  },
+  {
+    "id": "mem_1794318524777_im6i",
+    "memory": "Grokki Studio uses Vite for frontend builds and electron-builder for packaging/release",
+    "category": "fact",
+    "created_at": 1794318524777
+  },
+  {
+    "id": "mem_1794328886281_vdbd",
+    "memory": "User is developing a React + TypeScript Vite project that displays React and Python course cards",
+    "category": "fact",
+    "created_at": 1794328886281
+  },
+  {
+    "id": "mem_1794328886282_qdg5",
+    "memory": "The project uses Tailwind CSS classes together with inline style objects",
+    "category": "fact",
+    "created_at": 1794328886282
+  },
+  {
+    "id": "mem_1794328886282_75f6",
+    "memory": "User wants to add more courses and may consider more advanced state management",
+    "category": "fact",
+    "created_at": 1794328886282
+  },
+  {
+    "id": "mem_1794331880147_ifo7",
+    "memory": "User is building a React TypeScript application using Tailwind CSS for a courses website",
+    "category": "fact",
+    "created_at": 1794331880147
+  },
+  {
+    "id": "mem_1794331880147_5c9a",
+    "memory": "User wants a modern, responsive design with dark mode toggle and improved accessibility",
+    "category": "fact",
+    "created_at": 1794331880147
+  },
+  {
+    "id": "mem_1794331880147_4lcb",
+    "memory": "User requested an enhanced, production‑ready version of App.tsx with reusable components and animations",
+    "category": "fact",
+    "created_at": 1794331880147
   }
 ]

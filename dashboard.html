@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Grokki Studio</title>
+    <script>
+      window.__errors = [];
+      window.addEventListener('error', function(e) {
+        var errInfo = { message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno, stack: e.error ? e.error.stack : '' };
+        window.__errors.push(errInfo);
+        console.error('[GLOBAL ERROR]', errInfo);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        var rejInfo = { reason: String(e.reason), stack: e.reason && e.reason.stack ? e.reason.stack : '' };
+        window.__errors.push(rejInfo);
+        console.error('[UNHANDLED REJECTION]', rejInfo);
+      });
+    </script>
     <!-- Google Fonts & Font Awesome -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,28 +28,44 @@
     </style>
   </head>
   <body class="bg-[#111111] text-gray-900 dark:text-gray-100 font-sans antialiased select-none m-0 p-0 overflow-hidden" style="background-color: #111111;">
-    <div id="app-launch-loader" style="position: fixed; inset: 0; background-color: #111111; z-index: 9999999; display: flex; align-items: center; justify-content: center; pointer-events: none; transition: opacity 0.45s ease-out;">
+    <div id="app-launch-loader" style="position: fixed; inset: 0; background-color: #111111; z-index: 9999999; display: flex; align-items: center; justify-content: center; pointer-events: none; transition: opacity 0.5s ease-out;">
       <style>
         @keyframes grokkiFadePulse {
           0%, 100% {
-            opacity: 0;
+            opacity: 0.03;
           }
           50% {
-            opacity: 0.4;
+            opacity: 0.12;
           }
         }
         .launch-pulse-logo {
-          width: 70px;
-          height: 70px;
+          width: 72px;
+          height: 72px;
           object-fit: contain;
           filter: brightness(0) invert(1);
-          animation: grokkiFadePulse 2.8s ease-in-out infinite;
+          animation: grokkiFadePulse 2s ease-in-out infinite;
           user-select: none;
           -webkit-user-drag: none;
         }
       </style>
-      <img src="/assets/grokki_logo.png" class="launch-pulse-logo" alt="Grokki" />
+      <img src="./assets/grokki_logo.png" onerror="this.onerror=null; this.src='/assets/grokki_logo.png';" class="launch-pulse-logo" alt="Grokki" />
     </div>
+    <script>
+      window.dismissAppLaunchLoader = function() {
+        var el = document.getElementById('app-launch-loader');
+        if (el && !el.dataset.dismissing) {
+          el.dataset.dismissing = 'true';
+          el.style.opacity = '0';
+          setTimeout(function() { try { el.remove(); } catch(e){} }, 500);
+        }
+      };
+      // Safety cap fallback only in case of complete fatal failure
+      setTimeout(function() {
+        if (typeof window.dismissAppLaunchLoader === 'function') {
+          window.dismissAppLaunchLoader();
+        }
+      }, 12000);
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/web/main.tsx"></script>
   </body>

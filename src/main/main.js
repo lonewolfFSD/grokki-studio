@@ -905,6 +905,19 @@ function openDashboardWindow(showImmediately = true) {
     }
   });
 
+  dashboardWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[Dashboard Console] ${message} (${sourceId}:${line})`);
+  });
+
+  dashboardWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown') {
+      if (input.key === 'F12' || (input.control && input.shift && (input.key === 'I' || input.key === 'i'))) {
+        dashboardWindow.webContents.toggleDevTools();
+        event.preventDefault();
+      }
+    }
+  });
+
   const distDashboard = path.join(__dirname, '../../dist/dashboard.html');
   if (process.env.VITE_DEV === 'true') {
     dashboardWindow.loadURL('http://127.0.0.1:5173/dashboard.html');
@@ -912,7 +925,10 @@ function openDashboardWindow(showImmediately = true) {
     dashboardWindow.loadFile(distDashboard);
   }
 
-  dashboardWindow.once('ready-to-show', () => {
+  let dashboardHasShown = false;
+  const showDashboardSafely = () => {
+    if (dashboardHasShown || !dashboardWindow || dashboardWindow.isDestroyed()) return;
+    dashboardHasShown = true;
     isDashboardReady = true;
     if (splashWindow && !splashWindow.isDestroyed() && splashWindow.webContents) {
       splashWindow.webContents.send('app:ready');
@@ -929,7 +945,11 @@ function openDashboardWindow(showImmediately = true) {
       dashboardWindow.show();
       dashboardWindow.focus();
     }
-  });
+  };
+
+  dashboardWindow.once('ready-to-show', showDashboardSafely);
+  // Guarantee window becomes visible smoothly within 350ms even if Chromium stalls ready-to-show
+  setTimeout(showDashboardSafely, 350);
 
   dashboardWindow.on('maximize', () => {
     if (dashboardWindow && !dashboardWindow.isDestroyed() && dashboardWindow.webContents) {
@@ -981,7 +1001,7 @@ function createTray() {
       click: () => openDashboardWindow(),
     },
     { type: 'separator' },
-    { label: 'Toggle Dynamic Island (Alt+Q)', click: () => handleGlobalHotkey() },
+    { label: 'Toggle Grokki Island (Alt+Q)', click: () => handleGlobalHotkey() },
     {
       label: 'Quick Island Settings',
       click: () => {
@@ -1926,108 +1946,10 @@ ipcMain.handle('jarvis:system-control', async (event, payload) => {
   });
 });
 
-// --- STANDALONE TOP BEZEL CONTROL CENTRE WINDOW & HANDLERS ---
 let topNotchWindow = null;
-let topNotchIsInteractive = false;
-
 function createTopNotchWindow() {
-  if (topNotchWindow && !topNotchWindow.isDestroyed()) return;
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: screenWidth } = primaryDisplay.workAreaSize;
-  const winW = 900;
-  const winH = 680;
-  const winX = Math.round((screenWidth - winW) / 2);
-
-  topNotchWindow = new BrowserWindow({
-    width: winW,
-    height: winH,
-    x: winX,
-    y: 0,
-    frame: false,
-    transparent: true,
-    backgroundColor: '#00000000',
-    hasShadow: false,
-    thickFrame: false,
-    roundedCorners: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    resizable: false,
-    focusable: false,
-    show: true,
-    webPreferences: {
-      preload: path.join(__dirname, '../preload/preload.js'),
-      nodeIntegration: false,
-      contextIsolation: true,
-      webSecurity: false, // Allows loading local file:/// wallpaper images smoothly
-      backgroundThrottling: false,
-    },
-  });
-
-  topNotchWindow.setAlwaysOnTop(true, 'screen-saver');
-  topNotchWindow.setIgnoreMouseEvents(true, { forward: true });
-  const topNotchHtmlPath = path.join(__dirname, '../renderer/top_notch.html');
-  topNotchWindow.loadFile(topNotchHtmlPath);
-  try {
-    fs.watchFile(topNotchHtmlPath, { interval: 1000 }, () => {
-      if (topNotchWindow && !topNotchWindow.isDestroyed() && topNotchWindow.webContents) {
-        topNotchWindow.loadFile(topNotchHtmlPath);
-      }
-    });
-  } catch (_) {}
-
-  // Monitor cursor touching top edge center of screen even when Grokki Island (Alt+Q) is closed
-  setInterval(() => {
-    if (!topNotchWindow || topNotchWindow.isDestroyed()) return;
-    if (isVisible && mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) return;
-    try {
-      const pt = screen.getCursorScreenPoint();
-      const centerX = Math.round(screenWidth / 2);
-      const isOverMiniIsland = (pt.y <= 36 && Math.abs(pt.x - centerX) <= 195) || (pt.y <= 4 && Math.abs(pt.x - centerX) <= 240);
-      if (isOverMiniIsland) {
-        if (!topNotchIsInteractive) {
-          trackExternalWindow();
-          topNotchIsInteractive = true;
-          topNotchWindow.setIgnoreMouseEvents(false);
-          topNotchWindow.setAlwaysOnTop(true, 'screen-saver');
-          topNotchWindow.webContents.send('top-notch:trigger', true);
-        }
-      } else if (topNotchIsInteractive && !topNotchIsFocusable && (pt.y > 520 || Math.abs(pt.x - centerX) > 450)) {
-        topNotchIsInteractive = false;
-        topNotchWindow.setFocusable(false);
-        topNotchWindow.setIgnoreMouseEvents(true, { forward: true });
-        topNotchWindow.webContents.send('top-notch:trigger', false);
-      }
-    } catch (e) {}
-  }, 65);
+  // Hitodama top notch panel removed from Grokki harness (migrated to E:/Dylamic Island)
 }
-
-let topNotchIsFocusable = false;
-
-ipcMain.on('top-notch:set-interactive', (event, interactive) => {
-  topNotchIsInteractive = !!interactive;
-  if (!topNotchIsInteractive) topNotchIsFocusable = false;
-  if (topNotchWindow && !topNotchWindow.isDestroyed()) {
-    if (topNotchIsInteractive) {
-      topNotchWindow.setIgnoreMouseEvents(false);
-      topNotchWindow.setAlwaysOnTop(true, 'screen-saver');
-    } else {
-      topNotchWindow.setFocusable(false);
-      topNotchWindow.setIgnoreMouseEvents(true, { forward: true });
-    }
-  }
-});
-
-ipcMain.on('top-notch:set-focusable', (event, focusable) => {
-  topNotchIsFocusable = !!focusable;
-  if (topNotchWindow && !topNotchWindow.isDestroyed()) {
-    try {
-      topNotchWindow.setFocusable(!!focusable);
-      if (focusable) {
-        topNotchWindow.focus();
-      }
-    } catch (_) {}
-  }
-});
 
 // Dynamic Island Notification & Live Activity Broadcast Handlers & Google Workspace Notifier
 ipcMain.on('island:show-notification', (event, data) => {
@@ -3988,7 +3910,7 @@ ipcMain.handle('jarvis:run-command', async (event, command) => {
 
 ipcMain.handle('jarvis:execute-ai', async (event, prompt, context = {}) => {
   const config = loadConfig();
-  return await agentBrain.run(prompt, config, context);
+  return await agentBrain.run(prompt, config, { ...context, sender: event.sender });
 });
 
 ipcMain.handle('jarvis:execute-dual-ai', async (event, prompt, brainA = {}, brainB = {}, context = {}) => {
@@ -4915,32 +4837,7 @@ ipcMain.handle('jarvis:open-workspace-file', async (event, filePathOrName) => {
   return await workspaceContext.openWorkspaceFile(filePathOrName);
 });
 
-// Academic / University Portal Integration (Assam Don Bosco University ERP)
-const academicPortal = require('./academic_portal');
 
-ipcMain.handle('jarvis:get-academic-status', async () => {
-  return academicPortal.getStatus();
-});
-
-ipcMain.handle('jarvis:save-academic-credentials', async (event, { university, username, password }) => {
-  return academicPortal.saveCredentials(university, username, password);
-});
-
-ipcMain.handle('jarvis:sync-academic-portal', async () => {
-  try {
-    return await academicPortal.sync();
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
-
-ipcMain.handle('jarvis:disconnect-academic-portal', async () => {
-  return academicPortal.unlink();
-});
-
-ipcMain.handle('jarvis:get-academic-data', async () => {
-  return academicPortal.getCachedData();
-});
 
 // --- GROKKI PERSISTENT MEMORY IPC HANDLERS ---
 const persistentMemory = require('./persistent_memory');
@@ -5862,52 +5759,50 @@ app.whenReady().then(() => {
   }
 
   const config = loadConfig();
+  // Grokki Island (Alt+Q quick companion & wake word overlay)
   createWindow(!!config.showIslandOnStartup);
-  createTopNotchWindow();
+  openDashboardWindow(true);
   createTray();
   registerShortcuts();
   initBackgroundPullDetector();
   applyOllamaHardwareOptimizations(true);
 
-  // Auto-connect WhatsApp background listener if authenticated
-  try {
-    const openwaWorkspace = require('./openwa_workspace');
-    if (openwaWorkspace && openwaWorkspace.hasLocalAuth()) {
-      openwaWorkspace.startLocalEngine().catch((err) => {
-        console.warn('[Main] OpenWA auto-connect error:', err?.message || err);
-      });
+  // Defer heavy background daemons so dashboard window presentation & UI load are instantaneous
+  setTimeout(() => {
+    // Auto-connect WhatsApp background listener if authenticated
+    try {
+      const openwaWorkspace = require('./openwa_workspace');
+      if (openwaWorkspace && openwaWorkspace.hasLocalAuth()) {
+        openwaWorkspace.startLocalEngine().catch((err) => {
+          console.warn('[Main] OpenWA auto-connect error:', err?.message || err);
+        });
+      }
+    } catch (err) {
+      console.warn('[Main] OpenWA startup load error:', err?.message || err);
     }
-  } catch (err) {
-    console.warn('[Main] OpenWA startup load error:', err?.message || err);
-  }
 
-  // Initialize LanceDB Embedded Vector Store & MCP Servers
-  try {
-    lanceDbStore.init().catch((err) => console.warn('[Main] LanceDB startup error:', err?.message || err));
-    mcpManager.startAllEnabled().catch((err) => console.warn('[Main] MCP startup error:', err?.message || err));
-  } catch (err) {
-    console.warn('[Main] LanceDB/MCP startup error:', err?.message || err);
-  }
+    // Initialize LanceDB Embedded Vector Store & MCP Servers
+    try {
+      lanceDbStore.init().catch((err) => console.warn('[Main] LanceDB startup error:', err?.message || err));
+      mcpManager.startAllEnabled().catch((err) => console.warn('[Main] MCP startup error:', err?.message || err));
+    } catch (err) {
+      console.warn('[Main] LanceDB/MCP startup error:', err?.message || err);
+    }
 
-  // Initialize Pocket Grokki (Zero-Install Mobile LAN Bridge)
-  try {
-    pocketGrokkiServer = new PocketGrokkiServer({
-      agentBrain,
-      mainWindow,
-      loadConfig
-    });
-    pocketGrokkiServer.start().catch((err) => {
-      console.warn('[Main] Pocket Grokki startup error:', err?.message || err);
-    });
-  } catch (err) {
-    console.warn('[Main] Could not initialize Pocket Grokki:', err?.message || err);
-  }
-
-  // If opening Grokki Studio directly (not auto-started on Windows boot):
-  const isAutostart = process.argv.includes('--autostart') || process.argv.includes('--hidden') || process.argv.includes('--background');
-  if (!isAutostart || config.autoOpenStudioOnStartup) {
-    openDashboardWindow(true);
-  }
+    // Initialize Pocket Grokki (Zero-Install Mobile LAN Bridge)
+    try {
+      pocketGrokkiServer = new PocketGrokkiServer({
+        agentBrain,
+        mainWindow,
+        loadConfig
+      });
+      pocketGrokkiServer.start().catch((err) => {
+        console.warn('[Main] Pocket Grokki startup error:', err?.message || err);
+      });
+    } catch (err) {
+      console.warn('[Main] Could not initialize Pocket Grokki:', err?.message || err);
+    }
+  }, 2500);
 
   // Initialize free background Wake Word listener
   wakeWordService = new WakeWordService({

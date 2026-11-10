@@ -37,8 +37,7 @@ export const ChatLockModal: React.FC<ChatLockModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const isCustomTheme =
-    typeof document !== 'undefined' && document.documentElement.hasAttribute('data-theme');
+  const isCustomTheme = false;
 
   useEffect(() => {
     if (!isOpen || !conversation) return;
@@ -441,8 +440,7 @@ export const LockedChatScreen: React.FC<{
   conversation: Conversation;
   onUnlockClick: () => void;
 }> = ({ conversation, onUnlockClick }) => {
-  const isCustomTheme =
-    typeof document !== 'undefined' && document.documentElement.hasAttribute('data-theme');
+  const isCustomTheme = false;
 
   const methodLabel =
     conversation.lockMethod === 'windows'

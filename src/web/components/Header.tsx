@@ -7,8 +7,6 @@ interface HeaderProps {
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   toggleThemeShortcut?: string;
-  isCustomThemeActive?: boolean;
-  themeName?: string;
   onMinimize: () => void;
   onMaximize?: () => void;
   isMaximized?: boolean;
@@ -34,8 +32,6 @@ export const Header = React.memo<HeaderProps>(({
   theme,
   onToggleTheme,
   toggleThemeShortcut,
-  isCustomThemeActive = false,
-  themeName,
   onMinimize,
   onMaximize,
   isMaximized = false,
@@ -225,14 +221,8 @@ export const Header = React.memo<HeaderProps>(({
 
           {/* Light / Dark Mode Toggle */}
           <WarmTooltip
-            content={
-              isCustomThemeActive
-                ? `Palette Active (${themeName || 'Custom'}): Studio theme is managed by your active palette`
-                : theme === 'light'
-                ? 'Switch to Dark Mode'
-                : 'Switch to Light Mode'
-            }
-            shortcut={isCustomThemeActive ? undefined : (toggleThemeShortcut || 'Ctrl+Shift+L')}
+            content={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+            shortcut={toggleThemeShortcut || 'Ctrl+Shift+L'}
             side="bottom"
             surfaceColor="#f5f5f5"
             inkColor="#18181b"
@@ -247,14 +237,9 @@ export const Header = React.memo<HeaderProps>(({
           >
             <button
               type="button"
-              disabled={isCustomThemeActive}
-              onClick={isCustomThemeActive ? undefined : onToggleTheme}
-              aria-label={isCustomThemeActive ? 'Theme managed by custom palette' : (theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode')}
-              className={`w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1f1f22] bg-transparent text-gray-500 dark:text-gray-400 flex items-center justify-center transition-all ${
-                isCustomThemeActive
-                  ? 'opacity-35 cursor-not-allowed'
-                  : 'hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] cursor-pointer'
-              }`}
+              onClick={onToggleTheme}
+              aria-label={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#1f1f22] bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] flex items-center justify-center transition-all cursor-pointer"
             >
               {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
             </button>

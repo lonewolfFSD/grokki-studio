@@ -1,17 +1,24 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
+  Brain,
   Pin,
   Search,
   Plus,
   Trash2,
-  Edit3,
   RefreshCw,
-  History,
   X,
-  ChevronRight,
-  FolderGit2,
+  Check,
+  Tag,
+  Layers,
+  BookOpen,
+  User,
+  FolderCode,
+  ArrowLeft,
+  Save,
+  Edit3,
 } from 'lucide-react';
-import { MemoryCategory, MemoryItem, ProjectItem, MemoryStats } from '../../types/jarvis';
+import { MemoryCategory, MemoryItem } from '../../types/jarvis';
+import GlideSelect from '../GlideSelect';
 
 interface MemoryTabProps {
   onNavigateTab?: (tab: string) => void;
@@ -19,863 +26,594 @@ interface MemoryTabProps {
   activeConversationTitle?: string;
 }
 
-const CATEGORIES: Array<{ id: 'all' | MemoryCategory; label: string; desc: string }> = [
-  { id: 'all', label: 'All Memories', desc: 'Everything Grokki remembers' },
-  { id: 'profile', label: 'Profile', desc: 'Your preferences, habits & working style' },
-  { id: 'project', label: 'Projects', desc: 'Architectures, tech stack & project progress' },
-  { id: 'episodic', label: 'Episodic', desc: 'Past discussions, decisions & resolved issues' },
-  { id: 'knowledge', label: 'Knowledge', desc: 'Learned technical facts & connected concepts' },
+const CATEGORY_TABS: Array<{ id: 'all' | MemoryCategory | 'pinned'; label: string; icon: React.ReactNode }> = [
+  { id: 'all', label: 'All', icon: <Layers className="w-3.5 h-3.5" /> },
+  { id: 'profile', label: 'Profile', icon: <User className="w-3.5 h-3.5" /> },
+  { id: 'project', label: 'Projects', icon: <FolderCode className="w-3.5 h-3.5" /> },
+  { id: 'knowledge', label: 'Knowledge', icon: <BookOpen className="w-3.5 h-3.5" /> },
+  { id: 'pinned', label: 'Pinned', icon: <Pin className="w-3.5 h-3.5" /> },
 ];
+
+const CATEGORY_OPTIONS = [
+  { value: 'profile', label: 'Profile & Preferences', tag: 'Profile' },
+  { value: 'project', label: 'Project & Tech', tag: 'Project' },
+  { value: 'knowledge', label: 'Knowledge', tag: 'Knowledge' },
+  { value: 'episodic', label: 'Discussion Note', tag: 'Discussion' },
+];
+
+const CATEGORY_STYLES: Record<string, { label: string; badge: string }> = {
+  profile: {
+    label: 'Profile',
+    badge: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700',
+  },
+  project: {
+    label: 'Project',
+    badge: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700',
+  },
+  knowledge: {
+    label: 'Knowledge',
+    badge: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700',
+  },
+  episodic: {
+    label: 'Discussion',
+    badge: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700',
+  },
+};
 
 export const MemoryTab: React.FC<MemoryTabProps> = ({
   activeConversationId,
 }) => {
   const [memories, setMemories] = useState<MemoryItem[]>([]);
-  const [projects, setProjects] = useState<ProjectItem[]>([]);
-  const [stats, setStats] = useState<MemoryStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  // Filters
-  const [selectedCategory, setSelectedCategory] = useState<'all' | MemoryCategory>('all');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | MemoryCategory | 'pinned'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterPinned, setFilterPinned] = useState(false);
-
-  // Modals & Drawers
-  const [editingMemory, setEditingMemory] = useState<MemoryItem | null>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
 
-  // Form State for Add / Edit
-  const [formCategory, setFormCategory] = useState<MemoryCategory>('profile');
-  const [formProjectId, setFormProjectId] = useState<string>('');
-  const [formTitle, setFormTitle] = useState('');
-  const [formContent, setFormContent] = useState('');
-  const [formTags, setFormTags] = useState('');
-  const [formPinned, setFormPinned] = useState(false);
-  const [formConfirmed, setFormConfirmed] = useState(true);
-  const [formUpdateReason, setFormUpdateReason] = useState('');
+  // View Mode: 'list' (shows search bar + memory cards) or 'editor' (shows manual rewrite card)
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
 
-  // Project Modal State
-  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectDesc, setNewProjectDesc] = useState('');
-  const [newProjectTech, setNewProjectTech] = useState('');
+  // Editor Draft Form
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftContent, setDraftContent] = useState('');
+  const [draftCategory, setDraftCategory] = useState<MemoryCategory>('profile');
+  const [draftTags, setDraftTags] = useState('');
+  const [draftPinned, setDraftPinned] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const showNotice = (msg: string) => {
+    setStatusNotice(msg);
+    setTimeout(() => setStatusNotice(null), 2500);
+  };
+
+  const loadMemories = useCallback(async () => {
     setIsLoading(true);
     try {
       if (window.jarvisAPI?.getAllMemories) {
-        const mems = await window.jarvisAPI.getAllMemories();
-        setMemories(mems || []);
-      }
-      if (window.jarvisAPI?.getAllProjects) {
-        const projs = await window.jarvisAPI.getAllProjects();
-        setProjects(projs || []);
-      }
-      if (window.jarvisAPI?.getMemoryStats) {
-        const s = await window.jarvisAPI.getMemoryStats();
-        setStats(s || null);
+        const list = await window.jarvisAPI.getAllMemories();
+        setMemories(list || []);
       }
     } catch (err) {
-      console.warn('[MemoryTab] Error loading data:', err);
+      console.warn('[MemoryTab] Failed to load memories:', err);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadMemories();
+  }, [loadMemories]);
 
-  const showNotice = (msg: string) => {
-    setStatusNotice(msg);
-    setTimeout(() => setStatusNotice(null), 3000);
-  };
-
-  // Handle Manual Memory Processing
-  const handleProcessNow = async () => {
-    setIsProcessing(true);
-    try {
-      if (window.jarvisAPI?.processMemoryNow) {
-        await window.jarvisAPI.processMemoryNow({
-          context: { conversationId: activeConversationId },
-        });
-      }
-      await loadData();
-      showNotice('Memories synced.');
-    } catch (err) {
-      console.warn('[MemoryTab] Process error:', err);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Filtered Memories
+  // Filtered List
   const filteredMemories = useMemo(() => {
     let result = memories;
 
-    if (selectedCategory !== 'all') {
-      result = result.filter((m) => m.category === selectedCategory);
-    }
-    if (selectedProjectId !== 'all') {
-      result = result.filter((m) => m.projectId === selectedProjectId);
-    }
-    if (filterPinned) {
+    if (activeFilter === 'pinned') {
       result = result.filter((m) => m.pinned);
+    } else if (activeFilter !== 'all') {
+      result = result.filter((m) => m.category === activeFilter);
     }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(
         (m) =>
           (m.title && m.title.toLowerCase().includes(q)) ||
           (m.content && m.content.toLowerCase().includes(q)) ||
-          (m.projectName && m.projectName.toLowerCase().includes(q)) ||
           (Array.isArray(m.tags) && m.tags.some((t) => t.toLowerCase().includes(q)))
       );
     }
 
     return result;
-  }, [memories, selectedCategory, selectedProjectId, filterPinned, searchQuery]);
+  }, [memories, activeFilter, searchQuery]);
 
-  // Pin Toggle
-  const handleTogglePin = async (item: MemoryItem) => {
-    const newPinned = !item.pinned;
+  // Open existing memory for viewing/rewriting
+  const handleOpenMemory = (mem: MemoryItem) => {
+    setSelectedId(mem.id);
+    setIsCreatingNew(false);
+    setDraftTitle(mem.title || '');
+    setDraftContent(mem.content || '');
+    setDraftCategory(mem.category || 'profile');
+    setDraftTags(Array.isArray(mem.tags) ? mem.tags.join(', ') : '');
+    setDraftPinned(Boolean(mem.pinned));
+    setIsDirty(false);
+    setIsEditorOpen(true);
+  };
+
+  // Click New Memory: hide list card and open manual writer card
+  const handleStartNew = () => {
+    setSelectedId(null);
+    setIsCreatingNew(true);
+    setDraftTitle('');
+    setDraftContent('');
+    setDraftCategory(activeFilter !== 'all' && activeFilter !== 'pinned' ? activeFilter : 'profile');
+    setDraftTags('');
+    setDraftPinned(false);
+    setIsDirty(false);
+    setIsEditorOpen(true);
+  };
+
+  // Close editor and return to list card
+  const handleCloseEditor = () => {
+    setIsEditorOpen(false);
+    setSelectedId(null);
+    setIsCreatingNew(false);
+    setIsDirty(false);
+  };
+
+  // Toggle Pin on item from list or editor
+  const handleTogglePin = async (e: React.MouseEvent, id: string, currentState: boolean) => {
+    e.stopPropagation();
+    const nextState = !currentState;
     try {
       if (window.jarvisAPI?.pinMemory) {
-        await window.jarvisAPI.pinMemory(item.id, newPinned);
+        await window.jarvisAPI.pinMemory(id, nextState);
+        setMemories((prev) =>
+          prev.map((m) => (m.id === id ? { ...m, pinned: nextState } : m))
+        );
+        if (selectedId === id) {
+          setDraftPinned(nextState);
+        }
+        showNotice(nextState ? 'Pinned to top' : 'Unpinned');
       }
-      setMemories((prev) =>
-        prev.map((m) => (m.id === item.id ? { ...m, pinned: newPinned, updatedAt: new Date().toISOString() } : m))
-      );
-      showNotice(newPinned ? 'Pinned' : 'Unpinned');
     } catch (err) {
-      console.warn('[MemoryTab] Pin error:', err);
+      console.error('[MemoryTab] Pin error:', err);
     }
   };
 
   // Delete Memory
-  const handleDeleteMemory = async (id: string) => {
+  const handleDelete = async (e?: React.MouseEvent, targetId?: string) => {
+    if (e) e.stopPropagation();
+    const idToDelete = targetId || selectedId;
+    if (!idToDelete) return;
+
+    const item = memories.find((m) => m.id === idToDelete);
+    const title = item?.title || 'this memory';
+    if (!window.confirm(`Delete "${title}"?`)) return;
+
     try {
       if (window.jarvisAPI?.deleteMemory) {
-        await window.jarvisAPI.deleteMemory(id);
+        await window.jarvisAPI.deleteMemory(idToDelete);
+        setMemories((prev) => prev.filter((m) => m.id !== idToDelete));
+        if (selectedId === idToDelete) {
+          handleCloseEditor();
+        }
+        showNotice('Memory deleted');
       }
-      setMemories((prev) => prev.filter((m) => m.id !== id));
-      showNotice('Memory deleted.');
     } catch (err) {
-      console.warn('[MemoryTab] Delete error:', err);
+      console.error('[MemoryTab] Delete error:', err);
     }
   };
 
-  // Delete Project
-  const handleDeleteProject = async (projId: string) => {
-    try {
-      if (window.jarvisAPI?.deleteProject) {
-        await window.jarvisAPI.deleteProject(projId);
-      }
-      setProjects((prev) => prev.filter((p) => p.id !== projId));
-      setMemories((prev) => prev.filter((m) => m.projectId !== projId));
-      if (selectedProjectId === projId) setSelectedProjectId('all');
-      showNotice('Project removed.');
-    } catch (err) {
-      console.warn('[MemoryTab] Delete project error:', err);
-    }
-  };
+  // Save changes or create new manual memory
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!draftTitle.trim() || !draftContent.trim()) return;
 
-  // Open Edit Modal
-  const handleOpenEdit = (item: MemoryItem) => {
-    setEditingMemory(item);
-    setFormCategory(item.category);
-    setFormProjectId(item.projectId || '');
-    setFormTitle(item.title);
-    setFormContent(item.content);
-    setFormTags(Array.isArray(item.tags) ? item.tags.join(', ') : '');
-    setFormPinned(!!item.pinned);
-    setFormConfirmed(item.userConfirmed !== false);
-    setFormUpdateReason('');
-  };
-
-  // Open Add Modal
-  const handleOpenAdd = () => {
-    setEditingMemory(null);
-    setFormCategory(selectedCategory !== 'all' ? selectedCategory : 'profile');
-    setFormProjectId(selectedProjectId !== 'all' ? selectedProjectId : '');
-    setFormTitle('');
-    setFormContent('');
-    setFormTags('');
-    setFormPinned(false);
-    setFormConfirmed(true);
-    setFormUpdateReason('');
-    setIsAddModalOpen(true);
-  };
-
-  // Save Add / Edit
-  const handleSaveMemoryForm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formTitle.trim() || !formContent.trim()) return;
-
-    const parsedTags = formTags
+    const tagsArr = draftTags
       .split(',')
       .map((t) => t.trim().toLowerCase())
       .filter(Boolean);
 
     try {
-      if (editingMemory) {
-        if (window.jarvisAPI?.updateMemory) {
-          const updated = await window.jarvisAPI.updateMemory(editingMemory.id, {
-            category: formCategory,
-            projectId: formProjectId || undefined,
-            title: formTitle.trim(),
-            content: formContent.trim(),
-            tags: parsedTags,
-            pinned: formPinned,
-            userConfirmed: formConfirmed,
-            reason: formUpdateReason.trim() || 'Updated via Memory settings',
-          });
-          if (updated) {
-            setMemories((prev) => prev.map((m) => (m.id === editingMemory.id ? updated : m)));
-            showNotice('Memory updated.');
-          }
-        }
-        setEditingMemory(null);
-      } else {
+      if (isCreatingNew) {
         if (window.jarvisAPI?.addMemory) {
           const created = await window.jarvisAPI.addMemory({
-            category: formCategory,
-            projectId: formProjectId || undefined,
-            title: formTitle.trim(),
-            content: formContent.trim(),
-            tags: parsedTags,
-            pinned: formPinned,
-            userConfirmed: formConfirmed,
+            title: draftTitle.trim(),
+            content: draftContent.trim(),
+            category: draftCategory,
+            tags: tagsArr,
+            pinned: draftPinned,
             confidence: 1.0,
+            userConfirmed: true,
             sourceConversationId: activeConversationId || undefined,
           });
           if (created) {
             setMemories((prev) => [created, ...prev]);
-            showNotice('Memory added.');
+            showNotice('Memory created');
+            handleCloseEditor();
           }
         }
-        setIsAddModalOpen(false);
-      }
-    } catch (err) {
-      console.warn('[MemoryTab] Save error:', err);
-    }
-  };
-
-  // Save Project
-  const handleCreateProject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newProjectName.trim()) return;
-    try {
-      if (window.jarvisAPI?.saveProject) {
-        const p = await window.jarvisAPI.saveProject({
-          name: newProjectName.trim(),
-          description: newProjectDesc.trim(),
-          techStack: newProjectTech
-            .split(',')
-            .map((t) => t.trim())
-            .filter(Boolean),
-          status: 'active',
-        });
-        if (p) {
-          setProjects((prev) => [p, ...prev]);
-          setNewProjectName('');
-          setNewProjectDesc('');
-          setNewProjectTech('');
-          setIsProjectModalOpen(false);
-          showNotice(`Project "${p.name}" created.`);
+      } else if (selectedId) {
+        if (window.jarvisAPI?.updateMemory) {
+          const updated = await window.jarvisAPI.updateMemory(selectedId, {
+            title: draftTitle.trim(),
+            content: draftContent.trim(),
+            category: draftCategory,
+            tags: tagsArr,
+            pinned: draftPinned,
+            reason: 'User edited memory in tab',
+          });
+          if (updated) {
+            setMemories((prev) => prev.map((m) => (m.id === selectedId ? updated : m)));
+            showNotice('Changes saved');
+            handleCloseEditor();
+          }
         }
       }
     } catch (err) {
-      console.warn('[MemoryTab] Project creation error:', err);
+      console.error('[MemoryTab] Save error:', err);
     }
   };
 
-  const getCategoryCount = (catId: 'all' | MemoryCategory) => {
-    if (catId === 'all') return memories.length;
-    return memories.filter((m) => m.category === catId).length;
-  };
-
-  const getCategoryLabel = (cat: MemoryCategory) => {
-    switch (cat) {
-      case 'profile':
-        return 'Profile';
-      case 'project':
-        return 'Project';
-      case 'episodic':
-        return 'Episodic';
-      case 'knowledge':
-        return 'Knowledge';
-      default:
-        return 'Memory';
-    }
+  const getCount = (filterId: 'all' | MemoryCategory | 'pinned') => {
+    if (filterId === 'all') return memories.length;
+    if (filterId === 'pinned') return memories.filter((m) => m.pinned).length;
+    return memories.filter((m) => m.category === filterId).length;
   };
 
   return (
-    <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-16 select-none">
-      {/* Status Toast */}
+    <div className="flex flex-col h-[calc(100vh-6rem)] max-w-5xl mx-auto w-full select-none">
+      {/* Toast Notice */}
       {statusNotice && (
-        <div className="fixed top-5 right-5 z-[9999] px-3.5 py-2 rounded-lg bg-gray-900 dark:bg-[#1a1a1f] border border-gray-800 dark:border-white/10 text-white text-xs font-medium">
-          {statusNotice}
+        <div className="fixed top-5 right-5 z-[9999] flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 text-xs font-medium border border-zinc-700/50 dark:border-zinc-300 shadow-md">
+          <Check className="w-3.5 h-3.5" />
+          <span>{statusNotice}</span>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mt-6">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-            Memory
-          </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Persistent context across your profile, active projects, past conversations, and learned knowledge.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={handleProcessNow}
-            disabled={isProcessing}
-            className="h-8 px-3 rounded-lg text-xs font-medium bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#16161c] transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
-            <span>{isProcessing ? 'Syncing...' : 'Sync'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsProjectModalOpen(true)}
-            className="h-8 px-3 rounded-lg text-xs font-medium bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#16161c] transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <FolderGit2 className="w-3.5 h-3.5" />
-            <span>Projects ({projects.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleOpenAdd}
-            className="h-8 px-3.5 rounded-lg text-xs font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New Memory</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Clean Category Bar + Search */}
-      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-3 flex flex-col gap-3">
-        {/* Category Tabs */}
-        <div className="flex items-center justify-between gap-2 flex-wrap border-b border-gray-100 dark:border-[#1a1a1f] pb-2.5">
-          <div className="flex items-center gap-1 flex-wrap">
-            {CATEGORIES.map((cat) => {
-              const active = selectedCategory === cat.id;
-              const count = getCategoryCount(cat.id);
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`h-8 px-3 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 cursor-pointer ${
-                    active
-                      ? 'bg-gray-100 dark:bg-[#1f1f24] text-gray-900 dark:text-white font-semibold'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#16161a]'
-                  }`}
-                >
-                  <span>{cat.label}</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded ${
-                      active
-                        ? 'bg-gray-200/80 dark:bg-white/10 text-gray-900 dark:text-white'
-                        : 'bg-gray-100 dark:bg-[#18181d] text-gray-500 dark:text-gray-400'
-                    }`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setFilterPinned((prev) => !prev)}
-            className={`h-8 px-2.5 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5 cursor-pointer ${
-              filterPinned
-                ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white font-semibold'
-                : 'bg-transparent border-gray-200 dark:border-[#1f1f22] text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            <Pin className="w-3 h-3" />
-            <span>Pinned</span>
-          </button>
-        </div>
-
-        {/* Search & Project Filter Row */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div className="flex-1 flex items-center gap-2 h-9 px-3 rounded-lg bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029]">
-            <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search memories by title, content, project, or tag..."
-              className="flex-1 bg-transparent border-0 outline-none text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {projects.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto">
-              <button
-                type="button"
-                onClick={() => setSelectedProjectId('all')}
-                className={`h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0 cursor-pointer ${
-                  selectedProjectId === 'all'
-                    ? 'bg-gray-100 dark:bg-[#1f1f24] border-gray-300 dark:border-[#2e2e36] text-gray-900 dark:text-white font-semibold'
-                    : 'bg-gray-50 dark:bg-[#090a0d] border-gray-200 dark:border-[#1e2029] text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
-              >
-                All Projects
-              </button>
-              {projects.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setSelectedProjectId((prev) => (prev === p.id ? 'all' : p.id))}
-                  className={`h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0 cursor-pointer ${
-                    selectedProjectId === p.id
-                      ? 'bg-gray-100 dark:bg-[#1f1f24] border-gray-300 dark:border-[#2e2e36] text-gray-900 dark:text-white font-semibold'
-                      : 'bg-gray-50 dark:bg-[#090a0d] border-gray-200 dark:border-[#1e2029] text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                  }`}
-                >
-                  {p.name}
-                </button>
-              ))}
+      {/* Top Header Row */}
+      <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-200 dark:border-[#1e2029] flex-shrink-0">
+        <div className="flex items-center gap-2">
+          {isEditorOpen ? (
+            <button
+              type="button"
+              onClick={handleCloseEditor}
+              className="h-8 px-2.5 -ml-1 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-[#151720] transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to memories</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-zinc-900 dark:text-zinc-100" />
+              <h2 className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                Memory
+              </h2>
             </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {!isEditorOpen && (
+            <>
+              <button
+                type="button"
+                onClick={loadMemories}
+                disabled={isLoading}
+                className="h-8 px-2.5 rounded-lg text-xs font-medium bg-white dark:bg-[#0f1015] border border-zinc-200 dark:border-[#222530] text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Reload memories"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                <span>Sync</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleStartNew}
+                className="h-8 px-3.5 rounded-lg text-xs font-semibold bg-zinc-900 hover:bg-black dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 text-white transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>New Memory</span>
+              </button>
+            </>
           )}
         </div>
       </div>
 
-      {/* Memories List / Grid */}
-      {isLoading ? (
-        <div className="py-16 flex flex-col items-center justify-center gap-2 text-gray-400">
-          <RefreshCw className="w-5 h-5 animate-spin" />
-          <span className="text-xs">Loading memories...</span>
-        </div>
-      ) : filteredMemories.length === 0 ? (
-        <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl py-16 px-6 flex flex-col items-center justify-center text-center gap-2">
-          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">No memories found</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm">
-            {searchQuery
-              ? `No entries matched "${searchQuery}".`
-              : 'Grokki automatically extracts important preferences, project context, and decisions as you chat.'}
-          </p>
-          <button
-            type="button"
-            onClick={handleOpenAdd}
-            className="mt-2 h-8 px-3.5 rounded-lg text-xs font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Memory</span>
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          {filteredMemories.map((mem) => {
-            const hasHistory = Array.isArray(mem.history) && mem.history.length > 0;
-            const isHistoryExpanded = expandedHistoryId === mem.id;
+      {/* Main Content Area: Switch between List Card and Editor Card */}
+      {!isEditorOpen ? (
+        /* CARD 1: Memory List Card (with Search Bar, Category Filters & Memory List) */
+        <div className="flex-1 flex flex-col min-h-0 bg-white dark:bg-[#0c0d12] border border-zinc-200 dark:border-[#1e2029] rounded-xl overflow-hidden shadow-xs">
+          {/* Top Controls: Search Bar & Categories */}
+          <div className="p-3 border-b border-zinc-200 dark:border-[#1e2029] flex flex-col md:flex-row items-stretch md:items-center gap-2.5 justify-between">
+            {/* Search Bar */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search memories, content, or tags..."
+                className="w-full h-8 pl-8 pr-7 rounded-lg text-xs bg-zinc-50 dark:bg-[#13151d] border border-zinc-200 dark:border-[#222634] text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 outline-none focus:border-zinc-400 dark:focus:border-zinc-500"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
 
-            return (
-              <div
-                key={mem.id}
-                className={`bg-white dark:bg-[#0f0f13] border rounded-xl p-4 flex flex-col justify-between gap-3 transition-colors ${
-                  mem.pinned
-                    ? 'border-gray-400 dark:border-[#34343e]'
-                    : 'border-[#e4e4eb] dark:border-[#1f1f22] hover:border-gray-300 dark:hover:border-[#2a2a32]'
-                }`}
-              >
-                <div className="flex flex-col gap-2">
-                  {/* Top Row: Meta Badges & Actions */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-gray-100 dark:bg-[#1a1a20] text-gray-700 dark:text-gray-300 border border-gray-200/80 dark:border-[#26262e]">
-                        {getCategoryLabel(mem.category)}
-                      </span>
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+              {CATEGORY_TABS.map((tab) => {
+                const count = getCount(tab.id);
+                const active = activeFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveFilter(tab.id)}
+                    className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                      active
+                        ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-semibold'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-[#161822]'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span
+                      className={`text-[10px] font-mono px-1 rounded ${
+                        active
+                          ? 'bg-white/20 dark:bg-zinc-900/20 text-current'
+                          : 'bg-zinc-200/60 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-                      {mem.projectName && (
-                        <span className="px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-gray-50 dark:bg-[#141418] text-gray-600 dark:text-gray-400 border border-gray-200/60 dark:border-[#222228] truncate max-w-[160px]">
-                          {mem.projectName}
+          {/* Memory List Items */}
+          <div className="flex-1 overflow-y-auto divide-y divide-zinc-100 dark:divide-[#161822]">
+            {filteredMemories.length === 0 ? (
+              <div className="p-12 flex flex-col items-center justify-center text-center text-zinc-400 dark:text-zinc-500">
+                <Brain className="w-8 h-8 mb-2 opacity-40 text-zinc-500" />
+                <p className="text-xs mb-3">
+                  {searchQuery ? 'No memories match your search query.' : 'No memories saved in this view yet.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleStartNew}
+                  className="h-7 px-3 rounded-md text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+                >
+                  + Write a Memory
+                </button>
+              </div>
+            ) : (
+              filteredMemories.map((mem) => {
+                const badge = CATEGORY_STYLES[mem.category] || CATEGORY_STYLES.profile;
+                return (
+                  <div
+                    key={mem.id}
+                    onClick={() => handleOpenMemory(mem)}
+                    className="p-4 transition-colors cursor-pointer text-left flex flex-col gap-1.5 hover:bg-zinc-50/80 dark:hover:bg-[#11131a] group"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <button
+                          type="button"
+                          onClick={(e) => handleTogglePin(e, mem.id, Boolean(mem.pinned))}
+                          className={`p-1 -ml-1 rounded transition-colors cursor-pointer ${
+                            mem.pinned
+                              ? 'text-amber-500 hover:text-amber-600'
+                              : 'text-zinc-300 dark:text-zinc-600 hover:text-zinc-600 dark:hover:text-zinc-300 opacity-0 group-hover:opacity-100'
+                          }`}
+                          title={mem.pinned ? 'Unpin' : 'Pin to top'}
+                        >
+                          <Pin className={`w-3.5 h-3.5 ${mem.pinned ? 'fill-current' : ''}`} />
+                        </button>
+
+                        <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                          {mem.title}
+                        </h4>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span
+                          className={`text-[9.5px] uppercase font-mono px-2 py-0.5 rounded border font-semibold ${badge.badge}`}
+                        >
+                          {badge.label}
                         </span>
-                      )}
 
-                      <span className="text-[10.5px] text-gray-400 dark:text-gray-500">
-                        {mem.userConfirmed ? '• Confirmed' : '• Auto'}
-                      </span>
+                        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenMemory(mem);
+                            }}
+                            className="p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                            title="Edit memory"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDelete(e, mem.id)}
+                            className="p-1 rounded text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+                            title="Delete memory"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleTogglePin(mem)}
-                        className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                          mem.pinned
-                            ? 'text-gray-900 dark:text-white'
-                            : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1a1a20]'
-                        }`}
-                        title={mem.pinned ? 'Unpin' : 'Pin'}
-                      >
-                        <Pin className={`w-3.5 h-3.5 ${mem.pinned ? 'fill-current' : ''}`} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEdit(mem)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1a1a20] transition-colors cursor-pointer"
-                        title="Edit"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteMemory(mem.id)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1a20] transition-colors cursor-pointer"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Title & Content */}
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-snug">
-                      {mem.title}
-                    </h3>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 leading-relaxed whitespace-pre-wrap break-words">
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed">
                       {mem.content}
                     </p>
-                  </div>
 
-                  {/* Decision History Drawer */}
-                  {hasHistory && (
-                    <div className="pt-1.5 border-t border-gray-100 dark:border-[#1a1a20]">
-                      <button
-                        type="button"
-                        onClick={() => setExpandedHistoryId((prev) => (prev === mem.id ? null : mem.id))}
-                        className="flex items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 cursor-pointer"
-                      >
-                        <History className="w-3 h-3" />
-                        <span>
-                          {mem.history!.length} previous revision{mem.history!.length > 1 ? 's' : ''}
-                        </span>
-                        <ChevronRight
-                          className={`w-3 h-3 transition-transform ${isHistoryExpanded ? 'rotate-90' : ''}`}
-                        />
-                      </button>
-
-                      {isHistoryExpanded && (
-                        <div className="mt-2 p-2.5 rounded-lg bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] flex flex-col gap-2 text-[11px] text-gray-600 dark:text-gray-300">
-                          {mem.history!.map((h, i) => (
-                            <div key={i} className="flex flex-col gap-0.5 border-l-2 border-gray-300 dark:border-gray-700 pl-2">
-                              <span className="text-[10px] text-gray-400 font-mono">
-                                {new Date(h.date).toLocaleDateString()}
-                              </span>
-                              <span>{h.previousContent}</span>
-                              {h.reason && (
-                                <span className="text-[10px] text-gray-400 italic">Reason: {h.reason}</span>
-                              )}
-                            </div>
+                    <div className="flex items-center justify-between pt-1 text-[10.5px] text-zinc-400 dark:text-zinc-500 font-mono">
+                      <span>{new Date(mem.updatedAt || mem.createdAt).toLocaleDateString()}</span>
+                      {Array.isArray(mem.tags) && mem.tags.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          {mem.tags.slice(0, 3).map((tag, i) => (
+                            <span key={i} className="text-zinc-400 dark:text-zinc-500">
+                              #{tag}
+                            </span>
                           ))}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-
-                {/* Card Footer: Tags & Timestamp */}
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 dark:border-[#18181d]">
-                  <div className="flex items-center gap-1 flex-wrap min-w-0">
-                    {Array.isArray(mem.tags) &&
-                      mem.tags.slice(0, 4).map((t, idx) => (
-                        <span
-                          key={idx}
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#16161b] text-gray-500 dark:text-gray-400"
-                        >
-                          #{t}
-                        </span>
-                      ))}
                   </div>
-
-                  <span className="text-[10.5px] text-gray-400 dark:text-gray-500 shrink-0">
-                    {new Date(mem.updatedAt || mem.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })
+            )}
+          </div>
         </div>
-      )}
-
-      {/* Add / Edit Memory Modal */}
-      {(isAddModalOpen || editingMemory) && (
-        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white dark:bg-[#121216] border border-gray-200 dark:border-[#24242c] rounded-2xl p-5 flex flex-col gap-4 text-gray-900 dark:text-gray-100">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold">
-                {editingMemory ? 'Edit Memory' : 'New Memory'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAddModalOpen(false);
-                  setEditingMemory(null);
-                }}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveMemoryForm} className="flex flex-col gap-3.5 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-gray-700 dark:text-gray-300">Category</label>
-                  <select
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value as MemoryCategory)}
-                    className="h-9 px-2.5 rounded-lg bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 outline-none"
-                  >
-                    <option value="profile">Profile</option>
-                    <option value="project">Project</option>
-                    <option value="episodic">Episodic</option>
-                    <option value="knowledge">Knowledge</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-gray-700 dark:text-gray-300">Project (Optional)</label>
-                  <select
-                    value={formProjectId}
-                    onChange={(e) => setFormProjectId(e.target.value)}
-                    className="h-9 px-2.5 rounded-lg bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 outline-none"
-                  >
-                    <option value="">None</option>
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-gray-700 dark:text-gray-300">Title</label>
-                <input
-                  type="text"
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="e.g. Preferred Framework, Database Choice, Bug Fix"
-                  className="h-9 px-3 rounded-lg bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 outline-none focus:border-gray-900 dark:focus:border-white"
-                  required
+      ) : (
+        /* CARD 2: Manual Memory Rewriter / Editor Card (Full Size, replaces list card) */
+        <div className="flex-1 flex flex-col min-h-0 bg-white dark:bg-[#0c0d12] border border-zinc-200 dark:border-[#1e2029] rounded-xl overflow-hidden shadow-xs">
+          <form onSubmit={handleSave} className="flex flex-col h-full">
+            {/* Editor Top Bar */}
+            <div className="flex items-center justify-between p-3.5 border-b border-zinc-200 dark:border-[#1e2029] bg-zinc-50/50 dark:bg-[#0e1017]">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Category:</span>
+                <GlideSelect
+                  options={CATEGORY_OPTIONS}
+                  value={draftCategory}
+                  onChange={(val) => {
+                    setDraftCategory(val as MemoryCategory);
+                    setIsDirty(true);
+                  }}
+                  size="sm"
+                  radius={6}
+                  menuWidth={210}
                 />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-gray-700 dark:text-gray-300">Details</label>
-                <textarea
-                  rows={4}
-                  value={formContent}
-                  onChange={(e) => setFormContent(e.target.value)}
-                  placeholder="Write what Grokki should remember..."
-                  className="p-2.5 rounded-lg bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 outline-none focus:border-gray-900 dark:focus:border-white resize-none leading-relaxed"
-                  required
-                />
-              </div>
-
-              {editingMemory && (
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-gray-700 dark:text-gray-300">
-                    Reason for change (optional, logged in history)
-                  </label>
-                  <input
-                    type="text"
-                    value={formUpdateReason}
-                    onChange={(e) => setFormUpdateReason(e.target.value)}
-                    placeholder="e.g. Updated architecture requirement"
-                    className="h-9 px-3 rounded-lg bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 outline-none"
-                  />
-                </div>
-              )}
-
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-gray-700 dark:text-gray-300">Tags (comma-separated)</label>
-                <input
-                  type="text"
-                  value={formTags}
-                  onChange={(e) => setFormTags(e.target.value)}
-                  placeholder="e.g. react, architecture, preference"
-                  className="h-9 px-3 rounded-lg bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 outline-none"
-                />
-              </div>
-
-              <div className="flex items-center gap-5 pt-1">
-                <label className="flex items-center gap-2 cursor-pointer text-gray-700 dark:text-gray-300">
-                  <input
-                    type="checkbox"
-                    checked={formPinned}
-                    onChange={(e) => setFormPinned(e.target.checked)}
-                    className="rounded border-gray-300 dark:border-gray-700"
-                  />
-                  <span>Pin memory</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer text-gray-700 dark:text-gray-300">
-                  <input
-                    type="checkbox"
-                    checked={formConfirmed}
-                    onChange={(e) => setFormConfirmed(e.target.checked)}
-                    className="rounded border-gray-300 dark:border-gray-700"
-                  />
-                  <span>Confirmed by user</span>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100 dark:border-[#1f1f26]">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
-                    setIsAddModalOpen(false);
-                    setEditingMemory(null);
+                    setDraftPinned(!draftPinned);
+                    setIsDirty(true);
                   }}
-                  className="h-8 px-3.5 rounded-lg text-gray-500 hover:text-gray-900 dark:hover:text-white cursor-pointer"
+                  className={`h-7 px-2.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer border ${
+                    draftPinned
+                      ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/40'
+                      : 'border-zinc-200 dark:border-[#222634] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                  }`}
+                  title="Pin memory to prioritize in Grokki's context"
+                >
+                  <Pin className={`w-3 h-3 ${draftPinned ? 'fill-current' : ''}`} />
+                  <span>{draftPinned ? 'Pinned' : 'Pin'}</span>
+                </button>
+
+                {!isCreatingNew && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleDelete(e)}
+                    className="h-7 px-2.5 rounded-md text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 border border-transparent hover:border-red-200 dark:hover:border-red-800/30 transition-colors cursor-pointer flex items-center gap-1"
+                    title="Delete memory"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Inputs Area */}
+            <div className="flex-1 p-5 flex flex-col gap-4 overflow-y-auto">
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">
+                  Title / Subject
+                </label>
+                <input
+                  type="text"
+                  value={draftTitle}
+                  onChange={(e) => {
+                    setDraftTitle(e.target.value);
+                    setIsDirty(true);
+                  }}
+                  placeholder="e.g. Always Use TypeScript & Strict Mode"
+                  className="w-full text-sm font-bold bg-zinc-50 dark:bg-[#13151d] border border-zinc-200 dark:border-[#222634] rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 outline-none focus:border-zinc-400 dark:focus:border-zinc-500"
+                />
+              </div>
+
+              <div className="flex-1 flex flex-col min-h-[220px]">
+                <label className="block text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">
+                  Memory Instructions & Knowledge
+                </label>
+                <textarea
+                  value={draftContent}
+                  onChange={(e) => {
+                    setDraftContent(e.target.value);
+                    setIsDirty(true);
+                  }}
+                  placeholder="Write what Grokki should permanently remember. For example: In all coding tasks, prefer writing clean modular functions, avoid useless boilerplate, and use strict types."
+                  className="flex-1 w-full p-3 rounded-lg bg-zinc-50 dark:bg-[#13151d] border border-zinc-200 dark:border-[#222634] text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 outline-none resize-none leading-relaxed font-sans focus:border-zinc-400 dark:focus:border-zinc-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">
+                  Tags
+                </label>
+                <div className="relative flex items-center">
+                  <Tag className="w-3.5 h-3.5 absolute left-3 text-zinc-400" />
+                  <input
+                    type="text"
+                    value={draftTags}
+                    onChange={(e) => {
+                      setDraftTags(e.target.value);
+                      setIsDirty(true);
+                    }}
+                    placeholder="Comma-separated tags (e.g. coding, typescript, preferences)"
+                    className="w-full text-xs bg-zinc-50 dark:bg-[#13151d] border border-zinc-200 dark:border-[#222634] rounded-lg pl-8 pr-3 py-2 text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 outline-none focus:border-zinc-400 dark:focus:border-zinc-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Editor Footer Actions */}
+            <div className="p-3.5 border-t border-zinc-200 dark:border-[#1e2029] bg-zinc-50/50 dark:bg-[#0a0b10] flex items-center justify-between">
+              <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
+                {isCreatingNew ? 'New Memory Draft' : isDirty ? 'Unsaved edits' : 'Saved'}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCloseEditor}
+                  className="h-8 px-3 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
-                  className="h-8 px-4 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold hover:bg-gray-800 dark:hover:bg-gray-200 cursor-pointer"
+                  disabled={!draftTitle.trim() || !draftContent.trim()}
+                  className="h-8 px-4 rounded-lg text-xs font-semibold bg-zinc-900 hover:bg-black dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center gap-1.5"
                 >
-                  {editingMemory ? 'Save' : 'Create'}
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isCreatingNew ? 'Create Memory' : 'Save Changes'}</span>
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Projects Modal */}
-      {isProjectModalOpen && (
-        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white dark:bg-[#121216] border border-gray-200 dark:border-[#24242c] rounded-2xl p-5 flex flex-col gap-4 text-gray-900 dark:text-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold">Projects</h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                  Each project keeps its own isolated memory document and folder.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsProjectModalOpen(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
-
-            <div className="flex flex-col gap-2 max-h-52 overflow-y-auto">
-              {projects.length === 0 ? (
-                <div className="py-6 text-center text-xs text-gray-400">No projects created yet.</div>
-              ) : (
-                projects.map((proj) => (
-                  <div
-                    key={proj.id}
-                    className="p-3 rounded-xl bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] flex items-center justify-between gap-3 text-xs"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">{proj.name}</div>
-                      {proj.description && (
-                        <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                          {proj.description}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedProjectId(proj.id);
-                          setSelectedCategory('project');
-                          setIsProjectModalOpen(false);
-                        }}
-                        className="h-7 px-2.5 rounded-lg bg-white dark:bg-[#18181f] border border-gray-200 dark:border-[#26262f] text-gray-700 dark:text-gray-200 text-[11px] font-medium cursor-pointer"
-                      >
-                        Filter
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteProject(proj.id)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white cursor-pointer"
-                        title="Delete Project"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <form onSubmit={handleCreateProject} className="flex flex-col gap-2.5 pt-3 border-t border-gray-100 dark:border-[#1f1f26] text-xs">
-              <span className="font-semibold text-gray-700 dark:text-gray-300">Add Project</span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="Project Name"
-                  className="h-9 px-3 rounded-lg bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 outline-none"
-                  required
-                />
-                <input
-                  type="text"
-                  value={newProjectTech}
-                  onChange={(e) => setNewProjectTech(e.target.value)}
-                  placeholder="Tech Stack (comma-separated)"
-                  className="h-9 px-3 rounded-lg bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 outline-none"
-                />
-              </div>
-              <input
-                type="text"
-                value={newProjectDesc}
-                onChange={(e) => setNewProjectDesc(e.target.value)}
-                placeholder="Description"
-                className="h-9 px-3 rounded-lg bg-gray-50 dark:bg-[#090a0d] border border-gray-200 dark:border-[#1e2029] text-gray-900 dark:text-gray-100 outline-none"
-              />
-              <button
-                type="submit"
-                className="self-end h-8 px-4 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold hover:bg-gray-800 dark:hover:bg-gray-200 cursor-pointer"
-              >
-                Add Project
-              </button>
-            </form>
-          </div>
+          </form>
         </div>
       )}
     </div>
   );
 };
+export default MemoryTab;

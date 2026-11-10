@@ -83,7 +83,6 @@ const DEFAULT_CONFIG: JarvisConfig = {
   elevenlabsModel: 'eleven_v3',
   ttsEnabled: true,
   wakeWordEnabled: true,
-  pillTheme: 'grokki-blue',
   musicProvider: 'spotify',
   hotkey: 'Alt+Q',
   hotkeys: DEFAULT_HOTKEYS,
@@ -172,7 +171,96 @@ export const App: React.FC = () => {
     setConversationLock,
     updateActiveMessages,
     updateConversationMessages,
+    updateConversationMeta,
   } = useConversations();
+
+  const [activeWorkspaceRoot, setActiveWorkspaceRoot] = useState<string>('');
+  const [activeWorkspaceName, setActiveWorkspaceName] = useState<string>('');
+
+  useEffect(() => {
+    if (window.jarvisAPI?.getWorkspaceRoot) {
+      window.jarvisAPI.getWorkspaceRoot().then((res) => {
+        if (res && res.workspaceRoot) {
+          setActiveWorkspaceRoot(res.workspaceRoot);
+          setActiveWorkspaceName(res.folderName || res.workspaceRoot.split('\\').pop() || 'Project');
+        }
+      }).catch(console.error);
+    }
+  }, []);
+
+  const handleSelectWorkspaceFolder = useCallback(async () => {
+    if (window.jarvisAPI?.selectWorkspaceFolder) {
+      const res = await window.jarvisAPI.selectWorkspaceFolder();
+      if (res && res.success && res.workspaceRoot) {
+        setActiveWorkspaceRoot(res.workspaceRoot);
+        const name = res.folderName || res.workspaceRoot.split('\\').pop() || 'Project';
+        setActiveWorkspaceName(name);
+        if (activeConversationId) {
+          updateConversationMeta(activeConversationId, {
+            workspaceRoot: res.workspaceRoot,
+            workspaceName: name,
+          });
+        }
+      }
+    }
+  }, [activeConversationId, updateConversationMeta]);
+
+  const [appMode, setAppMode] = useState<'chat' | 'agent'>(() => {
+    try {
+      return (localStorage.getItem('grokki_app_mode') as 'chat' | 'agent') || 'chat';
+    } catch (_) {
+      return 'chat';
+    }
+  });
+
+  const handleSetAppMode = useCallback((mode: 'chat' | 'agent') => {
+    setAppMode(mode);
+    try {
+      localStorage.setItem('grokki_app_mode', mode);
+    } catch (_) {}
+
+    const current = conversations.find((c) => c.id === activeConversationId);
+    const currentMode = current ? (current.mode === 'agent' ? 'agent' : 'chat') : null;
+
+    if (currentMode !== mode) {
+      const candidate = conversations
+        .filter((c) => (mode === 'agent' ? c.mode === 'agent' : c.mode !== 'agent') && !c.isArchived)
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+
+      if (candidate) {
+        selectConversation(candidate.id);
+      } else {
+        createConversation({
+          mode,
+          workspaceRoot: mode === 'agent' ? (activeWorkspaceRoot || undefined) : undefined,
+          workspaceName: mode === 'agent' ? (activeWorkspaceName || undefined) : undefined,
+        });
+      }
+    }
+  }, [conversations, activeConversationId, selectConversation, createConversation, activeWorkspaceRoot, activeWorkspaceName]);
+
+  // Ensure active conversation aligns with current appMode on load
+  useEffect(() => {
+    if (!conversations || conversations.length === 0) return;
+    const current = conversations.find((c) => c.id === activeConversationId);
+    if (current) {
+      const currentMode = current.mode === 'agent' ? 'agent' : 'chat';
+      if (currentMode !== appMode) {
+        const candidate = conversations
+          .filter((c) => (appMode === 'agent' ? c.mode === 'agent' : c.mode !== 'agent') && !c.isArchived)
+          .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+        if (candidate) {
+          selectConversation(candidate.id);
+        } else {
+          createConversation({
+            mode: appMode,
+            workspaceRoot: appMode === 'agent' ? (activeWorkspaceRoot || undefined) : undefined,
+            workspaceName: appMode === 'agent' ? (activeWorkspaceName || undefined) : undefined,
+          });
+        }
+      }
+    }
+  }, []);
 
   const [thinkingConvoIds, setThinkingConvoIds] = useState<Set<string>>(() => new Set());
 
@@ -257,60 +345,32 @@ export const App: React.FC = () => {
 
 
   // Initialize theme from config
-  const VALID_PALETTES = ['grokki-blue', 'cream', 'jungle', 'sakura', 'cyber', 'sunset', 'arctic', 'crimson'];
-  const THEME_NAMES: Record<string, string> = {
-    none: 'None (Default)',
-    'grokki-blue': 'Grokki Blue',
-    cream: 'Cream',
-    jungle: 'Jungle',
-    sakura: 'Sakura',
-    cyber: 'Cyber',
-    sunset: 'Sunset',
-    arctic: 'Arctic',
-    crimson: 'Crimson',
-  };
+  const theme = config.dashboardTheme === 'dark' ? 'dark' : 'light';
 
-  const currentPillTheme = config.pillTheme || 'none';
-  const isCustomThemeActive = Boolean(currentPillTheme && currentPillTheme !== 'none' && currentPillTheme !== 'default');
-  const effectivePalette = isCustomThemeActive && VALID_PALETTES.includes(currentPillTheme) ? currentPillTheme : 'none';
-  const theme = isCustomThemeActive ? 'dark' : (config.dashboardTheme || 'light');
-
-  // Seamlessly hand over from instant HTML loader to interactive Preloader
+  // Seamlessly hand over from instant HTML pulse loader to app / Preloader once initial state is mounted
   useEffect(() => {
-    const loader = document.getElementById('app-launch-loader');
-    if (loader) {
-      loader.style.opacity = '0';
-      const timer = setTimeout(() => {
-        try { loader.remove(); } catch (_) {}
-      }, 160);
+    const dismiss = () => {
+      if (typeof (window as any).dismissAppLaunchLoader === 'function') {
+        (window as any).dismissAppLaunchLoader();
+      }
+    };
+    // Dismiss after React completes first paint and layout
+    const raf = requestAnimationFrame(() => {
+      const timer = setTimeout(dismiss, 100);
       return () => clearTimeout(timer);
-    }
+    });
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   useEffect(() => {
-    if (isCustomThemeActive) {
-      document.documentElement.setAttribute('data-theme', effectivePalette);
-      document.body.setAttribute('data-theme', effectivePalette);
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-      document.body.classList.add('dark');
-      document.body.classList.remove('light');
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-      document.body.removeAttribute('data-theme');
-      if (config.dashboardTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-        document.documentElement.classList.remove('light');
-        document.body.classList.add('dark');
-        document.body.classList.remove('light');
-      } else {
-        document.documentElement.classList.add('light');
-        document.documentElement.classList.remove('dark');
-        document.body.classList.add('light');
-        document.body.classList.remove('dark');
-      }
-    }
-  }, [effectivePalette, isCustomThemeActive, config.dashboardTheme]);
+    const isDark = config.dashboardTheme === 'dark';
+    document.documentElement.removeAttribute('data-theme');
+    document.body.removeAttribute('data-theme');
+    document.documentElement.classList.toggle('dark', isDark);
+    document.documentElement.classList.toggle('light', !isDark);
+    document.body.classList.toggle('dark', isDark);
+    document.body.classList.toggle('light', !isDark);
+  }, [config.dashboardTheme]);
 
   // Global capture listener: open any <a> link in the user's external system browser
   useEffect(() => {
@@ -347,24 +407,16 @@ export const App: React.FC = () => {
         const merged = { ...DEFAULT_CONFIG, ...cfg };
         setConfig(merged);
         setOriginalConfig(merged);
-        const initPillTheme = merged.pillTheme || 'none';
-        const initCustomActive = Boolean(initPillTheme && initPillTheme !== 'none' && initPillTheme !== 'default');
-        if (initCustomActive && VALID_PALETTES.includes(initPillTheme)) {
-          document.documentElement.setAttribute('data-theme', initPillTheme);
-          document.body.setAttribute('data-theme', initPillTheme);
-          document.documentElement.classList.add('dark');
-          document.documentElement.classList.remove('light');
-          document.body.classList.add('dark');
-          document.body.classList.remove('light');
-        } else {
-          document.documentElement.removeAttribute('data-theme');
-          document.body.removeAttribute('data-theme');
-          const isDark = merged.dashboardTheme === 'dark';
-          document.documentElement.classList.toggle('dark', isDark);
-          document.documentElement.classList.toggle('light', !isDark);
-          document.body.classList.toggle('dark', isDark);
-          document.body.classList.toggle('light', !isDark);
+        if (merged.showSplashScreen === false) {
+          setShowPreloader(false);
         }
+        const isDark = merged.dashboardTheme === 'dark';
+        document.documentElement.removeAttribute('data-theme');
+        document.body.removeAttribute('data-theme');
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.classList.toggle('light', !isDark);
+        document.body.classList.toggle('dark', isDark);
+        document.body.classList.toggle('light', !isDark);
       }
     });
 
@@ -622,28 +674,22 @@ export const App: React.FC = () => {
   }, [config.ollamaEndpoint]);
 
   const handleToggleTheme = useCallback(() => {
-    // When custom theme from theme list is active, theme is managed by custom palette
-    if (isCustomThemeActive) return;
     setConfig((prev) => {
       const nextTheme = (prev.dashboardTheme || 'light') === 'dark' ? 'light' : 'dark';
-      if (nextTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-        document.documentElement.classList.remove('light');
-        document.body.classList.add('dark');
-        document.body.classList.remove('light');
-      } else {
-        document.documentElement.classList.add('light');
-        document.documentElement.classList.remove('dark');
-        document.body.classList.add('light');
-        document.body.classList.remove('dark');
-      }
+      const isDark = nextTheme === 'dark';
+      document.documentElement.removeAttribute('data-theme');
+      document.body.removeAttribute('data-theme');
+      document.documentElement.classList.toggle('dark', isDark);
+      document.documentElement.classList.toggle('light', !isDark);
+      document.body.classList.toggle('dark', isDark);
+      document.body.classList.toggle('light', !isDark);
       setOriginalConfig((orig) => ({ ...orig, dashboardTheme: nextTheme }));
       if (window.jarvisAPI?.saveConfig) {
         window.jarvisAPI.saveConfig({ dashboardTheme: nextTheme });
       }
       return { ...prev, dashboardTheme: nextTheme };
     });
-  }, [isCustomThemeActive]);
+  }, []);
 
   const handleReset = useCallback(() => {
     setConfig(originalConfig);
@@ -690,13 +736,13 @@ export const App: React.FC = () => {
     if (window.jarvisAPI?.minimizeDashboard) {
       window.jarvisAPI.minimizeDashboard();
     }
-  }, [isCustomThemeActive]);
+  }, []);
 
   const handleMaximize = useCallback(() => {
     if (window.jarvisAPI?.maximizeDashboard) {
       window.jarvisAPI.maximizeDashboard();
     }
-  }, [isCustomThemeActive]);
+  }, []);
 
   // Voice Sample Preview
   const handlePreviewVoice = useCallback(async (
@@ -894,9 +940,7 @@ export const App: React.FC = () => {
         window.dispatchEvent(new CustomEvent('grokki:toggle-sidebar'));
       } else if (matchesHotkey(e, effectiveHotkeys.toggleTheme)) {
         e.preventDefault();
-        if (!isCustomThemeActive) {
-          handleToggleTheme();
-        }
+        handleToggleTheme();
       } else if (matchesHotkey(e, effectiveHotkeys.openSettings) || ((e.ctrlKey || e.metaKey) && e.key === ',')) {
         e.preventDefault();
         setIsSettingsModalOpen((prev) => !prev);
@@ -930,8 +974,9 @@ export const App: React.FC = () => {
     'Friend';
 
   const tabTitles: Record<TabId, string> = {
-    chat: 'Chat',
+    chat: appMode === 'agent' ? 'Grokki Agent' : 'Grokki Chat',
     overview: 'Home',
+    workspace: 'Workspace',
     memory: 'Memory',
     voice: 'Voice Models',
     ai: 'AI Brain & Keys',
@@ -945,7 +990,7 @@ export const App: React.FC = () => {
   return (
     <>
       {showPreloader && <Preloader onComplete={() => setShowPreloader(false)} />}
-      {!!config.smoothCursorEnabled && <SmoothCursor />}
+      {!showPreloader && !!config.smoothCursorEnabled && <SmoothCursor />}
       <GlowCursor
         color="#5f8bff"
         intensity={1.3}
@@ -954,7 +999,7 @@ export const App: React.FC = () => {
         glow={1.2}
         clickBurst
         theme={theme === 'dark' ? 'dark' : 'light'}
-        enabled={!!config.glowCursorEnabled}
+        enabled={!showPreloader && !!config.glowCursorEnabled}
         className="w-screen h-screen"
       >
       <div className="w-full h-full flex flex-row overflow-hidden bg-[#f7f7fa] dark:bg-[#070709] text-gray-900 dark:text-gray-100 font-sans">
@@ -962,6 +1007,10 @@ export const App: React.FC = () => {
       <Sidebar
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
+        appMode={appMode}
+        onChangeAppMode={handleSetAppMode}
+        activeWorkspaceName={activeWorkspaceName}
+        onSelectWorkspaceFolder={handleSelectWorkspaceFolder}
         onOpenSettings={handleOpenSettings}
         theme={theme}
         userName={displayName}
@@ -971,7 +1020,11 @@ export const App: React.FC = () => {
         activeConversationId={activeConversationId}
         thinkingConvoIds={thinkingConvoIds}
         onSelectConversation={selectConversation}
-        onCreateConversation={createConversation}
+        onCreateConversation={() => createConversation({
+          mode: appMode,
+          workspaceRoot: undefined,
+          workspaceName: undefined,
+        })}
         onDeleteConversation={deleteConversation}
         onRenameConversation={renameConversation}
         onTogglePinConversation={togglePinConversation}
@@ -988,11 +1041,9 @@ export const App: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-[#f7f7fa] dark:bg-[#070709]">
         <Header
           title={tabTitles[activeTab]}
-          theme={theme as 'light' | 'dark'}
+          theme={theme}
           onToggleTheme={handleToggleTheme}
           toggleThemeShortcut={effectiveHotkeys.toggleTheme}
-          isCustomThemeActive={isCustomThemeActive}
-          themeName={THEME_NAMES[effectivePalette] || effectivePalette}
           onMinimize={handleMinimize}
           onMaximize={handleMaximize}
           isMaximized={isMaximized}
@@ -1019,8 +1070,18 @@ export const App: React.FC = () => {
                 onUpdateConvoMessages={updateConversationMessages}
                 thinkingConvoIds={thinkingConvoIds}
                 onSetConvoThinking={handleSetConvoThinking}
-                onNewChat={createConversation}
+                onNewChat={() => createConversation({
+                  mode: appMode,
+                  workspaceRoot: undefined,
+                  workspaceName: undefined,
+                })}
                 activeModelPull={activeModelPull}
+                agentMode={appMode === 'agent'}
+                conversations={conversations}
+                activeWorkspaceRoot={activeWorkspaceRoot}
+                activeWorkspaceName={activeWorkspaceName}
+                onSelectWorkspaceFolder={handleSelectWorkspaceFolder}
+                onUpdateConversationMeta={updateConversationMeta}
               />
             )}
           </div>
@@ -1067,7 +1128,7 @@ export const App: React.FC = () => {
               />
             )}
 
-            {activeTab === 'google' && (
+            {(activeTab === 'google' || activeTab === 'workspace') && (
               <GoogleWorkspaceTab
                 config={config}
                 onChangeConfig={handleConfigChange}

@@ -97,7 +97,8 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
   useEffect(() => {
     setActiveTab(canPreview ? 'preview' : 'code');
     setSvgZoom(1);
-  }, [artifact.id, canPreview]);
+    setPreviewTheme(isDark ? 'dark' : 'light');
+  }, [artifact.id, canPreview, isDark]);
 
   // Handle Copy
   const handleCopy = () => {
@@ -142,10 +143,10 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
 
     const content = artifact.content.trim();
     const isDarkCanvas = previewTheme === 'dark';
-    const bg = isDarkCanvas ? '#0f1117' : '#ffffff';
+    const bg = isDarkCanvas ? '#0b0d14' : '#ffffff';
     const fg = isDarkCanvas ? '#f1f5f9' : '#0f172a';
-    const cardBg = isDarkCanvas ? '#1a1d28' : '#f8fafc';
-    const borderCol = isDarkCanvas ? '#2a2e3f' : '#e2e8f0';
+    const cardBg = isDarkCanvas ? '#131622' : '#f8fafc';
+    const borderCol = isDarkCanvas ? '#202638' : '#e2e8f0';
 
     const baseReset = `
       <script src="https://cdn.tailwindcss.com"></script>
@@ -173,10 +174,10 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
         h1 { font-size: 1.85rem; }
         h2 { font-size: 1.45rem; }
         h3 { font-size: 1.25rem; }
-        p {
-          color: ${isDarkCanvas ? '#cbd5e1' : '#334155'} !important;
+        p, span, li, td, th {
+          color: ${isDarkCanvas ? '#cbd5e1' : '#334155'};
           margin-top: 0;
-          margin-bottom: 1rem;
+          margin-bottom: 0.75rem;
         }
         a {
           color: #38bdf8;

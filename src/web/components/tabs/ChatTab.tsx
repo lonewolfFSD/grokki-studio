@@ -42,10 +42,41 @@ import {
   ExternalLink,
   Swords,
   ChevronDown,
+  ChevronRight,
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Folder,
+  FolderPlus,
+  Eye,
+  Shield,
+  ShieldAlert,
+  Gauge,
+  Info,
 } from 'lucide-react';
+
+export type AgentEffort = 'low' | 'medium' | 'high' | 'highest';
+export type AgentPermission = 'review' | 'default' | 'auto' | 'turbo';
+
+const AGENT_EFFORT_OPTIONS: Array<{ id: AgentEffort; label: string; turns: number; desc: string }> = [
+  { id: 'low', label: 'Low', turns: 4, desc: 'Quick edits, minimal reasoning' },
+  { id: 'medium', label: 'Medium', turns: 8, desc: 'Balanced reasoning and checks' },
+  { id: 'high', label: 'High', turns: 16, desc: 'Deep debugging and verification' },
+  { id: 'highest', label: 'Highest', turns: 24, desc: 'Maximum autonomy for big tasks' },
+];
+
+const AGENT_PERMISSION_OPTIONS: Array<{
+  id: AgentPermission;
+  label: string;
+  desc: string;
+  icon: React.ComponentType<{ className?: string }>;
+  isDefault?: boolean;
+}> = [
+  { id: 'review', label: 'Request Review', desc: 'Every command requires approval.', icon: Eye },
+  { id: 'default', label: 'Default', desc: 'Ask before sensitive operations.', icon: Lock },
+  { id: 'auto', label: 'Auto', desc: 'Automatically decide if commands run.', icon: Shield },
+  { id: 'turbo', label: 'Turbo', desc: 'Run all commands without restrictions.', icon: ShieldAlert, isDefault: true },
+];
 
 const BATTLE_BRAIN_OPTIONS = [
   { id: 'gemini:gemini-flash-latest', label: 'Gemini Flash' },
@@ -155,7 +186,7 @@ import { GroundingMetadata, GroundingImage, WorkspaceMention } from '../../types
 import { highlightCode } from '../../utils/syntaxHighlight';
 import { AnimatePresence, motion } from 'motion/react';
 import { marked } from 'marked';
-import { JarvisConfig, AiProvider, Conversation, ChatMessage, AttachedFileInfo, ActiveModelPull } from '../../types/jarvis';
+import { JarvisConfig, AiProvider, Conversation, ChatMessage, AttachedFileInfo, ActiveModelPull, AgentLiveStep } from '../../types/jarvis';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
 import {
   CURATED_MODELS,
@@ -187,6 +218,9 @@ import { getEffectiveHotkeys, matchesHotkey } from '../../utils/hotkeys';
 import { DEFAULT_GRAINIENT_SETTINGS } from '../GrainientCustomizerModal';
 
 import grokkiIcon from '../../assets/grokki_icon.svg';
+import grokkiLogo from '../../assets/grokki_logo.png';
+import grokkiWordmarkDark from '../../assets/grokki_wordmark.png';
+import grokkiWordmarkLight from '../../assets/grokki_wordmark_light.png';
 import { ImageLightboxModal } from '../ImageLightboxModal';
 import { ChatImageAttachment, isImageAttachment } from '../ChatImageAttachment';
 import { ConversationTimeline } from '../ConversationTimeline';
@@ -205,6 +239,13 @@ interface ChatTabProps {
   onNewChat: () => void;
   onChangeConfig?: (patch: Partial<JarvisConfig>) => void;
   activeModelPull?: ActiveModelPull | null;
+  /** Grokki Agent mode: same chat UI + project / effort / permission controls under the input */
+  agentMode?: boolean;
+  activeWorkspaceRoot?: string;
+  activeWorkspaceName?: string;
+  conversations?: Conversation[];
+  onSelectWorkspaceFolder?: () => void;
+  onUpdateConversationMeta?: (convoId: string, meta: Partial<Conversation>) => void;
 }
 
 interface SlashCommand {
@@ -588,8 +629,21 @@ function formatRichMarkdownHtml(rawContent: string, grounding?: GroundingMetadat
     return htmlRenderCache.get(cacheKey)!;
   }
 
+  // Intercept and format DeepSeek R1 / V3 Reasoning <think> blocks
+  let thinkHtml = '';
+  let contentToRender = rawContent;
+  const thinkMatch = rawContent.match(/<think>([\s\S]*?)<\/think>/i);
+  if (thinkMatch) {
+    const rawThought = thinkMatch[1].trim();
+    if (rawThought) {
+      const parsedThought = marked.parse(rawThought, { breaks: true, gfm: true }) as string;
+      thinkHtml = `<details class="grokki-think-accordion"><summary class="grokki-think-summary"><svg class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5.5 5 7v3h6v-3c3-1.5 5-4 5-7a8 8 0 0 0-8-8z"></path><path d="M9 22h6"></path></svg><span>DeepSeek Reasoning &amp; Thought Process</span><span class="grokki-think-badge">Thinking</span></summary><div class="grokki-think-body">${parsedThought}</div></details>`;
+    }
+    contentToRender = rawContent.replace(/<think>[\s\S]*?<\/think>/i, '').trim();
+  }
+
   // Normalize inline or line-leading Unicode bullets (•) into numbered list items (1. 2. 3.)
-  let normalized = rawContent
+  let normalized = contentToRender
     .replace(/\s+•\s+(\*\*\[)/g, '\n• $1')
     .replace(/\s+•\s+(\*\.\.\.)/g, '\n\n$1');
 
@@ -787,6 +841,10 @@ function formatRichMarkdownHtml(rawContent: string, grounding?: GroundingMetadat
     }
     return `<button type="button" class="grokki-citation-pill" data-citation="${digits.replace(/\s+/g, '')}" title="${titleAttr}">[${digits}]</button>`;
   });
+
+  if (thinkHtml) {
+    finalHtml = `${thinkHtml}${finalHtml}`;
+  }
 
   if (htmlRenderCache.size >= MAX_CACHE_SIZE) {
     const firstKey = htmlRenderCache.keys().next().value;
@@ -1145,6 +1203,300 @@ const AnimatedMessageContent: React.FC<{
   );
 };
 
+function getFileBadge(filePath: string) {
+  if (!filePath) return <span className="text-neutral-400 text-[12px] select-none">📄</span>;
+  const clean = filePath.split('?')[0].split('#')[0];
+  const ext = clean.split('.').pop()?.toLowerCase();
+  if (ext === 'tsx' || ext === 'jsx') {
+    return <span className="select-none text-[13px] leading-none inline-flex items-center">⚛️</span>;
+  }
+  if (ext === 'ts') {
+    return <span className="text-[#3178c6] font-mono font-bold text-[11px] leading-none select-none">TS</span>;
+  }
+  if (ext === 'js' || ext === 'mjs' || ext === 'cjs') {
+    return <span className="text-[#eab308] font-mono font-bold text-[11px] leading-none select-none">js</span>;
+  }
+  if (ext === 'json') {
+    return <span className="select-none text-[12px] leading-none inline-flex items-center">📦</span>;
+  }
+  if (ext === 'css' || ext === 'scss' || ext === 'less') {
+    return <span className="select-none text-[12px] leading-none inline-flex items-center">🎨</span>;
+  }
+  if (ext === 'html') {
+    return <span className="text-orange-400 font-mono font-bold text-[11px] leading-none select-none">&lt;&gt;</span>;
+  }
+  if (ext === 'md' || ext === 'txt') {
+    return <span className="select-none text-[12px] leading-none inline-flex items-center">📄</span>;
+  }
+  return <span className="text-neutral-400 text-[12px] select-none">📄</span>;
+}
+
+function getBaseFileName(p?: string): string {
+  if (!p) return 'file';
+  const norm = p.replace(/\\/g, '/');
+  const parts = norm.split('/').filter(Boolean);
+  return parts[parts.length - 1] || p;
+}
+
+function formatCommandSummary(cmd?: string, summary?: string): string {
+  if (summary && summary.trim()) return summary.trim();
+  if (!cmd || typeof cmd !== 'string') return 'command';
+  const trimmed = cmd.trim();
+
+  const selectPattern = /Select-String\s+-Path\s+["']?([^"'\r\n]+?)["']?\s+-Pattern\s+["']?([^"'\r\n]+?)["']?(?:\s+-|$)/i.exec(trimmed);
+  if (selectPattern) {
+    const fName = getBaseFileName(selectPattern[1]);
+    const pattern = selectPattern[2].replace(/^["']|["']$/g, '').slice(0, 36);
+    return `find ${pattern} in ${fName}`;
+  }
+
+  const getContent = /Get-Content\s+-Path\s+["']?([^"'\r\n]+?)["']?/i.exec(trimmed);
+  if (getContent) {
+    return `inspect ${getBaseFileName(getContent[1])}`;
+  }
+
+  if (/^(?:npm\s+run\s+build|npm\s+build)/i.test(trimmed)) return 'build project bundle';
+  if (/^(?:npm\s+test|npx\s+vitest|npx\s+jest)/i.test(trimmed)) return 'run project tests';
+  if (/^(?:git\s+status)/i.test(trimmed)) return 'check git status';
+  if (/^(?:git\s+diff)/i.test(trimmed)) return 'review git diff';
+
+  const cleanCmd = trimmed.replace(/^powershell(?:\.exe)?\s+-Command\s+/i, '');
+  if (cleanCmd.length > 55) {
+    return cleanCmd.slice(0, 52) + '...';
+  }
+  return cleanCmd;
+}
+
+const AgentStepRow: React.FC<{
+  step: AgentLiveStep | any;
+  isLive?: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
+}> = ({ step, isLive, isExpanded, onToggleExpand }) => {
+  const name = step.name || step.tool || '';
+  const args = step.args || {};
+  const result = step.result || {};
+  const isRunning = step.status === 'running';
+
+  // 1. READ FILE
+  if (name === 'read_file') {
+    const filePath = args.path || result.relativePath || result.path || 'file';
+    const baseName = getBaseFileName(filePath);
+    const badge = getFileBadge(filePath);
+    const startLine = result.startLine || args.start_line;
+    const endLine = result.endLine || args.end_line;
+    const rangeText = (startLine !== undefined && endLine !== undefined) ? `#L${startLine}-${endLine}` : '';
+
+    return (
+      <div className="flex items-center gap-1.5 text-[13px] leading-relaxed py-0.5 select-none font-sans">
+        <span className="text-neutral-400 dark:text-neutral-400">
+          {isRunning ? 'Analyzing' : 'Analyzed'}
+        </span>
+        <span className="inline-flex items-center">{badge}</span>
+        <span className="text-neutral-200 dark:text-neutral-200 font-mono text-[12px]">
+          {baseName}
+        </span>
+        {rangeText && (
+          <span className="text-neutral-500 font-mono text-[12px]">
+            {rangeText}
+          </span>
+        )}
+        {isRunning && (
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping ml-1" />
+        )}
+      </div>
+    );
+  }
+
+  // 2. RUN COMMAND
+  if (name === 'run_command') {
+    const cmd = args.command || '';
+    const summary = args.toolSummary || args.summary || '';
+    const label = formatCommandSummary(cmd, summary);
+
+    return (
+      <div className="flex flex-col py-0.5 font-sans">
+        <div
+          className="flex items-center gap-1.5 text-[13px] leading-relaxed select-none cursor-pointer group"
+          onClick={onToggleExpand}
+        >
+          <span className="text-neutral-400 dark:text-neutral-400">
+            {isRunning ? 'Running' : 'Ran'}
+          </span>
+          <span className="text-neutral-200 dark:text-neutral-200 text-[12px] font-normal group-hover:text-white transition-colors">
+            {label}
+          </span>
+          <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+            &gt;
+          </span>
+          {isRunning && (
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping ml-1" />
+          )}
+        </div>
+        {isExpanded && (
+          <div className="mt-1 mb-2 p-2 rounded bg-black/40 border border-white/10 font-mono text-[11px] text-neutral-300 overflow-x-auto max-h-48 scrollbar-thin">
+            <div className="text-neutral-500 select-none mb-1">$ {cmd}</div>
+            {result.stdout && <pre className="whitespace-pre-wrap">{result.stdout}</pre>}
+            {result.stderr && <pre className="whitespace-pre-wrap text-rose-400 mt-1">{result.stderr}</pre>}
+            {!result.stdout && !result.stderr && <div className="text-neutral-500 italic">(No output)</div>}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 3. EDIT FILE
+  if (name === 'edit_file') {
+    const filePath = args.path || result.relativePath || result.path || 'file';
+    const baseName = getBaseFileName(filePath);
+    const badge = getFileBadge(filePath);
+    let added = result.addedLines || 0;
+    let removed = result.removedLines || 0;
+    if (!added && !removed && result.diff) {
+      for (const line of result.diff.split(/\r?\n/)) {
+        if (line.startsWith('+ ') || (line.startsWith('+') && !line.startsWith('+++'))) added++;
+        else if (line.startsWith('- ') || (line.startsWith('-') && !line.startsWith('---'))) removed++;
+      }
+    }
+
+    return (
+      <div className="flex flex-col py-0.5 font-sans">
+        <div
+          className="flex items-center gap-1.5 text-[13px] leading-relaxed select-none cursor-pointer group"
+          onClick={result.diff ? onToggleExpand : undefined}
+        >
+          <span className="text-neutral-400 dark:text-neutral-400">
+            {isRunning ? 'Editing' : 'Edited'}
+          </span>
+          <span className="inline-flex items-center">{badge}</span>
+          <span className="text-neutral-200 dark:text-neutral-200 font-mono text-[12px]">
+            {baseName}
+          </span>
+          {!isRunning && (added > 0 || removed > 0) && (
+            <span className="inline-flex items-center gap-1.5 ml-0.5">
+              {added > 0 && (
+                <span className="text-emerald-400 font-mono text-[12px] font-medium">
+                  +{added}
+                </span>
+              )}
+              {removed > 0 && (
+                <span className="text-rose-400 font-mono text-[12px] font-medium">
+                  -{removed}
+                </span>
+              )}
+            </span>
+          )}
+          {result.diff && (
+            <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+              &gt;
+            </span>
+          )}
+          {isRunning && (
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping ml-1" />
+          )}
+        </div>
+        {isExpanded && result.diff && (
+          <div className="mt-1 mb-2 p-2 rounded bg-black/40 border border-white/10 font-mono text-[11px] overflow-x-auto max-h-48 scrollbar-thin">
+            <pre className="whitespace-pre-wrap text-neutral-300">
+              {result.diff.split('\n').map((l: string, idx: number) => (
+                <span
+                  key={idx}
+                  className={
+                    l.startsWith('+') && !l.startsWith('+++')
+                      ? 'text-emerald-400 block'
+                      : l.startsWith('-') && !l.startsWith('---')
+                      ? 'text-rose-400 block'
+                      : 'text-neutral-400 block'
+                  }
+                >
+                  {l}
+                </span>
+              ))}
+            </pre>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 4. WRITE FILE
+  if (name === 'write_file') {
+    const filePath = args.path || result.relativePath || result.path || 'file';
+    const baseName = getBaseFileName(filePath);
+    const badge = getFileBadge(filePath);
+    const added = result.addedLines || result.linesCount || 0;
+
+    return (
+      <div className="flex items-center gap-1.5 text-[13px] leading-relaxed py-0.5 select-none font-sans">
+        <span className="text-neutral-400 dark:text-neutral-400">
+          {isRunning ? 'Creating' : 'Created'}
+        </span>
+        <span className="inline-flex items-center">{badge}</span>
+        <span className="text-neutral-200 dark:text-neutral-200 font-mono text-[12px]">
+          {baseName}
+        </span>
+        {!isRunning && added > 0 && (
+          <span className="text-emerald-400 font-mono text-[12px] font-medium">
+            +{added}
+          </span>
+        )}
+        {isRunning && (
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping ml-1" />
+        )}
+      </div>
+    );
+  }
+
+  // 5. SEARCH CODE
+  if (name === 'search_code') {
+    const query = args.query || '';
+    const p = getBaseFileName(args.path);
+    return (
+      <div className="flex items-center gap-1.5 text-[13px] leading-relaxed py-0.5 select-none font-sans">
+        <span className="text-neutral-400 dark:text-neutral-400">
+          {isRunning ? 'Searching' : 'Searched'}
+        </span>
+        <span className="text-neutral-200 font-mono text-[12px]">"{query}"</span>
+        {p && p !== 'file' && <span className="text-neutral-500 font-mono text-[12px]">in {p}</span>}
+        {isRunning && (
+          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping ml-1" />
+        )}
+      </div>
+    );
+  }
+
+  // 6. LIST DIRECTORY
+  if (name === 'list_directory') {
+    const dir = getBaseFileName(args.path) || 'project';
+    return (
+      <div className="flex items-center gap-1.5 text-[13px] leading-relaxed py-0.5 select-none font-sans">
+        <span className="text-neutral-400 dark:text-neutral-400">
+          {isRunning ? 'Listing' : 'Listed'}
+        </span>
+        <span className="text-neutral-200 font-mono text-[12px]">{dir}</span>
+        {isRunning && (
+          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping ml-1" />
+        )}
+      </div>
+    );
+  }
+
+  // Fallback for any other tools
+  return (
+    <div className="flex items-center gap-1.5 text-[13px] leading-relaxed py-0.5 select-none font-sans">
+      <span className="text-neutral-400 dark:text-neutral-400">
+        {isRunning ? 'Running' : 'Executed'}
+      </span>
+      <span className="text-neutral-200 font-mono text-[12px]">
+        {name.replace(/_/g, ' ')}
+      </span>
+      {isRunning && (
+        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping ml-1" />
+      )}
+    </div>
+  );
+};
+
 export const ChatTab = React.memo<ChatTabProps>(({
   config,
   userName,
@@ -1157,10 +1509,343 @@ export const ChatTab = React.memo<ChatTabProps>(({
   onNewChat,
   onChangeConfig,
   activeModelPull,
+  agentMode = false,
+  activeWorkspaceRoot,
+  activeWorkspaceName,
+  conversations,
+  onSelectWorkspaceFolder,
+  onUpdateConversationMeta,
 }) => {
   const messages = activeConversation.messages;
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const isDarkTheme =
+    config.dashboardTheme === 'dark' ||
+    (typeof document !== 'undefined' &&
+      (document.documentElement.classList.contains('dark') ||
+        document.body.classList.contains('dark')));
+
+  // ---- Grokki Agent controls (effort / permission / project) ----
+  const [selectedEffort, setSelectedEffort] = useState<AgentEffort>(() => activeConversation.effort || 'high');
+  const [selectedPermission, setSelectedPermission] = useState<AgentPermission>(() => activeConversation.permission || 'turbo');
+  const [agentMenu, setAgentMenu] = useState<null | 'effort' | 'permission' | 'project'>(null);
+  const agentControlsRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setSelectedEffort(activeConversation.effort || 'high');
+    setSelectedPermission(activeConversation.permission || 'turbo');
+  }, [activeConversation.id, activeConversation.effort, activeConversation.permission]);
+
+  const agentRoot = activeConversation.workspaceRoot || '';
+  const agentRootName = activeConversation.workspaceName || (agentRoot ? agentRoot.replace(/[/\\]+$/, '').split(/[/\\]/).pop() : '') || '';
+  const isProjectLocked = agentMode && messages.length > 0 && Boolean(agentRoot);
+
+  const knownProjects = useMemo(() => {
+    const map = new Map<string, { root: string; name: string }>();
+    if (activeWorkspaceRoot) {
+      map.set(activeWorkspaceRoot, {
+        root: activeWorkspaceRoot,
+        name: activeWorkspaceName || activeWorkspaceRoot.replace(/[/\\]+$/, '').split(/[/\\]/).pop() || 'Project',
+      });
+    }
+    if (conversations && Array.isArray(conversations)) {
+      for (const c of conversations) {
+        if (c.workspaceRoot) {
+          const name = c.workspaceName || c.workspaceRoot.replace(/[/\\]+$/, '').split(/[/\\]/).pop() || 'Project';
+          map.set(c.workspaceRoot, { root: c.workspaceRoot, name });
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [conversations, activeWorkspaceRoot, activeWorkspaceName]);
+
+  const handleSetEffort = useCallback((eff: AgentEffort) => {
+    setSelectedEffort(eff);
+    setAgentMenu(null);
+    onUpdateConversationMeta?.(activeConversation.id, { effort: eff });
+  }, [activeConversation.id, onUpdateConversationMeta]);
+
+  const handleSetPermission = useCallback((perm: AgentPermission) => {
+    setSelectedPermission(perm);
+    setAgentMenu(null);
+    onUpdateConversationMeta?.(activeConversation.id, { permission: perm });
+  }, [activeConversation.id, onUpdateConversationMeta]);
+
+  useEffect(() => {
+    if (!agentMenu) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (agentControlsRef.current && target && !agentControlsRef.current.contains(target)) {
+        setAgentMenu(null);
+      }
+    };
+    const timer = setTimeout(() => {
+      window.addEventListener('mousedown', handleOutsideClick);
+    }, 20);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [agentMenu]);
+
+  const renderAgentControlsBar = () => {
+    const currentPermissionMeta = AGENT_PERMISSION_OPTIONS.find((p) => p.id === selectedPermission) || AGENT_PERMISSION_OPTIONS[3];
+    const PermIcon = currentPermissionMeta.icon;
+
+    return (
+      <div
+        ref={agentControlsRef}
+        className="flex items-center justify-between gap-2 px-1 pt-2 w-full select-none text-xs relative z-50 overflow-visible"
+      >
+        {/* Left: Project Selector (Locked after first message sent under root) */}
+        <div className="relative flex items-center gap-1.5 min-w-0">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isProjectLocked) return;
+              setAgentMenu(agentMenu === 'project' ? null : 'project');
+            }}
+            disabled={isProjectLocked}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11.5px] font-medium bg-gray-100 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-gray-700 dark:text-gray-300 border border-gray-200/70 dark:border-white/[0.08] transition-all max-w-[260px] truncate select-none ${
+              isProjectLocked ? 'cursor-default opacity-85' : 'cursor-pointer shadow-xs'
+            }`}
+            title={
+              isProjectLocked
+                ? `Project root is locked for this session (${agentRootName})`
+                : agentRoot
+                ? `Project Root: ${agentRoot} (Click to change or select folder)`
+                : 'Click to select project folder'
+            }
+          >
+            <Folder className="w-3.5 h-3.5 text-gray-400 dark:text-gray-300 shrink-0" />
+            <span className="truncate uppercase tracking-wider text-[11px] font-semibold">
+              {agentRoot ? agentRootName : 'No project selected'}
+            </span>
+            {isProjectLocked ? (
+              <Lock className="w-3 h-3 text-gray-400 dark:text-gray-500 shrink-0 ml-0.5" />
+            ) : (
+              <ChevronDown className="w-3 h-3 text-gray-400 shrink-0" />
+            )}
+          </button>
+
+          {/* Root Project Dropdown: ALWAYS ABOVE with frosted glass blur */}
+          {agentMenu === 'project' && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute left-0 bottom-full mb-2 w-72 rounded-2xl border border-white/[0.12] shadow-[0_20px_60px_rgba(0,0,0,0.85)] p-2 z-[9999] text-left transition-all duration-150 ease-out"
+              style={{
+                backdropFilter: 'blur(40px) saturate(190%)',
+                WebkitBackdropFilter: 'blur(40px) saturate(190%)',
+                backgroundColor: isDarkTheme ? 'rgba(15, 17, 23, 0.94)' : 'rgba(255, 255, 255, 0.94)',
+              }}
+            >
+              <div className="px-2.5 py-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                Root Project
+              </div>
+
+              <div className="flex flex-col gap-0.5 mt-1 max-h-56 overflow-y-auto no-scrollbar">
+                {knownProjects.map((p) => {
+                  const isSelected = agentRoot === p.root;
+                  return (
+                    <button
+                      key={p.root}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onUpdateConversationMeta?.(activeConversation.id, {
+                          workspaceRoot: p.root,
+                          workspaceName: p.name,
+                        });
+                        setAgentMenu(null);
+                      }}
+                      className={`flex items-start gap-2.5 w-full p-2 rounded-xl text-left transition-colors cursor-pointer border-none ${
+                        isSelected ? 'bg-white/[0.12] text-white' : 'hover:bg-white/[0.06] text-gray-300'
+                      }`}
+                    >
+                      <Folder className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="text-[12px] font-medium text-white truncate">{p.name}</span>
+                        <span className="text-[10px] text-gray-400 truncate leading-tight mt-0.5 font-mono">{p.root}</span>
+                      </div>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0 mt-0.5" />}
+                    </button>
+                  );
+                })}
+
+                {/* Browse folder from disk option */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setAgentMenu(null);
+                    onSelectWorkspaceFolder?.();
+                  }}
+                  className="flex items-center gap-2.5 w-full p-2 rounded-xl text-left transition-colors cursor-pointer border-none hover:bg-white/[0.06] text-gray-300 border-t border-white/5 mt-1 pt-1.5"
+                >
+                  <FolderPlus className="w-4 h-4 text-gray-400 shrink-0" />
+                  <span className="text-[12px] font-medium text-gray-200">Browse folder on disk...</span>
+                </button>
+
+                {agentRoot && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onUpdateConversationMeta?.(activeConversation.id, {
+                        workspaceRoot: undefined,
+                        workspaceName: undefined,
+                      });
+                      setAgentMenu(null);
+                    }}
+                    className="flex items-center gap-2.5 w-full p-1.5 rounded-lg text-left transition-colors cursor-pointer border-none hover:bg-red-500/10 text-red-400 text-[11px]"
+                  >
+                    <span>Deselect project root</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Effort & Permissions */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Effort Level Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAgentMenu(agentMenu === 'effort' ? null : 'effort');
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11.5px] font-medium bg-gray-100 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-gray-700 dark:text-gray-300 border border-gray-200/70 dark:border-white/[0.08] transition-all cursor-pointer shadow-xs"
+            >
+              <Gauge className="w-3.5 h-3.5 text-gray-400 dark:text-gray-300 shrink-0" />
+              <span>
+                Effort: <span className="capitalize font-semibold text-gray-900 dark:text-white">{selectedEffort}</span>
+              </span>
+              <ChevronDown className="w-3 h-3 text-gray-400 shrink-0" />
+            </button>
+
+            {agentMenu === 'effort' && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute right-0 bottom-full mb-2 w-64 rounded-2xl border border-white/[0.12] shadow-[0_20px_60px_rgba(0,0,0,0.85)] p-2 z-[9999] text-left transition-all duration-150 ease-out"
+                style={{
+                  backdropFilter: 'blur(40px) saturate(190%)',
+                  WebkitBackdropFilter: 'blur(40px) saturate(190%)',
+                  backgroundColor: isDarkTheme ? 'rgba(15, 17, 23, 0.94)' : 'rgba(255, 255, 255, 0.94)',
+                }}
+              >
+                <div className="px-2.5 py-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Effort Level
+                </div>
+                <div className="flex flex-col gap-0.5 mt-1">
+                  {AGENT_EFFORT_OPTIONS.map((opt) => {
+                    const isSelected = selectedEffort === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleSetEffort(opt.id);
+                        }}
+                        className={`flex items-start justify-between w-full p-2 rounded-xl text-left transition-colors cursor-pointer border-none ${
+                          isSelected ? 'bg-white/[0.12] text-white' : 'hover:bg-white/[0.06] text-gray-300'
+                        }`}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-[12px] font-medium text-white">{opt.label} ({opt.turns} steps)</span>
+                          <span className="text-[10.5px] text-gray-400 leading-tight mt-0.5">{opt.desc}</span>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0 mt-0.5" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Local Permissions Dropdown (Blurred glass background & monochrome icons) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAgentMenu(agentMenu === 'permission' ? null : 'permission');
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11.5px] font-medium bg-gray-100 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-gray-700 dark:text-gray-300 border border-gray-200/70 dark:border-white/[0.08] transition-all cursor-pointer shadow-xs"
+            >
+              <PermIcon className="w-3.5 h-3.5 text-gray-400 dark:text-gray-300 shrink-0" />
+              <span className="font-semibold text-gray-900 dark:text-white">
+                {selectedPermission === 'turbo' ? 'Turbo' : currentPermissionMeta.label}
+              </span>
+              <ChevronDown className="w-3 h-3 text-gray-400 shrink-0" />
+            </button>
+
+            {agentMenu === 'permission' && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute right-0 bottom-full mb-2 w-72 rounded-2xl border border-white/[0.12] shadow-[0_20px_60px_rgba(0,0,0,0.85)] p-2.5 z-[9999] text-left transition-all duration-150 ease-out"
+                style={{
+                  backdropFilter: 'blur(40px) saturate(190%)',
+                  WebkitBackdropFilter: 'blur(40px) saturate(190%)',
+                  backgroundColor: isDarkTheme ? 'rgba(15, 17, 23, 0.94)' : 'rgba(255, 255, 255, 0.94)',
+                }}
+              >
+                <div className="px-2 py-1 mb-1 text-[12.5px] font-medium text-gray-300">
+                  Local Permissions
+                </div>
+                <div className="flex flex-col gap-1">
+                  {AGENT_PERMISSION_OPTIONS.map((opt) => {
+                    const IconComponent = opt.icon;
+                    const isSelected = selectedPermission === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleSetPermission(opt.id);
+                        }}
+                        className={`flex items-start gap-3 w-full p-2 rounded-xl text-left transition-colors cursor-pointer border-none ${
+                          isSelected ? 'bg-white/[0.12]' : 'hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        <IconComponent className="w-4 h-4 text-gray-300 shrink-0 mt-0.5" />
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[12.5px] font-medium text-white">{opt.label}</span>
+                            {opt.isDefault && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-normal bg-white/10 text-gray-300 border border-white/10">
+                                Default <Info className="w-2.5 h-2.5 ml-0.5 inline opacity-70" />
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-gray-400 leading-tight mt-0.5">{opt.desc}</span>
+                        </div>
+                        {isSelected && (
+                          <Check className="w-4 h-4 text-white shrink-0 mt-0.5" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
   const isChatThinking = Boolean(thinkingConvoIds ? thinkingConvoIds.has(activeConversation.id) : loading);
 
   useEffect(() => {
@@ -1305,6 +1990,24 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }
     return (config[currentBrainInfo.modelField] as string) || currentBrainInfo.defaultModel;
   }, [activeBrain, config, currentBrainInfo]);
+
+  const applyAgentContext = useCallback((context: any) => {
+    context.provider = activeBrain;
+    context.model = currentModelValue;
+    if (agentMode) {
+      context.mode = 'agent';
+      context.conversationId = activeConversation.id;
+      context.workspaceRoot = agentRoot;
+      context.workspaceName = agentRootName;
+      context.effort = selectedEffort;
+      context.permission = selectedPermission;
+      const matched = AGENT_EFFORT_OPTIONS.find((o) => o.id === selectedEffort);
+      if (matched) {
+        context.maxTurns = matched.turns;
+        context.maxAgentSteps = matched.turns;
+      }
+    }
+  }, [activeBrain, currentModelValue, activeConversation.id, agentMode, agentRoot, agentRootName, selectedEffort, selectedPermission]);
 
   // Auto-fetch provider models for ChatTab if not cached yet (guarded to never re-trigger infinite loop)
   useEffect(() => {
@@ -2150,6 +2853,290 @@ export const ChatTab = React.memo<ChatTabProps>(({
     setLightboxState((prev) => ({ ...prev, isOpen: false }));
   };
 
+  // Grokki Agent Local Permission Interactive Bridge
+  interface ToolPermissionRequestData {
+    id: string;
+    conversationId?: string;
+    tool: string;
+    command?: string;
+    path?: string;
+    actionSummary?: string;
+    codeSnippet?: string;
+    args?: any;
+  }
+
+  const [pendingPermission, setPendingPermission] = useState<ToolPermissionRequestData | null>(null);
+  const [selectedOptionIndex, setSelectedOptionIndex] = useState<number>(0);
+  const [permissionFeedback, setPermissionFeedback] = useState<string>('');
+
+  useEffect(() => {
+    if (!window.jarvisAPI?.onToolPermissionRequest) return;
+    const unsub = window.jarvisAPI.onToolPermissionRequest((req) => {
+      if (req && (!req.conversationId || req.conversationId === activeConversation.id || req.conversationId === 'default')) {
+        setPendingPermission(req);
+        setSelectedOptionIndex(0);
+        setPermissionFeedback('');
+      }
+    });
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
+  }, [activeConversation.id]);
+
+  const [liveStepsByConvo, setLiveStepsByConvo] = useState<Record<string, AgentLiveStep[]>>({});
+  const [expandedStepIds, setExpandedStepIds] = useState<Set<string>>(new Set());
+
+  const toggleStepExpand = useCallback((stepId: string) => {
+    setExpandedStepIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(stepId)) next.delete(stepId);
+      else next.add(stepId);
+      return next;
+    });
+  }, []);
+
+  const currentLiveSteps = useMemo(() => {
+    return liveStepsByConvo[activeConversation.id] || [];
+  }, [liveStepsByConvo, activeConversation.id]);
+
+  useEffect(() => {
+    const api = window.jarvisAPI || (window as any).jarvis;
+    if (!api?.onAgentStep) return;
+    const unsub = api.onAgentStep((step: AgentLiveStep) => {
+      const targetId = step.conversationId || activeConversation.id;
+      if (step.status === 'idle') {
+        setLiveStepsByConvo((prev) => {
+          const next = { ...prev };
+          delete next[targetId];
+          return next;
+        });
+        return;
+      }
+      setLiveStepsByConvo((prev) => {
+        const list = prev[targetId] ? [...prev[targetId]] : [];
+        const idx = list.findIndex((s) => s.id === step.id);
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], ...step };
+        } else {
+          list.push(step);
+        }
+        return { ...prev, [targetId]: list };
+      });
+    });
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
+  }, [activeConversation.id]);
+
+  const handlePermissionSubmit = useCallback(() => {
+    if (!pendingPermission) return;
+    const decisions: Array<'once' | 'conversation' | 'global' | 'reject'> = ['once', 'conversation', 'global', 'reject'];
+    const decision = decisions[selectedOptionIndex] || 'once';
+
+    if (window.jarvisAPI?.respondToolPermission) {
+      window.jarvisAPI.respondToolPermission({
+        id: pendingPermission.id,
+        decision,
+        feedback: decision === 'reject' ? permissionFeedback : undefined,
+      });
+    }
+    setPendingPermission(null);
+    setPermissionFeedback('');
+    setSelectedOptionIndex(0);
+  }, [pendingPermission, selectedOptionIndex, permissionFeedback]);
+
+  const handlePermissionSkip = useCallback(() => {
+    if (!pendingPermission) return;
+    if (window.jarvisAPI?.respondToolPermission) {
+      window.jarvisAPI.respondToolPermission({
+        id: pendingPermission.id,
+        decision: 'skip',
+      });
+    }
+    setPendingPermission(null);
+    setPermissionFeedback('');
+    setSelectedOptionIndex(0);
+  }, [pendingPermission]);
+
+  useEffect(() => {
+    if (!pendingPermission) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+      const isInput = activeTag === 'input' || activeTag === 'textarea';
+
+      if (!isInput) {
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSelectedOptionIndex((prev) => (prev <= 0 ? 3 : prev - 1));
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSelectedOptionIndex((prev) => (prev >= 3 ? 0 : prev + 1));
+        } else if (e.key === '1') {
+          e.preventDefault();
+          setSelectedOptionIndex(0);
+        } else if (e.key === '2') {
+          e.preventDefault();
+          setSelectedOptionIndex(1);
+        } else if (e.key === '3') {
+          e.preventDefault();
+          setSelectedOptionIndex(2);
+        } else if (e.key === '4') {
+          e.preventDefault();
+          setSelectedOptionIndex(3);
+        }
+      }
+
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handlePermissionSubmit();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        handlePermissionSkip();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pendingPermission, handlePermissionSubmit, handlePermissionSkip]);
+
+  const renderHighlightedCommand = (code: string) => {
+    if (!code) return null;
+    const tokens = code.match(/("[^"]*"|'[^']*'|-[A-Za-z0-9_]+|\b\d+\b|[^\s"'-]+|\s+)/g) || [code];
+    let isFirstWord = true;
+
+    return tokens.map((token, idx) => {
+      if (token.startsWith('"') || token.startsWith("'")) {
+        return <span key={idx} className="text-[#98c379]">{token}</span>;
+      }
+      if (token.startsWith('-')) {
+        return <span key={idx} className="text-[#56b6c2]">{token}</span>;
+      }
+      if (/^\d+$/.test(token)) {
+        return <span key={idx} className="text-[#d19a66]">{token}</span>;
+      }
+      if (/^\s+$/.test(token)) {
+        return token;
+      }
+      if (isFirstWord) {
+        isFirstWord = false;
+        return <span key={idx} className="text-[#e5c07b] font-semibold">{token}</span>;
+      }
+      return <span key={idx} className="text-gray-200">{token}</span>;
+    });
+  };
+
+  const renderPermissionCard = () => {
+    if (!pendingPermission || !agentMode) return null;
+
+    const rawAction = pendingPermission.command || pendingPermission.codeSnippet || pendingPermission.path || pendingPermission.actionSummary || 'this action';
+    const summaryTitle = pendingPermission.actionSummary || (pendingPermission.command ? `search or run: ${pendingPermission.command.slice(0, 45)}` : 'action');
+
+    const options = [
+      { id: 'once', label: 'Yes, allow this time' },
+      { id: 'conversation', label: `Yes, and always allow '${rawAction}' in this conversation` },
+      { id: 'global', label: `Yes, and always allow '${rawAction}'` },
+      { id: 'reject', label: 'No (tell the agent what to do instead)' },
+    ];
+
+    const displayCode = pendingPermission.codeSnippet || pendingPermission.command || pendingPermission.path || '';
+
+    return (
+      <div className="w-full mb-2.5 rounded-2xl bg-[#0e1017]/98 border border-white/[0.08] p-3 shadow-2xl backdrop-blur-2xl text-left select-none animate-in fade-in duration-150">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="relative flex items-center justify-center w-4 h-4 text-gray-400 shrink-0">
+            <svg className="w-3.5 h-3.5 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="4 17 10 11 4 5" />
+              <line x1="12" y1="19" x2="20" y2="19" />
+            </svg>
+            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-blue-500 ring-2 ring-[#0e1017]" />
+          </div>
+          <span className="text-[13px] font-semibold text-white tracking-tight">
+            Allow {summaryTitle}?
+          </span>
+        </div>
+
+        {displayCode && (
+          <div className="bg-[#07080b] border border-white/[0.06] rounded-lg px-3 py-1.5 font-mono text-[11.5px] leading-relaxed max-h-24 overflow-y-auto mb-2 select-text shadow-inner">
+            {renderHighlightedCommand(displayCode)}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-1 mb-2">
+          {options.map((opt, idx) => {
+            const isSelected = selectedOptionIndex === idx;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setSelectedOptionIndex(idx)}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left transition-colors cursor-pointer border ${
+                  isSelected
+                    ? 'bg-white/[0.08] border-white/10 text-white'
+                    : 'bg-transparent border-transparent text-gray-300 hover:text-white hover:bg-white/[0.03]'
+                }`}
+              >
+                <span className={`w-4.5 h-4.5 rounded flex items-center justify-center text-[10.5px] font-mono font-semibold shrink-0 transition-colors ${
+                  isSelected ? 'bg-white/15 text-white' : 'bg-white/[0.05] text-gray-400'
+                }`}>
+                  {idx + 1}
+                </span>
+                <span className="text-[11.5px] leading-snug break-words flex-1 font-normal">
+                  {opt.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {selectedOptionIndex === 3 && (
+          <div className="mb-2">
+            <input
+              type="text"
+              placeholder="Tell the agent what to do instead (optional)..."
+              value={permissionFeedback}
+              onChange={(e) => setPermissionFeedback(e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/15 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+              autoFocus
+            />
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-1.5 border-t border-white/[0.06]">
+          <button
+            type="button"
+            title="Dictate with voice"
+            onClick={() => {
+              if (!isRecording) startVoiceRecording();
+            }}
+            className="p-1 text-gray-400 hover:text-white rounded-md transition-colors cursor-pointer bg-transparent border-none"
+          >
+            <Mic className="w-4 h-4" />
+          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePermissionSkip}
+              className="px-2.5 py-1 text-[11.5px] font-medium text-gray-400 hover:text-white transition-colors cursor-pointer bg-transparent border-none"
+            >
+              Skip
+            </button>
+            <button
+              type="button"
+              onClick={handlePermissionSubmit}
+              className="px-3.5 py-1 bg-blue-600 hover:bg-blue-500 text-white text-[11.5px] font-medium rounded-full flex items-center gap-1.5 shadow-xs active:scale-[0.98] transition-all cursor-pointer border-none"
+            >
+              <span>Submit</span>
+              <svg className="w-3.5 h-3.5 stroke-[2.2]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 10 4 15 9 20" />
+                <path d="M20 4v7a4 4 0 0 1-4 4H4" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // WhatsApp-style Attachment Menu & Camera Capture State
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [activeAttachCategory, setActiveAttachCategory] = useState<'document' | 'photo' | 'video' | 'audio'>('document');
@@ -2496,6 +3483,30 @@ export const ChatTab = React.memo<ChatTabProps>(({
     const targetId = activeConversation.id;
     cancelledConvosRef.current.add(targetId);
     onSetConvoThinking?.(targetId, false);
+    setLiveStepsByConvo((prev) => {
+      const next = { ...prev };
+      delete next[targetId];
+      return next;
+    });
+
+    // If a tool permission review card is active, immediately reject it, dismiss the card, and terminate
+    if (pendingPermission) {
+      try {
+        if (window.jarvisAPI?.respondToolPermission) {
+          window.jarvisAPI.respondToolPermission({
+            id: pendingPermission.id,
+            decision: 'reject',
+            feedback: 'Terminated by user',
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to respond permission on cancel:', e);
+      }
+      setPendingPermission(null);
+      setPermissionFeedback('');
+      setSelectedOptionIndex(0);
+    }
+
     try {
       if (window.jarvisAPI?.cancelTask) {
         window.jarvisAPI.cancelTask(targetId);
@@ -2522,7 +3533,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     } else {
       onUpdateMessages((prev) => [...prev, cancelMsg]);
     }
-  }, [activeConversation.id, onSetConvoThinking, onUpdateConvoMessages, onUpdateMessages]);
+  }, [activeConversation.id, onSetConvoThinking, onUpdateConvoMessages, onUpdateMessages, pendingPermission]);
 
   const handleSendMessage = async (textToSend?: string) => {
     if (isRecording) {
@@ -2531,7 +3542,17 @@ export const ChatTab = React.memo<ChatTabProps>(({
     let text = (textToSend || inputValue).trim();
     if (!text && !attachedFile) return;
 
+    if (agentMode && !agentRoot) {
+      onSelectWorkspaceFolder?.();
+      return;
+    }
+
     const targetConvoId = activeConversation.id;
+    setLiveStepsByConvo((prev) => {
+      const next = { ...prev };
+      delete next[targetConvoId];
+      return next;
+    });
     const updateTargetMessages = (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
       if (onUpdateConvoMessages) {
         onUpdateConvoMessages(targetConvoId, updater);
@@ -2708,6 +3729,16 @@ export const ChatTab = React.memo<ChatTabProps>(({
             role: m.role,
             content: m.content,
           }));
+        }
+        applyAgentContext(context);
+        if (agentMode && onUpdateConversationMeta) {
+          onUpdateConversationMeta(targetConvoId, {
+            mode: 'agent',
+            workspaceRoot: agentRoot,
+            workspaceName: agentRootName,
+            effort: selectedEffort,
+            permission: selectedPermission,
+          });
         }
         const res = await window.jarvisAPI.executeAI(text, context);
         if (cancelledConvosRef.current.has(targetConvoId)) return;
@@ -2920,9 +3951,17 @@ export const ChatTab = React.memo<ChatTabProps>(({
     if (e.key === 'Enter') {
       if (sendOnEnter && !e.shiftKey) {
         e.preventDefault();
+        if (agentMode && !agentRoot) {
+          onSelectWorkspaceFolder?.();
+          return;
+        }
         handleSendMessage();
       } else if (!sendOnEnter && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
+        if (agentMode && !agentRoot) {
+          onSelectWorkspaceFolder?.();
+          return;
+        }
         handleSendMessage();
       }
     }
@@ -2965,6 +4004,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
     };
 
     const targetConvoId = activeConversation.id;
+    setLiveStepsByConvo((prev) => {
+      const next = { ...prev };
+      delete next[targetConvoId];
+      return next;
+    });
     const updateTargetMessages = (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
       if (onUpdateConvoMessages) {
         onUpdateConvoMessages(targetConvoId, updater);
@@ -3047,6 +4091,17 @@ export const ChatTab = React.memo<ChatTabProps>(({
             role: m.role,
             content: m.content,
           }));
+        }
+
+        applyAgentContext(context);
+        if (agentMode && onUpdateConversationMeta) {
+          onUpdateConversationMeta(targetConvoId, {
+            mode: 'agent',
+            workspaceRoot: agentRoot,
+            workspaceName: agentRootName,
+            effort: selectedEffort,
+            permission: selectedPermission,
+          });
         }
 
         const res = await window.jarvisAPI.executeAI(trimmed, context);
@@ -3554,6 +4609,9 @@ export const ChatTab = React.memo<ChatTabProps>(({
     ];
 
     const isTop = placement === 'top';
+    const visibleItems = agentMode
+      ? items.filter((item) => item.id !== 'video' && item.id !== 'audio')
+      : items;
 
     return (
       <AnimatePresence>
@@ -3569,7 +4627,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
             } w-52 bg-white dark:bg-[#141417] border border-gray-200 dark:border-white/[0.08] rounded-xl p-1.5 z-50 select-none shadow-xl shadow-black/10 dark:shadow-2xl`}
           >
             <div className="flex flex-col gap-0.5">
-              {items.map((item) => (
+              {visibleItems.map((item) => (
                 <button
                   key={item.id}
                   type="button"
@@ -3702,12 +4760,6 @@ export const ChatTab = React.memo<ChatTabProps>(({
     </AnimatePresence>
   );
 
-  const isDarkTheme =
-    config.dashboardTheme === 'dark' ||
-    (typeof document !== 'undefined' &&
-      (document.documentElement.classList.contains('dark') ||
-        document.body.classList.contains('dark')));
-
   return (
     <WarmTooltipGroup delay={400} warmWindow={300} travel={320} lean={false}>
     <div
@@ -3751,11 +4803,16 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
       {/* Background Gradient Effect (Grokki Threads or Grainient Fluid Mesh) */}
       {!!config.chatBackgroundGradient && (
-        <div
-          key={`chat-bg-${config.chatBackgroundEffect === 'grainient' ? 'grainient' : 'grokki-threads'}`}
-          className="absolute inset-0 pointer-events-none overflow-hidden z-0"
-          style={{ width: '100%', height: '100%', position: 'absolute' }}
-        >
+        <AnimatePresence mode="sync">
+          <motion.div
+            key={`chat-bg-${config.chatBackgroundEffect === 'grainient' ? 'grainient' : 'grokki-threads'}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.45, ease: 'easeInOut' }}
+            className="absolute inset-0 pointer-events-none overflow-hidden z-0"
+            style={{ width: '100%', height: '100%', position: 'absolute' }}
+          >
           {config.chatBackgroundEffect === 'grainient' ? (
             (() => {
               const gSettings = {
@@ -3790,7 +4847,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           ) : (
             <div className="w-full h-full relative" style={{ width: '100%', height: '100%', position: 'relative' }}>
               <Threads
-                color="#4769c8"
+                color={agentMode ? '#8b5cf6' : '#4769c8'}
                 lineCount={90}
                 thickness={0.6}
                 softness={1.3}
@@ -3812,7 +4869,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
               />
             </div>
           )}
-        </div>
+        </motion.div>
+        </AnimatePresence>
       )}
 
       {/* Background Noise & Scanlines Overlay Above Gradient */}
@@ -3841,16 +4899,67 @@ export const ChatTab = React.memo<ChatTabProps>(({
       {/* Messages / Hero View */}
       {messages.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center px-4 pt-6 pb-4">
-          {/* Grokki Badge */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] text-[11px] font-semibold text-gray-800 dark:text-gray-200 mb-3 select-none">
-            <img src={grokkiIcon} alt="Grokki" className="w-3.5 h-3.5 rounded-full" />
-            <span>Grokki</span>
-          </div>
+          <AnimatePresence mode="wait" initial={false}>
+            {agentMode ? (
+              /* Single Grokki White Square Logo in Agent mode with subtle bottom fade - NO text */
+              <motion.div
+                key="agent-studio-single-white-logo"
+                initial={{ opacity: 0, scale: 0.94 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.94 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                className="flex items-center justify-center mb-5 select-none pointer-events-none"
+              >
+                <img
+                  src={grokkiLogo}
+                  alt="Grokki"
+                  draggable={false}
+                  className="w-12 h-12 md:w-14 md:h-14 object-contain filter brightness-0 invert drop-shadow-[0_4px_24px_rgba(255,255,255,0.15)]"
+                  style={{
+                    maskImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 1) 45%, rgba(0, 0, 0, 0.08) 100%)',
+                    WebkitMaskImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 1) 45%, rgba(0, 0, 0, 0.08) 100%)',
+                  }}
+                />
+              </motion.div>
+            ) : (
+              /* Grokki Tag Pill with 3D Cosmic Logo Icon in Chat mode */
+              <motion.div
+                key="chat-brand-pill"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/80 dark:border-white/[0.08] shadow-2xs mb-4 select-none"
+              >
+                <img
+                  src={grokkiIcon}
+                  alt="Grokki"
+                  className="w-4.5 h-4.5 object-contain"
+                />
+                <span className="text-xs font-semibold tracking-tight text-gray-900 dark:text-white">
+                  Grokki
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Persona Heading */}
-          <h1 className="text-[22px] md:text-[24px] font-semibold tracking-[-0.03em] text-gray-950 dark:text-white mb-6 font-sans">
-            Ready when you are. What are we executing today?
-          </h1>
+          <div className="min-h-[32px] md:min-h-[36px] flex items-center justify-center mb-6">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.h1
+                key={agentMode ? 'agent-heading' : 'chat-heading'}
+                initial={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -6, filter: 'blur(4px)' }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                className="text-[22px] md:text-[24px] font-semibold tracking-[-0.03em] text-gray-950 dark:text-white font-sans"
+              >
+                {agentMode
+                  ? 'Autonomous Coding Agent. What are we building today?'
+                  : 'Ready when you are. What are we executing today?'}
+              </motion.h1>
+            </AnimatePresence>
+          </div>
 
           {/* Staged File Preview Card */}
           {attachedFile && (
@@ -3906,7 +5015,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           )}
 
           {/* Centered Floating Input Pill with Slash Command Palette & Mention Palette */}
-          <div className="w-full max-w-xl mx-auto relative z-30">
+          <div className="w-full max-w-xl mx-auto relative z-30 transition-all duration-200">
             {renderSlashMenu()}
             {renderMentionMenu('bottom')}
             {renderSynthesizerVisualizer()}
@@ -3931,6 +5040,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
               </div>
             )}
 
+            {renderPermissionCard()}
+
             <SpecularButton
               as="div"
               size="lg"
@@ -3951,8 +5062,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
               proximity={250}
               className="w-full bg-white dark:bg-[#0f0f13] shadow-sm hover:shadow-md p-3 transition-all flex flex-col gap-2.5 text-left relative z-20"
             >
-              {/* Battle Stage Selector when Dual-Battle Mode is active */}
-              {dualBattleEnabled && renderBattleStageBar('top')}
+              {/* Battle Stage Selector when Dual-Battle Mode is active (Only in Grokki Chat) */}
+              {dualBattleEnabled && !agentMode && renderBattleStageBar('top')}
 
               {/* Input Field on Top with Inline Brand Icon & Grokki Blue URL Highlighting */}
               <RichBrandInput
@@ -3963,6 +5074,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 placeholder={
                   isRecording
                     ? "Listening... speaking your prompt"
+                    : agentMode && !agentRoot
+                    ? "Select a project folder below before sending tasks..."
+                    : agentMode
+                    ? `Ask Grokki Agent to inspect, edit, or run commands in ${agentRootName}...`
                     : attachedFile
                     ? isVideoAttachment(attachedFile)
                     ? `Send ${attachedFile.name} on WhatsApp or upload to Drive...`
@@ -4014,69 +5129,81 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   {/* AI Brain Model Selector Dropdown below the input next to plus */}
                   {renderModelSelector('top', 'left')}
 
-                  {/* Perplexity-Style Web Grounding Search Toggle (Icon-only, hover reveals name) */}
-                  <WarmTooltip
-                    content={webSearchEnabled ? 'Deep Search: ON (Live grounding)' : 'Deep Search: OFF'}
-                    side="top"
-                    surfaceColor="#f5f5f5"
-                    inkColor="#18181b"
-                    size="md"
-                    radius={8}
-                    gap={8}
-                    arrow
-                    popDuration={160}
-                    popScale={0.94}
-                    popBlur={4}
-                    showFuse={false}
-                  >
-                    <button
-                      type="button"
-                      aria-label="Toggle Deep Search"
-                      onClick={() => setWebSearchEnabled((prev) => !prev)}
-                      className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
-                        webSearchEnabled
-                          ? 'bg-sky-500/15 text-sky-400 border-sky-500/40 shadow-xs font-semibold'
-                          : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      <Globe className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${webSearchEnabled ? 'text-sky-400' : 'text-gray-400'}`} />
-                      <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
-                        Deep Search
-                      </span>
-                    </button>
-                  </WarmTooltip>
+                  {/* Deep Search Button & Dual-Battle Button (Hidden in Grokki Agent Mode) */}
+                  <AnimatePresence initial={false}>
+                    {!agentMode && (
+                      <motion.div
+                        key="chat-mode-extras-hero"
+                        initial={{ opacity: 0, width: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, width: 'auto', scale: 1 }}
+                        exit={{ opacity: 0, width: 0, scale: 0.9 }}
+                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                        className="flex items-center gap-1.5 overflow-hidden"
+                      >
+                        <WarmTooltip
+                          content={webSearchEnabled ? 'Deep Search: ON (Live grounding)' : 'Deep Search: OFF'}
+                          side="top"
+                          surfaceColor="#f5f5f5"
+                          inkColor="#18181b"
+                          size="md"
+                          radius={8}
+                          gap={8}
+                          arrow
+                          popDuration={160}
+                          popScale={0.94}
+                          popBlur={4}
+                          showFuse={false}
+                        >
+                          <button
+                            type="button"
+                            aria-label="Toggle Deep Search"
+                            onClick={() => setWebSearchEnabled((prev) => !prev)}
+                            className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
+                              webSearchEnabled
+                                ? 'bg-sky-500/15 text-sky-400 border-sky-500/40 shadow-xs font-semibold'
+                                : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
+                            }`}
+                          >
+                            <Globe className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${webSearchEnabled ? 'text-sky-400' : 'text-gray-400'}`} />
+                            <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
+                              Deep Search
+                            </span>
+                          </button>
+                        </WarmTooltip>
 
-                  {/* Multi-Brain Dual-Battle Mode Toggle (Icon-only, hover reveals name) */}
-                  <WarmTooltip
-                    content={dualBattleEnabled ? 'Dual-Battle: ON (Concurrent comparison)' : 'Dual-Battle: OFF'}
-                    side="top"
-                    surfaceColor="#f5f5f5"
-                    inkColor="#18181b"
-                    size="md"
-                    radius={8}
-                    gap={8}
-                    arrow
-                    popDuration={160}
-                    popScale={0.94}
-                    popBlur={4}
-                    showFuse={false}
-                  >
-                    <button
-                      type="button"
-                      aria-label="Toggle Dual-Battle Mode"
-                      onClick={() => setDualBattleEnabled((prev) => !prev)}
-                      className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
-                        dualBattleEnabled
-                          ? 'bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/40 shadow-xs font-semibold'
-                          : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      <Swords className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${dualBattleEnabled ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`} />
-                      <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
-                        Dual Battle
-                      </span>
-                    </button>
-                  </WarmTooltip>
+                        <WarmTooltip
+                          content={dualBattleEnabled ? 'Dual-Battle: ON (Concurrent comparison)' : 'Dual-Battle: OFF'}
+                          side="top"
+                          surfaceColor="#f5f5f5"
+                          inkColor="#18181b"
+                          size="md"
+                          radius={8}
+                          gap={8}
+                          arrow
+                          popDuration={160}
+                          popScale={0.94}
+                          popBlur={4}
+                          showFuse={false}
+                        >
+                          <button
+                            type="button"
+                            aria-label="Toggle Dual-Battle Mode"
+                            onClick={() => setDualBattleEnabled((prev) => !prev)}
+                            className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
+                              dualBattleEnabled
+                                ? 'bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/40 shadow-xs font-semibold'
+                                : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
+                            }`}
+                          >
+                            <Swords className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${dualBattleEnabled ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`} />
+                            <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
+                              Dual Battle
+                            </span>
+                          </button>
+                        </WarmTooltip>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -4116,7 +5243,13 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
                   {/* Send / Stop Button */}
                   <WarmTooltip
-                    content={isChatThinking ? 'Stop task / generation' : 'Send message'}
+                    content={
+                      isChatThinking
+                        ? 'Stop task / generation'
+                        : agentMode && !agentRoot
+                        ? 'Please select a project folder below first'
+                        : 'Send message'
+                    }
                     shortcut={isChatThinking ? 'ESC' : '↵'}
                     side="top"
                     surfaceColor="#f5f5f5"
@@ -4131,24 +5264,30 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   >
                     <button
                       type="button"
-                      aria-label={isChatThinking ? 'Stop generation' : 'Send message'}
+                      aria-label={isChatThinking || Boolean(pendingPermission) ? 'Stop / Terminate' : 'Send message'}
                       onClick={() => {
-                        if (isChatThinking) {
+                        if (isChatThinking || Boolean(pendingPermission)) {
                           handleStopGeneration();
                         } else {
                           handleSendMessage();
                         }
                       }}
-                      disabled={!isChatThinking && !inputValue.trim() && !attachedFile}
+                      disabled={
+                        !isChatThinking && !pendingPermission && (
+                          agentMode
+                            ? (!inputValue.trim() || !agentRoot)
+                            : (!inputValue.trim() && !attachedFile)
+                        )
+                      }
                       className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
-                        isChatThinking
+                        isChatThinking || Boolean(pendingPermission)
                           ? 'bg-red-500 hover:bg-red-600 text-white dark:bg-red-500 dark:hover:bg-red-600 shadow-md ring-2 ring-red-500/20'
-                          : inputValue.trim() || attachedFile
+                          : (!agentMode && (inputValue.trim() || attachedFile)) || (agentMode && inputValue.trim() && agentRoot)
                           ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
                           : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      {isChatThinking ? (
+                      {isChatThinking || Boolean(pendingPermission) ? (
                         <Square className="w-3 h-3 fill-current" />
                       ) : (
                         <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -4158,53 +5297,78 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 </div>
               </div>
             </SpecularButton>
+            <AnimatePresence initial={false}>
+              {agentMode && (
+                <motion.div
+                  key="agent-controls-bar-hero"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  className="w-full relative z-40 overflow-visible"
+                >
+                  {renderAgentControlsBar()}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          {/* Suggestions & Quick Commands Vertical List */}
-          <div className="w-full max-w-xl mt-6 text-left relative z-10">
-            <div className="flex items-center justify-between mb-2 px-1">
-              <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase">
-                Suggestions & Commands
-              </span>
-              <span className="text-[9.5px] font-mono text-gray-400 dark:text-gray-600">
-                Click to execute
-              </span>
-            </div>
+          {/* Suggestions & Quick Commands Vertical List (Hidden in Grokki Agent Mode) */}
+          <AnimatePresence initial={false}>
+            {!agentMode && (
+              <motion.div
+                key="chat-suggestions-list"
+                initial={{ opacity: 0, height: 0, y: 16 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: 16 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                className="w-full max-w-xl mt-6 text-left relative z-10 overflow-hidden"
+              >
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase">
+                    Suggestions & Commands
+                  </span>
+                  <span className="text-[9.5px] font-mono text-gray-400 dark:text-gray-600">
+                    Click to execute
+                  </span>
+                </div>
 
-            <div className="w-full rounded-xl border border-gray-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-[#0e0f14]/85 backdrop-blur-md overflow-hidden divide-y divide-gray-100 dark:divide-white/[0.04] shadow-xs">
-              {suggestions.map((item, idx) => {
-                const IconComponent = item.icon;
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSendMessage(item.prompt)}
-                    className="w-full flex items-center justify-between px-3.5 py-2.5 text-left transition-colors duration-150 hover:bg-gray-100/80 dark:hover:bg-white/[0.04] group cursor-pointer border-none bg-transparent"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 pr-2">
-                      <div className="w-7 h-7 rounded-md bg-gray-100/90 dark:bg-white/[0.04] border border-gray-200/80 dark:border-white/[0.06] flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:text-gray-950 dark:group-hover:text-white group-hover:border-gray-300 dark:group-hover:border-white/20 transition-all shrink-0">
-                        <IconComponent className="w-3.5 h-3.5 stroke-[2.2]" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-[12.5px] font-medium text-gray-800 dark:text-gray-200 group-hover:text-gray-950 dark:group-hover:text-white tracking-[-0.01em] truncate transition-colors">
-                          {item.title}
+                <div className="w-full rounded-xl border border-gray-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-[#0e0f14]/85 backdrop-blur-md overflow-hidden divide-y divide-gray-100 dark:divide-white/[0.04] shadow-xs">
+                  {suggestions.map((item, idx) => {
+                    const IconComponent = item.icon;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleSendMessage(item.prompt)}
+                        className="w-full flex items-center justify-between px-3.5 py-2.5 text-left transition-colors duration-150 hover:bg-gray-100/80 dark:hover:bg-white/[0.04] group cursor-pointer border-none bg-transparent"
+                      >
+                        <div className="flex items-center gap-3 min-w-0 pr-2">
+                          <div className="w-7 h-7 rounded-md bg-gray-100/90 dark:bg-white/[0.04] border border-gray-200/80 dark:border-white/[0.06] flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:text-gray-950 dark:group-hover:text-white group-hover:border-gray-300 dark:group-hover:border-white/20 transition-all shrink-0">
+                            <IconComponent className="w-3.5 h-3.5 stroke-[2.2]" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[12.5px] font-medium text-gray-800 dark:text-gray-200 group-hover:text-gray-950 dark:group-hover:text-white tracking-[-0.01em] truncate transition-colors">
+                              {item.title}
+                            </div>
+                            <div className="text-[11px] text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400 truncate transition-colors">
+                              {item.desc}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-[11px] text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400 truncate transition-colors">
-                          {item.desc}
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="font-mono text-[9px] text-gray-400 dark:text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300 px-1.5 py-0.5 rounded border border-gray-200/70 dark:border-white/[0.06] bg-gray-50/80 dark:bg-white/[0.02] group-hover:border-gray-300 dark:group-hover:border-white/15 transition-colors">
-                        {item.badge}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-mono text-[9px] text-gray-400 dark:text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300 px-1.5 py-0.5 rounded border border-gray-200/70 dark:border-white/[0.06] bg-gray-50/80 dark:bg-white/[0.02] group-hover:border-gray-300 dark:group-hover:border-white/15 transition-colors">
+                            {item.badge}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       ) : (
         /* Active Conversation Thread with Gradual Blur Top & Bottom */
@@ -4386,18 +5550,20 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           </span>
                         </div>
 
-                        {/* Executed Tools Actions Pills */}
+                        {/* Executed Tools Actions (Antigravity Live Progress Style) */}
                         {msg.actionsExecuted && msg.actionsExecuted.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 my-1.5">
-                            {msg.actionsExecuted.map((act, i) => (
-                              <span
-                                key={i}
-                                className="inline-flex items-center gap-1.5 text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1e2029]"
-                              >
-                                <Terminal className="w-3 h-3 text-gray-500" />
-                                <span>{act.name}</span>
-                              </span>
-                            ))}
+                          <div className="flex flex-col py-0.5 my-2 font-sans select-none border-b border-white/[0.04]">
+                            {msg.actionsExecuted.map((act, i) => {
+                              const stepId = act.id || `act_${msg.id}_${i}`;
+                              return (
+                                <AgentStepRow
+                                  key={stepId}
+                                  step={act}
+                                  isExpanded={expandedStepIds.has(stepId)}
+                                  onToggleExpand={() => toggleStepExpand(stepId)}
+                                />
+                              );
+                            })}
                           </div>
                         )}
 
@@ -4432,36 +5598,36 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           <div className="w-full my-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               {/* Brain A Card */}
-                              <div className="p-3.5 rounded-xl bg-white dark:bg-[#090a0f] border border-gray-200/90 dark:border-[#181924] hover:border-sky-500/40 dark:hover:border-sky-500/40 transition-all flex flex-col justify-between shadow-xs">
+                              <div className="p-3.5 rounded-xl bg-white dark:bg-[#0b0d14] border border-slate-200 dark:border-[#1a1d2c] hover:border-sky-400 dark:hover:border-sky-500/50 transition-all flex flex-col justify-between shadow-xs">
                                 <div>
-                                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-gray-100 dark:border-[#1e2029]">
+                                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100 dark:border-[#181b28]">
                                     <div className="flex items-center gap-2 min-w-0">
                                       <span className="w-2 h-2 rounded-full bg-sky-500 dark:bg-sky-400 shrink-0 shadow-xs" />
-                                      <span className="text-xs font-bold text-gray-800 dark:text-gray-200 font-mono truncate">
+                                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100 font-mono truncate">
                                         Brain A: {msg.dualBattle.brainA.model}
                                       </span>
-                                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 font-semibold border border-sky-200 dark:border-sky-500/30">
+                                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-sky-50 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300 font-bold border border-sky-200 dark:border-sky-500/30">
                                         {msg.dualBattle.brainA.provider}
                                       </span>
                                     </div>
                                     {msg.dualBattle.brainA.latencyMs !== undefined && (
-                                      <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#1a1c24] border border-gray-200/60 dark:border-[#1e2029] shrink-0">
+                                      <span className="text-[10px] font-mono text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#131622] border border-slate-200 dark:border-[#202538] shrink-0 font-semibold">
                                         {msg.dualBattle.brainA.latencyMs}ms
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-xs leading-relaxed select-text overflow-x-auto text-gray-800 dark:text-gray-200">
+                                  <div className="text-xs leading-relaxed select-text overflow-x-auto text-slate-900 dark:text-slate-100">
                                     <StaticMessageContent
                                       content={msg.dualBattle.brainA.reply}
                                       onOpenImage={(src, alt, originRect) => openLightbox(src, alt, undefined, undefined, originRect)}
                                     />
                                   </div>
                                 </div>
-                                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-gray-100 dark:border-[#1e2029]">
+                                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-slate-100 dark:border-[#181b28]">
                                   <button
                                     type="button"
                                     onClick={() => handleCopy(`${msg.id}-a`, msg.dualBattle!.brainA.reply)}
-                                    className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-mono text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-[#1e2029]"
+                                    className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-mono text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-[#1e2029]"
                                   >
                                     {copiedId === `${msg.id}-a` ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3" />}
                                     <span>{copiedId === `${msg.id}-a` ? 'Copied' : 'Copy'}</span>
@@ -4469,7 +5635,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                                   <button
                                     type="button"
                                     onClick={() => handlePickWinner(msg.id, 'brainA')}
-                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 dark:hover:bg-sky-500/20 border border-sky-200 dark:border-sky-500/30 hover:border-sky-300 dark:hover:border-sky-500/50 transition-all cursor-pointer font-medium"
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono text-sky-800 dark:text-sky-300 bg-sky-50 hover:bg-sky-100 dark:bg-sky-500/20 dark:hover:bg-sky-500/30 border border-sky-300/80 dark:border-sky-500/40 transition-all cursor-pointer font-bold shadow-2xs"
                                   >
                                     <Check className="w-3 h-3" />
                                     <span>Pick Brain A</span>
@@ -4478,36 +5644,36 @@ export const ChatTab = React.memo<ChatTabProps>(({
                               </div>
 
                               {/* Brain B Card */}
-                              <div className="p-3.5 rounded-xl bg-white dark:bg-[#090a0f] border border-gray-200/90 dark:border-[#181924] hover:border-purple-500/40 dark:hover:border-purple-500/40 transition-all flex flex-col justify-between shadow-xs">
+                              <div className="p-3.5 rounded-xl bg-white dark:bg-[#0b0d14] border border-slate-200 dark:border-[#1a1d2c] hover:border-purple-400 dark:hover:border-purple-500/50 transition-all flex flex-col justify-between shadow-xs">
                                 <div>
-                                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-gray-100 dark:border-[#1e2029]">
+                                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100 dark:border-[#181b28]">
                                     <div className="flex items-center gap-2 min-w-0">
                                       <span className="w-2 h-2 rounded-full bg-purple-500 dark:bg-purple-400 shrink-0 shadow-xs" />
-                                      <span className="text-xs font-bold text-gray-800 dark:text-gray-200 font-mono truncate">
+                                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100 font-mono truncate">
                                         Brain B: {msg.dualBattle.brainB.model}
                                       </span>
-                                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 font-semibold border border-purple-200 dark:border-purple-500/30">
+                                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-purple-50 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300 font-bold border border-purple-200 dark:border-purple-500/30">
                                         {msg.dualBattle.brainB.provider}
                                       </span>
                                     </div>
                                     {msg.dualBattle.brainB.latencyMs !== undefined && (
-                                      <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#1a1c24] border border-gray-200/60 dark:border-[#1e2029] shrink-0">
+                                      <span className="text-[10px] font-mono text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#131622] border border-slate-200 dark:border-[#202538] shrink-0 font-semibold">
                                         {msg.dualBattle.brainB.latencyMs}ms
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-xs leading-relaxed select-text overflow-x-auto text-gray-800 dark:text-gray-200">
+                                  <div className="text-xs leading-relaxed select-text overflow-x-auto text-slate-900 dark:text-slate-100">
                                     <StaticMessageContent
                                       content={msg.dualBattle.brainB.reply}
                                       onOpenImage={(src, alt, originRect) => openLightbox(src, alt, undefined, undefined, originRect)}
                                     />
                                   </div>
                                 </div>
-                                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-gray-100 dark:border-[#1e2029]">
+                                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-slate-100 dark:border-[#181b28]">
                                   <button
                                     type="button"
                                     onClick={() => handleCopy(`${msg.id}-b`, msg.dualBattle!.brainB.reply)}
-                                    className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-mono text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-[#1e2029]"
+                                    className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-mono text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1a1c24] transition-all cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-[#1e2029]"
                                   >
                                     {copiedId === `${msg.id}-b` ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3" />}
                                     <span>{copiedId === `${msg.id}-b` ? 'Copied' : 'Copy'}</span>
@@ -4515,7 +5681,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                                   <button
                                     type="button"
                                     onClick={() => handlePickWinner(msg.id, 'brainB')}
-                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 hover:bg-purple-100 dark:hover:bg-purple-500/20 border border-purple-200 dark:border-purple-500/30 hover:border-purple-300 dark:hover:border-purple-500/50 transition-all cursor-pointer font-medium"
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono text-purple-800 dark:text-purple-300 bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 border border-purple-300/80 dark:border-purple-500/40 transition-all cursor-pointer font-bold shadow-2xs"
                                   >
                                     <Check className="w-3 h-3" />
                                     <span>Pick Brain B</span>
@@ -4526,24 +5692,24 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
                             {/* Consensus Synthesizer Section */}
                             {msg.dualBattle.consensus ? (
-                              <div className="mt-3 p-4 rounded-xl bg-purple-50 border border-purple-200/80 dark:bg-[#15121e] dark:border-purple-500/35 shadow-xs dark:shadow-sm animate-in fade-in duration-300">
+                              <div className="mt-3 p-4 rounded-xl bg-[#faf5ff] dark:bg-[#0e0c18] border border-purple-200/90 dark:border-purple-500/30 shadow-xs animate-in fade-in duration-300">
                                 <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-purple-200/70 dark:border-purple-500/20">
                                   <div className="flex items-center gap-2">
-                                    <GitMerge className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                                    <span className="text-xs font-semibold text-purple-900 dark:text-purple-200 tracking-wide font-mono">
+                                    <GitMerge className="w-4 h-4 text-purple-700 dark:text-purple-400" />
+                                    <span className="text-xs font-bold text-purple-950 dark:text-purple-200 tracking-wide font-mono">
                                       Synthesized Consensus & Comparative Verdict
                                     </span>
                                   </div>
                                   <button
                                     type="button"
                                     onClick={() => handleCopy(`${msg.id}-cons`, msg.dualBattle!.consensus!.content)}
-                                    className="flex items-center gap-1 text-[11px] font-mono text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white px-2 py-0.5 rounded hover:bg-purple-100/70 dark:hover:bg-purple-500/20 transition-colors cursor-pointer"
+                                    className="flex items-center gap-1.5 text-[11px] font-mono text-purple-900 dark:text-purple-200 hover:text-black dark:hover:text-white px-2.5 py-1 rounded-md bg-white hover:bg-purple-100/80 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 border border-purple-300/80 dark:border-purple-600/40 transition-colors cursor-pointer font-semibold shadow-2xs"
                                   >
                                     {copiedId === `${msg.id}-cons` ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3" />}
                                     <span>{copiedId === `${msg.id}-cons` ? 'Copied' : 'Copy Consensus'}</span>
                                   </button>
                                 </div>
-                                <div className="text-xs leading-relaxed select-text text-gray-800 dark:text-gray-200">
+                                <div className="text-xs leading-relaxed select-text text-slate-900 dark:text-slate-100">
                                   <StaticMessageContent
                                     content={msg.dualBattle.consensus.content}
                                     onOpenImage={(src, alt, originRect) => openLightbox(src, alt, undefined, undefined, originRect)}
@@ -4556,7 +5722,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                                   type="button"
                                   onClick={() => handleSynthesizeConsensus(msg.id)}
                                   disabled={synthesizingId === msg.id}
-                                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-purple-100 via-indigo-50 to-sky-100 dark:from-purple-900/40 dark:via-indigo-900/40 dark:to-sky-900/40 hover:from-purple-200 hover:to-sky-200 dark:hover:from-purple-900/60 dark:hover:to-sky-900/60 border border-purple-200 dark:border-purple-500/40 text-purple-900 dark:text-purple-200 hover:text-purple-950 dark:hover:text-white transition-all shadow-xs dark:shadow-sm cursor-pointer disabled:opacity-50"
+                                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/30 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-700/40 text-purple-900 dark:text-purple-300 transition-all shadow-xs cursor-pointer disabled:opacity-50"
                                 >
                                   <GitMerge className={`w-3.5 h-3.5 text-purple-600 dark:text-purple-400 ${synthesizingId === msg.id ? 'animate-spin' : ''}`} />
                                   <span>{synthesizingId === msg.id ? 'Synthesizing consensus...' : 'Merge & Synthesize Consensus'}</span>
@@ -4608,10 +5774,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           return (
                             <div
                               onClick={() => setActiveArtifact(artifact)}
-                              className="mt-3.5 p-3 rounded-xl bg-white dark:bg-[#13141a] hover:bg-gray-50 dark:hover:bg-[#161822] border border-gray-200/90 dark:border-[#1e2029] hover:border-sky-500/50 dark:hover:border-sky-500/40 flex items-center justify-between transition-all cursor-pointer group shadow-xs dark:shadow-sm select-none"
+                              className="mt-3.5 p-3 rounded-xl bg-white hover:bg-slate-50 dark:bg-[#0c0e16] dark:hover:bg-[#111420] border border-slate-200 dark:border-[#1c2030] hover:border-sky-500/60 dark:hover:border-sky-500/50 flex items-center justify-between transition-all cursor-pointer group shadow-xs select-none"
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-200 flex items-center justify-center shrink-0 border border-gray-200/80 dark:border-[#1e2029] group-hover:border-sky-500/40 transition-colors">
+                                <div className="w-9 h-9 rounded-lg bg-sky-50 dark:bg-[#131724] text-sky-700 dark:text-sky-300 flex items-center justify-center shrink-0 border border-sky-100 dark:border-[#20263c] group-hover:border-sky-400 transition-colors">
                                   {artifact.language === 'html' ? (
                                     <Globe className="w-5 h-5 text-sky-600 dark:text-sky-400" />
                                   ) : artifact.language === 'svg' ? (
@@ -4623,18 +5789,18 @@ export const ChatTab = React.memo<ChatTabProps>(({
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate flex items-center gap-2">
+                                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate flex items-center gap-2">
                                     <span className="font-mono tracking-tight">{artifact.title}</span>
-                                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 font-medium border border-gray-200/60 dark:border-[#1e2029]">
+                                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#181d2c] text-slate-800 dark:text-slate-200 font-bold border border-slate-200 dark:border-[#242b40]">
                                       {artifact.language}
                                     </span>
                                   </div>
-                                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 font-mono">
+                                  <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 font-mono">
                                     {lineCount} lines • Click to open in Canvas
                                   </p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gray-100 dark:bg-[#1a1c24] border border-gray-200/80 dark:border-[#1e2029] group-hover:bg-sky-50 dark:group-hover:bg-sky-500/10 group-hover:border-sky-300 dark:group-hover:border-sky-500/30 text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-sky-700 dark:group-hover:text-sky-400 transition-all shrink-0 ml-3">
+                              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-sky-500/20 text-white dark:text-sky-200 border border-transparent dark:border-sky-500/40 group-hover:bg-sky-600 dark:group-hover:bg-sky-500/30 text-xs font-semibold transition-all shrink-0 ml-3 shadow-2xs">
                                 <span>Canvas</span>
                               </div>
                             </div>
@@ -4720,28 +5886,42 @@ export const ChatTab = React.memo<ChatTabProps>(({
                       Grokki
                     </span>
                   </div>
-                  <div className="inline-flex items-center py-1">
-                    <LatticeLoader
-                      status="working"
-                      label="Thinking"
-                      doneLabel="Done in"
-                      errorLabel="Failed after"
-                      pattern="orbit"
-                      grid={3}
-                      shape="round"
-                      doneColor="#22c55e"
-                      errorColor="#ef4444"
-                      cellSize={3.2}
-                      gap={1.5}
-                      fontSize={12}
-                      step={90}
-                      idleOpacity={0.15}
-                      glow={false}
-                      glowColor=""
-                      showTimer
-                      color={isDarkTheme ? '#f5f5f5' : '#18181b'}
-                    />
-                  </div>
+                  {currentLiveSteps.length > 0 ? (
+                    <div className="flex flex-col py-0.5 font-sans select-none">
+                      {currentLiveSteps.map((step) => (
+                        <AgentStepRow
+                          key={step.id}
+                          step={step}
+                          isLive
+                          isExpanded={expandedStepIds.has(step.id)}
+                          onToggleExpand={() => toggleStepExpand(step.id)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center py-1">
+                      <LatticeLoader
+                        status="working"
+                        label="Thinking"
+                        doneLabel="Done in"
+                        errorLabel="Failed after"
+                        pattern="orbit"
+                        grid={3}
+                        shape="round"
+                        doneColor="#22c55e"
+                        errorColor="#ef4444"
+                        cellSize={3.2}
+                        gap={1.5}
+                        fontSize={12}
+                        step={90}
+                        idleOpacity={0.15}
+                        glow={false}
+                        glowColor=""
+                        showTimer
+                        color={isDarkTheme ? '#f5f5f5' : '#18181b'}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -4844,7 +6024,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           )}
 
           {/* Floating Slash Command Menu, Mention Menu & Synthesizer Visualizer for Bottom Bar */}
-          <div className="w-full max-w-xl mx-auto relative mb-6 z-30">
+          <div className="w-full max-w-xl mx-auto relative mb-6 z-30 transition-all duration-200">
             {/* Scroll-to-bottom Down Chevron Button (above input to the right side, only if there is space to scroll down) */}
             {canScrollDown && (
               <div className="absolute right-0 -top-9 z-30 animate-in fade-in zoom-in-95 duration-150">
@@ -4884,6 +6064,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
               </div>
             )}
 
+            {renderPermissionCard()}
+
             <SpecularButton
               as="div"
               size="lg"
@@ -4904,8 +6086,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
               proximity={250}
               className="w-full bg-white dark:bg-[#131317] shadow-sm hover:shadow-md mb-1.5 p-3 transition-all flex flex-col gap-2.5 text-left relative z-20"
             >
-              {/* Battle Stage Selector when Dual-Battle Mode is active */}
-              {dualBattleEnabled && renderBattleStageBar('top')}
+              {/* Battle Stage Selector when Dual-Battle Mode is active (Only in Grokki Chat) */}
+              {dualBattleEnabled && !agentMode && renderBattleStageBar('top')}
 
               {/* Input Field on Top with Inline Brand Icon & Grokki Blue URL Highlighting */}
               <RichBrandInput
@@ -4916,6 +6098,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 placeholder={
                   isRecording
                     ? "Listening... speaking your prompt"
+                    : agentMode && !agentRoot
+                    ? "Select a project folder below before sending tasks..."
+                    : agentMode
+                    ? `Ask Grokki Agent to inspect, edit, or run commands in ${agentRootName}...`
                     : attachedFile
                     ? isVideoAttachment(attachedFile)
                     ? `Send ${attachedFile.name} on WhatsApp or upload to Drive...`
@@ -4966,69 +6152,81 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   {/* AI Brain Model Selector Dropdown below the input next to plus */}
                   {renderModelSelector('top', 'left')}
 
-                  {/* Deep Search Button in Bottom Floating Bar (Icon-only, hover reveals name) */}
-                  <WarmTooltip
-                    content={webSearchEnabled ? 'Deep Search: ON (Live grounding)' : 'Deep Search: OFF'}
-                    side="top"
-                    surfaceColor="#f5f5f5"
-                    inkColor="#18181b"
-                    size="md"
-                    radius={8}
-                    gap={8}
-                    arrow
-                    popDuration={160}
-                    popScale={0.94}
-                    popBlur={4}
-                    showFuse={false}
-                  >
-                    <button
-                      type="button"
-                      aria-label="Toggle Deep Search"
-                      onClick={() => setWebSearchEnabled((prev) => !prev)}
-                      className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
-                        webSearchEnabled
-                          ? 'bg-sky-500/15 text-sky-400 border-sky-500/40 shadow-xs font-semibold'
-                          : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      <Globe className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${webSearchEnabled ? 'text-sky-400' : 'text-gray-400'}`} />
-                      <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
-                        Deep Search
-                      </span>
-                    </button>
-                  </WarmTooltip>
+                  {/* Deep Search Button & Dual-Battle Button (Hidden in Grokki Agent Mode) */}
+                  <AnimatePresence initial={false}>
+                    {!agentMode && (
+                      <motion.div
+                        key="chat-mode-extras-hero"
+                        initial={{ opacity: 0, width: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, width: 'auto', scale: 1 }}
+                        exit={{ opacity: 0, width: 0, scale: 0.9 }}
+                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                        className="flex items-center gap-1.5 overflow-hidden"
+                      >
+                        <WarmTooltip
+                          content={webSearchEnabled ? 'Deep Search: ON (Live grounding)' : 'Deep Search: OFF'}
+                          side="top"
+                          surfaceColor="#f5f5f5"
+                          inkColor="#18181b"
+                          size="md"
+                          radius={8}
+                          gap={8}
+                          arrow
+                          popDuration={160}
+                          popScale={0.94}
+                          popBlur={4}
+                          showFuse={false}
+                        >
+                          <button
+                            type="button"
+                            aria-label="Toggle Deep Search"
+                            onClick={() => setWebSearchEnabled((prev) => !prev)}
+                            className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
+                              webSearchEnabled
+                                ? 'bg-sky-500/15 text-sky-400 border-sky-500/40 shadow-xs font-semibold'
+                                : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
+                            }`}
+                          >
+                            <Globe className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${webSearchEnabled ? 'text-sky-400' : 'text-gray-400'}`} />
+                            <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
+                              Deep Search
+                            </span>
+                          </button>
+                        </WarmTooltip>
 
-                  {/* Multi-Brain Dual-Battle Mode Toggle (Icon-only, hover reveals name) */}
-                  <WarmTooltip
-                    content={dualBattleEnabled ? 'Dual-Battle: ON (Concurrent comparison)' : 'Dual-Battle: OFF'}
-                    side="top"
-                    surfaceColor="#f5f5f5"
-                    inkColor="#18181b"
-                    size="md"
-                    radius={8}
-                    gap={8}
-                    arrow
-                    popDuration={160}
-                    popScale={0.94}
-                    popBlur={4}
-                    showFuse={false}
-                  >
-                    <button
-                      type="button"
-                      aria-label="Toggle Dual-Battle Mode"
-                      onClick={() => setDualBattleEnabled((prev) => !prev)}
-                      className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
-                        dualBattleEnabled
-                          ? 'bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/40 shadow-xs font-semibold'
-                          : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      <Swords className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${dualBattleEnabled ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`} />
-                      <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
-                        Dual Battle
-                      </span>
-                    </button>
-                  </WarmTooltip>
+                        <WarmTooltip
+                          content={dualBattleEnabled ? 'Dual-Battle: ON (Concurrent comparison)' : 'Dual-Battle: OFF'}
+                          side="top"
+                          surfaceColor="#f5f5f5"
+                          inkColor="#18181b"
+                          size="md"
+                          radius={8}
+                          gap={8}
+                          arrow
+                          popDuration={160}
+                          popScale={0.94}
+                          popBlur={4}
+                          showFuse={false}
+                        >
+                          <button
+                            type="button"
+                            aria-label="Toggle Dual-Battle Mode"
+                            onClick={() => setDualBattleEnabled((prev) => !prev)}
+                            className={`group flex items-center h-7 px-2 rounded-lg text-[11px] font-mono transition-all duration-300 cursor-pointer border select-none overflow-hidden ${
+                              dualBattleEnabled
+                                ? 'bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/40 shadow-xs font-semibold'
+                                : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border-transparent hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5'
+                            }`}
+                          >
+                            <Swords className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${dualBattleEnabled ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`} />
+                            <span className="max-w-0 opacity-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out whitespace-nowrap overflow-hidden">
+                              Dual Battle
+                            </span>
+                          </button>
+                        </WarmTooltip>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -5068,7 +6266,13 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
                   {/* Send / Stop Button */}
                   <WarmTooltip
-                    content={isChatThinking ? 'Stop task / generation' : 'Send message'}
+                    content={
+                      isChatThinking
+                        ? 'Stop task / generation'
+                        : agentMode && !agentRoot
+                        ? 'Please select a project folder below first'
+                        : 'Send message'
+                    }
                     shortcut={isChatThinking ? 'ESC' : '↵'}
                     side="top"
                     surfaceColor="#f5f5f5"
@@ -5084,24 +6288,30 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   >
                     <button
                       type="button"
-                      aria-label={isChatThinking ? 'Stop generation' : 'Send message'}
+                      aria-label={isChatThinking || Boolean(pendingPermission) ? 'Stop / Terminate' : 'Send message'}
                       onClick={() => {
-                        if (isChatThinking) {
+                        if (isChatThinking || Boolean(pendingPermission)) {
                           handleStopGeneration();
                         } else {
                           handleSendMessage();
                         }
                       }}
-                      disabled={!isChatThinking && !inputValue.trim() && !attachedFile}
+                      disabled={
+                        !isChatThinking && !pendingPermission && (
+                          agentMode
+                            ? (!inputValue.trim() || !agentRoot)
+                            : (!inputValue.trim() && !attachedFile)
+                        )
+                      }
                       className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border-none shadow-xs flex-shrink-0 ${
-                        isChatThinking
+                        isChatThinking || Boolean(pendingPermission)
                           ? 'bg-red-500 hover:bg-red-600 text-white dark:bg-red-500 dark:hover:bg-red-600 shadow-md ring-2 ring-red-500/20'
-                          : inputValue.trim() || attachedFile
+                          : (!agentMode && (inputValue.trim() || attachedFile)) || (agentMode && inputValue.trim() && agentRoot)
                           ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90'
                           : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      {isChatThinking ? (
+                      {isChatThinking || Boolean(pendingPermission) ? (
                         <Square className="w-3 h-3 fill-current" />
                       ) : (
                         <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -5111,6 +6321,20 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 </div>
               </div>
             </SpecularButton>
+            <AnimatePresence initial={false}>
+              {agentMode && (
+                <motion.div
+                  key="agent-controls-bar-bottom"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  className="w-full relative z-40 overflow-visible"
+                >
+                  {renderAgentControlsBar()}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       )}

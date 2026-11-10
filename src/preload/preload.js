@@ -328,12 +328,7 @@ try {
       return () => ipcRenderer.removeListener('jarvis:pocket-task-completed', handler);
     },
 
-    // University / Academic Portal
-    getAcademicStatus: () => ipcRenderer.invoke('jarvis:get-academic-status'),
-    saveAcademicCredentials: (data) => ipcRenderer.invoke('jarvis:save-academic-credentials', data),
-    syncAcademicPortal: () => ipcRenderer.invoke('jarvis:sync-academic-portal'),
-    disconnectAcademicPortal: () => ipcRenderer.invoke('jarvis:disconnect-academic-portal'),
-    getAcademicData: () => ipcRenderer.invoke('jarvis:get-academic-data'),
+
 
     // Hitodama Powerpack: Circle to Ask & Voice Dictation
     startCircleToAsk: () => ipcRenderer.invoke('jarvis:start-circle-to-ask'),
@@ -397,6 +392,21 @@ try {
     // bytedance/UI-TARS Vision Desktop Computer-Use Agent
     runUiTars: (goal) => ipcRenderer.invoke('jarvis:uitars-run', { goal }),
     cancelUiTars: () => ipcRenderer.invoke('jarvis:uitars-cancel'),
+
+    // Grokki Agent Local Permission Interactive Bridge
+    onToolPermissionRequest: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('jarvis:tool-permission-request', handler);
+      return () => ipcRenderer.removeListener('jarvis:tool-permission-request', handler);
+    },
+    respondToolPermission: (response) => ipcRenderer.send('jarvis:tool-permission-response', response),
+
+    // Grokki Agent Live Progress Steps Bridge
+    onAgentStep: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('jarvis:agent-step', handler);
+      return () => ipcRenderer.removeListener('jarvis:agent-step', handler);
+    },
   });
   console.log('Preload: jarvisAPI successfully exposed in main world.');
 } catch (err) {

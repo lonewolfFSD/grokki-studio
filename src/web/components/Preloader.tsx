@@ -4,6 +4,7 @@ import {
   animate,
   useMotionValue,
   useReducedMotion,
+  useTransform,
 } from 'motion/react';
 import grokkiLogo from '../assets/grokki_logo.png';
 import grokkiWordmark from '../assets/grokki_wordmark.png';
@@ -12,10 +13,12 @@ import grokkiVoice from '../assets/grokki-intro.webm';
 interface PreloaderProps {
   onComplete: () => void;
   onReveal?: () => void;
-  /** Minimum time (ms) the intro stays up */
+  /** Minimum time (ms) the intro stays up, even if everything is already loaded. */
   duration?: number;
-  /** Safety cap (ms) */
+  /** Safety cap (ms): reveal anyway if some asset never finishes. */
   maxWait?: number;
+  /** Extra image URLs to wait for before revealing the app. */
+  assets?: string[];
 }
 
 const LOGO = grokkiLogo;
@@ -23,11 +26,56 @@ const WORDMARK = grokkiWordmark;
 const GROKKI_VOICE = grokkiVoice;
 const EASE = [0.16, 1, 0.3, 1] as const;
 
+const preloadImage = (src: string) =>
+  new Promise<void>((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve();
+    img.onerror = () => resolve();
+    img.src = src;
+    if (img.decode) img.decode().then(() => resolve(), () => resolve());
+  });
+
+const preloadAudio = (src: string) =>
+  new Promise<void>((resolve) => {
+    try {
+      const audio = new Audio();
+      audio.src = src;
+      audio.preload = 'auto';
+      const done = () => resolve();
+      audio.addEventListener('canplaythrough', done, { once: true });
+      audio.addEventListener('error', done, { once: true });
+      setTimeout(done, 300);
+    } catch {
+      resolve();
+    }
+  });
+
+const whenWindowLoaded = () =>
+  new Promise<void>((resolve) => {
+    if (document.readyState === 'complete' || document.readyState === 'interactive') return resolve();
+    const done = () => resolve();
+    window.addEventListener('DOMContentLoaded', done, { once: true });
+    window.addEventListener('load', done, { once: true });
+    setTimeout(done, 250);
+  });
+
+const fontsReady = () =>
+  new Promise<void>((resolve) => {
+    if ((document as any).fonts?.ready) {
+      (document as any).fonts.ready.then(() => resolve(), () => resolve());
+      setTimeout(resolve, 300);
+    } else {
+      resolve();
+    }
+  });
+
 /* ── Web Audio Synthesizers & Sound FX ────────── */
 
 const playCuteGrokkiSound = (ctx: AudioContext) => {
   try {
     const now = ctx.currentTime;
+
+    // Primary friendly vocalization chirp
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
     const filter = ctx.createBiquadFilter();
@@ -36,7 +84,7 @@ const playCuteGrokkiSound = (ctx: AudioContext) => {
     filter.frequency.setValueAtTime(2600, now);
 
     osc1.type = 'sine';
-    // Upward playful trill: D5 -> A5 -> E6 -> A6
+    // Upward playful trill: D5 -> A5 -> E6 -> A6 with companion bounce
     osc1.frequency.setValueAtTime(587, now);
     osc1.frequency.exponentialRampToValueAtTime(880, now + 0.08);
     osc1.frequency.exponentialRampToValueAtTime(1318, now + 0.16);
@@ -46,6 +94,7 @@ const playCuteGrokkiSound = (ctx: AudioContext) => {
     gain1.gain.linearRampToValueAtTime(0.14, now + 0.04);
     gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
 
+    // Warm companion harmonic tone
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
     osc2.type = 'triangle';
@@ -68,7 +117,7 @@ const playCuteGrokkiSound = (ctx: AudioContext) => {
     osc2.start(now);
     osc2.stop(now + 0.32);
   } catch {
-    // Ignore audio error
+    // AudioContext might be blocked by browser policy
   }
 };
 
@@ -98,7 +147,7 @@ const playTechBeepsSound = (ctx: AudioContext) => {
       osc.stop(start + beepDuration + 0.01);
     });
   } catch {
-    // Ignore audio error
+    // Ignore audio errors
   }
 };
 
@@ -106,50 +155,72 @@ const playWhooshSound = (ctx: AudioContext) => {
   try {
     const now = ctx.currentTime;
     const duration = 0.85;
+
+    // Air displacement pink noise buffer
     const bufferSize = Math.floor(ctx.sampleRate * duration);
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
 
-    let b0 = 0, b1 = 0, b2 = 0;
+    let b0 = 0;
+    let b1 = 0;
+    let b2 = 0;
     for (let i = 0; i < bufferSize; i++) {
       const white = Math.random() * 2 - 1;
       b0 = 0.99886 * b0 + white * 0.0555179;
       b1 = 0.99332 * b1 + white * 0.0750759;
       b2 = 0.96900 * b2 + white * 0.1538520;
-      data[i] = (b0 + b1 + b2 + white * 0.5362) * 0.16;
+      data[i] = (b0 + b1 + b2 + white * 0.5362) * 0.18;
     }
 
     const noise = ctx.createBufferSource();
     noise.buffer = buffer;
 
+    // Resonant spatial bandpass sweep
     const filter = ctx.createBiquadFilter();
     filter.type = 'bandpass';
     filter.Q.setValueAtTime(1.8, now);
     filter.frequency.setValueAtTime(180, now);
-    filter.frequency.exponentialRampToValueAtTime(1100, now + 0.25);
+    filter.frequency.exponentialRampToValueAtTime(1200, now + 0.28);
     filter.frequency.exponentialRampToValueAtTime(90, now + duration);
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.001, now);
-    gain.gain.linearRampToValueAtTime(0.2, now + 0.18);
+    gain.gain.linearRampToValueAtTime(0.22, now + 0.22);
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
     noise.connect(filter);
     filter.connect(gain);
     gain.connect(ctx.destination);
 
+    // Deep airy sub sweep
+    const sub = ctx.createOscillator();
+    const subGain = ctx.createGain();
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(95, now);
+    sub.frequency.exponentialRampToValueAtTime(50, now + duration);
+
+    subGain.gain.setValueAtTime(0.001, now);
+    subGain.gain.linearRampToValueAtTime(0.08, now + 0.18);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    sub.connect(subGain);
+    subGain.connect(ctx.destination);
+
     noise.start(now);
     noise.stop(now + duration);
+    sub.start(now);
+    sub.stop(now + duration);
   } catch {
-    // Ignore audio error
+    // Ignore audio errors
   }
 };
 
 export const Preloader: React.FC<PreloaderProps> = ({
   onComplete,
   onReveal,
-  duration = 2200,
-  maxWait = 4500,
+  duration = 2800,
+  maxWait = 8000,
+  assets = [],
 }) => {
   const reduce = !!useReducedMotion();
   const [exiting, setExiting] = useState(false);
@@ -192,7 +263,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
         const source = ctx.createBufferSource();
         source.buffer = grokkiBufferRef.current;
         const gain = ctx.createGain();
-        gain.gain.setValueAtTime(0.9, ctx.currentTime);
+        gain.gain.setValueAtTime(0.95, ctx.currentTime);
         source.connect(gain);
         gain.connect(ctx.destination);
         source.start(0);
@@ -203,7 +274,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
         grokkiVoiceRef.current = new Audio(GROKKI_VOICE);
         grokkiVoiceRef.current.preload = 'auto';
       }
-      grokkiVoiceRef.current.volume = 0.9;
+      grokkiVoiceRef.current.volume = 0.95;
       grokkiVoiceRef.current.currentTime = 0;
       grokkiVoiceRef.current.play().catch(() => {});
     } catch {
@@ -228,7 +299,13 @@ export const Preloader: React.FC<PreloaderProps> = ({
     }
   }, [getAudioContext, playGrokkiVoice]);
 
-  // Clean fade value (No circle mask / iris cutout)
+  // Iris: a transparent hole that grows from the centre.
+  const radius = useMotionValue(0);
+  const mask = useTransform(
+    radius,
+    (v) => `radial-gradient(circle at 50% 50%, transparent ${v}px, #000 ${v + 1}px)`
+  );
+  // Reduced motion: plain fade instead.
   const fade = useMotionValue(1);
 
   const startExit = useCallback(() => {
@@ -242,26 +319,41 @@ export const Preloader: React.FC<PreloaderProps> = ({
       if (ctx) playWhooshSound(ctx);
     }
 
-    // Smooth fade out to reveal the Studio Dashboard (NOT circle out)
-    animate(fade, 0, {
-      duration: 0.45,
-      ease: [0.16, 1, 0.3, 1],
+    if (reduce) {
+      animate(fade, 0, {
+        duration: 0.3,
+        onComplete: () => onCompleteRef.current(),
+      });
+      return;
+    }
+
+    const maxRadius = Math.hypot(window.innerWidth, window.innerHeight) / 2 + 40;
+    animate(radius, maxRadius, {
+      duration: 1,
+      delay: 0.15,
+      ease: [0.76, 0, 0.24, 1],
       onComplete: () => onCompleteRef.current(),
     });
-  }, [reduce, fade, getAudioContext]);
+  }, [reduce, radius, fade, getAudioContext]);
+
+  const assetsKey = assets.join('|');
 
   useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     let cancelled = false;
     let minDone = false;
+    let assetsDone = false;
     let cuteTimer: number | undefined;
     let beepsTimer: number | undefined;
     let voiceTimer: number | undefined;
 
     const tryExit = () => {
-      if (!cancelled && minDone) startExit();
+      if (!cancelled && minDone && assetsDone) startExit();
     };
 
-    // Pre-decode audio buffer into Web Audio API for instantaneous playback
+    // Pre-decode audio buffer into Web Audio API for zero latency playback
     const ctx = getAudioContext();
     if (ctx) {
       fetch(GROKKI_VOICE)
@@ -299,14 +391,31 @@ export const Preloader: React.FC<PreloaderProps> = ({
       }, 750);
     }
 
+    // Stays up at least `duration`...
     const minTimer = window.setTimeout(() => {
       minDone = true;
       tryExit();
     }, duration);
 
+    // ...but never longer than `maxWait`.
     const maxTimer = window.setTimeout(() => {
       if (!cancelled) startExit();
     }, Math.max(maxWait, duration));
+
+    // ...and waits for real assets if they're slow.
+    Promise.all([
+      whenWindowLoaded(),
+      fontsReady(),
+      preloadImage(LOGO),
+      preloadImage(WORDMARK),
+      preloadAudio(GROKKI_VOICE),
+      ...assets.map(preloadImage),
+    ])
+      .catch(() => undefined)
+      .then(() => {
+        assetsDone = true;
+        tryExit();
+      });
 
     const onKey = (e: KeyboardEvent) => {
       unlockAndPlay();
@@ -327,55 +436,62 @@ export const Preloader: React.FC<PreloaderProps> = ({
       window.clearTimeout(voiceTimer);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('pointerdown', unlockAndPlay);
+      document.body.style.overflow = originalOverflow;
     };
-  }, [duration, maxWait, startExit, reduce, getAudioContext, playGrokkiVoice, unlockAndPlay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duration, maxWait, assetsKey, startExit, reduce, getAudioContext, playGrokkiVoice, unlockAndPlay]);
 
   return (
     <motion.div
       role="status"
+      aria-live="polite"
       aria-label="Loading Grokki Studio"
-      style={{ opacity: fade }}
-      className="fixed inset-0 z-[9999999] flex select-none items-center justify-center bg-[#111111]"
+      style={
+        reduce
+          ? { opacity: fade }
+          : { WebkitMaskImage: mask, maskImage: mask }
+      }
+      className="fixed inset-0 z-[9999] flex select-none items-center justify-center bg-[#07080b]"
       onClick={unlockAndPlay}
     >
-      {/* Logo + wordmark container (Prominent & balanced desktop sizing) */}
+      {/* Logo + wordmark */}
       <motion.div
-        initial={reduce ? false : { scale: 0.9, opacity: 0 }}
+        initial={reduce ? false : { scale: 0.2, opacity: 0 }}
         animate={
           exiting && !reduce
-            ? { scale: 0.97, opacity: 0 }
+            ? { scale: 0.85, opacity: 0 }
             : { scale: 1, opacity: 1 }
         }
         transition={
           exiting
             ? { duration: 0.35, ease: EASE }
-            : { duration: 0.5, ease: EASE }
+            : { duration: 0.55, ease: EASE }
         }
-        className="flex h-24 md:h-32 items-center justify-center"
+        className="flex h-16 items-center"
       >
-        {/* Logo icon */}
+        {/* Logo pops in first */}
         <motion.img
           src={LOGO}
-          alt="Grokki"
+          alt=""
           draggable={false}
-          initial={reduce ? false : { scale: 0, opacity: 0, rotate: -15 }}
+          initial={reduce ? false : { scale: 0, opacity: 0, rotate: -20 }}
           animate={{ scale: 1, opacity: 1, rotate: 0 }}
           transition={{ duration: 0.6, delay: 0.2, ease: EASE }}
-          className="h-16 w-16 md:h-20 md:w-20 shrink-0 object-contain select-none -mt-1"
+          className="h-10 w-auto md:h-[50px] md:w-[50px] md:mr-1 -mt-1 shrink-0 object-contain"
         />
 
         {/* Wordmark unfolds beside it */}
         <motion.div
           initial={reduce ? false : { width: 0, opacity: 0, marginLeft: 0 }}
-          animate={{ width: 'auto', opacity: 1, marginLeft: 22 }}
+          animate={{ width: 'auto', opacity: 1, marginLeft: 12 }}
           transition={{ duration: 0.7, delay: 0.75, ease: EASE }}
-          className="overflow-hidden flex items-center"
+          className="overflow-hidden"
         >
           <img
             src={WORDMARK}
             alt="Grokki Studio"
             draggable={false}
-            className="block h-20 md:h-24 w-auto max-w-none object-contain select-none"
+            className="block h-16 md:h-24 w-auto max-w-none object-contain"
           />
         </motion.div>
       </motion.div>

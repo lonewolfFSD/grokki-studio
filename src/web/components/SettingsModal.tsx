@@ -167,7 +167,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
-        className="relative w-full max-w-6xl h-[70vh] max-h-[850px] bg-white dark:bg-[#0e0f14] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+        className="relative w-full max-w-5xl h-[70vh] max-h-[850px] bg-white dark:bg-[#0e0f14] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
       >
         {/* Top Header Bar */}
         <div className="h-14 px-6 border-b border-[#e4e4eb] dark:border-[#1f1f22] bg-gray-50/50 dark:bg-[#111114] flex items-center justify-between flex-shrink-0">

@@ -14,7 +14,9 @@ import { PencilIcon } from '@animateicons/react/lucide/pencil-icon';
 import { Trash2Icon } from '@animateicons/react/lucide/trash-2-icon';
 import { PinIcon } from '@animateicons/react/lucide/pin-icon';
 import { PinOffIcon } from '@animateicons/react/lucide/pin-off-icon';
-import { Pin, PinOff, Pencil, Trash2, Lock, Unlock, Archive, ArchiveRestore, MoreHorizontal, Check, ChevronRight, ListFilter, Search, Brain } from 'lucide-react';
+import { BriefcaseIcon } from '@animateicons/react/lucide/briefcase-icon';
+import { Pin, PinOff, Pencil, Trash2, Lock, Unlock, Archive, ArchiveRestore, MoreHorizontal, Check, ChevronRight, ListFilter, Search, MessageSquare, Terminal, Folder, FolderGit2 } from 'lucide-react';
+import { motion } from 'motion/react';
 import ChatSearchModal from './ChatSearchModal';
 import { RefreshCwIcon } from '@animateicons/react/lucide/refresh-cw-icon';
 import { LogOutIcon } from '@animateicons/react/lucide/log-out-icon';
@@ -34,7 +36,7 @@ import grokkiLogo from '../assets/grokki_logo.png';
 import grokkiWordmarkDark from '../assets/grokki_wordmark.png';
 import grokkiWordmarkLight from '../assets/grokki_wordmark_light.png';
 
-export type TabId = 'chat' | 'overview' | 'memory' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
+export type TabId = 'chat' | 'overview' | 'workspace' | 'memory' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
 
 const MIN_EXPANDED_WIDTH = 180;
 const DEFAULT_SIDEBAR_WIDTH = 240;
@@ -44,14 +46,6 @@ const COLLAPSED_SIDEBAR_WIDTH = 64;
 type AnimatedIconComponent = React.ForwardRefExoticComponent<
   { size?: number; className?: string; color?: string; duration?: number; isAnimated?: boolean } & React.RefAttributes<IconHandle>
 >;
-
-const MemorySidebarIcon = React.forwardRef<IconHandle, { size?: number; className?: string }>((props, ref) => {
-  React.useImperativeHandle(ref, () => ({
-    startAnimation: () => {},
-    stopAnimation: () => {},
-  }));
-  return <Brain size={props.size ?? 16} className={props.className} />;
-});
 
 const AnimatedSidebarRow: React.FC<{
   Icon: AnimatedIconComponent;
@@ -157,6 +151,10 @@ const AnimatedIconButton: React.FC<{
 interface SidebarProps {
   activeTab: TabId;
   onSelectTab: (tab: TabId) => void;
+  appMode?: 'chat' | 'agent';
+  onChangeAppMode?: (mode: 'chat' | 'agent') => void;
+  activeWorkspaceName?: string;
+  onSelectWorkspaceFolder?: () => void;
   theme?: 'light' | 'dark';
   userName: string;
   googleProfile: GoogleProfile | null;
@@ -183,6 +181,10 @@ interface SidebarProps {
 export const Sidebar = React.memo<SidebarProps>(({
   activeTab,
   onSelectTab,
+  appMode = 'chat',
+  onChangeAppMode,
+  activeWorkspaceName,
+  onSelectWorkspaceFolder,
   theme,
   userName,
   googleProfile,
@@ -532,7 +534,8 @@ export const Sidebar = React.memo<SidebarProps>(({
       (c) =>
         Array.isArray(c.messages) &&
         c.messages.length > 0 &&
-        Boolean(c.isArchived) === showArchivedOnly
+        Boolean(c.isArchived) === showArchivedOnly &&
+        (appMode === 'agent' ? c.mode === 'agent' : c.mode !== 'agent')
     );
 
     list.sort((a, b) => {
@@ -562,7 +565,7 @@ export const Sidebar = React.memo<SidebarProps>(({
     });
 
     return list;
-  }, [conversations, sortBy, showArchivedOnly]);
+  }, [conversations, sortBy, showArchivedOnly, appMode]);
 
   const activeConvo = useMemo(() => {
     return conversations.find((c) => c.id === activeConversationId);
@@ -604,6 +607,65 @@ export const Sidebar = React.memo<SidebarProps>(({
   const dateBranchedItems: BranchedMenuItem[] = useMemo(() => {
     if (!sortedConversations || sortedConversations.length === 0) {
       return [];
+    }
+
+    // In Grokki Agent mode: Group conversations by their Project Root Name
+    if (appMode === 'agent') {
+      const projectMap = new Map<string, { label: string; convos: Conversation[]; lastActive: number }>();
+
+      for (const convo of sortedConversations) {
+        const pName =
+          convo.workspaceName ||
+          (convo.workspaceRoot ? convo.workspaceRoot.replace(/[/\\]+$/, '').split(/[/\\]/).pop() : '') ||
+          'General / No Project';
+        const key = pName.toLowerCase();
+        const activityTs =
+          convo.updatedAt ||
+          (typeof convo.createdAt === 'number' && convo.createdAt > 0 ? convo.createdAt : 0) ||
+          (convo.id.startsWith('c_') ? parseInt(convo.id.split('_')[1], 36) : 0) ||
+          0;
+
+        if (!projectMap.has(key)) {
+          projectMap.set(key, { label: pName, convos: [], lastActive: activityTs });
+        }
+        const group = projectMap.get(key)!;
+        group.convos.push(convo);
+        if (activityTs > group.lastActive) {
+          group.lastActive = activityTs;
+        }
+      }
+
+      const sortedProjects = Array.from(projectMap.values()).sort((a, b) => {
+        if (a.label === 'General / No Project' && b.label !== 'General / No Project') return 1;
+        if (b.label === 'General / No Project' && a.label !== 'General / No Project') return -1;
+        return b.lastActive - a.lastActive;
+      });
+
+      return sortedProjects.map((group) => ({
+        label: group.label,
+        icon: <Folder className="w-3.5 h-3.5 text-sky-400 dark:text-sky-300 flex-shrink-0" />,
+        headerClassName:
+          'group flex items-center justify-between w-full px-2.5 py-1 text-[11px] font-semibold text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors select-none cursor-pointer',
+        children: group.convos.map((convo) => ({
+          value: convo.id,
+          label: renderConvoLabel(convo),
+          icon: convo.isLocked ? (
+            unlockedConvoIds?.has(convo.id) ? (
+              <Unlock size={12} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+            ) : (
+              <Lock size={12} className="text-gray-700 dark:text-white flex-shrink-0" />
+            )
+          ) : convo.isPinned ? (
+            <Pin
+              size={12}
+              fill="currentColor"
+              className="rotate-45 text-gray-700 dark:text-white flex-shrink-0"
+            />
+          ) : undefined,
+          onDoubleClick: (e: React.MouseEvent) => handleStartRename(e, convo),
+          actions: renderConvoActions(convo),
+        })),
+      }));
     }
 
     const now = new Date();
@@ -695,7 +757,7 @@ export const Sidebar = React.memo<SidebarProps>(({
         actions: renderConvoActions(convo),
       })),
     }));
-  }, [sortedConversations, groupBy, renderConvoActions, unlockedConvoIds, renderConvoLabel]);
+  }, [sortedConversations, groupBy, renderConvoActions, unlockedConvoIds, renderConvoLabel, appMode]);
 
   const defaultOpenIndices = useMemo(
     () => dateBranchedItems.map((_, i) => i),
@@ -800,11 +862,83 @@ export const Sidebar = React.memo<SidebarProps>(({
 
         {/* Primary Navigation & Recents List */}
         <div className="flex flex-col gap-1 min-h-0 flex-1 overflow-y-auto no-scrollbar">
-          {/* Top Actions: New Chat & Overview (Home) */}
+          {/* Mode Switcher: Grokki Chat vs Grokki Agent */}
+          {!isCollapsed ? (
+            <div className="mx-1 mb-2 p-1 rounded-xl bg-gray-100 dark:bg-[#12141f] border border-gray-200/90 dark:border-[#1e2234] flex items-center gap-1 select-none flex-shrink-0 shadow-2xs relative">
+              <button
+                type="button"
+                onClick={() => {
+                  onChangeAppMode?.('chat');
+                  onSelectTab('chat');
+                }}
+                className={`relative flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold cursor-pointer border-none bg-transparent transition-colors z-10 ${
+                  appMode === 'chat'
+                    ? 'text-gray-900 dark:text-white'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                {appMode === 'chat' && (
+                  <motion.div
+                    layoutId="sidebar-active-mode-pill"
+                    className="absolute inset-0 bg-white dark:bg-[#1d2235] rounded-lg shadow-xs"
+                    transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-1.5">
+                  <MessageSquare size={12} className={appMode === 'chat' ? 'text-sky-500 dark:text-sky-400' : ''} />
+                  <span>Chat</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onChangeAppMode?.('agent');
+                  onSelectTab('chat');
+                }}
+                className={`relative flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold cursor-pointer border-none bg-transparent transition-colors z-10 ${
+                  appMode === 'agent'
+                    ? 'text-gray-900 dark:text-white'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                {appMode === 'agent' && (
+                  <motion.div
+                    layoutId="sidebar-active-mode-pill"
+                    className="absolute inset-0 bg-white dark:bg-[#1d2235] rounded-lg shadow-xs"
+                    transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-1.5">
+                  <Terminal size={12} className={appMode === 'agent' ? 'text-purple-500 dark:text-purple-400' : ''} />
+                  <span>Agent</span>
+                </span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex justify-center mb-1.5 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  onChangeAppMode?.(appMode === 'agent' ? 'chat' : 'agent');
+                  onSelectTab('chat');
+                }}
+                title={appMode === 'agent' ? 'Grokki Agent Mode (Click to switch to Chat)' : 'Grokki Chat Mode (Click to switch to Agent)'}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors cursor-pointer border ${
+                  appMode === 'agent'
+                    ? 'bg-purple-500/15 border-purple-500/30 text-purple-400'
+                    : 'bg-sky-500/15 border-sky-500/30 text-sky-400'
+                }`}
+              >
+                {appMode === 'agent' ? <Terminal size={15} /> : <MessageSquare size={15} />}
+              </button>
+            </div>
+          )}
+
+          {/* Top Actions: New Chat / Session & Overview (Home) */}
           <div className="flex flex-col gap-0.5 flex-shrink-0">
             <AnimatedSidebarRow
               Icon={PlusIcon}
-              label="New Chat"
+              label={appMode === 'agent' ? 'New Agent Session' : 'New Chat'}
               shortcut={effectiveHotkeys.newChat || 'Ctrl+N'}
               isActive={isNewChatActive}
               isCollapsed={isCollapsed}
@@ -863,22 +997,22 @@ export const Sidebar = React.memo<SidebarProps>(({
             />
 
             <AnimatedSidebarRow
-              Icon={MemorySidebarIcon}
-              label="Memory"
-              isActive={activeTab === 'memory'}
+              Icon={BriefcaseIcon}
+              label="Workspace"
+              isActive={activeTab === 'workspace' || activeTab === 'google'}
               isCollapsed={isCollapsed}
-              onClick={() => onSelectTab('memory')}
+              onClick={() => onSelectTab('workspace')}
             />
           </div>
 
           {/* Sleek divider line under the overview button */}
           <div className="my-1.5 mx-1 border-t border-gray-200/80 dark:border-[#1f1f22] flex-shrink-0" />
 
-          {/* Recents Header with Claude-style Sort & Group Filter Button */}
+          {/* Recents Header or Agent Project Header */}
           {!isCollapsed && (
             <div className="flex items-center justify-between px-3 pt-0.5 pb-1 flex-shrink-0">
               <span className="text-[10.5px] font-bold text-gray-400 dark:text-gray-500 tracking-wider uppercase select-none">
-                {showArchivedOnly ? 'Archived' : 'Recents'}
+                {showArchivedOnly ? 'Archived' : (appMode === 'agent' ? 'Projects & Sessions' : 'Recents')}
               </span>
 
               <button
@@ -1199,7 +1333,7 @@ export const Sidebar = React.memo<SidebarProps>(({
               {sortedConversations.length === 0 ? (
                 <div className="px-3 py-6 text-center flex flex-col items-center gap-2">
                   <span className="text-[12px] text-gray-400 dark:text-gray-500">
-                    {showArchivedOnly ? 'No archived chats' : 'No recent chats'}
+                    {showArchivedOnly ? 'No archived chats' : (appMode === 'agent' ? 'No coding sessions' : 'No recent chats')}
                   </span>
                   {showArchivedOnly && (
                     <button

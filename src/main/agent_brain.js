@@ -27,6 +27,8 @@ const browserAgent = require('./browser_agent');
 const uiTarsAgent = require('./ui_tars_agent');
 const lanceDbStore = require('./vector_db_lancedb');
 const mem0Manager = require('./mem0_manager');
+const codingAgentHarness = require('./coding_agent_harness');
+const persistentMemory = require('./persistent_memory');
 function shouldAutoSearchWeb(prompt = '', history = []) {
   if (!prompt || typeof prompt !== 'string') return false;
   const raw = prompt.trim();
@@ -89,16 +91,7 @@ function shouldAutoSearchWeb(prompt = '', history = []) {
     }
   }
 
-  // 9. If user has a linked academic portal and asks an academic/course inquiry
-  try {
-    const academicPortal = require('./academic_portal');
-    const cfg = academicPortal.loadConfig();
-    if (cfg && cfg.linked && cfg.universityName) {
-      if (/\b(courses?|programs?|degrees?|b\.?tech|bca|mca|mba|m\.?tech|b\.?sc|m\.?sc|b\.?com|bba|ph\.?d|curriculum|syllabus|admissions?|eligibility|fees?|fee\s+structure|tuition|scholarships?|placements?|package|salary|cutoffs?|rankings?|campuses?|hostels?|campus\s+life|faculty|professors?|vice\s+chancellor|chancellor|dean|departments?|schools?|how\s+to\s+apply|entrance\s+exam)\b/i.test(p)) {
-        return true;
-      }
-    }
-  } catch (_) {}
+
 
   return false;
 }
@@ -165,16 +158,7 @@ function resolveSearchQuery(prompt = '', history = [], config = {}, context = {}
     }
   }
 
-  // 2d. Check linked academic portal config (e.g. Assam Don Bosco University)
-  if (!detectedEntity && (isAttributeQuery || hasPronounRef || isFollowUpOpener)) {
-    try {
-      const academicPortal = require('./academic_portal');
-      const cfg = academicPortal.loadConfig();
-      if (cfg && cfg.linked && cfg.universityName) {
-        detectedEntity = cfg.universityName;
-      }
-    } catch (_) {}
-  }
+
 
   // Normalize acronyms
   if (detectedEntity && /^ADBU\b/i.test(detectedEntity)) {
@@ -598,8 +582,57 @@ class AgentBrain {
     this.musicPlayerControlHandler = handler;
   }
 
-  getRelevantTools(prompt = '', provider = 'gemini') {
+  buildAgentSystemPrompt(context = {}, config = {}, fullPrompt = '') {
+    const root = context.workspaceRoot || (codingAgentHarness && codingAgentHarness.getWorkspaceRoot()) || process.cwd();
+    const projectName = context.workspaceName || path.basename(root) || 'Project';
+    const permission = context.permission || 'turbo';
+    const maxTurns = context.maxTurns || 16;
+    const userNick = config.userNickname || config.userName || 'User';
+
+    return `You are Grokki Agent, an expert autonomous software engineer and coding harness operating directly in the user's local project.
+
+PROJECT WORKSPACE:
+- Root directory: "${root}"
+- Project name: "${projectName}"
+- Local permission level: "${permission}" (if "review" or "default", file writes, edits, and terminal commands trigger interactive user approval)
+- Step budget: up to ${maxTurns} iterative tool calls to inspect, code, and test.
+
+YOUR CODING HARNESS TOOLS:
+- list_directory({ path }): List files and folders in "${root}" (relative path, e.g. "." or "src").
+- search_code({ query, path, file_pattern }): Search workspace code for functions, classes, imports, or keywords.
+- read_file({ path, start_line, end_line }): Read file contents with line numbers. ALWAYS inspect existing code before editing!
+- edit_file({ path, target, replacement, multiple }): Surgical search-and-replace editor. MUST match exact existing target lines and indentation.
+- write_file({ path, content, overwrite }): Create a new file or completely rewrite an existing file.
+- run_command({ command, cwd }): Execute terminal/PowerShell commands in the project (e.g. build, test, lint, install).
+- git_operations({ operation, args }): Git commands (status, diff, log, branch, add, commit).
+
+STRICT OPERATIONAL DIRECTIVES:
+1. NEVER SAY "I cannot directly edit files in your project" or "I don't have access to your local files". You HAVE tools to inspect and modify files directly on disk. Refusing or claiming inability to edit local files is STRICTLY FORBIDDEN.
+2. DO NOT DUMP FULL-FILE CODE IN CHAT FOR THE USER TO COPY-PASTE. Instead of pasting code in chat, use read_file to inspect the file, and then call edit_file or write_file to apply the changes directly to disk!
+3. WHEN THE USER ASKS TO IMPROVE, FIX, REFACTOR, OR BUILD (e.g. "Can you improve the design a bit?"):
+   - Step 1: Immediately use list_directory or search_code to locate relevant files (e.g. App.tsx, CSS, components).
+   - Step 2: Use read_file to inspect the current code.
+   - Step 3: Use edit_file (or write_file) to apply the improvements directly on disk.
+   - Step 4: After files are edited, give a concise summary of what you improved and which files were updated.
+4. When permission level is "review" or "default", your file edits or command tool calls will present the user with an interactive permission approval card above the chat input. Issue the tool call so the user can review and approve it.
+5. All file paths must be relative to "${root}" or absolute. Keep explanations brief and let tool calls do the work.`;
+  }
+
+  getRelevantTools(prompt = '', provider = 'gemini', context = {}) {
     const p = (prompt || '').toLowerCase().trim();
+    const isAgent = Boolean(context && context.mode === 'agent');
+    const CODING_TOOLS = new Set([
+      'read_file', 'write_file', 'edit_file', 'run_command', 'list_directory', 'search_code', 'git_operations', 'cli_copilot'
+    ]);
+
+    // GROKKI AGENT MODE: Autonomous Coding Agent ALWAYS gets coding harness tools!
+    // Never strip tools based on conversational regex or informational heuristics in agent mode.
+    if (isAgent) {
+      const allDeclarations = this.getToolsDeclaration();
+      const allTools = allDeclarations[0]?.functionDeclarations || [];
+      const agentTools = allTools.filter(t => CODING_TOOLS.has(t.name) || ['write_memory', 'search_memory'].includes(t.name));
+      return agentTools.length > 0 ? [{ functionDeclarations: agentTools }] : undefined;
+    }
 
     // 1. If purely conversational greeting or factual/informational query with no action verbs, omit tools
     const isConversationalGreeting = /^(hi|hello|hey|yo|sup|wassup|wazzup|whats?\s*up|what\s+is\s+up|how\s*('?s|is)\s*(it|everything|life)|how\s+are\s+you|how\s+do\s+you\s+do|howdy|greetings|good\s+(morning|afternoon|evening|night|day)|thanks|thank\s+you|thx|ok|okay|k|bye|goodbye|see\s+ya|cool|nice|great|awesome|who\s+are\s+you|what\s+is\s+your\s+name|what\s+can\s+you\s+do|tell\s+me\s+(a\s+joke|something)|what\s+are\s+you\s+doing|what\s+do\s+you\s+think|help\s*me?|can\s+you\s+help)\b/i.test(p);
@@ -610,7 +643,7 @@ class AgentBrain {
       return undefined;
     }
 
-    const hasActionIntent = /\b(open|launch|start|run|close|quit|kill|click|press|type|find|locate|search\s+for\s+file|volume|sound|mute|unmute|brightness|screenshot|screen\s*shot|snip|capture|record\s*screen|window|minimize|maximize|snap\s*window|shutdown|restart|reboot|sleep|lock\s*pc|wifi|bluetooth|clean\s*up|cleanup|organize|timer|alarm|lock\s*mode|island|whatsapp|send\s*(message|wa|text|file|email)|check\s*(email|emails|mail|inbox)|gmail|drive|calendar|agenda|schedule|meeting|attendance|adbu|roll\s*no|portal|viva|quiz|play\s*(music|song|youtube)|pause\s*music|spotify)\b/i.test(p);
+    const hasActionIntent = /\b(open|launch|start|run|close|quit|kill|click|press|type|find|locate|search\s+for\s+file|volume|sound|mute|unmute|brightness|screenshot|screen\s*shot|snip|capture|record\s*screen|window|minimize|maximize|snap\s*window|shutdown|restart|reboot|sleep|lock\s*pc|wifi|bluetooth|clean\s*up|cleanup|organize|timer|alarm|lock\s*mode|island|whatsapp|send\s*(message|wa|text|file|email)|check\s*(email|emails|mail|inbox)|gmail|drive|calendar|agenda|schedule|meeting|viva|quiz|play\s*(music|song|youtube)|pause\s*music|spotify)\b/i.test(p);
 
     // Ollama Local Models: Small local models MUST NEVER receive 40+ tool definitions on non-action queries!
     // Non-action queries (conversational, coding, reasoning, general knowledge) get 0 tools for instant (<1s) replies.
@@ -619,17 +652,32 @@ class AgentBrain {
     }
 
     const allDeclarations = this.getToolsDeclaration();
-    const allTools = allDeclarations[0]?.functionDeclarations || [];
+    let allTools = allDeclarations[0]?.functionDeclarations || [];
+
+    // Grokki Chat CANNOT access or execute coding tools - only Grokki Agent can!
+    if (!isAgent) {
+      allTools = allTools.filter(t => !CODING_TOOLS.has(t.name));
+    }
 
     // If provider is Groq (has strict 8000 TPM limit) or Ollama (local model), filter strictly to relevant tools
     if (provider === 'groq' || provider === 'ollama') {
       const isDesktop = /\b(open|launch|start|click|type|find|locate|window|software|app|desktop|notepad|spotify|chrome|calc|calculator|volume|brightness|close|minimize|maximize|snap|shutdown|restart|sleep|lock|pc|wifi|bluetooth|cleanup|clean\s+up|organize|timer|alarm|island)\b/i.test(p);
       const isGoogle = /\b(google|drive|sheet|doc|gmail|email|mail|calendar|task|tasks|classroom|course|assignment|announcement)\b/i.test(p);
-      const isUni = /\b(attendance|university|college|portal|adbu|roll|profile|exam|viva|quiz|notes|study)\b/i.test(p);
+      const isUni = /\b(university|college|exam|viva|quiz|notes|study)\b/i.test(p);
       const isMedia = /\b(music|song|songs|play|pause|next|youtube|video|spotify)\b/i.test(p);
       const isWhatsApp = /\b(whatsapp|wa|message|messages|chat|chats|text|texts|contact|contacts|phone)\b/i.test(p);
+      const isCoding = /\b(code|coding|file|files|read|write|edit|refactor|script|program|bash|terminal|command|powershell|git|diff|patch|dir|directory|search|find|grep|test|build|bug|error|fix|harness)\b/i.test(p);
+      const isMemory = /\b(memory|remember|recall|forget|memorize|preference|preferences|my\s+name|what\s+do\s+you\s+know\s+about\s+me|who\s+am\s+i|update\s+memory|save\s+(?:this\s+)?to\s+memory)\b/i.test(p);
 
       const selectedNames = new Set();
+
+      if (isMemory) {
+        ['write_memory', 'edit_memory', 'search_memory', 'delete_memory'].forEach(n => selectedNames.add(n));
+      }
+
+      if (isCoding && isAgent) {
+        ['read_file', 'write_file', 'edit_file', 'run_command', 'list_directory', 'search_code', 'git_operations', 'cli_copilot'].forEach(n => selectedNames.add(n));
+      }
 
       if (isDesktop) {
         ['open_app', 'desktop_click', 'desktop_type', 'desktop_find', 'desktop_snapshot',
@@ -648,7 +696,7 @@ class AgentBrain {
       }
 
       if (isUni) {
-        ['get_university_attendance', 'get_university_profile', 'sync_university_portal', 'create_study_revision_document', 'viva_voice_quiz', 'snap_and_solve_screen', 'search_research_papers'].forEach(n => selectedNames.add(n));
+        ['create_study_revision_document', 'viva_voice_quiz', 'snap_and_solve_screen', 'search_research_papers'].forEach(n => selectedNames.add(n));
       }
 
       if (isMedia) {
@@ -665,13 +713,164 @@ class AgentBrain {
       return filtered.length > 0 ? [{ functionDeclarations: filtered }] : undefined;
     }
 
-    return allDeclarations;
+    return [{ functionDeclarations: allTools }];
   }
 
   getToolsDeclaration() {
     return [
       {
         functionDeclarations: [
+          {
+            name: 'write_memory',
+            description: 'Save an important personal fact, user preference, workflow rule, tech stack choice, or project detail into Grokki persistent memory. Use whenever the user explicitly or implicitly asks to remember something (e.g. "remember that...", "keep in mind", "save to memory", "my name is...", "I prefer...").',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                title: { type: 'STRING', description: 'Brief descriptive title for the memory (e.g. "User Theme Preference", "Project Tech Stack")' },
+                content: { type: 'STRING', description: 'The exact fact, preference, rule, or detail to store' },
+                category: { type: 'STRING', description: 'One of: "profile" (habits/preferences/identity), "project" (codebase/architecture), "knowledge" (facts/concepts), "episodic" (decisions/events). Defaults to "profile".' },
+                tags: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Keywords for indexing (e.g. ["typescript", "tailwind", "preferences"])' },
+                pinned: { type: 'BOOLEAN', description: 'Whether to pin this memory to always prioritize it (default: false)' },
+              },
+              required: ['title', 'content'],
+            },
+          },
+          {
+            name: 'edit_memory',
+            description: 'Update or modify an existing stored memory when information evolves, gets corrected, or when the user asks to change what Grokki remembers.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                id: { type: 'STRING', description: 'Memory ID (e.g. "mem_profile_...") or search title if ID is not known' },
+                title: { type: 'STRING', description: 'New title (optional)' },
+                content: { type: 'STRING', description: 'New content text' },
+                reason: { type: 'STRING', description: 'Reason for update (e.g. "User updated tech stack preference")' },
+                pinned: { type: 'BOOLEAN', description: 'Updated pinned state (optional)' },
+              },
+              required: ['id', 'content'],
+            },
+          },
+          {
+            name: 'search_memory',
+            description: 'Search Grokki stored long-term memories to recall saved facts, user preferences, past project decisions, and notes.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                query: { type: 'STRING', description: 'Keyword query to search in memory' },
+                category: { type: 'STRING', description: 'Optional category filter: "all", "profile", "project", "episodic", "knowledge"' },
+              },
+              required: ['query'],
+            },
+          },
+          {
+            name: 'delete_memory',
+            description: 'Delete or remove a memory from Grokki storage when the user asks to forget or remove it.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                id: { type: 'STRING', description: 'ID or exact title of the memory to forget' },
+              },
+              required: ['id'],
+            },
+          },
+          {
+            name: 'read_file',
+            description: 'Read the contents of a file in the workspace or system with high precision. Supports optional line ranges (start_line, end_line) and byte offset. Returns numbered lines for accurate code context.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                path: { type: 'STRING', description: 'The relative or absolute path of the file to read.' },
+                start_line: { type: 'INTEGER', description: 'Starting line number (1-indexed, inclusive). Optional.' },
+                end_line: { type: 'INTEGER', description: 'Ending line number (1-indexed, inclusive). Optional.' },
+                byte_offset: { type: 'INTEGER', description: 'Byte offset to start reading from. Optional.' },
+              },
+              required: ['path'],
+            },
+          },
+          {
+            name: 'write_file',
+            description: 'Create a new file or overwrite an existing file with the specified content. Creates parent directories automatically.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                path: { type: 'STRING', description: 'The relative or absolute path of the file to create or write.' },
+                content: { type: 'STRING', description: 'The full text content to write into the file.' },
+                overwrite: { type: 'BOOLEAN', description: 'Whether to overwrite if file already exists (default: true).' },
+                append: { type: 'BOOLEAN', description: 'Whether to append content instead of overwriting (default: false).' },
+              },
+              required: ['path', 'content'],
+            },
+          },
+          {
+            name: 'edit_file',
+            description: 'Surgically edit an existing file by replacing an exact target string with a replacement string. Calculates and returns a unified git-style diff of the modifications.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                path: { type: 'STRING', description: 'The relative or absolute path of the file to edit.' },
+                target: { type: 'STRING', description: 'The exact string/code segment to be replaced. Must match existing text in the file including whitespace.' },
+                replacement: { type: 'STRING', description: 'The replacement string/code to insert in place of target.' },
+                multiple: { type: 'BOOLEAN', description: 'Whether to replace all occurrences if target appears multiple times (default: false).' },
+              },
+              required: ['path', 'target', 'replacement'],
+            },
+          },
+          {
+            name: 'run_command',
+            description: 'Execute a terminal, shell, or PowerShell command in the workspace directory. Captures stdout, stderr, exit code, and execution duration.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                command: { type: 'STRING', description: 'The shell command line string to execute (e.g. "npm test", "git status", "pytest").' },
+                toolSummary: { type: 'STRING', description: 'Brief 2-5 word noun phrase describing what this command accomplishes (e.g. "find dashboard window loading in main.js", "check running processes", "build project bundle").' },
+                cwd: { type: 'STRING', description: 'Optional relative or absolute working directory path.' },
+                timeout: { type: 'INTEGER', description: 'Maximum execution timeout in milliseconds (default: 30000).' },
+              },
+              required: ['command'],
+            },
+          },
+          {
+            name: 'list_directory',
+            description: 'List files and subdirectories within a directory path. Returns file types, relative paths, and sizes while ignoring build/node_modules folders.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                path: { type: 'STRING', description: 'The directory path to inspect (defaults to workspace root).' },
+                depth: { type: 'INTEGER', description: 'Max traversal depth (default: 2).' },
+                include_hidden: { type: 'BOOLEAN', description: 'Whether to include hidden files (default: false).' },
+              },
+            },
+          },
+          {
+            name: 'search_code',
+            description: 'Search for text or regular expression matches across all source code files in the workspace (ripgrep-style). Returns file paths and line numbers.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                query: { type: 'STRING', description: 'Text substring or regex pattern to search for.' },
+                path: { type: 'STRING', description: 'Directory path to scope search within.' },
+                file_pattern: { type: 'STRING', description: 'Filter files matching pattern (e.g. ".tsx", "test").' },
+                is_regex: { type: 'BOOLEAN', description: 'Whether query is a regex pattern (default: false).' },
+                max_results: { type: 'INTEGER', description: 'Maximum match results to return (default: 40).' },
+              },
+              required: ['query'],
+            },
+          },
+          {
+            name: 'git_operations',
+            description: 'Perform git operations in the active workspace repository (status, diff, log, branch, add, commit).',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                action: { type: 'STRING', description: 'Git action to perform: "status", "diff", "log", "branch", "add", "commit".' },
+                args: {
+                  type: 'OBJECT',
+                  description: 'Action parameters: { message: "commit message", file: "path/to/file" }.',
+                },
+              },
+              required: ['action'],
+            },
+          },
           {
             name: 'desktop_snapshot',
             description: 'Inspect the Windows accessibility tree of an app or desktop using native UI Automation (powered by Vercel agent-desktop). Returns a structured list of interactive UI elements with scoped @ref IDs (e.g. @s8f3k2p9:e8). Preferred over screenshots for clicking buttons, fields, tabs, and menus without taking vision tokens.',
@@ -1172,26 +1371,7 @@ class AgentBrain {
             description: 'Lists all active enrolled Google Classroom courses and teachers',
             parameters: { type: 'OBJECT', properties: {} },
           },
-          {
-            name: 'get_university_attendance',
-            description: 'Fetches your official university course attendance breakdown (held, attended, %, shortage warnings, and classes needed for 75%) from the linked ERP portal (e.g. ADBU)',
-            parameters: {
-              type: 'OBJECT',
-              properties: {
-                force_sync: { type: 'BOOLEAN', description: 'Whether to force live login and scrape latest data from the portal' },
-              },
-            },
-          },
-          {
-            name: 'get_university_profile',
-            description: 'Fetches student profile details (name, student ID, program, semester) from the linked university ERP portal',
-            parameters: { type: 'OBJECT', properties: {} },
-          },
-          {
-            name: 'sync_university_portal',
-            description: 'Logs into the university ERP portal and syncs fresh attendance and profile records into Grokki',
-            parameters: { type: 'OBJECT', properties: {} },
-          },
+
           {
             name: 'youtube_data_search',
             description: 'Searches YouTube using official YouTube Data API v3 to get exact video titles, channels, and video links',
@@ -2390,7 +2570,7 @@ class AgentBrain {
       signal = controller.signal;
     }
 
-    const provider = powerTools.airgapForced ? 'ollama' : (config.provider || 'groq');
+    const provider = (context && context.provider) || (powerTools.airgapForced ? 'ollama' : (config.provider || 'groq'));
     let endpoint = 'https://api.groq.com/openai/v1';
     let apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
     let model = config.groqModel || 'qwen/qwen3.8-27b';
@@ -2399,44 +2579,44 @@ class AgentBrain {
     if (provider === 'groq') {
       endpoint = 'https://api.groq.com/openai/v1';
       apiKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
-      model = config.groqModel || 'qwen/qwen3.8-27b';
+      model = (context && context.model) || config.groqModel || 'qwen/qwen3.8-27b';
       modelCandidates = Array.from(new Set([model, 'qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b']));
     } else if (provider === 'ollama') {
       const base = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
       endpoint = `${base}/v1`;
       apiKey = 'ollama';
-      model = config.ollamaModel || 'llama3.2';
+      model = (context && context.model) || config.ollamaModel || 'llama3.2';
       modelCandidates = [model];
     } else if (provider === 'openrouter') {
       endpoint = 'https://openrouter.ai/api/v1';
       apiKey = (config.openrouterApiKey || process.env.OPENROUTER_API_KEY || '').trim();
-      model = config.openrouterModel || 'openrouter/auto';
+      model = (context && context.model) || config.openrouterModel || 'openrouter/auto';
       modelCandidates = [model];
     } else if (provider === 'openai') {
       endpoint = 'https://api.openai.com/v1';
       apiKey = (config.openaiApiKey || process.env.OPENAI_API_KEY || '').trim();
-      model = config.openaiModel || 'gpt-4o';
+      model = (context && context.model) || config.openaiModel || 'gpt-4o';
       modelCandidates = [model, 'gpt-4o-mini'];
     } else if (provider === 'grok') {
       endpoint = 'https://api.x.ai/v1';
       apiKey = (config.grokApiKey || process.env.XAI_API_KEY || '').trim();
-      model = config.grokModel || 'grok-2-1212';
+      model = (context && context.model) || config.grokModel || 'grok-2-1212';
       modelCandidates = [model, 'grok-beta'];
     } else if (provider === 'deepseek') {
       endpoint = 'https://api.deepseek.com';
       apiKey = (config.deepseekApiKey || process.env.DEEPSEEK_API_KEY || '').trim();
-      model = config.deepseekModel || 'deepseek-chat';
+      model = (context && context.model) || config.deepseekModel || 'deepseek-chat';
       modelCandidates = [model, 'deepseek-reasoner'];
     } else if (provider === 'qwen') {
       endpoint = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1';
       apiKey = (config.qwenApiKey || process.env.DASHSCOPE_API_KEY || '').trim();
-      model = config.qwenModel || 'qwen-max';
+      model = (context && context.model) || config.qwenModel || 'qwen-max';
       modelCandidates = [model, 'qwen-plus'];
     } else if (provider === 'omniroute' || provider === 'omnirouter') {
       const base = (config.omnirouteEndpoint || config.omnirouterEndpoint || 'http://localhost:20128/v1').replace(/\/+$/, '');
       endpoint = base;
       apiKey = (config.omnirouteApiKey || config.omnirouterApiKey || process.env.OMNIROUTE_API_KEY || process.env.OMNIROUTER_API_KEY || '').trim();
-      model = config.omnirouteModel || config.omnirouterModel || 'auto';
+      model = (context && context.model) || config.omnirouteModel || config.omnirouterModel || 'auto';
       modelCandidates = [model];
     } else if (provider === 'litellm') {
       endpoint = (config.litellmEndpoint || 'http://localhost:4000/v1').replace(/\/+$/, '');
@@ -2557,12 +2737,22 @@ class AgentBrain {
 
     memory.addTurn('user', prompt);
 
+    const isAgent = Boolean(context && context.mode === 'agent');
+    if (context && context.workspaceRoot) {
+      codingAgentHarness.setWorkspaceRoot(context.workspaceRoot);
+    }
+    if (context && context.permission) {
+      codingAgentHarness.setPermissionLevel(context.permission);
+    }
+
     const rawHistory = memory.getHistory();
-    let systemContent = memory.buildSystemPrompt(config, fullPrompt);
+    let systemContent = isAgent
+      ? this.buildAgentSystemPrompt(context, config, fullPrompt)
+      : memory.buildSystemPrompt(config, fullPrompt);
     let historyToUse = rawHistory.slice(-18);
 
-    // Groq Free Tier optimization: keep prompt lean (<3500 tokens) to guarantee zero 413 ITPM errors
-    if (provider === 'groq') {
+    // Groq Free Tier optimization: keep prompt lean (<3500 tokens) to guarantee zero 413 ITPM errors (non-agent only)
+    if (!isAgent && provider === 'groq') {
       const groqMem = memory.persistentMemory ? memory.persistentMemory.retrieveContext(fullPrompt, { projectId: config.activeProjectId }).formattedPromptSection : '';
       systemContent = `You are Grokki, a fast, deeply knowledgeable, highly intelligent AI assistant for Windows${isWebSearchActive ? ' with active real-time web search capabilities' : ''}.
 User: ${config.userNickname || config.userName || 'Friend'}.
@@ -2571,8 +2761,8 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       historyToUse = rawHistory.slice(-6);
     }
 
-    // Ollama Local Model Optimization: keep prompt lean & concise to eliminate 30s prompt-eval delays
-    if (provider === 'ollama') {
+    // Ollama Local Model Optimization: keep prompt lean & concise to eliminate 30s prompt-eval delays (non-agent only)
+    if (!isAgent && provider === 'ollama') {
       if (isConversationalPrompt) {
         systemContent = `You are Grokki, a fast, friendly AI assistant for Windows. Reply naturally in 1-2 conversational sentences. User: ${config.userNickname || config.userName || 'Friend'}.`;
         historyToUse = rawHistory.slice(-2);
@@ -2618,8 +2808,9 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       messages.push({ role: 'user', content: fullPrompt });
     }
 
+    this.currentContext = context || {};
     // When Deep Search / Live Grounding is active or query is non-action, omit desktop tools
-    const toolsDecl = isWebSearchActive ? undefined : this.getRelevantTools(prompt, provider);
+    const toolsDecl = isWebSearchActive ? undefined : this.getRelevantTools(prompt, provider, context);
     let tools = toolsDecl ? convertGeminiToolsToOpenAI(toolsDecl) : undefined;
     if (tools && !isWebSearchActive && provider !== 'ollama') {
       try {
@@ -2630,146 +2821,204 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       } catch (_) {}
     }
 
+    if (context && context.workspaceRoot) {
+      codingAgentHarness.setWorkspaceRoot(context.workspaceRoot);
+    }
+    if (context && context.permission) {
+      codingAgentHarness.setPermissionLevel(context.permission);
+    }
+
     try {
       if (signal.aborted) throw new Error('TASK_CANCELLED');
 
-      let data = null;
-      let lastModelErr = null;
-
-      for (const candModel of modelCandidates) {
-        try {
-          if (signal.aborted) throw new Error('TASK_CANCELLED');
-          data = await callOpenAICompatible({
-            endpoint,
-            apiKey,
-            model: candModel,
-            messages,
-            tools,
-            signal,
-            timeout: provider === 'ollama' ? 180000 : 45000,
-          });
-          if (data && data.choices && data.choices.length > 0) {
-            break;
-          }
-        } catch (mErr) {
-          lastModelErr = mErr;
-          if (signal && signal.aborted) {
-            throw mErr;
-          }
-          console.warn(`[AgentBrain] Provider model ${candModel} error: ${mErr.message}. Trying next fallback...`);
-        }
-      }
-
-      if (!data) {
-        // If OpenRouter or other provider failed and Groq API key is available, fast-failover to Groq!
-        const groqKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
-        if (groqKey && provider !== 'groq' && provider !== 'ollama' && (!signal || !signal.aborted)) {
-          console.log('[AgentBrain] Provider failed or rate limited, fast-failing over to Groq (500ms)...');
-          try {
-            return await this.runOpenAICompatible(prompt, { ...config, provider: 'groq', groqApiKey: groqKey }, { ...context, isFailover: true });
-          } catch (e) {}
-        }
-
-        // If Groq fails due to token limit / 413 / rate limit, seamlessly fallback to Gemini Flash
-        if (lastModelErr && (lastModelErr.message.includes('413') || lastModelErr.message.includes('Limit') || lastModelErr.message.includes('tokens per minute'))) {
-          console.log('[AgentBrain] Groq token limit hit. Seamlessly falling back to Gemini Flash...');
-          const gemKey = (config.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
-          if (gemKey && (!signal || !signal.aborted)) {
-            return await this.run(prompt, { ...config, provider: 'gemini', geminiApiKey: gemKey }, { ...context, isFailover: true });
-          }
-        }
-        throw lastModelErr || new Error('No response from provider');
-      }
-
-      const choice = data.choices && data.choices[0];
-      if (!choice) throw new Error('Empty response from model');
-
-      const msg = choice.message;
-      let replyText = (msg.content || '').trim();
-      const toolCalls = Array.isArray(msg.tool_calls) ? [...msg.tool_calls] : [];
       const executed = [];
+      let finalReplyText = '';
+      let activeMessages = [...messages];
+      const maxAgentSteps = (context && context.maxTurns) ? Math.min(Math.max(parseInt(context.maxTurns, 10), 1), 32) : 8;
+      let currentStep = 0;
 
-      // Intercept pseudo-tool calls from OpenRouter / Groq / Open-source models
-      // that output tool calls in the message text body (e.g. call>{"name": "playmusic", ...} or <tool_call>...</tool_call>)
-      if (replyText) {
-        const hasPseudoCall = /(?:call>|<tool_call>|\[TOOL_CALL\]|\bcall:\s*|\bAction:\s*)\s*\{/i.test(replyText) ||
-                              (replyText.startsWith('{') && (replyText.includes('"name"') || replyText.includes('"function"')));
-        if (hasPseudoCall) {
-          const jsonStr = extractJsonBlock(replyText);
-          if (jsonStr) {
-            try {
-              const parsed = JSON.parse(jsonStr);
-              let toolName = (parsed.name || parsed.function?.name || parsed.action || '').trim();
-              let toolArgs = parsed.arguments || parsed.args || parsed.parameters || parsed.function?.arguments || {};
-              if (typeof toolArgs === 'string') {
-                try { toolArgs = JSON.parse(toolArgs); } catch (e) {}
-              }
-              if (toolName) {
-                // Normalize names & aliases
-                toolName = toolName.toLowerCase().replace(/-/g, '_');
-                if (toolName === 'playmusic') toolName = 'play_music';
-                if (toolName === 'controlmusic') toolName = 'control_music';
-                if (toolName === 'play_music' || toolName === 'play_youtube_music') {
-                  if (toolArgs.query && !toolArgs.song) toolArgs.song = toolArgs.query;
+      while (currentStep < maxAgentSteps) {
+        currentStep++;
+        if (signal && signal.aborted) throw new Error('TASK_CANCELLED');
+
+        let data = null;
+        let lastModelErr = null;
+
+        for (const candModel of modelCandidates) {
+          try {
+            if (signal.aborted) throw new Error('TASK_CANCELLED');
+            data = await callOpenAICompatible({
+              endpoint,
+              apiKey,
+              model: candModel,
+              messages: activeMessages,
+              tools,
+              signal,
+              timeout: provider === 'ollama' ? 180000 : 45000,
+              max_tokens: isAgent ? (provider === 'openrouter' ? 2048 : 8192) : (provider === 'openrouter' ? 2048 : 4000),
+            });
+            if (data && data.choices && data.choices.length > 0) {
+              break;
+            }
+          } catch (mErr) {
+            lastModelErr = mErr;
+            if (signal && signal.aborted) {
+              throw mErr;
+            }
+            console.warn(`[AgentBrain] Provider ${provider} model ${candModel} error: ${mErr.message}.`);
+          }
+        }
+
+        if (!data) {
+          throw lastModelErr || new Error(`No response from ${provider}`);
+        }
+
+        const choice = data.choices && data.choices[0];
+        if (!choice) throw new Error('Empty response from model');
+
+        const msg = choice.message;
+        let replyText = (msg.content || '').trim();
+        const toolCalls = Array.isArray(msg.tool_calls) ? [...msg.tool_calls] : [];
+
+        // Intercept pseudo-tool calls from OpenRouter / Groq / Open-source models
+        // that output tool calls in the message text body (e.g. call>{"name": "playmusic", ...} or <tool_call>...</tool_call>)
+        if (replyText) {
+          const hasPseudoCall = /(?:call>|<tool_call>|\[TOOL_CALL\]|\bcall:\s*|\bAction:\s*)\s*\{/i.test(replyText) ||
+                                (replyText.startsWith('{') && (replyText.includes('"name"') || replyText.includes('"function"')));
+          if (hasPseudoCall) {
+            const jsonStr = extractJsonBlock(replyText);
+            if (jsonStr) {
+              try {
+                const parsed = JSON.parse(jsonStr);
+                let toolName = (parsed.name || parsed.function?.name || parsed.action || '').trim();
+                let toolArgs = parsed.arguments || parsed.args || parsed.parameters || parsed.function?.arguments || {};
+                if (typeof toolArgs === 'string') {
+                  try { toolArgs = JSON.parse(toolArgs); } catch (e) {}
                 }
-                toolCalls.push({
-                  id: `pseudo_${Date.now()}`,
-                  type: 'function',
-                  function: {
-                    name: toolName,
-                    arguments: toolArgs,
-                  },
-                });
-                // Remove raw pseudo call syntax from user-facing replyText
-                replyText = replyText.replace(/(?:call>|<tool_call>|\[TOOL_CALL\]|\bcall:\s*|\bAction:\s*)?[\s\S]*?\}<\/tool_call>|call>[\s\S]*\}|```(?:json)?\s*\{[\s\S]*?\}\s*```/i, '').trim();
-                if (replyText.startsWith('{') && replyText.endsWith('}')) {
-                  replyText = '';
+                if (toolName) {
+                  toolName = toolName.toLowerCase().replace(/-/g, '_');
+                  if (toolName === 'playmusic') toolName = 'play_music';
+                  if (toolName === 'controlmusic') toolName = 'control_music';
+                  if (toolName === 'play_music' || toolName === 'play_youtube_music') {
+                    if (toolArgs.query && !toolArgs.song) toolArgs.song = toolArgs.query;
+                  }
+                  toolCalls.push({
+                    id: `pseudo_${Date.now()}_${toolCalls.length}`,
+                    type: 'function',
+                    function: {
+                      name: toolName,
+                      arguments: toolArgs,
+                    },
+                  });
+                  replyText = replyText.replace(/(?:call>|<tool_call>|\[TOOL_CALL\]|\bcall:\s*|\bAction:\s*)?[\s\S]*?\}<\/tool_call>|call>[\s\S]*\}|```(?:json)?\s*\{[\s\S]*?\}\s*```/i, '').trim();
+                  if (replyText.startsWith('{') && replyText.endsWith('}')) {
+                    replyText = '';
+                  }
                 }
+              } catch (err) {
+                console.warn('[AgentBrain] Failed to parse pseudo-tool call JSON:', err.message);
               }
-            } catch (err) {
-              console.warn('[AgentBrain] Failed to parse pseudo-tool call JSON:', err.message);
             }
           }
         }
-      }
 
-      for (const call of toolCalls) {
-        if (signal.aborted) {
-          this.abortController = null;
-          return { success: false, cancelled: true, reply: 'Cancelled.' };
+        // If no tool calls in this turn, model returned final explanation!
+        if (toolCalls.length === 0) {
+          finalReplyText = replyText;
+          break;
         }
 
-        const name = call.function.name;
-        let args = {};
-        try {
-          args = typeof call.function.arguments === 'string' ? JSON.parse(call.function.arguments) : (call.function.arguments || {});
-        } catch (e) {
-          args = {};
+        const stepToolResults = [];
+        for (const call of toolCalls) {
+          if (signal && signal.aborted) {
+            this.abortController = null;
+            this.emitAgentStep(context, { conversationId: convoId, status: 'idle' });
+            return { success: false, cancelled: true, reply: 'Cancelled.' };
+          }
+
+          const name = call.function.name;
+          let args = {};
+          try {
+            args = typeof call.function.arguments === 'string' ? JSON.parse(call.function.arguments) : (call.function.arguments || {});
+          } catch (e) {
+            args = {};
+          }
+
+          const stepId = `step_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+          this.emitAgentStep(context, {
+            id: stepId,
+            conversationId: convoId,
+            status: 'running',
+            name,
+            args,
+          });
+
+          const result = await this.executeTool(name, args, config.geminiApiKey || apiKey);
+          executed.push({ id: stepId, name, args, result });
+          stepToolResults.push({ call, name, result });
+
+          this.emitAgentStep(context, {
+            id: stepId,
+            conversationId: convoId,
+            status: 'completed',
+            name,
+            args,
+            result,
+          });
         }
 
-        const result = await this.executeTool(name, args, config.geminiApiKey || apiKey);
-        executed.push({ name, args, result });
+        // For single-shot quick action tools (like music control, island toggle, volume), terminate early
+        const singleShotActions = ['play_music', 'play_youtube_music', 'control_music', 'system_volume', 'close_active_window', 'system_power', 'system_brightness'];
+        if (toolCalls.every(c => singleShotActions.includes(c.function.name))) {
+          finalReplyText = stepToolResults[0]?.result?.message || 'Done.';
+          break;
+        }
 
-        if (result && result.message) {
-          replyText = result.message;
+        // DeepSeek Harness Agent Loop: feed tool outputs back for multi-turn execution
+        activeMessages.push({
+          role: 'assistant',
+          content: msg.content || null,
+          tool_calls: toolCalls.map(tc => ({
+            id: tc.id || `call_${Date.now()}`,
+            type: 'function',
+            function: {
+              name: tc.function.name,
+              arguments: typeof tc.function.arguments === 'string' ? tc.function.arguments : JSON.stringify(tc.function.arguments || {}),
+            },
+          })),
+        });
+
+        for (const item of stepToolResults) {
+          const content = typeof item.result === 'string' ? item.result : (item.result?.message || JSON.stringify(item.result));
+          activeMessages.push({
+            role: 'tool',
+            tool_call_id: item.call.id || `call_${Date.now()}`,
+            content: content || 'Success',
+          });
+        }
+
+        if (stepToolResults.length > 0) {
+          const lastRes = stepToolResults[stepToolResults.length - 1].result;
+          finalReplyText = lastRes?.message || `Completed ${stepToolResults.map(s => s.name).join(', ')}.`;
         }
       }
 
-      if (!replyText && executed.length > 0) {
-        replyText = executed[0].result?.message || `Done: ${executed[0].name.replace(/_/g, ' ')}.`;
-      } else if (!replyText) {
-        replyText = 'Ready.';
+      if (!finalReplyText && executed.length > 0) {
+        finalReplyText = executed[executed.length - 1].result?.message || `Done: ${executed[0].name.replace(/_/g, ' ')}.`;
+      } else if (!finalReplyText) {
+        finalReplyText = 'Ready.';
       }
 
-      memory.addTurn('model', replyText);
+      memory.addTurn('model', finalReplyText);
       try {
-        mem0Manager.extractMemoriesFromTurn(prompt, replyText, (s, u, tok) => this.generateAcademicLLM(s, u, tok)).catch(() => {});
+        mem0Manager.extractMemoriesFromTurn(prompt, finalReplyText, (s, u, tok) => this.generateAcademicLLM(s, u, tok)).catch(() => {});
       } catch (_) {}
       this.abortController = null;
+      this.emitAgentStep(context, { conversationId: convoId, status: 'idle' });
 
       return {
         success: true,
-        reply: replyText,
+        reply: finalReplyText,
         actionsExecuted: executed,
         grounding: groundingSources && groundingSources.length > 0 ? {
           query: prompt,
@@ -2779,6 +3028,7 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       };
     } catch (err) {
       this.abortController = null;
+      this.emitAgentStep(context, { conversationId: convoId, status: 'idle' });
       if (err.message === 'TASK_CANCELLED' || (signal && signal.aborted)) {
         return { success: false, cancelled: true, reply: 'Cancelled.' };
       }
@@ -2933,7 +3183,7 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       };
     }
 
-    const provider = config.provider || 'gemini';
+    const provider = (context && context.provider) || config.provider || 'gemini';
 
     if (['groq', 'ollama', 'openrouter', 'omniroute', 'omnirouter', 'openai', 'grok', 'deepseek', 'qwen', 'litellm', 'bifrost', 'portkey', 'helicone', 'routellm', 'newapi', 'higress', 'clawrouter'].includes(provider)) {
       return await this.runOpenAICompatible(prompt, config, context);
@@ -3024,9 +3274,21 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
     }
 
     const ai = new GoogleGenAI({ apiKey });
+    this.currentContext = context || {};
+
+    const isAgent = Boolean(context && context.mode === 'agent');
+    if (context && context.workspaceRoot) {
+      codingAgentHarness.setWorkspaceRoot(context.workspaceRoot);
+    }
+    if (context && context.permission) {
+      codingAgentHarness.setPermissionLevel(context.permission);
+    }
+
     // When Deep Search / Live Grounding is active, omit desktop tools so Gemini synthesizes search results
-    const tools = isWebSearchActive ? undefined : this.getRelevantTools(prompt, 'gemini');
-    const systemInstruction = memory.buildSystemPrompt(config, fullPrompt);
+    const tools = isWebSearchActive ? undefined : this.getRelevantTools(prompt, 'gemini', context);
+    const systemInstruction = isAgent
+      ? this.buildAgentSystemPrompt(context, config, fullPrompt)
+      : memory.buildSystemPrompt(config, fullPrompt);
 
     if (context && Array.isArray(context.conversationHistory) && context.conversationHistory.length > 0) {
       memory.syncFromExternalHistory(context.conversationHistory);
@@ -3035,7 +3297,7 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
     memory.addTurn('user', prompt);
 
     let lastError = null;
-    const selectedGeminiModel = config.geminiModel || 'gemini-3.5-flash';
+    const selectedGeminiModel = config.geminiModel || 'gemini-2.5-flash';
     const activeModels = [selectedGeminiModel, ...this.models.filter(m => m !== selectedGeminiModel)];
 
     for (const modelName of activeModels) {
@@ -3053,162 +3315,228 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
           return turn;
         });
 
-        const response = await withAbort(withTimeout(ai.models.generateContent({
-          model: modelName,
-          contents: geminiHistory,
-          config: {
-            systemInstruction,
-            tools,
-            maxOutputTokens: 4000,
-            temperature: 0.1,
-          },
-        }), 45000), signal);
+        const maxAgentSteps = isAgent
+          ? ((context && context.maxTurns) ? Math.min(Math.max(parseInt(context.maxTurns, 10), 1), 32) : 16)
+          : 1;
 
-        const functionCalls = response.functionCalls || [];
+        let currentStep = 0;
+        let geminiContents = [...geminiHistory];
         const executed = [];
-        let replyText = (response.text || '').trim();
+        let replyText = '';
 
-        for (const call of functionCalls) {
-          if (signal && signal.aborted) {
-            console.log('[AgentBrain] Aborted before tool execution.');
-            this.abortController = null;
-            return { success: false, cancelled: true, reply: 'Cancelled.' };
+        while (currentStep < maxAgentSteps) {
+          currentStep++;
+          if (signal && signal.aborted) throw new Error('TASK_CANCELLED');
+
+          const response = await withAbort(withTimeout(ai.models.generateContent({
+            model: modelName,
+            contents: geminiContents,
+            config: {
+              systemInstruction,
+              tools,
+              maxOutputTokens: isAgent ? 8192 : 4000,
+              temperature: 0.1,
+            },
+          }), 45000), signal);
+
+          const functionCalls = response.functionCalls || [];
+          const stepText = (response.text || '').trim();
+          if (stepText) replyText = stepText;
+
+          if (functionCalls.length === 0) {
+            break;
           }
-          const name = call.name;
-          const rawArgs = call.args || {};
-          const cleanArgs = {};
-          if (rawArgs && typeof rawArgs === 'object') {
-            for (const [k, v] of Object.entries(rawArgs)) {
-              if (v !== null && v !== undefined) {
-                cleanArgs[k] = v;
+
+          const stepToolResults = [];
+          for (const call of functionCalls) {
+            if (signal && signal.aborted) {
+              console.log('[AgentBrain] Aborted before tool execution.');
+              this.abortController = null;
+              this.emitAgentStep(context, { conversationId: convoId, status: 'idle' });
+              return { success: false, cancelled: true, reply: 'Cancelled.' };
+            }
+            const name = call.name;
+            const rawArgs = call.args || {};
+            const cleanArgs = {};
+            if (rawArgs && typeof rawArgs === 'object') {
+              for (const [k, v] of Object.entries(rawArgs)) {
+                if (v !== null && v !== undefined) {
+                  cleanArgs[k] = v;
+                }
               }
             }
+
+            const stepId = `step_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+            this.emitAgentStep(context, {
+              id: stepId,
+              conversationId: convoId,
+              status: 'running',
+              name,
+              args: cleanArgs,
+            });
+
+            const result = await this.executeTool(name, cleanArgs, apiKey);
+            executed.push({ id: stepId, name, args: cleanArgs, result });
+            stepToolResults.push({ call, name, result });
+
+            this.emitAgentStep(context, {
+              id: stepId,
+              conversationId: convoId,
+              status: 'completed',
+              name,
+              args: cleanArgs,
+              result,
+            });
+
+            if (result && result.message) {
+              replyText = result.message;
+            }
           }
-          const result = await this.executeTool(name, cleanArgs, apiKey);
-          executed.push({ name, args: cleanArgs, result });
 
-          if (result && result.message) {
-            replyText = result.message;
-          }
-        }
+          if (!isAgent) {
+            // Action tools respond immediately without waiting for slow second synthesis!
+            const actionTools = [
+              'create_study_revision_document',
+              'start_lock_in_study_session',
+              'get_tonight_study_radar',
+              'search_research_papers',
+              'summarize_youtube_lecture',
+              'viva_voice_quiz',
+              'snap_and_solve_screen',
+              'math_and_knowledge_solver',
+              'highlight_to_action',
+              'organize_folder',
+              'pc_health_and_optimizer',
+              'schedule_reminder_or_action',
+              'download_research_pdfs',
+              'system_brightness',
+              'window_manager',
+              'connectivity_control',
+              'power_and_theme_control',
+              'storage_and_cleanup',
+              'screen_capture_and_recorder',
+              'lecture_meeting_stenographer',
+              'cli_copilot',
+              'document_swiss_knife',
+              'form_autofiller',
+              'offline_airgap_mode',
+              'pocket_grokki',
+              'presentation_slide_changer',
+              'find_files_and_folders',
+              'inspect_vscode_errors',
+              'send_whatsapp_file_or_message',
+              'get_whatsapp_recent_messages',
+              'get_whatsapp_status',
+              'save_whatsapp_contact_alias',
+              'stop_timer',
+              'toggle_island_lock_mode',
+              'open_app',
+              'desktop_click',
+              'desktop_type',
+              'desktop_app_control',
+              'create_or_edit_word',
+              'computer_click',
+              'computer_double_click',
+              'computer_right_click',
+              'computer_move',
+              'computer_type',
+              'computer_hotkey',
+              'focus_window',
+              'system_volume',
+              'close_active_window',
+              'system_power',
+              'create_file_or_folder',
+              'upload_to_google_drive',
+              'play_youtube_music',
+              'control_music',
+              'search_youtube',
+              'connect_google_account',
+              'update_google_sheet_cell',
+              'find_and_update_google_sheet',
+              'append_to_google_sheet',
+            ];
 
-        // Action tools respond immediately without waiting for slow second synthesis!
-        const actionTools = [
-          'create_study_revision_document',
-          'start_lock_in_study_session',
-          'get_tonight_study_radar',
-          'search_research_papers',
-          'summarize_youtube_lecture',
-          'viva_voice_quiz',
-          'snap_and_solve_screen',
-          'math_and_knowledge_solver',
-          'highlight_to_action',
-          'organize_folder',
-          'pc_health_and_optimizer',
-          'schedule_reminder_or_action',
-          'download_research_pdfs',
-          'system_brightness',
-          'window_manager',
-          'connectivity_control',
-          'power_and_theme_control',
-          'storage_and_cleanup',
-          'screen_capture_and_recorder',
-          'lecture_meeting_stenographer',
-          'cli_copilot',
-          'document_swiss_knife',
-          'form_autofiller',
-          'offline_airgap_mode',
-          'pocket_grokki',
-          'presentation_slide_changer',
-          'find_files_and_folders',
-          'inspect_vscode_errors',
-          'send_whatsapp_file_or_message',
-          'get_whatsapp_recent_messages',
-          'get_whatsapp_status',
-          'save_whatsapp_contact_alias',
-          'stop_timer',
-          'toggle_island_lock_mode',
-          'open_app',
-          'desktop_click',
-          'desktop_type',
-          'desktop_app_control',
-          'create_or_edit_word',
-          'computer_click',
-          'computer_double_click',
-          'computer_right_click',
-          'computer_move',
-          'computer_type',
-          'computer_hotkey',
-          'focus_window',
-          'system_volume',
-          'close_active_window',
-          'system_power',
-          'create_file_or_folder',
-          'upload_to_google_drive',
-          'play_youtube_music',
-          'control_music',
-          'search_youtube',
-          'connect_google_account',
-          'update_google_sheet_cell',
-          'find_and_update_google_sheet',
-          'append_to_google_sheet',
-        ];
+            const isActionOnly = functionCalls.every((call) => actionTools.includes(call.name));
 
-        const isActionOnly = functionCalls.every((call) => actionTools.includes(call.name));
+            // Intelligent Synthesis: Only for data query tools (Classroom, Calendar, Tasks, Search)
+            if (!isActionOnly && functionCalls.length > 0 && executed.length > 0) {
+              if (signal && signal.aborted) {
+                this.abortController = null;
+                return { success: false, cancelled: true, reply: 'Cancelled.' };
+              }
+              const toolSummaries = executed
+                .map((e) => `[Tool: ${e.name}]\nArgs: ${JSON.stringify(e.args)}\nResult:\n${e.result?.message || JSON.stringify(e.result)}`)
+                .join('\n\n');
 
-        // Intelligent Synthesis: Only for data query tools (Classroom, Calendar, Tasks, Search)
-        if (!isActionOnly && functionCalls.length > 0 && executed.length > 0) {
-          if (signal && signal.aborted) {
-            this.abortController = null;
-            return { success: false, cancelled: true, reply: 'Cancelled.' };
-          }
-          const toolSummaries = executed
-            .map((e) => `[Tool: ${e.name}]\nArgs: ${JSON.stringify(e.args)}\nResult:\n${e.result?.message || JSON.stringify(e.result)}`)
-            .join('\n\n');
-
-          try {
-            const synth = await withAbort(withTimeout(ai.models.generateContent({
-              model: modelName,
-              contents: [
-                ...memory.getHistory(),
-                {
-                  role: 'model',
-                  parts: [{ text: `I have retrieved the following action results:\n\n${toolSummaries}` }],
-                },
-                {
-                  role: 'user',
-                  parts: [{
-                    text: `Based on the tool results above, give me a complete, motivating answer to my query: "${prompt}".
+              try {
+                const synth = await withAbort(withTimeout(ai.models.generateContent({
+                  model: modelName,
+                  contents: [
+                    ...memory.getHistory(),
+                    {
+                      role: 'model',
+                      parts: [{ text: `I have retrieved the following action results:\n\n${toolSummaries}` }],
+                    },
+                    {
+                      role: 'user',
+                      parts: [{
+                        text: `Based on the tool results above, give me a complete, motivating answer to my query: "${prompt}".
 Rules:
 - Keep it brief, concise, and focused. No unnecessary padding.
 - Format in clean, readable GitHub-style Markdown (headings ###, bold text, bullet points).
 - ALWAYS PROVIDE CLICKABLE LINKS: Include clickable Markdown links (e.g. [Open in Classroom](url), [Open Email](url), [Open in Drive](url), [Watch on YouTube](url)) whenever links are available in the tool results so I can easily click to check them!
 - For schoolwork/assignments: highlight urgent deadlines due this week. If there are none due this week, tell me good job! Group open practice/lab items neatly without repeating "Due: No due date".`,
-                  }],
-                },
-              ],
-              config: {
-                systemInstruction,
-                maxOutputTokens: 4000,
-                temperature: 0.2,
-              },
-            }), 25000), signal);
+                      }],
+                    },
+                  ],
+                  config: {
+                    systemInstruction,
+                    maxOutputTokens: 4000,
+                    temperature: 0.2,
+                  },
+                }), 25000), signal);
 
-            if (synth && synth.text && synth.text.trim().length > 10) {
-              replyText = synth.text.trim();
+                if (synth && synth.text && synth.text.trim().length > 10) {
+                  replyText = synth.text.trim();
+                }
+              } catch (synthErr) {
+                if (synthErr.message === 'TASK_CANCELLED' || (signal && signal.aborted)) {
+                  this.abortController = null;
+                  return { success: false, cancelled: true, reply: 'Cancelled.' };
+                }
+                // Keep tool message if synthesis times out
+                if (!replyText && executed.length > 0) {
+                  replyText = executed[0].result?.message || 'Done.';
+                }
+              }
+            } else if (isActionOnly && executed.length > 0) {
+              replyText = executed[0].result?.message || `Done: ${executed[0].name.replace(/_/g, ' ')}.`;
             }
-          } catch (synthErr) {
-            if (synthErr.message === 'TASK_CANCELLED' || (signal && signal.aborted)) {
-              this.abortController = null;
-              return { success: false, cancelled: true, reply: 'Cancelled.' };
-            }
-            // Keep tool message if synthesis times out
-            if (!replyText && executed.length > 0) {
-              replyText = executed[0].result?.message || 'Done.';
-            }
+            break;
           }
-        } else if (isActionOnly && executed.length > 0) {
-          replyText = executed[0].result?.message || `Done: ${executed[0].name.replace(/_/g, ' ')}.`;
+
+          // Feed back tool results into Gemini history for Grokki Agent multi-turn harness
+          geminiContents.push({
+            role: 'model',
+            parts: functionCalls.map(c => ({
+              functionCall: {
+                name: c.name,
+                args: c.args || {},
+              },
+            })),
+          });
+
+          geminiContents.push({
+            role: 'user',
+            parts: stepToolResults.map(r => ({
+              functionResponse: {
+                name: r.name,
+                response: {
+                  output: typeof r.result === 'string' ? r.result : (r.result?.message || r.result || 'Success'),
+                },
+              },
+            })),
+          });
         }
 
         if (!replyText && executed.length > 0) {
@@ -3219,6 +3547,7 @@ Rules:
 
         memory.addTurn('model', replyText);
         this.abortController = null;
+        this.emitAgentStep(context, { conversationId: convoId, status: 'idle' });
 
         return {
           success: true,
@@ -3231,6 +3560,7 @@ Rules:
         } : undefined,
         };
       } catch (err) {
+        this.emitAgentStep(context, { conversationId: convoId, status: 'idle' });
         if (signal && signal.aborted) {
           console.log('[AgentBrain] Task cancelled by user (Alt+Q). Halting generation immediately.');
           this.abortController = null;
@@ -3240,44 +3570,19 @@ Rules:
       }
     }
 
-    // Auto-failover to Groq if Gemini models failed and Groq API key is configured
+    // Auto-failover to Groq only if Gemini was requested, Gemini failed, and Groq is explicitly configured
     const groqKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
-    if (groqKey && (!signal || !signal.aborted)) {
+    if (provider === 'gemini' && groqKey && (!signal || !signal.aborted)) {
       console.warn('[AgentBrain] Gemini models failed. Auto-failing over to Groq...');
       try {
-        const groqModel = config.groqModel || 'llama-3.3-70b-versatile';
-        const groqData = await callOpenAICompatible({
-          endpoint: 'https://api.groq.com/openai/v1',
-          apiKey: groqKey,
-          model: groqModel,
-          messages: [
-            { role: 'system', content: systemInstruction },
-            ...memory.getHistory().map(turn => ({
-              role: turn.role === 'model' ? 'assistant' : turn.role,
-              content: (turn.parts || []).map(p => p.text || '').join('\n') || (turn.content || ''),
-            })),
-          ],
-          signal,
-          timeout: 25000,
-        });
-        const groqReply = groqData?.choices?.[0]?.message?.content;
-        if (groqReply && groqReply.trim()) {
-          const cleanGroqReply = groqReply.trim();
-          memory.addTurn('model', cleanGroqReply);
-          this.abortController = null;
-          return {
-            success: true,
-            reply: cleanGroqReply,
-            actionsExecuted: [],
-            fallbackProvider: 'groq',
-          };
-        }
+        return await this.runOpenAICompatible(prompt, { ...config, provider: 'groq', groqApiKey: groqKey }, { ...context, isFailover: true });
       } catch (groqErr) {
         console.error('[AgentBrain] Groq auto-failover failed:', groqErr.message);
       }
     }
 
     this.abortController = null;
+    this.emitAgentStep(context, { conversationId: convoId, status: 'idle' });
     return { success: false, error: lastError ? lastError.message : 'Execution failed' };
   }
 
@@ -3428,12 +3733,321 @@ Rules:
     return { success: false, error: lastError ? lastError.message : 'Audio failed' };
   }
 
+  async checkToolPermission(name, args = {}, context = {}) {
+    if (!context || context.mode !== 'agent') {
+      return { allowed: true };
+    }
+
+    const permissionLevel = context.permission || 'turbo';
+    if (permissionLevel === 'turbo') {
+      return { allowed: true };
+    }
+
+    const convoId = context.conversationId || 'default';
+    if (!this.conversationAllowedPermissions) this.conversationAllowedPermissions = new Map();
+    if (!this.globalAllowedPermissions) this.globalAllowedPermissions = new Set();
+
+    let convoSet = this.conversationAllowedPermissions.get(convoId);
+    if (!convoSet) {
+      convoSet = new Set();
+      this.conversationAllowedPermissions.set(convoId, convoSet);
+    }
+
+    // Determine whether this action requires permission under current level
+    let needsConfirmation = false;
+    let actionSummary = '';
+    let codeSnippet = '';
+
+    if (name === 'run_command') {
+      const cmd = (args.command || args.cmd || '').trim();
+      actionSummary = args.toolSummary || (cmd ? `search or command: ${cmd.slice(0, 45)}` : 'run shell command');
+      codeSnippet = cmd;
+      if (['review', 'default', 'auto'].includes(permissionLevel)) {
+        needsConfirmation = true;
+      }
+    } else if (name === 'write_file') {
+      const fileName = path.basename(args.path || 'file');
+      actionSummary = `write ${fileName}`;
+      codeSnippet = `${args.path || fileName}\n\n${(args.content || '').slice(0, 500)}`;
+      if (['review', 'default', 'auto'].includes(permissionLevel)) {
+        needsConfirmation = true;
+      }
+    } else if (name === 'edit_file') {
+      const fileName = path.basename(args.path || 'file');
+      actionSummary = `edit ${fileName}`;
+      codeSnippet = `${args.path || fileName}\n\nTarget:\n${(args.target || '').slice(0, 250)}\n\nReplacement:\n${(args.replacement || '').slice(0, 250)}`;
+      if (['review', 'default', 'auto'].includes(permissionLevel)) {
+        needsConfirmation = true;
+      }
+    } else if (name === 'git_operations') {
+      actionSummary = `git ${args.operation || 'action'}`;
+      codeSnippet = `git ${args.operation || 'status'} ${args.args || ''}`;
+      if (permissionLevel === 'review' || (permissionLevel === 'default' && args.operation !== 'status')) {
+        needsConfirmation = true;
+      }
+    } else if (name === 'read_file') {
+      const fileName = path.basename(args.path || 'file');
+      actionSummary = `read ${fileName}`;
+      codeSnippet = `Get-Content -Path "${args.path || fileName}"${args.start_line ? ` -TotalCount ${args.end_line || 100}` : ''}`;
+      if (permissionLevel === 'review') {
+        needsConfirmation = true;
+      }
+    } else if (name === 'list_directory') {
+      actionSummary = `list directory ${args.path || '.'}`;
+      codeSnippet = `Get-ChildItem -Path "${args.path || '.'}"`;
+      if (permissionLevel === 'review') {
+        needsConfirmation = true;
+      }
+    } else if (name === 'search_code') {
+      actionSummary = `search code "${args.query || ''}"`;
+      codeSnippet = `Select-String -Pattern "${args.query || ''}" -Path "${args.path || '*'}"`;
+      if (permissionLevel === 'review') {
+        needsConfirmation = true;
+      }
+    } else if (permissionLevel === 'review') {
+      actionSummary = `execute ${name.replace(/_/g, ' ')}`;
+      codeSnippet = JSON.stringify(args, null, 2);
+      needsConfirmation = true;
+    }
+
+    if (!needsConfirmation) {
+      return { allowed: true };
+    }
+
+    // Check if this signature or command was already approved
+    const signature = (codeSnippet || name).trim();
+    if (this.globalAllowedPermissions.has(signature) || convoSet.has(signature) || convoSet.has(name)) {
+      return { allowed: true };
+    }
+
+    // Send IPC request to the renderer window
+    let sender = context.sender || context.webContents;
+    if (!sender || (typeof sender.isDestroyed === 'function' && sender.isDestroyed())) {
+      try {
+        const { BrowserWindow } = require('electron');
+        const allWins = BrowserWindow.getAllWindows();
+        const activeWin = allWins.find(w => !w.isDestroyed() && w.isVisible()) || allWins[0];
+        if (activeWin && !activeWin.isDestroyed()) {
+          sender = activeWin.webContents;
+        }
+      } catch (_) {}
+    }
+    if (!sender || (typeof sender.isDestroyed === 'function' && sender.isDestroyed())) {
+      return { allowed: true };
+    }
+
+    const reqId = `perm_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    sender.send('jarvis:tool-permission-request', {
+      id: reqId,
+      conversationId: convoId,
+      tool: name,
+      command: args.command || '',
+      path: args.path || '',
+      actionSummary,
+      codeSnippet,
+      args,
+    });
+
+    const { ipcMain } = require('electron');
+    const response = await new Promise((resolve) => {
+      const handler = (event, res) => {
+        if (res && res.id === reqId) {
+          ipcMain.removeListener('jarvis:tool-permission-response', handler);
+          resolve(res);
+        }
+      };
+      ipcMain.on('jarvis:tool-permission-response', handler);
+      setTimeout(() => {
+        ipcMain.removeListener('jarvis:tool-permission-response', handler);
+        resolve({ decision: 'reject', feedback: 'Timed out waiting for permission confirmation.' });
+      }, 300000);
+    });
+
+    if (response.decision === 'once') {
+      return { allowed: true };
+    } else if (response.decision === 'conversation') {
+      convoSet.add(signature);
+      return { allowed: true };
+    } else if (response.decision === 'global') {
+      this.globalAllowedPermissions.add(signature);
+      convoSet.add(signature);
+      return { allowed: true };
+    } else if (response.decision === 'skip') {
+      return { allowed: false, skipped: true, error: 'User skipped this action.' };
+    } else {
+      return {
+        allowed: false,
+        error: `User declined permission for this action.${response.feedback ? ` User instruction: "${response.feedback}"` : ''}`,
+      };
+    }
+  }
+
   async executeTool(name, args, apiKey) {
+    const CODING_TOOLS = new Set([
+      'read_file', 'write_file', 'edit_file', 'run_command', 'list_directory', 'search_code', 'git_operations', 'cli_copilot'
+    ]);
+    if (CODING_TOOLS.has(name) && (!this.currentContext || this.currentContext.mode !== 'agent')) {
+      return {
+        success: false,
+        error: 'File modification and terminal commands are restricted to Grokki Agent mode. Switch to Grokki Agent to edit files or run commands.',
+      };
+    }
+
+    if (this.currentContext && this.currentContext.mode === 'agent') {
+      const permCheck = await this.checkToolPermission(name, args, this.currentContext);
+      if (!permCheck.allowed) {
+        return {
+          success: false,
+          skipped: Boolean(permCheck.skipped),
+          error: permCheck.error || 'Permission denied by user.',
+          message: permCheck.error || 'Permission denied by user.',
+        };
+      }
+    }
+
     if (mcpManager.isMcpTool(name)) {
       return await mcpManager.executeMcpTool(name, args);
     }
 
     switch (name) {
+      // Grokki Memory System Tools (write, edit, search, delete)
+      case 'write_memory': {
+        const item = persistentMemory.addMemory({
+          title: args.title || 'Note',
+          content: args.content || '',
+          category: args.category || 'profile',
+          tags: Array.isArray(args.tags) ? args.tags : [],
+          pinned: Boolean(args.pinned),
+          confidence: 1.0,
+          userConfirmed: true,
+        });
+        return {
+          success: true,
+          memory: item,
+          message: `🧠 **Saved to Memory**: "${item.title}"\n> ${item.content}`,
+        };
+      }
+
+      case 'edit_memory': {
+        const targetId = (args.id || '').trim();
+        let memoryToUpdate = persistentMemory.getMemory(targetId);
+        if (!memoryToUpdate) {
+          const all = persistentMemory.getAllMemories();
+          memoryToUpdate = all.find(m => m.title.toLowerCase() === targetId.toLowerCase() || m.id.toLowerCase() === targetId.toLowerCase()) ||
+            all.find(m => m.title.toLowerCase().includes(targetId.toLowerCase()) || m.content.toLowerCase().includes(targetId.toLowerCase()));
+        }
+        if (!memoryToUpdate) {
+          return { success: false, message: `Could not find a memory matching "${targetId}".` };
+        }
+        const updated = persistentMemory.updateMemory(memoryToUpdate.id, {
+          title: args.title || memoryToUpdate.title,
+          content: args.content !== undefined ? args.content : memoryToUpdate.content,
+          pinned: args.pinned !== undefined ? Boolean(args.pinned) : memoryToUpdate.pinned,
+          reason: args.reason || 'Updated by user request',
+        });
+        return {
+          success: true,
+          memory: updated,
+          message: `✏️ **Updated Memory**: "${updated.title}"\n> ${updated.content}`,
+        };
+      }
+
+      case 'search_memory': {
+        const query = (args.query || '').toLowerCase().trim();
+        const results = persistentMemory.getAllMemories({
+          search: query,
+          category: args.category && args.category !== 'all' ? args.category : undefined,
+        });
+        if (results.length === 0) {
+          return {
+            success: true,
+            results: [],
+            message: `No memories found matching "${args.query}".`,
+          };
+        }
+        const formatted = results.slice(0, 8).map((m, idx) => {
+          return `${idx + 1}. **${m.title}** *(${m.category})*:\n   ${m.content}`;
+        }).join('\n\n');
+        return {
+          success: true,
+          results,
+          message: `### 🧠 Retrieved Memories (${results.length} found)\n\n${formatted}`,
+        };
+      }
+
+      case 'delete_memory': {
+        const target = (args.id || '').trim();
+        let targetId = target;
+        const existing = persistentMemory.getMemory(target);
+        if (!existing) {
+          const all = persistentMemory.getAllMemories();
+          const match = all.find(m => m.title.toLowerCase() === target.toLowerCase() || m.id.toLowerCase() === target.toLowerCase());
+          if (match) targetId = match.id;
+        }
+        const deleted = persistentMemory.deleteMemory(targetId);
+        return {
+          success: deleted,
+          message: deleted ? `🗑️ **Memory Deleted**: Successfully forgot "${target}".` : `Could not find memory "${target}" to delete.`,
+        };
+      }
+
+      // DeepSeek Harness Developer & Coding Agent Tools
+      case 'read_file': {
+        const res = await codingAgentHarness.readFile(args || {});
+        return {
+          ...res,
+          message: res.success ? `\`\`\`\n${res.content}\n\`\`\`` : `Failed to read file: ${res.error}`,
+        };
+      }
+
+      case 'write_file': {
+        const res = await codingAgentHarness.writeFile(args || {});
+        return {
+          ...res,
+          message: res.success ? res.message : `Failed to write file: ${res.error}`,
+        };
+      }
+
+      case 'edit_file': {
+        const res = await codingAgentHarness.editFile(args || {});
+        return {
+          ...res,
+          message: res.success ? res.message : `Failed to edit file: ${res.error}`,
+        };
+      }
+
+      case 'run_command': {
+        const res = await codingAgentHarness.runCommand(args || {});
+        return {
+          ...res,
+          message: res.message || (res.success ? 'Command executed successfully.' : `Command failed with code ${res.exitCode}: ${res.stderr}`),
+        };
+      }
+
+      case 'list_directory': {
+        const res = await codingAgentHarness.listDirectory(args || {});
+        return {
+          ...res,
+          message: res.success ? res.message : `Failed to list directory: ${res.error}`,
+        };
+      }
+
+      case 'search_code': {
+        const res = await codingAgentHarness.searchCode(args || {});
+        return {
+          ...res,
+          message: res.success ? res.message : `Failed to search code: ${res.error}`,
+        };
+      }
+
+      case 'git_operations': {
+        const res = await codingAgentHarness.gitOperations(args || {});
+        return {
+          ...res,
+          message: res.message || (res.success ? 'Git operation completed.' : `Git error: ${res.stderr}`),
+        };
+      }
+
       case 'compact_memory': {
         return { success: true, message: '✨ **Conversation Compacted**: Memory turns and session context have been optimized and refreshed.' };
       }
@@ -4154,91 +4768,7 @@ Rules:
         return { success: res.success, message: res.message };
       }
 
-      case 'get_university_attendance': {
-        const academicPortal = require('./academic_portal');
-        const status = academicPortal.getStatus();
-        if (!status.linked) {
-          return {
-            success: false,
-            message: 'University portal is not linked yet. Please open Grokki Settings -> Personalization -> Academic Portal, choose Assam Don Bosco University, and enter your Student ID & password.'
-          };
-        }
-        try {
-          if (args.force_sync) {
-            await academicPortal.sync(true);
-          } else {
-            // Auto-sync fresh data if cache is older than 15 mins or session expired
-            await academicPortal.ensureFreshData(15 * 60 * 1000);
-          }
-          const summary = academicPortal.getSummaryForAI();
-          return {
-            success: true,
-            message: summary,
-            summary: summary,
-            data: academicPortal.getCachedData()
-          };
-        } catch (e) {
-          const cached = academicPortal.getCachedData();
-          if (cached) {
-            const summary = academicPortal.getSummaryForAI() + `\n\n*(Note: Live sync failed with "${e.message}", showing cached records from ${new Date(cached.lastSynced).toLocaleString()})*`;
-            return {
-              success: true,
-              message: summary,
-              summary: summary,
-              data: cached
-            };
-          }
-          return { success: false, message: `Failed to fetch attendance from university portal: ${e.message}` };
-        }
-      }
 
-      case 'get_university_profile': {
-        const academicPortal = require('./academic_portal');
-        const status = academicPortal.getStatus();
-        if (!status.linked) {
-          return {
-            success: false,
-            message: 'University portal is not linked yet. Please open Grokki Settings -> Personalization -> Academic Portal to link your student account.'
-          };
-        }
-        try {
-          let cached = academicPortal.getCachedData();
-          if (!cached || !cached.profile || !cached.lastSynced || (Date.now() - cached.lastSynced > 30 * 60 * 1000)) {
-            await academicPortal.sync();
-            cached = academicPortal.getCachedData();
-          }
-          const profileSummary = academicPortal.getProfileSummary();
-          return {
-            success: true,
-            message: profileSummary,
-            profile: cached?.profile || {},
-            university: status.universityName
-          };
-        } catch (e) {
-          return { success: false, message: `Failed to fetch university profile: ${e.message}` };
-        }
-      }
-
-      case 'sync_university_portal': {
-        const academicPortal = require('./academic_portal');
-        const status = academicPortal.getStatus();
-        if (!status.linked) {
-          return {
-            success: false,
-            message: 'University portal is not linked yet. Please enter your credentials in Settings first.'
-          };
-        }
-        try {
-          const syncRes = await academicPortal.sync();
-          return {
-            success: true,
-            message: `Synced ${syncRes.totalSubjects} courses for ${syncRes.studentName} from ${status.universityName}!`,
-            summary: academicPortal.getSummaryForAI()
-          };
-        } catch (e) {
-          return { success: false, message: `University sync failed: ${e.message}` };
-        }
-      }
 
       case 'youtube_data_search': {
         if (!googleWorkspace.isConnected()) {
@@ -4895,6 +5425,30 @@ Rules:
         electronModule.BrowserWindow.getAllWindows().forEach((win) => {
           if (!win.isDestroyed() && win.webContents) {
             win.webContents.send(channel, payload);
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  emitAgentStep(context, stepData) {
+    try {
+      const convoId = (context && (context.conversationId || context.convoId)) || 'default';
+      const payload = {
+        timestamp: Date.now(),
+        conversationId: convoId,
+        ...stepData,
+      };
+      let sent = false;
+      const sender = context && (context.sender || context.webContents);
+      if (sender && typeof sender.send === 'function' && !(typeof sender.isDestroyed === 'function' && sender.isDestroyed())) {
+        sender.send('jarvis:agent-step', payload);
+        sent = true;
+      }
+      if (electronModule && electronModule.BrowserWindow) {
+        electronModule.BrowserWindow.getAllWindows().forEach((win) => {
+          if (!win.isDestroyed() && win.webContents && (!sent || win.webContents !== sender)) {
+            win.webContents.send('jarvis:agent-step', payload);
           }
         });
       }

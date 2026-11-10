@@ -84,6 +84,14 @@ export function deriveSmartTitle(prompt: string, attachedFileName?: string): str
 }
 
 export function useConversations() {
+  const [pendingConvoMeta, setPendingConvoMeta] = useState<{
+    mode?: 'chat' | 'agent';
+    workspaceRoot?: string;
+    workspaceName?: string;
+    effort?: 'low' | 'medium' | 'high' | 'highest';
+    permission?: 'review' | 'default' | 'auto' | 'turbo';
+  } | null>(null);
+
   const [conversations, setConversations] = useState<Conversation[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -143,14 +151,30 @@ export function useConversations() {
     } catch (e) {}
   }, []);
 
-  const createConversation = useCallback(() => {
+  const createConversation = useCallback((opts?: {
+    mode?: 'chat' | 'agent';
+    workspaceRoot?: string;
+    workspaceName?: string;
+    effort?: 'low' | 'medium' | 'high' | 'highest';
+    permission?: 'review' | 'default' | 'auto' | 'turbo';
+  }) => {
     const newId = generateId();
+    setPendingConvoMeta(opts || null);
     setActiveId(newId);
     try {
       localStorage.setItem(ACTIVE_CONVO_KEY, newId);
     } catch (e) {}
     return newId;
   }, []);
+
+  const updateConversationMeta = useCallback((id: string, meta: Partial<Conversation>) => {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...meta, updatedAt: Date.now() } : c))
+    );
+    if (id === activeId) {
+      setPendingConvoMeta((prev) => ({ ...prev, ...meta }));
+    }
+  }, [activeId]);
 
   const deleteConversation = useCallback((id: string) => {
     setConversations((prev) => {
@@ -249,13 +273,23 @@ export function useConversations() {
           nextTitle = deriveSmartTitle(firstUser.content, fileName);
         }
         const now = Date.now();
+        const mode = pendingConvoMeta?.mode || 'chat';
+        const isAgent = mode === 'agent';
+        const defaultTitle = isAgent ? 'New Agent Session' : 'New Chat';
+        const finalTitle = nextTitle === 'New Chat' ? defaultTitle : nextTitle;
         const newConvo: Conversation = {
           id: targetId || generateId(),
-          title: nextTitle,
+          title: finalTitle,
           createdAt: now,
           updatedAt: now,
           messages: nextMsgs,
+          mode,
+          workspaceRoot: pendingConvoMeta?.workspaceRoot,
+          workspaceName: pendingConvoMeta?.workspaceName,
+          effort: pendingConvoMeta?.effort || 'high',
+          permission: pendingConvoMeta?.permission || 'turbo',
         };
+        setPendingConvoMeta(null);
         return [newConvo, ...prev];
       }
 
@@ -263,8 +297,8 @@ export function useConversations() {
         if (convo.id !== targetId) return convo;
         const nextMsgs = updater(convo.messages);
         let nextTitle = convo.title;
-        // If title is default 'New Chat', derive from first user message
-        if (convo.title === 'New Chat') {
+        // If title is default, derive from first user message
+        if (convo.title === 'New Chat' || convo.title === 'New Agent Session') {
           const firstUser = nextMsgs.find((m) => m.role === 'user');
           if (firstUser) {
             const fileName = typeof firstUser.attachedFile === 'string'
@@ -281,20 +315,27 @@ export function useConversations() {
         };
       });
     });
-  }, [activeId]);
+  }, [activeId, pendingConvoMeta]);
 
   const updateActiveMessages = useCallback((updater: (prevMessages: ChatMessage[]) => ChatMessage[]) => {
     updateConversationMessages(activeId, updater);
   }, [activeId, updateConversationMessages]);
 
   const activeConversation = useMemo(() => {
-    return conversations.find((c) => c.id === activeId) || {
+    const found = conversations.find((c) => c.id === activeId);
+    if (found) return found;
+    return {
       id: activeId || 'default',
-      title: 'New Chat',
+      title: pendingConvoMeta?.mode === 'agent' ? 'New Agent Session' : 'New Chat',
       updatedAt: Date.now(),
       messages: [],
+      mode: pendingConvoMeta?.mode || 'chat',
+      workspaceRoot: pendingConvoMeta?.workspaceRoot,
+      workspaceName: pendingConvoMeta?.workspaceName,
+      effort: pendingConvoMeta?.effort || 'high',
+      permission: pendingConvoMeta?.permission || 'turbo',
     };
-  }, [conversations, activeId]);
+  }, [conversations, activeId, pendingConvoMeta]);
 
   return {
     conversations,
@@ -309,5 +350,6 @@ export function useConversations() {
     setConversationLock,
     updateActiveMessages,
     updateConversationMessages,
+    updateConversationMeta,
   };
 }

@@ -346,7 +346,11 @@ const Threads = ({
       segments: 0,
       colorKey: '',
       color: [1, 1, 1] as number[],
+      targetColor: [1, 1, 1] as number[],
       accent: [1, 1, 1] as number[],
+      targetAccent: [1, 1, 1] as number[],
+      hasInitColor: false,
+      colorDiff: 0,
       mouse: [0.5, 0.5],
       targetMouse: [0.5, 0.5],
       pointer: [0, 0],
@@ -373,8 +377,13 @@ const Threads = ({
     const resolveColors = (s: Settings) => {
       if (s.colorKey === state.colorKey) return;
       state.colorKey = s.colorKey;
-      state.color = toRgb(s.color);
-      state.accent = s.accentColor === undefined || s.accentColor === null ? state.color : toRgb(s.accentColor);
+      state.targetColor = toRgb(s.color);
+      state.targetAccent = s.accentColor === undefined || s.accentColor === null ? state.targetColor : toRgb(s.accentColor);
+      if (!state.hasInitColor) {
+        state.color = [...state.targetColor];
+        state.accent = [...state.targetAccent];
+        state.hasInitColor = true;
+      }
     };
 
     const buildStrip = (segments: number) => {
@@ -411,6 +420,20 @@ const Threads = ({
     const render = () => {
       const s = settingsRef.current;
       resolveColors(s);
+
+      // Smoothly morph color and accent towards target
+      let diff = 0;
+      for (let i = 0; i < 3; i++) {
+        const cd = (state.targetColor[i] - state.color[i]) * 0.08;
+        state.color[i] += cd;
+        diff += Math.abs(state.targetColor[i] - state.color[i]);
+
+        const ca = (state.targetAccent[i] - state.accent[i]) * 0.08;
+        state.accent[i] += ca;
+        diff += Math.abs(state.targetAccent[i] - state.accent[i]);
+      }
+      state.colorDiff = diff;
+
       const w = canvas.width;
       const h = canvas.height;
       const radians = (s.angle * Math.PI) / 180;
@@ -491,7 +514,8 @@ const Threads = ({
         Math.abs(state.targetMouse[1] - state.mouse[1]) > 0.0005 ||
         Math.abs(state.targetPointer[0] - state.pointer[0]) > 0.05 ||
         Math.abs(state.targetPointer[1] - state.pointer[1]) > 0.05 ||
-        Math.abs((state.inside && s.parting > 0 ? 1 : 0) - state.presence) > 0.002;
+        Math.abs((state.inside && s.parting > 0 ? 1 : 0) - state.presence) > 0.002 ||
+        state.colorDiff > 0.001;
       if (moving || settling) raf = requestAnimationFrame(frame);
       else last = 0;
     };

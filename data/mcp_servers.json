@@ -5,7 +5,7 @@
       "args": [
         "mcp-server-fetch"
       ],
-      "enabled": true,
+      "enabled": false,
       "description": "Web fetcher converting HTML to clean markdown for LLMs"
     },
     "filesystem": {
@@ -15,7 +15,7 @@
         "@modelcontextprotocol/server-filesystem",
         "E:\\Assistant AI"
       ],
-      "enabled": true,
+      "enabled": false,
       "description": "Secure local filesystem access for LLM workspace editing"
     },
     "sqlite": {

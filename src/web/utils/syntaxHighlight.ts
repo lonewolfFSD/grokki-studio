@@ -18,8 +18,11 @@ import 'prismjs/components/prism-c';
 import 'prismjs/components/prism-cpp';
 import 'prismjs/components/prism-rust';
 import 'prismjs/components/prism-go';
+import 'prismjs/components/prism-diff';
 
 const LANGUAGE_MAP: Record<string, string> = {
+  diff: 'diff',
+  patch: 'diff',
   html: 'markup',
   xml: 'markup',
   svg: 'markup',
