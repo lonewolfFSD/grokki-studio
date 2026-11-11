@@ -34,6 +34,17 @@ function shouldAutoSearchWeb(prompt = '', history = []) {
   const raw = prompt.trim();
   const p = raw.toLowerCase();
 
+  // 0. ABSOLUTE PRIVACY & CREDENTIAL GUARD: NEVER search the web with credentials, passwords, or personal login tokens!
+  if (
+    /\b(?:password|passwd|pwd|pass|pin)\s*[:=]/i.test(p) ||
+    /\b(?:username|user|roll\s*(?:no|number)?)\s*[:=]/i.test(p) ||
+    /^[A-Z0-9_\-]+\s+[A-Z0-9_\-]+\s+password\s*:/i.test(raw) ||
+    /\b(?:what(?:'s|\s+is)|\bhow(?:'s|\s+is|\s+about)|\bcheck|\bget|\bfetch|\bview|\bshow|\bsee|\btrack)\s+(?:my\s+)?(?:college|university|adbu|campus|student|class)?\s*(?:erp|portal|attendance|grades?|marks?|cgpa)\b/i.test(p) ||
+    /^(what's\s+my\s+attendance|my\s+attendance)$/i.test(p)
+  ) {
+    return false;
+  }
+
   // 1. NEVER auto search web for desktop actions, Google Workspace, WhatsApp, local tools, or file operations
   if (/\b(google\s+(drive|doc|docs|sheet|sheets|slides|calendar|task|tasks|contacts?|workspace|account|mail)|drive|gmail|whatsapp|spotify|word|excel|powerpoint|calculator|notepad|screenshot|snip|volume|brightness|pc\s+health|folder|file|upload|download|save|create|delete|open|close|lock|sleep|shutdown|mute|unmute)\b/i.test(p)) {
     return false;
@@ -131,7 +142,7 @@ function resolveSearchQuery(prompt = '', history = [], config = {}, context = {}
   let detectedEntity = '';
 
   // 2a. Direct match in current prompt
-  const directMatch = raw.match(/\b(Assam\s+Don\s+Bosco(?:\s+University)?|ADBU(?:\s+Azara|\s+Tapesia)?|Don\s+Bosco\s+University|IIT\s+[A-Za-z]+|NIT\s+[A-Za-z]+|BITS\s+[A-Za-z]+|[A-Z][a-zA-Z0-9&.\s]{2,40}(?:University|College|Institute|Campus|Academy))\b/);
+  const directMatch = raw.match(/\b(Assam\s+Don\s+Bosco(?:\s+University)?|ADBU(?:\s+Azara|\s+Tapesia)?|Don\s+Bosco\s+University|ADBU|IIT\s+[A-Za-z]+|NIT\s+[A-Za-z]+|BITS\s+[A-Za-z]+|[A-Z][a-zA-Z0-9&.\s]{2,40}(?:University|College|Institute|Campus|Academy))\b/i);
   if (directMatch) {
     detectedEntity = directMatch[1].trim();
   }
@@ -150,7 +161,7 @@ function resolveSearchQuery(prompt = '', history = [], config = {}, context = {}
       const item = history[i];
       const text = typeof item === 'string' ? item : (item.parts ? item.parts.map(pt => pt.text || '').join(' ') : (item.text || item.content || ''));
       if (!text) continue;
-      const m = text.match(/\b(Assam\s+Don\s+Bosco(?:\s+University)?|ADBU(?:\s+Azara|\s+Tapesia)?|Don\s+Bosco\s+University|IIT\s+[A-Za-z]+|NIT\s+[A-Za-z]+|BITS\s+[A-Za-z]+|[A-Z][a-zA-Z0-9&.\s]{2,40}(?:University|College|Institute|Campus|Academy))\b/);
+      const m = text.match(/\b(Assam\s+Don\s+Bosco(?:\s+University)?|ADBU(?:\s+Azara|\s+Tapesia)?|Don\s+Bosco\s+University|ADBU|IIT\s+[A-Za-z]+|NIT\s+[A-Za-z]+|BITS\s+[A-Za-z]+|[A-Z][a-zA-Z0-9&.\s]{2,40}(?:University|College|Institute|Campus|Academy))\b/i);
       if (m) {
         detectedEntity = m[1].trim();
         break;
@@ -163,6 +174,12 @@ function resolveSearchQuery(prompt = '', history = [], config = {}, context = {}
   // Normalize acronyms
   if (detectedEntity && /^ADBU\b/i.test(detectedEntity)) {
     detectedEntity = 'Assam Don Bosco University';
+  }
+  if (!detectedEntity && (p.includes('bca') || p.includes('admission') || p.includes('course')) && Array.isArray(history) && history.length > 0) {
+    const histStr = history.map(h => typeof h === 'string' ? h : (h.parts ? h.parts.map(pt => pt.text || '').join(' ') : (h.text || h.content || ''))).join(' ').toLowerCase();
+    if (histStr.includes('adbu') || histStr.includes('don bosco')) {
+      detectedEntity = 'Assam Don Bosco University';
+    }
   }
 
   // 3. Grounded query formatting
@@ -177,8 +194,8 @@ function resolveSearchQuery(prompt = '', history = [], config = {}, context = {}
       .trim();
 
     // Specific degree inquiry handling: "No BCA?", "Is there BCA?", "Any BCA?" -> Clean academic search
-    if (/\bno\s+bca\b/i.test(p) || /\bis\s+there\s+bca\b/i.test(p) || /\bany\s+bca\b/i.test(p) || p === 'bca' || p === 'bca?') {
-      return `${detectedEntity} BCA Bachelor of Computer Applications course admission dbuniversity`;
+    if (/\b(?:no\s+bca|is\s+there\s+bca|any\s+bca|bca\b)/i.test(p) || p === 'bca' || p === 'bca?') {
+      return `${detectedEntity} BCA Bachelor of Computer Applications course admission dbuniversity.ac.in`;
     }
 
     if (/\b(all\s+courses|every\s+courses?|list\s+of\s+courses|course\s+offerings?)\b/i.test(p)) {
@@ -797,6 +814,11 @@ ACTIVE FILE UNDER DEVELOPMENT:
 
     return `You are Grokki Agent, an expert autonomous software engineer and coding harness operating directly in the user's local project.
 
+CURRENT ACTIVE CHAT MODE: GROKKI AGENT MODE (mode: "agent")
+- You are currently running in **Agent Mode** inside the user's workspace project ("${root}").
+- You have full agentic capabilities and coding tools to inspect, read, edit, write files, search code, and execute terminal commands.
+- If the user asks what mode you are in or if you can edit files on this system, confirm that you are in Agent Mode and ready to inspect, edit, create files, and execute tasks in their project workspace.
+
 PROJECT WORKSPACE:
 - Root directory: "${root}"
 - Project name: "${projectName}"
@@ -832,7 +854,8 @@ STRICT OPERATIONAL DIRECTIVES:
     const p = (prompt || '').toLowerCase().trim();
     const isAgent = Boolean(context && context.mode === 'agent');
     const CODING_TOOLS = new Set([
-      'read_file', 'write_file', 'edit_file', 'run_command', 'list_directory', 'search_code', 'git_operations', 'cli_copilot'
+      'read_file', 'write_file', 'edit_file', 'run_command', 'list_directory', 'search_code', 'git_operations', 'cli_copilot',
+      'organize_folder', 'ui_tars_desktop_agent', 'autonomous_browser_agent'
     ]);
 
     // GROKKI AGENT MODE: Autonomous Coding Agent ALWAYS gets coding harness tools!
@@ -906,7 +929,7 @@ STRICT OPERATIONAL DIRECTIVES:
       }
 
       if (isUni) {
-        ['create_study_revision_document', 'viva_voice_quiz', 'snap_and_solve_screen', 'search_research_papers'].forEach(n => selectedNames.add(n));
+        ['create_study_revision_document', 'viva_voice_quiz', 'snap_and_solve_screen', 'search_research_papers', 'access_university_portal'].forEach(n => selectedNames.add(n));
       }
 
       if (isMedia) {
@@ -1684,6 +1707,22 @@ STRICT OPERATIONAL DIRECTIVES:
             },
           },
           {
+            name: 'access_university_portal',
+            description: 'Access any university or college ERP or student portal (e.g. ADBU ERP, TCS iON, CollPoll, Moodle, Blackboard, custom portals) using student credentials (username/roll no, password, portal URL) to fetch and compile a comprehensive student attendance, marks, and academic report. Clearly mentions local privacy and anti-bot crawling limitations.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                portal_url: { type: 'STRING', description: 'The login URL or domain of the university/college student portal (e.g. "https://erp.dbuniversity.ac.in")' },
+                username: { type: 'STRING', description: 'The student ID, Roll Number, Enrollment Number, or Username' },
+                password: { type: 'STRING', description: 'The student password or PIN' },
+                university_name: { type: 'STRING', description: 'Name of the university or college (e.g. "Assam Don Bosco University", "ADBU")' },
+                portal_structure: { type: 'STRING', description: 'Optional portal type: "standard_erp", "tcs_ion", "moodle", "collpoll", "custom"' },
+                raw_text_or_html: { type: 'STRING', description: 'Optional pasted portal text or HTML for offline report generation' },
+                action: { type: 'STRING', description: 'Action: "get_report", "get_attendance", "clear_credentials"' },
+              },
+            },
+          },
+          {
             name: 'create_study_revision_document',
             description: 'Creates high-yield academic study notes, 1-page exam cheat sheets, probable exam questions with model answers, or Feynman-technique explanations from an attached lecture PDF/file or topic, saves the document directly to Desktop/Grokki_Study_Notes/, and opens it in editor.',
             parameters: {
@@ -2073,9 +2112,112 @@ STRICT OPERATIONAL DIRECTIVES:
     ];
   }
 
+  checkAgenticRequest(prompt) {
+    if (!prompt || typeof prompt !== 'string') return false;
+    const p = prompt.trim().toLowerCase();
+
+    // Exclude purely informational queries, code generation requests, tutorials, explanations
+    const isInformational = /^(how\s+(to|do|can|would)|what\s+is|why|explain|teach\s+me|show\s+me\s+how|tutorial|example\s+of|describe|give\s+me\s+an?\s+example)\b/i.test(p);
+    if (isInformational) return false;
+
+    // Requests asking to write/generate code or text IN CHAT (e.g. "write a python script", "create a function", "make an html page for me")
+    const isChatCodeGeneration = /^(?:can\s+you\s+)?(write|generate|give\s+me|provide|show\s+me)\s+(?:a\s+|an\s+|some\s+)?(python|javascript|typescript|js|ts|c\+\+|c#|java|html|css|sql|rust|go|php|ruby|bash|shell|powershell|regex)?\s*(script|code|snippet|function|class|program|page|component|template|example)\s*(?:that|to|for|with|in)?/i.test(p);
+    const hasLocalDiskTarget = /\b(on\s+(?:this|my)\s+(?:system|pc|computer|machine|disk|drive|device|laptop)|in\s+(?:this|my)\s+(?:workspace|project|folder|directory)|to\s+(?:a\s+)?file|to\s+disk|on\s+disk|into\s+([a-zA-Z0-9_\-\.\/\\]+\.[a-zA-Z0-9]{1,8}))\b/i.test(p);
+    if (isChatCodeGeneration && !hasLocalDiskTarget) return false;
+
+    // 1. Direct inquiries about capability to edit / modify / create / touch files or system directly
+    const capabilityInquiry = /\b(can|could|do|are)\s+(you|grokki)\s+(?:able\s+to\s+|directly\s+)?(edit|modify|rewrite|write|create|delete|patch|update|save|touch)\s+.*?\b(files?|folders?|directories|code|codebase|projects?|system|pc|computer|disk|drive|workspace)\b/i.test(p);
+
+    // 2. Questions about system/filesystem permissions or terminal execution
+    const accessInquiry = /\b(do|can|could)\s+(you|grokki)\s+(?:have\s+)?(?:access|permissions?)\s+(?:to\s+)?(?:edit|write|modify|delete|change|touch)\s+(?:files?|folders?|disk|filesystem|system)\b/i.test(p) ||
+      /\b(can|could)\s+(you|grokki)\s+(?:run|execute)\s+(?:terminal|shell|powershell|bash|cmd|console)\s+(?:commands?|scripts?)\b/i.test(p);
+
+    // 3. Direct imperative commands to edit/modify/patch existing files on disk
+    const directEditCommand = /^(?:please\s+)?(?:directly\s+)?(edit|modify|rewrite|patch|update)\s+(?:the\s+)?(?:file\s+|code\s+in\s+)?([a-zA-Z0-9_\-\.\/\\]+\.(?:js|ts|tsx|jsx|json|html|css|py|java|c|cpp|cs|go|rs|md|txt|yml|yaml|xml|sql|sh|ps1))\b/i.test(p);
+
+    // 4. Direct imperative commands to create/write new files on disk
+    const directCreateFileCommand = /^(?:please\s+)?(?:directly\s+)?(create|write|make)\s+(?:a\s+)?(?:new\s+)?file\s+(?:named|called\s+)?([a-zA-Z0-9_\-\.\/\\]+\.(?:js|ts|tsx|jsx|json|html|css|py|java|c|cpp|cs|go|rs|md|txt|yml|yaml|xml|sql|sh|ps1))\b/i.test(p);
+
+    // 5. Direct imperative commands to run terminal/system commands
+    const directRunCommand = /^(?:please\s+)?(?:directly\s+)?(run|execute)\s+(?:the\s+)?(?:terminal|shell|powershell|bash|cmd)\s+(?:command|script)?\b/i.test(p) ||
+      /^(?:please\s+)?(?:directly\s+)?(run|execute)\s+(?:npm|pnpm|yarn|cargo|pip|npx)\s+(?:run|install|build|test|start|dev)\b/i.test(p);
+
+    return Boolean(capabilityInquiry || accessInquiry || directEditCommand || directCreateFileCommand || directRunCommand);
+  }
+
+  parsePortalCredentials(prompt = '') {
+    if (!prompt || typeof prompt !== 'string') return null;
+    const p = prompt.trim();
+
+    // Pattern 1: "ADBU DC2025BCA0020 Password: <password>"
+    const adbuMatch = p.match(/^ADBU\s+([A-Za-z0-9_\-]+)\s+(?:Password|Pass|Pwd|Pin)\s*[:=]\s*(.+)$/i);
+    if (adbuMatch) {
+      return {
+        universityName: 'Assam Don Bosco University (ADBU)',
+        portalUrl: 'https://erp.dbuniversity.ac.in/adbu_erp_new/',
+        username: adbuMatch[1].trim(),
+        password: adbuMatch[2].trim(),
+        action: 'get_report',
+      };
+    }
+
+    // Pattern 2: Generic "Portal: <url> User: <user> Password: <pass>"
+    const hasPass = p.match(/\b(?:password|passwd|pwd|pass|pin)\s*[:=]\s*([^\s,;]+)/i);
+    const hasUser = p.match(/\b(?:username|user|roll\s*(?:no|number)?|id|student\s*id)\s*[:=]\s*([^\s,;]+)/i);
+    const hasUrl = p.match(/\b(?:url|portal|link|site|erp)\s*[:=]\s*(https?:\/\/[^\s,;]+|[a-zA-Z0-9\.\-]+\.[a-zA-Z]{2,6}[^\s,;]*)/i);
+    const hasUni = p.match(/\b(?:college|university|institution|uni)\s*[:=]\s*([^,\n;]+)/i);
+
+    if (hasPass && (hasUser || hasUrl || hasUni)) {
+      return {
+        universityName: hasUni ? hasUni[1].trim() : (p.toLowerCase().includes('adbu') ? 'Assam Don Bosco University (ADBU)' : 'University'),
+        portalUrl: hasUrl ? hasUrl[1].trim() : (p.toLowerCase().includes('adbu') ? 'https://erp.dbuniversity.ac.in/adbu_erp_new/' : ''),
+        username: hasUser ? hasUser[1].trim() : '',
+        password: hasPass[1].trim(),
+        action: 'get_report',
+      };
+    }
+
+    // Pattern 3: Simple "<Username> Password: <pass>"
+    const simpleMatch = p.match(/^([A-Za-z0-9_\-]{4,30})\s+(?:Password|Pass|Pwd|Pin)\s*[:=]\s*([^\s]+)/i);
+    if (simpleMatch) {
+      const isAdbuUser = /^[A-Z0-9]{2,}\d{4}[A-Z]{2,}\d+/i.test(simpleMatch[1]) || simpleMatch[1].toUpperCase().startsWith('DC');
+      return {
+        universityName: isAdbuUser ? 'Assam Don Bosco University (ADBU)' : 'University',
+        portalUrl: isAdbuUser ? 'https://erp.dbuniversity.ac.in/adbu_erp_new/' : '',
+        username: simpleMatch[1].trim(),
+        password: simpleMatch[2].trim(),
+        action: 'get_report',
+      };
+    }
+
+    return null;
+  }
+
   checkFastIntent(prompt) {
     const raw = (prompt || '').trim();
     const p = raw.toLowerCase();
+
+    // 0. University Credential Submission Fast Interceptor (NEVER web search passwords!)
+    const parsedCreds = this.parsePortalCredentials(prompt);
+    if (parsedCreds) {
+      console.log(`[AgentBrain] Student portal credentials detected for ${parsedCreds.universityName}. Intercepting for local secure portal access.`);
+      return {
+        tool: 'access_university_portal',
+        args: parsedCreds,
+      };
+    }
+
+    // University / College ERP & Attendance Fast Interceptor
+    const isCollegePortalRequest = 
+      /\b(?:what(?:'s|\s+is)|\bhow(?:'s|\s+is|\s+about)|\bcheck|\bget|\bfetch|\bview|\bshow|\bsee|\baccess|\bfind|\btrack|\bopen)\s+(?:my\s+)?(?:current\s+)?(?:college|university|adbu|campus|student|class|school)?\s*(?:erp|portal|attendance|grades?|marks?|cgpa)\b/i.test(p) ||
+      /\b(?:my\s+)?(?:college|university|adbu|student|campus)\s*(?:attendance|erp|portal)\b/i.test(p) ||
+      /\b(?:my\s+)?attendance\b/i.test(p) ||
+      /\b(?:short\s+on\s+attendance|attendance\s+shortage|classes\s+did\s+i\s+miss)\b/i.test(p);
+    if (isCollegePortalRequest && !p.includes('how to calculate') && !p.includes('explain') && !p.includes('definition of')) {
+      const uniMatch = p.match(/\b(adbu|assam\s+don\s+bosco\s+university|[a-zA-Z\s]+(?:university|college|institute))\b/i);
+      const uniName = uniMatch ? uniMatch[1].trim() : '';
+      return { tool: 'access_university_portal', args: { action: 'get_report', university_name: uniName } };
+    }
 
     // Fast Slash Command Interceptor
     if (p.startsWith('/')) {
@@ -2106,6 +2248,9 @@ STRICT OPERATIONAL DIRECTIVES:
       }
       if (cmd === 'notes' && rest) {
         return { tool: 'create_study_revision_document', args: { topic: rest } };
+      }
+      if (cmd === 'portal' || cmd === 'erp' || cmd === 'attendance') {
+        return { tool: 'access_university_portal', args: { action: 'get_report', query: rest } };
       }
       if (cmd === 'compact') {
         memory.clear();
@@ -2969,13 +3114,15 @@ STRICT OPERATIONAL DIRECTIVES:
     const rawHistory = memory.getConvoHistory(convoId);
     let systemContent = isAgent
       ? this.buildAgentSystemPrompt(context, config, fullPrompt, conversationHistory)
-      : memory.buildSystemPrompt(config, fullPrompt);
+      : memory.buildSystemPrompt(config, fullPrompt, context);
     let historyToUse = rawHistory.slice(-18);
 
     // Groq Free Tier optimization: keep prompt lean (<3500 tokens) to guarantee zero 413 ITPM errors (non-agent only)
     if (!isAgent && provider === 'groq') {
       const groqMem = memory.persistentMemory ? memory.persistentMemory.retrieveContext(fullPrompt, { projectId: config.activeProjectId }).formattedPromptSection : '';
       systemContent = `You are Grokki, a fast, deeply knowledgeable, highly intelligent AI assistant for Windows${isWebSearchActive ? ' with active real-time web search capabilities' : ''}.
+CURRENT MODE: REGULAR CHAT. You are in conversational Regular Chat mode. You do NOT have agentic permissions to edit files, create folders, or run terminal commands on the user's system in this chat. If the user asks if you can edit files or asks for agentic tasks, politely deny and instruct them to switch to Agent Mode in the sidebar.
+UNIVERSITY & COLLEGE ATTENDANCE: When user asks about attendance, grades, or college portal report and credentials are not yet configured, ask for their 1) College/Portal URL, 2) Roll/Student ID, 3) Password. Note that credentials are kept 100% private locally, and university anti-bot protections may restrict automated fetching.
 User: ${config.userNickname || config.userName || 'Friend'}.
 Tone: ${config.userTone || 'warm, friendly, direct'}.
 Provide comprehensive, structured, in-depth responses like ChatGPT. When live web search grounding is provided, answer directly with the real-time facts, courses, figures, and details. Use clean Markdown formatting, Markdown tables (| Column 1 | Column 2 |) for lists and structured comparisons, and styled clickable Markdown links. Avoid robotic disclaimers.${groqMem ? `\n${groqMem}` : ''}`;
@@ -2989,7 +3136,9 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
         historyToUse = rawHistory.slice(-2);
       } else {
         const ollamaMem = memory.persistentMemory ? memory.persistentMemory.retrieveContext(fullPrompt, { projectId: config.activeProjectId }).formattedPromptSection : '';
-        systemContent = `You are Grokki, a fast, intelligent AI assistant for Windows. Answer directly and concisely in clean Markdown. User: ${config.userNickname || config.userName || 'Friend'}. Tone: ${config.userTone || 'warm, direct'}.${ollamaMem ? `\n${ollamaMem}` : ''}`;
+        systemContent = `You are Grokki, a fast, intelligent AI assistant for Windows in Regular Chat mode. You do NOT have agentic permissions to edit files or run terminal commands in this chat. If asked for agentic tasks or file edits, deny and tell the user to switch to Agent Mode in the sidebar.
+UNIVERSITY & COLLEGE ATTENDANCE: When user asks about attendance, grades, or college portal report and credentials are not yet configured, ask for their 1) College/Portal URL, 2) Roll/Student ID, 3) Password. Note that credentials are kept 100% private locally, and university anti-bot protections may restrict automated fetching.
+Answer directly and concisely in clean Markdown. User: ${config.userNickname || config.userName || 'Friend'}. Tone: ${config.userTone || 'warm, direct'}.${ollamaMem ? `\n${ollamaMem}` : ''}`;
         if (isWebSearchActive) {
           systemContent += `\nREAL-TIME WEB GROUNDING: Fresh real-time search results are provided in the user message. Answer directly from these results.`;
         }
@@ -3656,6 +3805,30 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       };
     }
 
+    const isAgentMode = Boolean(context && context.mode === 'agent');
+    if (!isAgentMode && this.checkAgenticRequest(prompt)) {
+      console.log(`[AgentBrain] Agentic request detected in Regular Chat mode: "${prompt}". Denying and advising switch to Agent Mode.`);
+      const replyText = `I cannot directly edit files or execute actions on your system in **Regular Chat Mode**.
+
+You are currently in **Regular Chat**, which is read-only and designed for conversations, explanations, research, and generating code snippets without modifying your local computer or workspace.
+
+To allow me to inspect, edit, create files, or run commands on your system:
+👉 **Switch to Agent Mode**:
+1. Click the mode toggle in the sidebar or header (switch from **Chat** to **Agent**).
+2. Or select a **Grokki Agent** session from your recents list.
+3. Choose your workspace folder, and I'll have full agentic capabilities to inspect, edit, and create files directly on disk.
+
+*(If you'd like me to write or explain the code right here, just let me know and I'll provide the snippets for you to copy and paste!)*`;
+
+      memory.addTurn('user', prompt, null, context);
+      memory.addTurn('model', replyText);
+      return {
+        success: true,
+        reply: replyText,
+        actionsExecuted: [],
+      };
+    }
+
     const provider = (context && context.provider) || config.provider || 'gemini';
 
     if (['groq', 'ollama', 'openrouter', 'omniroute', 'omnirouter', 'openai', 'grok', 'deepseek', 'qwen', 'litellm', 'bifrost', 'portkey', 'helicone', 'routellm', 'newapi', 'higress', 'clawrouter'].includes(provider)) {
@@ -3774,7 +3947,7 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
     const tools = isWebSearchActive ? undefined : this.getRelevantTools(prompt, 'gemini', context);
     const systemInstruction = isAgent
       ? this.buildAgentSystemPrompt(context, config, fullPrompt, conversationHistory)
-      : memory.buildSystemPrompt(config, fullPrompt);
+      : memory.buildSystemPrompt(config, fullPrompt, context);
 
     memory.addTurn('user', prompt, null, context);
 
@@ -3977,7 +4150,7 @@ Rules:
                     maxOutputTokens: 4000,
                     temperature: 0.2,
                   },
-                }), 25000), signal);
+                }), 45000), signal);
 
                 if (synth && synth.text && synth.text.trim().length > 10) {
                   replyText = synth.text.trim();
@@ -4172,7 +4345,7 @@ Rules:
 
     const ai = new GoogleGenAI({ apiKey });
     const tools = this.getToolsDeclaration();
-    const systemInstruction = memory.buildSystemPrompt(config, fullPrompt);
+    const systemInstruction = memory.buildSystemPrompt(config, fullPrompt, context);
     let lastError = null;
 
     for (const modelName of this.models) {
@@ -5642,6 +5815,13 @@ Rules:
         } else {
           return { success: false, message: `Could not open ${args.name}: application was not found or failed to start.` };
         }
+      }
+
+      case 'access_university_portal':
+      case 'get_university_attendance':
+      case 'get_university_profile': {
+        const universityPortal = require('./university_portal');
+        return await universityPortal.handlePortalTool(args, (sys, user) => this.generateAcademicLLM(sys, user, 1500));
       }
 
       case 'create_study_revision_document': {

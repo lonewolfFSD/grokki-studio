@@ -2246,6 +2246,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
         context.maxTurns = matched.turns;
         context.maxAgentSteps = matched.turns;
       }
+    } else {
+      context.mode = 'chat';
     }
   }, [activeBrain, currentModelValue, activeConversation.id, agentMode, agentRoot, agentRootName, selectedEffort, selectedPermission]);
 
@@ -3974,14 +3976,20 @@ export const ChatTab = React.memo<ChatTabProps>(({
             }))
           : [];
         applyAgentContext(context);
-        if (agentMode && onUpdateConversationMeta) {
-          onUpdateConversationMeta(targetConvoId, {
-            mode: 'agent',
-            workspaceRoot: agentRoot,
-            workspaceName: agentRootName,
-            effort: selectedEffort,
-            permission: selectedPermission,
-          });
+        if (onUpdateConversationMeta) {
+          if (agentMode) {
+            onUpdateConversationMeta(targetConvoId, {
+              mode: 'agent',
+              workspaceRoot: agentRoot,
+              workspaceName: agentRootName,
+              effort: selectedEffort,
+              permission: selectedPermission,
+            });
+          } else {
+            onUpdateConversationMeta(targetConvoId, {
+              mode: 'chat',
+            });
+          }
         }
         const res = await window.jarvisAPI.executeAI(text, context);
         if (cancelledConvosRef.current.has(targetConvoId)) return;
@@ -4340,14 +4348,20 @@ export const ChatTab = React.memo<ChatTabProps>(({
           : [];
 
         applyAgentContext(context);
-        if (agentMode && onUpdateConversationMeta) {
-          onUpdateConversationMeta(targetConvoId, {
-            mode: 'agent',
-            workspaceRoot: agentRoot,
-            workspaceName: agentRootName,
-            effort: selectedEffort,
-            permission: selectedPermission,
-          });
+        if (onUpdateConversationMeta) {
+          if (agentMode) {
+            onUpdateConversationMeta(targetConvoId, {
+              mode: 'agent',
+              workspaceRoot: agentRoot,
+              workspaceName: agentRootName,
+              effort: selectedEffort,
+              permission: selectedPermission,
+            });
+          } else {
+            onUpdateConversationMeta(targetConvoId, {
+              mode: 'chat',
+            });
+          }
         }
 
         const res = await window.jarvisAPI.executeAI(trimmed, context);
@@ -5520,10 +5534,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   src={grokkiLogo}
                   alt="Grokki"
                   draggable={false}
-                  className="w-12 h-12 md:w-14 md:h-14 object-contain filter brightness-0 invert drop-shadow-[0_4px_24px_rgba(255,255,255,0.15)]"
+                  className="w-12 h-12 md:w-64 md:h-64 -mb-42 object-contain filter brightness-0 invert"
                   style={{
-                    maskImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 1) 45%, rgba(0, 0, 0, 0.08) 100%)',
-                    WebkitMaskImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 1) 45%, rgba(0, 0, 0, 0.08) 100%)',
+                    maskImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 1) 5%, rgba(0, 0, 0, 0.02) 100%)',
+                    WebkitMaskImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 1) 10%, rgba(0, 0, 0, 0.08) 100%)',
                   }}
                 />
               </motion.div>
@@ -5917,6 +5931,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 </motion.div>
               )}
             </AnimatePresence>
+            {!agentMode && (
+              <p className="text-[11px] text-center text-gray-400 dark:text-gray-500 mt-2 select-none tracking-normal">
+                Grokki can make mistakes. Verify important info.
+              </p>
+            )}
           </div>
 
           {/* Suggestions & Quick Commands Vertical List (Hidden in Grokki Agent Mode) */}
@@ -6132,24 +6151,26 @@ export const ChatTab = React.memo<ChatTabProps>(({
                               </button>
                             </WarmTooltip>
 
-                            <WarmTooltip
-                              content="Revert to this message"
-                              side="bottom"
-                              surfaceColor="#f5f5f5"
-                              inkColor="#18181b"
-                              size="sm"
-                              radius={6}
-                              arrow
-                            >
-                              <button
-                                type="button"
-                                aria-label="Revert to this message"
-                                onClick={() => handleOpenRevertModal(msg)}
-                                className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-colors cursor-pointer border-none bg-transparent"
+                            {agentMode && (
+                              <WarmTooltip
+                                content="Revert to this message"
+                                side="bottom"
+                                surfaceColor="#f5f5f5"
+                                inkColor="#18181b"
+                                size="sm"
+                                radius={6}
+                                arrow
                               >
-                                <Undo2 className="w-3 h-3" />
-                              </button>
-                            </WarmTooltip>
+                                <button
+                                  type="button"
+                                  aria-label="Revert to this message"
+                                  onClick={() => handleOpenRevertModal(msg)}
+                                  className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-colors cursor-pointer border-none bg-transparent"
+                                >
+                                  <Undo2 className="w-3 h-3" />
+                                </button>
+                              </WarmTooltip>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -6951,6 +6972,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 </motion.div>
               )}
             </AnimatePresence>
+            {!agentMode && (
+              <p className="text-[11px] text-center text-gray-400 dark:text-gray-500 mt-2 select-none tracking-normal">
+                Grokki can make mistakes. Verify important info.
+              </p>
+            )}
           </div>
         </div>
       )}

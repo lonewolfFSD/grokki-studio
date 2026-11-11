@@ -3500,8 +3500,47 @@ ipcMain.handle('jarvis:get-today-data', async () => {
 });
 
 ipcMain.handle('jarvis:detect-location', async () => {
+  const fetch = global.fetch || require('node-fetch');
+
+  // 1. Try ipwho.is (fast HTTPS)
   try {
-    const res = await fetch('http://ip-api.com/json/?fields=status,message,country,countryCode,regionName,city,lat,lon,timezone');
+    const res = await fetch('https://ipwho.is/', { signal: AbortSignal.timeout(4000) });
+    const data = await res.json();
+    if (data && data.success !== false && (data.city || data.country)) {
+      return {
+        success: true,
+        city: data.city || '',
+        region: data.region || '',
+        country: data.country || '',
+        countryCode: data.country_code || '',
+        lat: data.latitude,
+        lon: data.longitude,
+        timezone: data.timezone?.id || '',
+      };
+    }
+  } catch (_) {}
+
+  // 2. Try freeipapi.com (secondary HTTPS)
+  try {
+    const res = await fetch('https://freeipapi.com/api/json', { signal: AbortSignal.timeout(4000) });
+    const data = await res.json();
+    if (data && (data.cityName || data.countryName)) {
+      return {
+        success: true,
+        city: data.cityName || '',
+        region: data.regionName || '',
+        country: data.countryName || '',
+        countryCode: data.countryCode || '',
+        lat: data.latitude,
+        lon: data.longitude,
+        timezone: data.timeZone || '',
+      };
+    }
+  } catch (_) {}
+
+  // 3. Fallback to ip-api.com
+  try {
+    const res = await fetch('http://ip-api.com/json/?fields=status,message,country,countryCode,regionName,city,lat,lon,timezone', { signal: AbortSignal.timeout(4000) });
     const data = await res.json();
     if (data && data.status === 'success') {
       return {
@@ -5502,7 +5541,28 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
       return { success: true, latencyMs, reply: data.choices?.[0]?.message?.content?.trim() || 'READY' };
     }
 
-    return { success: false, error: `Unknown provider: ${provider}` };
+    // Fallback for any custom/OpenAI-compatible gateway not in static map
+    const fallbackEp = (endpoint || 'http://localhost:8080/v1').replace(/\/+$/, '');
+    const apiKey = (key || '').trim();
+    const fetch = global.fetch || require('node-fetch');
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+    const res = await fetch(`${fallbackEp}/chat/completions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: model || 'auto',
+        messages: [{ role: 'user', content: 'Respond with ONLY "READY".' }],
+        max_tokens: 10,
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      return { success: false, error: `${provider} error (${res.status}): ${errText.slice(0, 150)}` };
+    }
+    const data = await res.json();
+    const latencyMs = Date.now() - startTime;
+    return { success: true, latencyMs, reply: data.choices?.[0]?.message?.content?.trim() || 'READY' };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -5648,7 +5708,23 @@ ipcMain.handle('dashboard:fetch-provider-models', async (event, { provider, key,
       return { success: true, models };
     }
 
-    return { success: false, error: `Unknown provider: ${provider}` };
+    // Fallback for any custom/OpenAI-compatible gateway
+    const fallbackEp = (endpoint || 'http://localhost:8080/v1').replace(/\/+$/, '');
+    const apiKey = (key || '').trim();
+    const headers = {};
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+    const res = await fetch(`${fallbackEp}/models`, { headers });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    let models = [];
+    if (Array.isArray(data.data)) {
+      models = data.data.map(m => (typeof m === 'string' ? m : (m.id || m.name || m.model)));
+    } else if (Array.isArray(data.models)) {
+      models = data.models.map(m => (typeof m === 'string' ? m : (m.id || m.name || m.model)));
+    } else if (Array.isArray(data)) {
+      models = data.map(m => (typeof m === 'string' ? m : (m.id || m.name || m.model)));
+    }
+    return { success: true, models: models.filter(Boolean) };
   } catch (err) {
     return { success: false, error: err.message };
   }

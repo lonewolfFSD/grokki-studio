@@ -448,23 +448,6 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
         }
       }
 
-      // 5. Browser geolocation fallback
-      if (!detected && typeof navigator !== 'undefined' && navigator.geolocation) {
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 4000 });
-          });
-          if (pos && pos.coords) {
-            detected = {
-              lat: pos.coords.latitude,
-              lon: pos.coords.longitude,
-            };
-          }
-        } catch {
-          // ignore
-        }
-      }
-
       if (detected && (detected.city || detected.country || detected.lat !== undefined)) {
         onChangeConfig({
           shareLocation: true,
@@ -476,11 +459,17 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
         });
         const summary = [detected.city, detected.country].filter(Boolean).join(', ');
         setLocationStatusMsg(`Detected: ${summary || 'Location updated'}`);
+      } else if (config.locationCity || config.locationCountry) {
+        setLocationStatusMsg(`Active: ${[config.locationCity, config.locationCountry].filter(Boolean).join(', ')}`);
       } else {
         setLocationStatusMsg('Unable to determine location from network');
       }
-    } catch (err: any) {
-      setLocationStatusMsg(err?.message || 'Error detecting location');
+    } catch {
+      if (config.locationCity || config.locationCountry) {
+        setLocationStatusMsg(`Active: ${[config.locationCity, config.locationCountry].filter(Boolean).join(', ')}`);
+      } else {
+        setLocationStatusMsg('Unable to determine location from network');
+      }
     } finally {
       setIsDetectingLocation(false);
     }

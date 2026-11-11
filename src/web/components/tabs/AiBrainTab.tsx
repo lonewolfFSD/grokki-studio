@@ -1051,11 +1051,16 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
           },
         }));
       } else {
+        const detail = PROVIDER_DETAILS[provider];
+        let errMsg = res?.error || 'Invalid API Key or Provider offline';
+        if (errMsg.includes('Unknown provider')) {
+          errMsg = `Could not reach ${detail?.title || provider} at ${endpoint || detail?.endpointDefault || 'endpoint'}. Ensure the router/gateway is running.`;
+        }
         setTestResult((prev) => ({
           ...prev,
           [provider]: {
             success: false,
-            message: res?.error || 'Invalid API Key or Provider offline',
+            message: errMsg,
           },
         }));
       }
