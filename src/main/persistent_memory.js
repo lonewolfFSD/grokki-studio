@@ -412,6 +412,14 @@ class PersistentMemory {
       return { formattedPromptSection: '', retrievedMemories: [] };
     }
 
+    // Fast-fail: Simple greetings must NEVER trigger persistent memory injection
+    if (/^(hi|hello|hey|yo|sup|wassup|wazzup|whats?\s*up|howdy|greetings|good\s+(morning|afternoon|evening|night)|thanks|thank\s+you|ok|okay)\b/i.test(query)) {
+      return { formattedPromptSection: '', retrievedMemories: [] };
+    }
+
+    const isChatMode = options.mode === 'chat' || !options.isAgent;
+    const AGENTIC_CODE_PATTERN = /(\.(py|js|ts|tsx|jsx|json|cpp|c|java|html|css|yaml|yml)\b|\b(workspace|repo|repository|bubble_sort|quicksort|main function|def |function |algorithm|script|codebase|commit|git|folders and \d+ files)\b)/i;
+
     const words = query
       .replace(/[^\w\s-]/g, ' ')
       .split(/\s+/)
@@ -420,9 +428,9 @@ class PersistentMemory {
     const scored = [];
     const allMemories = Array.from(this.memories.values());
 
-    // Check if query references any specific project
-    let activeProjectId = options.projectId || null;
-    if (!activeProjectId) {
+    // Check if query references any specific project (agent mode only)
+    let activeProjectId = !isChatMode ? (options.projectId || null) : null;
+    if (!activeProjectId && !isChatMode) {
       for (const proj of this.projects.values()) {
         const nameLower = proj.name.toLowerCase();
         if (query.includes(nameLower) || words.some((w) => nameLower.includes(w))) {
@@ -439,6 +447,12 @@ class PersistentMemory {
       );
 
     for (const mem of allMemories) {
+      if (isChatMode) {
+        if (mem.category === 'project' || mem.category === 'agent' || mem.source === 'agent' || AGENTIC_CODE_PATTERN.test(mem.content || '') || AGENTIC_CODE_PATTERN.test(mem.title || '')) {
+          continue; // Strictly exclude agentic / project code memories from General Chat!
+        }
+      }
+
       let score = 0;
       const titleLower = (mem.title || '').toLowerCase();
       const contentLower = (mem.content || '').toLowerCase();

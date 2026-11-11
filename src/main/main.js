@@ -4287,7 +4287,7 @@ function detectActiveOllamaDiskPull() {
         }
       })
       .filter(Boolean)
-      .filter((f) => Date.now() - f.mtime < 180000); // 3 minutes
+      .filter((f) => Date.now() - f.mtime < 30000); // Actively modified within last 30 seconds only
 
     if (!partials.length) return null;
     const activePartial = partials.sort((a, b) => b.mtime - a.mtime)[0];
@@ -4318,8 +4318,32 @@ function detectActiveOllamaDiskPull() {
       } catch (_) {}
     }
 
+    if (!detectedModel) return null;
+
+    // Check if detected model is already completely installed in Ollama manifests
+    const manifestsDir = path.join(os.homedir(), '.ollama', 'models', 'manifests');
+    if (fs.existsSync(manifestsDir)) {
+      const checkInstalled = (dir, target) => {
+        try {
+          const entries = fs.readdirSync(dir);
+          for (const ent of entries) {
+            const p = path.join(dir, ent);
+            if (fs.statSync(p).isDirectory()) {
+              if (checkInstalled(p, target)) return true;
+            } else if (ent === target || ent.startsWith(target.split(':')[0])) {
+              return true;
+            }
+          }
+        } catch (_) {}
+        return false;
+      };
+      if (checkInstalled(manifestsDir, detectedModel)) {
+        return null; // Already installed, ignore stale partial file
+      }
+    }
+
     return {
-      modelName: detectedModel || 'llama3.2',
+      modelName: detectedModel,
       endpoint: 'http://127.0.0.1:11434',
       status: 'Downloading...',
       percent: 0,
@@ -4460,8 +4484,10 @@ function startOllamaPullStream(name, ep) {
             setTimeout(() => {
               if (activeOllamaPull && activeOllamaPull.modelName === name) {
                 activeOllamaPull = null;
+                saveActivePullState(null);
+                broadcastOllamaPullProgress(null);
               }
-            }, 3500);
+            }, 2500);
             resolve({ success: true, modelName: name });
           });
         }
@@ -4482,8 +4508,10 @@ function startOllamaPullStream(name, ep) {
           setTimeout(() => {
             if (activeOllamaPull && activeOllamaPull.modelName === name) {
               activeOllamaPull = null;
+              saveActivePullState(null);
+              broadcastOllamaPullProgress(null);
             }
-          }, 4000);
+          }, 3000);
         }
         resolve({ success: false, error: err.message });
       });
@@ -4555,6 +4583,13 @@ function initBackgroundPullDetector() {
 
 ipcMain.handle('jarvis:get-active-ollama-pull', () => activeOllamaPull);
 
+ipcMain.handle('jarvis:dismiss-ollama-pull', () => {
+  activeOllamaPull = null;
+  saveActivePullState(null);
+  broadcastOllamaPullProgress(null);
+  return { success: true };
+});
+
 ipcMain.handle('jarvis:pull-ollama-model', async (event, { modelName, endpoint } = {}) => {
   const ep = (endpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
   const name = (modelName || '').trim();
@@ -4593,6 +4628,210 @@ ipcMain.handle('jarvis:delete-ollama-model', async (event, { modelName, endpoint
   } catch (err) {
     return { success: false, error: err.message };
   }
+});
+
+// Grokki Agent Skills Engine Handlers
+const skillsManager = require('./skills_manager');
+
+ipcMain.handle('jarvis:get-skills', async () => {
+  const config = loadConfig();
+  const skills = skillsManager.getSkills(config);
+  return { success: true, skills };
+});
+
+ipcMain.handle('jarvis:toggle-skill', async (event, { skillId, enabled } = {}) => {
+  const config = loadConfig();
+  const res = skillsManager.toggleSkill(skillId, enabled, config);
+  if (res.success && res.disabledSkills) {
+    saveConfig({ disabledSkills: res.disabledSkills });
+  }
+  return res;
+});
+
+ipcMain.handle('jarvis:save-skill', async (event, skillData) => {
+  return skillsManager.saveSkill(skillData);
+});
+
+ipcMain.handle('jarvis:delete-skill', async (event, skillId) => {
+  return skillsManager.deleteSkill(skillId);
+});
+
+ipcMain.handle('jarvis:open-skills-folder', async () => {
+  const { shell } = require('electron');
+  const skillsDir = skillsManager.skillsDir;
+  if (!fs.existsSync(skillsDir)) {
+    fs.mkdirSync(skillsDir, { recursive: true });
+  }
+  await shell.openPath(skillsDir);
+  return { success: true, path: skillsDir };
+});
+
+ipcMain.handle('jarvis:import-skill-file', async (event, { content, fileName } = {}) => {
+  if (content) {
+    return skillsManager.importSkillContent(content, fileName);
+  }
+  const { dialog } = require('electron');
+  const res = await dialog.showOpenDialog({
+    title: 'Import SKILL.md Playbook',
+    filters: [
+      { name: 'Markdown Skills (*.md)', extensions: ['md', 'markdown'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  });
+  if (res.canceled || !res.filePaths || !res.filePaths.length) {
+    return { canceled: true };
+  }
+  const chosenPath = res.filePaths[0];
+  const fileContent = fs.readFileSync(chosenPath, 'utf8');
+  return skillsManager.importSkillContent(fileContent, path.basename(chosenPath));
+});
+
+ipcMain.handle('jarvis:export-skill-file', async (event, skillId) => {
+  const config = loadConfig();
+  const skill = skillsManager.getSkill(skillId, config);
+  if (!skill) return { success: false, error: 'Skill not found' };
+  const mdContent = skillsManager.formatSkillMarkdown(skill);
+  const { dialog } = require('electron');
+  const res = await dialog.showSaveDialog({
+    title: `Export ${skill.name} (SKILL.md)`,
+    defaultPath: `${skill.id}.md`,
+    filters: [{ name: 'Markdown Skill', extensions: ['md'] }]
+  });
+  if (res.canceled || !res.filePath) return { canceled: true };
+  fs.writeFileSync(res.filePath, mdContent, 'utf8');
+  return { success: true, filePath: res.filePath };
+});
+
+ipcMain.handle('jarvis:generate-skill', async (event, userRequirement) => {
+  try {
+    const config = loadConfig();
+    agentBrain.activeConfig = config;
+
+    const trimmed = (userRequirement || '').trim();
+    if (!trimmed) {
+      return { success: false, error: 'User requirement cannot be empty.' };
+    }
+
+    const systemPrompt = `You are an elite AI Skill Architect creating a production Open Agent Skill (SKILL.md format) for Grokki Agent, modeled after Claude Code and Antigravity standard skills.
+
+CRITICAL TONE & PERSONA RULES (STRICT):
+1. WRITE IN DIRECT SECOND PERSON: "You are [Role]. [Core philosophy/creed]. [Direct output contract]."
+   Example:
+   "You are a lazy senior developer. The best code is the code never written. You solve the whole problem with the least new code. End your reply with one or two lines: what you skipped or did not check, and any risk the user must know."
+2. ABSOLUTELY ZERO PASSIVE META-COMMENTARY:
+   - NEVER write "This skill is written for...", "This skill is intended to...", "This skill provides...", "In this skill, the agent will...", or "Overview: This skill...".
+   - The markdown is NOT documentation about the skill; it IS the operational directive delivered directly to the agent.
+3. CONCRETE SECTIONS:
+   - YAML frontmatter with \`name\` (kebab-case) and multi-line \`description\` explaining exact triggers (keywords, tasks).
+   - \`# <Skill Name>\` followed immediately by the "You are [Role]..." identity and session scope.
+   - \`## Before you write\` or \`## Before you begin\` (inspection, scope definition, blast radius).
+   - \`## Core Directives\` or named operational rules (actionable, opinionated numbered & bulleted directives).
+   - \`## What to Never Cut / Rules & Constraints\` (safety invariants, error handling, trust boundaries).
+   - Optional levels or modes if relevant (e.g. lite | full | ultra).
+
+OUTPUT RULES:
+- Return ONLY valid raw SKILL.md markdown starting with \`---\`.
+- Do NOT wrap the output in outer \`\`\`markdown ... \`\`\` codeblocks.
+- No introductory greetings, explanations, or concluding chat.`;
+
+    const userPrompt = `User Skill Requirement:\n"${trimmed}"`;
+
+    let generatedText = '';
+    try {
+      // Race direct LLM call against a 25s timeout so it NEVER hangs
+      const llmPromise = agentBrain.generateAcademicLLM(systemPrompt, userPrompt, 1500);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('LLM call timed out after 25s')), 25000)
+      );
+      generatedText = await Promise.race([llmPromise, timeoutPromise]);
+    } catch (llmErr) {
+      console.warn('[main] jarvis:generate-skill LLM warning:', llmErr.message);
+    }
+
+    if (generatedText && typeof generatedText === 'string') {
+      let cleaned = generatedText.trim();
+      if (cleaned.startsWith('```markdown')) {
+        cleaned = cleaned.replace(/^```markdown\s*/i, '').replace(/\s*```$/, '');
+      } else if (cleaned.startsWith('```md')) {
+        cleaned = cleaned.replace(/^```md\s*/i, '').replace(/\s*```$/, '');
+      } else if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```\w*\s*/, '').replace(/\s*```$/, '');
+      }
+      cleaned = cleaned.trim();
+      if (cleaned.startsWith('---')) {
+        return { success: true, markdown: cleaned };
+      }
+    }
+
+    // High quality offline fallback in direct persona format
+    const words = trimmed.split(/\s+/).filter(Boolean);
+    const slug = trimmed
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .slice(0, 24)
+      .replace(/^-|-$/g, '') || 'custom-skill';
+
+    const title = words.slice(0, 3).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ') || 'Expert Specialist';
+
+    const fallbackMarkdown = `---
+name: ${slug}
+description: >
+  ${trimmed}. Activate on any related task, or when the user mentions "${slug}",
+  "run ${slug}", or requests this specialized standard.
+argument-hint: "[standard|strict|off]"
+---
+
+# ${title}
+
+You are a world-class ${title.toLowerCase()}. Your code and decisions are surgical, authoritative, and battle-tested. You solve the problem with the highest signal and zero bloated abstractions. End your reply with one or two lines: what you verified, and any remaining edge cases the user should know.
+
+Active for the session until the user says "stop ${slug}" or "normal mode".
+
+## Before you write
+
+Read the task and every file it touches. List every place your change must reach: call sites, configurations, tests, and types. Check what your change could break for existing callers. That is scope. Extra features are not.
+
+## Core Directives
+
+Take the cleanest path that fully works:
+
+1. **Surgical Scope**: Fix the root cause once in shared code. Never add abstractions, wrappers, or "for later" code nobody asked for.
+2. **Preserve Contracts**: Keep existing public APIs, interfaces, and expected behaviors strictly intact unless explicitly asked.
+3. **Idiomatic Hygiene**: Match the style, conventions, and architectural patterns of the surrounding codebase.
+4. **Immediate Verification**: New non-trivial logic must leave an assert, unit check, or explicit validation.
+
+Never cut: error handling at trust boundaries, security invariants, data loss prevention, or accessibility.
+`;
+
+    return { success: true, markdown: fallbackMarkdown };
+  } catch (err) {
+    console.error('[main] generate-skill error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Grokki Plugins Engine Handlers
+const { pluginsManager } = require('./plugins_manager');
+
+ipcMain.handle('jarvis:get-plugins', async () => {
+  return { success: true, ...pluginsManager.getPlugins() };
+});
+
+ipcMain.handle('jarvis:toggle-plugin', async (event, { pluginId, enabled } = {}) => {
+  return pluginsManager.togglePlugin(pluginId, enabled);
+});
+
+ipcMain.handle('jarvis:save-plugin-config', async (event, { pluginId, config } = {}) => {
+  return pluginsManager.savePluginConfig(pluginId, config);
+});
+
+ipcMain.handle('jarvis:add-custom-plugin', async (event, pluginData) => {
+  return pluginsManager.addCustomPlugin(pluginData);
+});
+
+ipcMain.handle('jarvis:delete-plugin', async (event, pluginId) => {
+  return pluginsManager.deletePlugin(pluginId);
 });
 
 ipcMain.handle('jarvis:fetch-elevenlabs-voices', async (event, { apiKey, search, pageSize } = {}) => {

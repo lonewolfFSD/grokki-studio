@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sidebar, TabId } from './components/Sidebar';
 import { Header } from './components/Header';
 import { UnsavedToast } from './components/UnsavedToast';
+import { SkillWritingToast, SkillWritingState } from './components/SkillWritingToast';
 import { OverviewTab } from './components/tabs/OverviewTab';
 import { MemoryTab } from './components/tabs/MemoryTab';
 import { ChatTab } from './components/tabs/ChatTab';
@@ -9,6 +10,8 @@ import { VoiceModelsTab } from './components/tabs/VoiceModelsTab';
 import { AiBrainTab } from './components/tabs/AiBrainTab';
 import { PersonalizationTab } from './components/tabs/PersonalizationTab';
 import { GoogleWorkspaceTab } from './components/tabs/GoogleWorkspaceTab';
+import { SkillsTab } from './components/tabs/SkillsTab';
+import { PluginsTab } from './components/tabs/PluginsTab';
 import { AppearanceTab } from './components/tabs/AppearanceTab';
 import { StudioSettingsTab } from './components/tabs/StudioSettingsTab';
 import { AboutTab } from './components/tabs/AboutTab';
@@ -568,6 +571,11 @@ export const App: React.FC = () => {
     if (window.jarvisAPI?.getActiveOllamaPull) {
       window.jarvisAPI.getActiveOllamaPull().then((active) => {
         if (active && !active.completed) {
+          const installed = config.cachedProviderModels?.ollama || [];
+          if (active.percent === 0 && installed.some((m: string) => m === active.modelName || m.startsWith(active.modelName))) {
+            window.jarvisAPI?.dismissOllamaPull?.().catch(() => {});
+            return;
+          }
           setActiveModelPull(active);
         }
       }).catch(() => {});
@@ -575,7 +583,10 @@ export const App: React.FC = () => {
 
     if (window.jarvisAPI?.onOllamaPullProgress) {
       const unsub = window.jarvisAPI.onOllamaPullProgress((data: any) => {
-        if (!data) return;
+        if (!data) {
+          setActiveModelPull(null);
+          return;
+        }
         if (data.status === 'success' || data.percent >= 100 || data.completed === true) {
           setActiveModelPull({
             modelName: data.modelName,
@@ -597,8 +608,8 @@ export const App: React.FC = () => {
             }).catch(() => {});
           }
           setTimeout(() => {
-            setActiveModelPull((curr) => (curr?.modelName === data.modelName ? null : curr));
-          }, 3500);
+            setActiveModelPull(null);
+          }, 2500);
         } else if (data.status === 'error' || data.error) {
           setActiveModelPull({
             modelName: data.modelName,
@@ -607,8 +618,8 @@ export const App: React.FC = () => {
             error: data.error || 'Failed to download model',
           });
           setTimeout(() => {
-            setActiveModelPull((curr) => (curr?.modelName === data.modelName ? null : curr));
-          }, 4000);
+            setActiveModelPull(null);
+          }, 3500);
         } else {
           setActiveModelPull({
             modelName: data.modelName,
@@ -672,6 +683,74 @@ export const App: React.FC = () => {
       setTimeout(() => setActiveModelPull(null), 4000);
     }
   }, [config.ollamaEndpoint]);
+
+  // Global Grokki Skill Writing State (persists across all tabs & does not auto-hide on finish)
+  const [skillWritingState, setSkillWritingState] = useState<SkillWritingState>({ status: 'idle' });
+  const [pendingSkillMarkdown, setPendingSkillMarkdown] = useState<string | null>(null);
+
+  const handleStartSkillGeneration = useCallback(async (prompt: string) => {
+    const trimmed = prompt.trim();
+    if (!trimmed) return;
+
+    setSkillWritingState({
+      status: 'generating',
+      prompt: trimmed,
+    });
+
+    try {
+      let rawResult = '';
+      if (window.jarvisAPI?.generateSkill) {
+        const res = await window.jarvisAPI.generateSkill(trimmed);
+        if (res && res.success && res.markdown) {
+          rawResult = res.markdown;
+        } else if (res && res.error) {
+          throw new Error(res.error);
+        }
+      }
+
+      if (!rawResult && window.jarvisAPI?.executeAI) {
+        const res = await window.jarvisAPI.executeAI(trimmed, { isSkillGeneration: true });
+        if (res && (res.reply || res.message)) {
+          rawResult = (res.reply || res.message || '').trim();
+        }
+      }
+
+      if (!rawResult) {
+        throw new Error('No skill playbook was generated.');
+      }
+
+      let cleaned = rawResult.trim();
+      if (cleaned.startsWith('```markdown')) {
+        cleaned = cleaned.replace(/^```markdown\s*/i, '').replace(/\s*```$/, '');
+      } else if (cleaned.startsWith('```md')) {
+        cleaned = cleaned.replace(/^```md\s*/i, '').replace(/\s*```$/, '');
+      } else if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```\w*\s*/, '').replace(/\s*```$/, '');
+      }
+
+      setSkillWritingState({
+        status: 'ready',
+        prompt: trimmed,
+        markdown: cleaned.trim(),
+      });
+      setPendingSkillMarkdown(cleaned.trim());
+    } catch (err: any) {
+      console.error('[App] Skill generation failed:', err);
+      setSkillWritingState({
+        status: 'error',
+        prompt: trimmed,
+        error: err.message || 'Failed to generate skill playbook.',
+      });
+    }
+  }, []);
+
+  const handleOpenSkillInEditor = useCallback(() => {
+    if (skillWritingState.markdown) {
+      setPendingSkillMarkdown(skillWritingState.markdown);
+    }
+    setSkillWritingState({ status: 'idle' });
+    setActiveTab('skills');
+  }, [skillWritingState.markdown]);
 
   const handleToggleTheme = useCallback(() => {
     setConfig((prev) => {
@@ -976,7 +1055,9 @@ export const App: React.FC = () => {
   const tabTitles: Record<TabId, string> = {
     chat: appMode === 'agent' ? 'Grokki Agent' : 'Grokki Chat',
     overview: 'Home',
-    workspace: 'Workspace',
+    workspace: 'Plugins',
+    plugins: 'Plugins',
+    skills: 'Agent Skills',
     memory: 'Memory',
     voice: 'Voice Models',
     ai: 'AI Brain & Keys',
@@ -1138,6 +1219,27 @@ export const App: React.FC = () => {
               />
             )}
 
+            {activeTab === 'skills' && (
+              <SkillsTab
+                onNavigateTab={setActiveTab}
+                activeConversationId={activeConversationId}
+                activeConversationTitle={activeConversation?.title}
+                skillWritingState={skillWritingState}
+                onStartSkillGeneration={handleStartSkillGeneration}
+                onDismissSkillWriting={() => setSkillWritingState({ status: 'idle' })}
+                pendingSkillMarkdown={pendingSkillMarkdown}
+                onClearPendingSkillMarkdown={() => setPendingSkillMarkdown(null)}
+              />
+            )}
+
+            {activeTab === 'plugins' && (
+              <PluginsTab
+                config={config}
+                onChangeConfig={handleConfigChange}
+                onNavigateTab={setActiveTab}
+              />
+            )}
+
             {activeTab === 'appearance' && (
               <AppearanceTab
                 config={config}
@@ -1206,6 +1308,14 @@ export const App: React.FC = () => {
         saving={saving}
         onReset={handleReset}
         onSave={handleSave}
+      />
+
+      {/* Global Bottom-Right Toast for Grokki Skill Writing (appears on every tab & persists when done) */}
+      <SkillWritingToast
+        state={skillWritingState}
+        onOpenInEditor={handleOpenSkillInEditor}
+        onDismiss={() => setSkillWritingState({ status: 'idle' })}
+        bottomOffsetClass={activeModelPull && !activeModelPull.completed ? 'bottom-28' : 'bottom-6'}
       />
       </div>
       </GlowCursor>

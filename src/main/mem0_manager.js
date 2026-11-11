@@ -17,6 +17,8 @@ const STOP_WORDS = new Set([
   'some', 'this', 'that', 'there', 'their', 'they', 'them', 'my', 'your', 'his', 'her', 'it', 'its'
 ]);
 
+const AGENTIC_CODE_PATTERN = /(\.(py|js|ts|tsx|jsx|json|cpp|c|java|html|css|yaml|yml)\b|\b(workspace|repo|repository|bubble_sort|quicksort|main function|def |function |algorithm|script|codebase|commit|git|folders and \d+ files)\b)/i;
+
 class Mem0Manager {
   constructor() {
     this.dataDir = path.join(__dirname, '../../data');
@@ -70,13 +72,15 @@ class Mem0Manager {
   }
 
   // Automatic memory extraction from conversation turn
-  async extractMemoriesFromTurn(userPrompt, assistantReply, llmCallable = null) {
+  async extractMemoriesFromTurn(userPrompt, assistantReply, llmCallable = null, context = {}) {
     if (!userPrompt || userPrompt.length < 5) return [];
 
     // Filter out common throwaway greetings or commands
     if (/^(hi|hey|hello|yo|ok|thanks|thank you|stop|close|exit|cancel)$/i.test(userPrompt.trim())) {
       return [];
     }
+
+    const isAgentTurn = Boolean(context && context.mode === 'agent');
 
     if (this.cloudClient) {
       try {
@@ -135,7 +139,8 @@ Example: ["User's dad name is Arjun", "User studies BCA at ADBU University", "Us
           const item = {
             id: `mem_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             memory: clean,
-            category: 'fact',
+            category: isAgentTurn ? 'agent' : 'fact',
+            mode: isAgentTurn ? 'agent' : 'chat',
             created_at: Date.now(),
           };
           this.localMemories.push(item);
@@ -145,9 +150,9 @@ Example: ["User's dad name is Arjun", "User studies BCA at ADBU University", "Us
           try {
             lanceDbStore.addDocument({
               id: item.id,
-              title: 'Mem0 Memory',
+              title: isAgentTurn ? 'Agent Memory' : 'Mem0 Memory',
               text: clean,
-              source: 'mem0_memory',
+              source: isAgentTurn ? 'agent_memory' : 'mem0_memory',
             }).catch(() => {});
           } catch (_) {}
         }
@@ -161,7 +166,7 @@ Example: ["User's dad name is Arjun", "User studies BCA at ADBU University", "Us
 
     return added;
   }
-  async searchMemories(query, limit = 4) {
+  async searchMemories(query, limit = 4, options = {}) {
     if (this.cloudClient) {
       try {
         const res = await this.cloudClient.search(query, { user_id: this.userId, limit });
@@ -174,21 +179,31 @@ Example: ["User's dad name is Arjun", "User studies BCA at ADBU University", "Us
     const q = String(query || '').toLowerCase().trim();
     if (!q) return [];
 
+    const isChatMode = options.mode === 'chat' || !options.isAgent;
+
     const qWords = q.split(/[^a-zA-Z0-9]+/).filter((w) => w.length > 2 && !STOP_WORDS.has(w));
     if (qWords.length === 0) return [];
 
     // Vector search via LanceDB (Strict similarity threshold >= 0.65)
     try {
-      const vectorHits = await lanceDbStore.search(q, limit);
-      const memHits = vectorHits.filter((h) => h.source === 'mem0_memory' && (h.score === undefined || h.score >= 0.65));
+      const vectorHits = await lanceDbStore.search(q, limit * 2);
+      let memHits = vectorHits.filter((h) => (h.source === 'mem0_memory' || (!isChatMode && h.source === 'agent_memory')) && (h.score === undefined || h.score >= 0.65));
+      if (isChatMode) {
+        memHits = memHits.filter((h) => !AGENTIC_CODE_PATTERN.test(h.text || ''));
+      }
       if (memHits.length > 0) {
-        return memHits.map((h) => ({ id: h.id, memory: h.text, score: h.score }));
+        return memHits.slice(0, limit).map((h) => ({ id: h.id, memory: h.text, score: h.score }));
       }
     } catch (_) {}
 
     // Precise whole-word match fallback on meaningful non-stopwords
     return this.localMemories
       .filter((m) => {
+        if (isChatMode) {
+          if (m.category === 'agent' || m.category === 'project' || m.mode === 'agent' || AGENTIC_CODE_PATTERN.test(m.memory || '')) {
+            return false;
+          }
+        }
         const mLower = m.memory.toLowerCase();
         return qWords.some((w) => {
           const reg = new RegExp(`\\b${w}\\b`, 'i');
@@ -198,9 +213,14 @@ Example: ["User's dad name is Arjun", "User studies BCA at ADBU University", "Us
       .slice(0, limit);
   }
 
-  async getMemoriesContext(userQuery) {
+  async getMemoriesContext(userQuery, options = {}) {
     try {
-      const hits = await this.searchMemories(userQuery, 3);
+      const q = String(userQuery || '').trim();
+      // Simple greetings or chatter must NEVER trigger memory retrieval
+      if (/^(hi|hello|hey|yo|sup|wassup|wazzup|whats?\s*up|howdy|greetings|good\s+(morning|afternoon|evening|night)|thanks|thank\s+you|ok|okay)\b/i.test(q)) {
+        return '';
+      }
+      const hits = await this.searchMemories(q, 3, options);
       if (!Array.isArray(hits) || hits.length === 0) return '';
       const list = hits.map((h) => `- ${h.memory || h.text}`).join('\n');
       return `\n[User Profile & Long-Term Memory Context]:\n${list}\n(CRITICAL INSTRUCTION: The above facts describe the user's personal profile. ONLY utilize them if directly relevant to what the user explicitly asks. NEVER force or hallucinate these personal facts into unrelated queries like video games, entertainment, news, general facts, or web searches.)\n`;

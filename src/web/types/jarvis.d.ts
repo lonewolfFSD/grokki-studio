@@ -403,7 +403,59 @@ export interface Conversation {
   permission?: 'review' | 'default' | 'auto' | 'turbo';
 }
 
+export interface GrokkiSkill {
+  id: string;
+  name: string;
+  title?: string;
+  description: string;
+  category?: 'coding' | 'workflows' | 'debugging' | 'browser' | 'database' | 'security' | 'docs' | 'custom' | string;
+  tags?: string[];
+  triggers?: string[];
+  tools?: string[];
+  author?: string;
+  version?: string;
+  isBuiltIn: boolean;
+  isEnabled: boolean;
+  instructions: string;
+  rawMarkdown?: string;
+  updatedAt?: number;
+}
+
+export interface GrokkiPlugin {
+  id: string;
+  name: string;
+  badge?: string;
+  description: string;
+  category: 'official' | 'custom' | 'mcp';
+  icon?: string;
+  isEnabled: boolean;
+  mcpServer?: {
+    transport?: 'stdio' | 'streamable-http' | 'sse';
+    command?: string;
+    args?: string[];
+    env?: Record<string, string>;
+    url?: string;
+    headers?: Record<string, string>;
+  } | null;
+  config?: Record<string, any>;
+  createdAt?: string;
+}
+
 export interface JarvisAPI {
+  getSkills?: () => Promise<{ success: boolean; skills: GrokkiSkill[] }>;
+  toggleSkill?: (skillId: string, enabled?: boolean) => Promise<{ success: boolean; enabled: boolean; disabledSkills?: string[] }>;
+  saveSkill?: (skillData: Partial<GrokkiSkill> | { rawMarkdown: string; id?: string }) => Promise<{ success: boolean; skill?: GrokkiSkill; error?: string }>;
+  deleteSkill?: (skillId: string) => Promise<{ success: boolean; error?: string }>;
+  importSkillFile?: (opts?: { content?: string; fileName?: string }) => Promise<{ success?: boolean; skill?: GrokkiSkill; canceled?: boolean; error?: string }>;
+  openSkillsFolder?: () => Promise<{ success: boolean; path?: string }>;
+  exportSkillFile?: (skillId: string) => Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }>;
+  generateSkill?: (userRequirement: string) => Promise<{ success: boolean; markdown?: string; error?: string }>;
+  getPlugins?: () => Promise<{ success: boolean; official: GrokkiPlugin[]; custom: GrokkiPlugin[] }>;
+  togglePlugin?: (pluginId: string, enabled: boolean) => Promise<{ success: boolean; pluginId?: string; isEnabled?: boolean; error?: string }>;
+  savePluginConfig?: (pluginId: string, config: Record<string, any>) => Promise<{ success: boolean; pluginId?: string; config?: Record<string, any>; error?: string }>;
+  addCustomPlugin?: (pluginData: Partial<GrokkiPlugin>) => Promise<{ success: boolean; plugin?: GrokkiPlugin; error?: string }>;
+  deletePlugin?: (pluginId: string) => Promise<{ success: boolean; pluginId?: string; error?: string }>;
+  dismissOllamaPull?: () => Promise<{ success: boolean }>;
   getConfig: () => Promise<JarvisConfig>;
   saveConfig: (cfg: Partial<JarvisConfig>) => Promise<JarvisConfig>;
   connectGoogle: () => Promise<{ success: boolean; message?: string; error?: string; needsCredentials?: boolean }>;

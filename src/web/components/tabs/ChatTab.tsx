@@ -4,6 +4,12 @@ import {
   renderContentWithBrandLinks,
 } from '../../utils/brandLinks';
 import {
+  getRandomGreetingPhrase,
+  sanitizeGreetingName,
+} from '../../utils/greetings';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Layers01Icon } from '@hugeicons/core-free-icons';
+import {
   ArrowUp,
   CornerDownLeft,
   Mic,
@@ -1742,6 +1748,21 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // User name or nickname for personalized greeting
+  const effectiveName = useMemo(() => {
+    return (
+      sanitizeGreetingName(config.userNickname) ||
+      sanitizeGreetingName(config.userName) ||
+      sanitizeGreetingName(userName)
+    );
+  }, [config.userNickname, config.userName, userName]);
+
+  // Dynamic random greeting phrase (distinct for agentMode vs chatMode, time-of-day aware, personalized)
+  const [greetingShuffleNonce, setGreetingShuffleNonce] = useState(0);
+  const greetingPhrase = useMemo(() => {
+    return getRandomGreetingPhrase(agentMode, effectiveName);
+  }, [activeConversation.id, agentMode, effectiveName, greetingShuffleNonce]);
+
   const isDarkTheme =
     config.dashboardTheme === 'dark' ||
     (typeof document !== 'undefined' &&
@@ -2064,6 +2085,17 @@ export const ChatTab = React.memo<ChatTabProps>(({
               </div>
             )}
           </div>
+
+          {/* Agent Skills Button */}
+          <button
+            type="button"
+            onClick={() => onNavigateTab('skills')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11.5px] font-medium bg-gray-100 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-gray-700 dark:text-gray-300 border border-gray-200/70 dark:border-white/[0.08] transition-all cursor-pointer shadow-xs"
+            title="Configure Agent Skills & Execution Playbooks"
+          >
+            <HugeiconsIcon icon={Layers01Icon} size={13} strokeWidth={1.8} className="text-zinc-500 dark:text-zinc-400 shrink-0" />
+            <span className="font-semibold text-gray-900 dark:text-white">Skills</span>
+          </button>
         </div>
       </div>
     );
@@ -2111,12 +2143,22 @@ export const ChatTab = React.memo<ChatTabProps>(({
     if (activeModelPull) return;
     if (window.jarvisAPI?.getActiveOllamaPull) {
       window.jarvisAPI.getActiveOllamaPull().then((pull) => {
-        if (pull && !pull.completed) setLocalModelPull(pull);
+        if (pull && !pull.completed) {
+          const installed = config.cachedProviderModels?.ollama || [];
+          if (pull.percent === 0 && installed.some((m: string) => m === pull.modelName || m.startsWith(pull.modelName))) {
+            window.jarvisAPI?.dismissOllamaPull?.().catch(() => {});
+            return;
+          }
+          setLocalModelPull(pull);
+        }
       }).catch(() => {});
     }
     if (window.jarvisAPI?.onOllamaPullProgress) {
       const unsub = window.jarvisAPI.onOllamaPullProgress((data: any) => {
-        if (!data) return;
+        if (!data) {
+          setLocalModelPull(null);
+          return;
+        }
         if (data.status === 'success' || data.percent >= 100 || data.completed === true) {
           setLocalModelPull({
             modelName: data.modelName,
@@ -2125,8 +2167,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
             completed: true,
           });
           setTimeout(() => {
-            setLocalModelPull((curr) => (curr?.modelName === data.modelName ? null : curr));
-          }, 3500);
+            setLocalModelPull(null);
+          }, 2500);
         } else if (data.status === 'error' || data.error) {
           setLocalModelPull({
             modelName: data.modelName,
@@ -2135,8 +2177,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
             error: data.error || 'Failed to download model',
           });
           setTimeout(() => {
-            setLocalModelPull((curr) => (curr?.modelName === data.modelName ? null : curr));
-          }, 4000);
+            setLocalModelPull(null);
+          }, 3500);
         } else {
           setLocalModelPull({
             modelName: data.modelName,
@@ -2149,9 +2191,16 @@ export const ChatTab = React.memo<ChatTabProps>(({
       });
       return () => unsub();
     }
-  }, [activeModelPull]);
+  }, [activeModelPull, config.cachedProviderModels?.ollama]);
 
   const effectiveModelPull = activeModelPull || localModelPull;
+  const isInstalledInConfig = useMemo(() => {
+    if (!effectiveModelPull) return false;
+    const installed = config.cachedProviderModels?.ollama || [];
+    return installed.some((m: string) => m === effectiveModelPull.modelName || m.startsWith(effectiveModelPull.modelName));
+  }, [effectiveModelPull, config.cachedProviderModels?.ollama]);
+
+  const shouldShowPullToast = Boolean(effectiveModelPull && !(isInstalledInConfig && (effectiveModelPull.percent === 0 || effectiveModelPull.status === 'Downloading...')));
 
   // Monitor scroll distance to bottom to conditionally reveal down chevron button above input
   useEffect(() => {
@@ -5567,16 +5616,16 @@ export const ChatTab = React.memo<ChatTabProps>(({
           <div className="min-h-[32px] md:min-h-[36px] flex items-center justify-center mb-6">
             <AnimatePresence mode="wait" initial={false}>
               <motion.h1
-                key={agentMode ? 'agent-heading' : 'chat-heading'}
+                key={greetingPhrase}
                 initial={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
                 animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                 exit={{ opacity: 0, y: -6, filter: 'blur(4px)' }}
                 transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                className="text-[22px] md:text-[24px] font-semibold tracking-[-0.03em] text-gray-950 dark:text-white font-sans"
+                className="text-[22px] md:text-[24px] font-semibold tracking-[-0.03em] text-gray-950 dark:text-white font-sans text-center cursor-pointer select-none"
+                onClick={() => setGreetingShuffleNonce((n) => n + 1)}
+                title="Click to shuffle phrase"
               >
-                {agentMode
-                  ? 'Autonomous Coding Agent. What are we building today?'
-                  : 'Ready when you are. What are we executing today?'}
+                {greetingPhrase}
               </motion.h1>
             </AnimatePresence>
           </div>
@@ -7016,7 +7065,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
       {/* Floating Bottom-Right Toast for Local Model Downloads */}
       <AnimatePresence>
-        {effectiveModelPull && (
+        {shouldShowPullToast && effectiveModelPull && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -7024,21 +7073,34 @@ export const ChatTab = React.memo<ChatTabProps>(({
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="fixed bottom-6 right-6 z-40 flex flex-col gap-2.5 p-3.5 w-[360px] max-w-[calc(100vw-3rem)] rounded-xl bg-white dark:bg-[#121318] border border-gray-200 dark:border-[#22232b] shadow-md select-none pointer-events-auto"
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100 ? (
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 stroke-[2.5]" />
-              ) : effectiveModelPull.status === 'error' ? (
-                <X className="w-3.5 h-3.5 text-red-500 shrink-0 stroke-[2.5]" />
-              ) : (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500 dark:text-gray-400 shrink-0" />
-              )}
-              <span className="text-[12.5px] font-medium text-gray-900 dark:text-gray-100 truncate">
-                {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100
-                  ? `Installed ${effectiveModelPull.modelName}`
-                  : effectiveModelPull.status === 'error'
-                  ? `Failed: ${effectiveModelPull.modelName}`
-                  : `Downloading ${effectiveModelPull.modelName}`}
-              </span>
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100 ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 stroke-[2.5]" />
+                ) : effectiveModelPull.status === 'error' ? (
+                  <X className="w-3.5 h-3.5 text-red-500 shrink-0 stroke-[2.5]" />
+                ) : (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500 dark:text-gray-400 shrink-0" />
+                )}
+                <span className="text-[12.5px] font-medium text-gray-900 dark:text-gray-100 truncate">
+                  {effectiveModelPull.status === 'success' || effectiveModelPull.percent >= 100
+                    ? `Installed ${effectiveModelPull.modelName}`
+                    : effectiveModelPull.status === 'error'
+                    ? `Failed: ${effectiveModelPull.modelName}`
+                    : `Downloading ${effectiveModelPull.modelName}`}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setLocalModelPull(null);
+                  window.jarvisAPI?.dismissOllamaPull?.().catch(() => {});
+                }}
+                className="p-1 rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shrink-0"
+                title="Dismiss"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
 
             {effectiveModelPull.status !== 'success' && effectiveModelPull.status !== 'error' && effectiveModelPull.percent < 100 && (

@@ -1,31 +1,37 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { type IconHandle } from '@animateicons/react';
-import { MessageSquareIcon } from '@animateicons/react/lucide/message-square-icon';
-import { HouseIcon } from '@animateicons/react/lucide/house-icon';
-import { MicIcon } from '@animateicons/react/lucide/mic-icon';
-import { CpuIcon } from '@animateicons/react/lucide/cpu-icon';
-import { GlobeIcon } from '@animateicons/react/lucide/globe-icon';
-import { SettingsIcon } from '@animateicons/react/lucide/settings-icon';
-import { SlidersHorizontalIcon } from '@animateicons/react/lucide/sliders-horizontal-icon';
-import { PaletteIcon } from '@animateicons/react/lucide/palette-icon';
-import { InfoIcon } from '@animateicons/react/lucide/info-icon';
-import { PlusIcon } from '@animateicons/react/lucide/plus-icon';
-import { PencilIcon } from '@animateicons/react/lucide/pencil-icon';
-import { Trash2Icon } from '@animateicons/react/lucide/trash-2-icon';
-import { PinIcon } from '@animateicons/react/lucide/pin-icon';
-import { PinOffIcon } from '@animateicons/react/lucide/pin-off-icon';
-import { BriefcaseIcon } from '@animateicons/react/lucide/briefcase-icon';
-import { Pin, PinOff, Pencil, Trash2, Lock, Unlock, Archive, ArchiveRestore, MoreHorizontal, Check, ChevronRight, ListFilter, Search, MessageSquare, Terminal, Folder, FolderGit2 } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  SidebarLeft01Icon,
+  SidebarLeftIcon,
+  Comment01Icon,
+  ComputerTerminal01Icon,
+  Add01Icon,
+  Search01Icon,
+  Home01Icon,
+  Layers01Icon,
+  PuzzleIcon,
+  ToolsIcon,
+  FilterHorizontalIcon,
+  Folder01Icon,
+  ChevronRightIcon,
+  ChevronDownIcon,
+  MoreHorizontalIcon,
+  PinIcon,
+  PinOffIcon,
+  PencilEdit01Icon,
+  Delete02Icon,
+  LockIcon,
+  LockOpenIcon,
+  Archive01Icon,
+  ArchiveRestoreIcon,
+  Tick02Icon,
+  Cancel01Icon,
+  RefreshCwIcon,
+  Settings01Icon,
+  Logout01Icon,
+} from '@hugeicons/core-free-icons';
 import { motion } from 'motion/react';
 import ChatSearchModal from './ChatSearchModal';
-import { RefreshCwIcon } from '@animateicons/react/lucide/refresh-cw-icon';
-import { LogOutIcon } from '@animateicons/react/lucide/log-out-icon';
-import { CheckIcon } from '@animateicons/react/lucide/check-icon';
-import { XIcon } from '@animateicons/react/lucide/x-icon';
-import { ChevronDownIcon } from '@animateicons/react/lucide/chevron-down-icon';
-import { PanelLeftIcon } from '@animateicons/react/lucide/panel-left-icon';
-import { PanelLeftCloseIcon } from '@animateicons/react/lucide/panel-left-close-icon';
-import { PanelLeftOpenIcon } from '@animateicons/react/lucide/panel-left-open-icon';
 import { GoogleProfile, Conversation, StudioHotkeys } from '../types/jarvis';
 import { SettingsSection } from './SettingsModal';
 import BranchedMenu, { BranchedMenuItem } from './BranchedMenu';
@@ -36,28 +42,22 @@ import grokkiLogo from '../assets/grokki_logo.png';
 import grokkiWordmarkDark from '../assets/grokki_wordmark.png';
 import grokkiWordmarkLight from '../assets/grokki_wordmark_light.png';
 
-export type TabId = 'chat' | 'overview' | 'workspace' | 'memory' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
+export type TabId = 'chat' | 'overview' | 'plugins' | 'skills' | 'workspace' | 'memory' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
 
 const MIN_EXPANDED_WIDTH = 180;
 const DEFAULT_SIDEBAR_WIDTH = 240;
 const MAX_SIDEBAR_WIDTH = 300;
 const COLLAPSED_SIDEBAR_WIDTH = 64;
 
-type AnimatedIconComponent = React.ForwardRefExoticComponent<
-  { size?: number; className?: string; color?: string; duration?: number; isAnimated?: boolean } & React.RefAttributes<IconHandle>
->;
-
-const AnimatedSidebarRow: React.FC<{
-  Icon: AnimatedIconComponent;
+const SidebarRow: React.FC<{
+  icon: any;
   label: string;
   shortcut?: string;
   isActive: boolean;
   isCollapsed?: boolean;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
   rightSlot?: React.ReactNode;
-}> = ({ Icon, label, shortcut, isActive, isCollapsed = false, onClick, rightSlot }) => {
-  const iconRef = useRef<IconHandle | null>(null);
-
+}> = ({ icon, label, shortcut, isActive, isCollapsed = false, onClick, rightSlot }) => {
   return (
     <WarmTooltip
       content={label}
@@ -78,8 +78,6 @@ const AnimatedSidebarRow: React.FC<{
     >
       <div
         onClick={onClick}
-        onMouseEnter={() => iconRef.current?.startAnimation()}
-        onMouseLeave={() => iconRef.current?.stopAnimation()}
         className={`group flex items-center ${
           isCollapsed ? 'justify-center px-0 py-2.5' : 'justify-between px-3 py-2'
         } w-full rounded-xl text-[13px] font-medium transition-all cursor-pointer text-left ${
@@ -89,7 +87,12 @@ const AnimatedSidebarRow: React.FC<{
         }`}
       >
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 min-w-0'}`}>
-          <Icon ref={iconRef} size={isCollapsed ? 20 : 16} className="flex-shrink-0" />
+          <HugeiconsIcon
+            icon={icon}
+            size={isCollapsed ? 20 : 16}
+            strokeWidth={1.8}
+            className="flex-shrink-0 transition-transform duration-150 group-hover:scale-105"
+          />
           {!isCollapsed && <span className="truncate">{label}</span>}
         </div>
         {!isCollapsed && rightSlot}
@@ -98,8 +101,8 @@ const AnimatedSidebarRow: React.FC<{
   );
 };
 
-const AnimatedIconButton: React.FC<{
-  Icon: AnimatedIconComponent;
+const SidebarIconButton: React.FC<{
+  icon: any;
   iconSize?: number;
   title?: string;
   shortcut?: string;
@@ -108,19 +111,15 @@ const AnimatedIconButton: React.FC<{
   className?: string;
   label?: string;
   iconClassName?: string;
-}> = ({ Icon, iconSize = 14, title, shortcut, tooltipSide = 'right', onClick, className = '', label, iconClassName = '' }) => {
-  const iconRef = useRef<IconHandle | null>(null);
-
+}> = ({ icon, iconSize = 14, title, shortcut, tooltipSide = 'right', onClick, className = '', label, iconClassName = '' }) => {
   const button = (
     <button
       type="button"
       aria-label={title || label}
       onClick={onClick}
-      onMouseEnter={() => iconRef.current?.startAnimation()}
-      onMouseLeave={() => iconRef.current?.stopAnimation()}
       className={className}
     >
-      <Icon ref={iconRef} size={iconSize} className={iconClassName} />
+      <HugeiconsIcon icon={icon} size={iconSize} strokeWidth={1.8} className={iconClassName} />
       {label ? <span>{label}</span> : null}
     </button>
   );
@@ -215,8 +214,6 @@ export const Sidebar = React.memo<SidebarProps>(({
   const [isResizing, setIsResizing] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const profileChevronRef = useRef<IconHandle | null>(null);
-  const openLogoIconRef = useRef<IconHandle | null>(null);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -476,7 +473,7 @@ export const Sidebar = React.memo<SidebarProps>(({
           isMenuOpen ? 'text-gray-900 dark:text-white bg-gray-200 dark:bg-white/[0.08]' : ''
         }`}
       >
-        <MoreHorizontal size={14} />
+        <HugeiconsIcon icon={MoreHorizontalIcon} size={14} strokeWidth={1.8} />
       </button>
     );
   }, [convoMenu?.id]);
@@ -526,6 +523,55 @@ export const Sidebar = React.memo<SidebarProps>(({
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isFilterOpen]);
+
+  const capabilitiesBtnRef = useRef<HTMLDivElement>(null);
+  const capabilitiesMenuRef = useRef<HTMLDivElement>(null);
+  const [isCapabilitiesOpen, setIsCapabilitiesOpen] = useState(false);
+  const [capabilitiesMenuPos, setCapabilitiesMenuPos] = useState({ top: 0, left: 0 });
+
+  const handleToggleCapabilities = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isCapabilitiesOpen) {
+      setIsCapabilitiesOpen(false);
+    } else {
+      if (capabilitiesBtnRef.current) {
+        const rect = capabilitiesBtnRef.current.getBoundingClientRect();
+        setCapabilitiesMenuPos({
+          top: Math.max(12, rect.top),
+          left: rect.right + 8,
+        });
+      }
+      setIsCapabilitiesOpen(true);
+    }
+  };
+
+  useEffect(() => {
+    setIsCapabilitiesOpen(false);
+  }, [appMode]);
+
+  useEffect(() => {
+    if (!isCapabilitiesOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        capabilitiesMenuRef.current && !capabilitiesMenuRef.current.contains(target) &&
+        capabilitiesBtnRef.current && !capabilitiesBtnRef.current.contains(target)
+      ) {
+        setIsCapabilitiesOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsCapabilitiesOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isCapabilitiesOpen]);
 
   const sortedConversations = useMemo(() => {
     if (!conversations || conversations.length === 0) return [];
@@ -643,7 +689,7 @@ export const Sidebar = React.memo<SidebarProps>(({
 
       return sortedProjects.map((group) => ({
         label: group.label,
-        icon: <Folder className="w-3.5 h-3.5 text-sky-400 dark:text-sky-300 flex-shrink-0" />,
+        icon: <HugeiconsIcon icon={Folder01Icon} size={14} strokeWidth={1.8} className="text-sky-400 dark:text-sky-300 flex-shrink-0" />,
         headerClassName:
           'group flex items-center justify-between w-full px-2.5 py-1 text-[11px] font-semibold text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors select-none cursor-pointer',
         children: group.convos.map((convo) => ({
@@ -651,15 +697,16 @@ export const Sidebar = React.memo<SidebarProps>(({
           label: renderConvoLabel(convo),
           icon: convo.isLocked ? (
             unlockedConvoIds?.has(convo.id) ? (
-              <Unlock size={12} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+              <HugeiconsIcon icon={LockOpenIcon} size={12} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
             ) : (
-              <Lock size={12} className="text-gray-700 dark:text-white flex-shrink-0" />
+              <HugeiconsIcon icon={LockIcon} size={12} strokeWidth={1.8} className="text-gray-700 dark:text-white flex-shrink-0" />
             )
           ) : convo.isPinned ? (
-            <Pin
+            <HugeiconsIcon
+              icon={PinIcon}
               size={12}
-              fill="currentColor"
-              className="rotate-45 text-gray-700 dark:text-white flex-shrink-0"
+              strokeWidth={1.8}
+              className="text-gray-700 dark:text-white flex-shrink-0"
             />
           ) : undefined,
           onDoubleClick: (e: React.MouseEvent) => handleStartRename(e, convo),
@@ -683,15 +730,16 @@ export const Sidebar = React.memo<SidebarProps>(({
             label: renderConvoLabel(convo),
             icon: convo.isLocked ? (
               unlockedConvoIds?.has(convo.id) ? (
-                <Unlock size={12} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                <HugeiconsIcon icon={LockOpenIcon} size={12} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
               ) : (
-                <Lock size={12} className="text-gray-700 dark:text-white flex-shrink-0" />
+                <HugeiconsIcon icon={LockIcon} size={12} strokeWidth={1.8} className="text-gray-700 dark:text-white flex-shrink-0" />
               )
             ) : convo.isPinned ? (
-              <Pin
+              <HugeiconsIcon
+                icon={PinIcon}
                 size={12}
-                fill="currentColor"
-                className="rotate-45 text-gray-700 dark:text-white flex-shrink-0"
+                strokeWidth={1.8}
+                className="text-gray-700 dark:text-white flex-shrink-0"
               />
             ) : undefined,
             onDoubleClick: (e: React.MouseEvent) => handleStartRename(e, convo),
@@ -742,15 +790,16 @@ export const Sidebar = React.memo<SidebarProps>(({
         label: renderConvoLabel(convo),
         icon: convo.isLocked ? (
           unlockedConvoIds?.has(convo.id) ? (
-            <Unlock size={12} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+            <HugeiconsIcon icon={LockOpenIcon} size={12} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
           ) : (
-            <Lock size={12} className="text-gray-700 dark:text-white flex-shrink-0" />
+            <HugeiconsIcon icon={LockIcon} size={12} strokeWidth={1.8} className="text-gray-700 dark:text-white flex-shrink-0" />
           )
         ) : convo.isPinned ? (
-          <Pin
+          <HugeiconsIcon
+            icon={PinIcon}
             size={12}
-            fill="currentColor"
-            className="rotate-45 text-gray-700 dark:text-white flex-shrink-0"
+            strokeWidth={1.8}
+            className="text-gray-700 dark:text-white flex-shrink-0"
           />
         ) : undefined,
         onDoubleClick: (e: React.MouseEvent) => handleStartRename(e, convo),
@@ -809,8 +858,6 @@ export const Sidebar = React.memo<SidebarProps>(({
                   type="button"
                   aria-label="Maximize sidebar"
                   onClick={handleToggleSidebar}
-                  onMouseEnter={() => openLogoIconRef.current?.startAnimation()}
-                  onMouseLeave={() => openLogoIconRef.current?.stopAnimation()}
                   className="group/logo w-9 h-9 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#18181c] transition-all cursor-pointer border-none bg-transparent"
                 >
                   {/* Default: Grokki Studio Logo */}
@@ -821,7 +868,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                   />
                   {/* On Hover: Maximize Sidebar Icon */}
                   <div className="hidden group-hover/logo:flex items-center justify-center text-gray-700 dark:text-gray-200">
-                    <PanelLeftOpenIcon ref={openLogoIconRef} size={20} />
+                    <HugeiconsIcon icon={SidebarLeft01Icon} size={20} strokeWidth={1.8} />
                   </div>
                 </button>
               </WarmTooltip>
@@ -848,8 +895,8 @@ export const Sidebar = React.memo<SidebarProps>(({
               </div>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
-              <AnimatedIconButton
-                Icon={PanelLeftCloseIcon}
+              <SidebarIconButton
+                icon={SidebarLeftIcon}
                 iconSize={17}
                 onClick={handleToggleSidebar}
                 title="Minimize sidebar"
@@ -871,7 +918,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                   onChangeAppMode?.('chat');
                   onSelectTab('chat');
                 }}
-                className={`relative flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold cursor-pointer border-none bg-transparent transition-colors z-10 ${
+                className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold cursor-pointer border-none bg-transparent transition-colors z-10 ${
                   appMode === 'chat'
                     ? 'text-gray-900 dark:text-white'
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -885,7 +932,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                   />
                 )}
                 <span className="relative z-10 flex items-center gap-1.5">
-                  <MessageSquare size={12} className={appMode === 'chat' ? 'text-sky-500 dark:text-sky-400' : ''} />
+                  <HugeiconsIcon icon={Comment01Icon} size={13} strokeWidth={1.9} className={appMode === 'chat' ? 'text-sky-500 dark:text-sky-400' : ''} />
                   <span>Chat</span>
                 </span>
               </button>
@@ -895,7 +942,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                   onChangeAppMode?.('agent');
                   onSelectTab('chat');
                 }}
-                className={`relative flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold cursor-pointer border-none bg-transparent transition-colors z-10 ${
+                className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold cursor-pointer border-none bg-transparent transition-colors z-10 ${
                   appMode === 'agent'
                     ? 'text-gray-900 dark:text-white'
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -909,7 +956,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                   />
                 )}
                 <span className="relative z-10 flex items-center gap-1.5">
-                  <Terminal size={12} className={appMode === 'agent' ? 'text-purple-500 dark:text-purple-400' : ''} />
+                  <HugeiconsIcon icon={ComputerTerminal01Icon} size={13} strokeWidth={1.9} className={appMode === 'agent' ? 'text-purple-500 dark:text-purple-400' : ''} />
                   <span>Agent</span>
                 </span>
               </button>
@@ -929,15 +976,15 @@ export const Sidebar = React.memo<SidebarProps>(({
                     : 'bg-sky-500/15 border-sky-500/30 text-sky-400'
                 }`}
               >
-                {appMode === 'agent' ? <Terminal size={15} /> : <MessageSquare size={15} />}
+                <HugeiconsIcon icon={appMode === 'agent' ? ComputerTerminal01Icon : Comment01Icon} size={15} strokeWidth={1.9} />
               </button>
             </div>
           )}
 
           {/* Top Actions: New Chat / Session & Overview (Home) */}
           <div className="flex flex-col gap-0.5 flex-shrink-0">
-            <AnimatedSidebarRow
-              Icon={PlusIcon}
+            <SidebarRow
+              icon={Add01Icon}
               label={appMode === 'agent' ? 'New Agent Session' : 'New Chat'}
               shortcut={effectiveHotkeys.newChat || 'Ctrl+N'}
               isActive={isNewChatActive}
@@ -977,7 +1024,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                 }`}
               >
                 <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 min-w-0'}`}>
-                  <Search size={isCollapsed ? 20 : 16} className="flex-shrink-0" />
+                  <HugeiconsIcon icon={Search01Icon} size={isCollapsed ? 20 : 16} strokeWidth={1.8} className="flex-shrink-0" />
                   {!isCollapsed && <span className="truncate">Search chats</span>}
                 </div>
                 {!isCollapsed && (
@@ -988,21 +1035,41 @@ export const Sidebar = React.memo<SidebarProps>(({
               </div>
             </WarmTooltip>
 
-            <AnimatedSidebarRow
-              Icon={HouseIcon}
-              label="Home"
-              isActive={activeTab === 'overview'}
-              isCollapsed={isCollapsed}
-              onClick={() => onSelectTab('overview')}
-            />
+            {appMode !== 'agent' && (
+              <SidebarRow
+                icon={Home01Icon}
+                label="Home"
+                isActive={activeTab === 'overview'}
+                isCollapsed={isCollapsed}
+                onClick={() => onSelectTab('overview')}
+              />
+            )}
 
-            <AnimatedSidebarRow
-              Icon={BriefcaseIcon}
-              label="Workspace"
-              isActive={activeTab === 'workspace' || activeTab === 'google'}
-              isCollapsed={isCollapsed}
-              onClick={() => onSelectTab('workspace')}
-            />
+            {appMode === 'agent' && (
+              <>
+                <div ref={capabilitiesBtnRef} className="w-full">
+                  <SidebarRow
+                    icon={ToolsIcon}
+                    label="Capabilities"
+                    isActive={activeTab === 'skills' || isCapabilitiesOpen}
+                    isCollapsed={isCollapsed}
+                    onClick={handleToggleCapabilities}
+                    rightSlot={
+                      <HugeiconsIcon
+                        icon={ChevronRightIcon}
+                        size={13}
+                        strokeWidth={2}
+                        className={`text-gray-400 transition-all duration-150 ${
+                          isCapabilitiesOpen ? 'text-gray-900 dark:text-gray-100 translate-x-0.5' : 'group-hover:text-gray-600 dark:group-hover:text-gray-300'
+                        }`}
+                      />
+                    }
+                  />
+                </div>
+
+                
+              </>
+            )}
           </div>
 
           {/* Sleek divider line under the overview button */}
@@ -1027,8 +1094,10 @@ export const Sidebar = React.memo<SidebarProps>(({
                 title="Group, Sort, and Filter"
                 aria-label="Group, Sort, and Filter"
               >
-                <ListFilter
+                <HugeiconsIcon
+                  icon={FilterHorizontalIcon}
                   size={13}
+                  strokeWidth={1.8}
                   className={
                     showArchivedOnly
                       ? 'text-blue-500 dark:text-blue-400'
@@ -1036,6 +1105,57 @@ export const Sidebar = React.memo<SidebarProps>(({
                   }
                 />
               </button>
+            </div>
+          )}
+
+          {/* Capabilities Popover Menu (Fixed to escape any parent overflow) */}
+          {isCapabilitiesOpen && (
+            <div
+              ref={capabilitiesMenuRef}
+              style={{ top: `${capabilitiesMenuPos.top}px`, left: `${capabilitiesMenuPos.left}px` }}
+              className="fixed z-[9999] w-[176px] rounded-xl bg-white dark:bg-[#222225] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-white/[0.09] shadow-2xl p-1 flex flex-col gap-0.5 select-none animate-in fade-in zoom-in-95 duration-100"
+            >
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectTab('skills');
+                  setIsCapabilitiesOpen(false);
+                }}
+                className={`h-[28px] px-2.5 rounded-lg text-[12.5px] cursor-pointer flex items-center justify-between transition-colors ${
+                  activeTab === 'skills'
+                    ? 'bg-gray-100 dark:bg-white/[0.12] text-gray-900 dark:text-white font-medium'
+                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <HugeiconsIcon icon={Layers01Icon} size={14} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400" />
+                  <span>Skills</span>
+                </div>
+                {activeTab === 'skills' && (
+                  <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-blue-500 dark:text-[#3b82f6]" />
+                )}
+              </div>
+
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectTab('plugins');
+                  setIsCapabilitiesOpen(false);
+                }}
+                className={`h-[28px] px-2.5 rounded-lg text-[12.5px] cursor-pointer flex items-center justify-between transition-colors ${
+                  activeTab === 'plugins'
+                    ? 'bg-gray-100 dark:bg-white/[0.12] text-gray-900 dark:text-white font-medium'
+                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <HugeiconsIcon icon={PuzzleIcon} size={14} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400" />
+                  <span>Plugins</span>
+                </div>
+                {activeTab === 'plugins' && (
+                  <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-blue-500 dark:text-[#3b82f6]" />
+                )}
+              </div>
             </div>
           )}
 
@@ -1061,7 +1181,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                   <span>Group by</span>
                   <div className="flex items-center gap-1 text-gray-400 text-[12px]">
                     <span>{getGroupByLabel()}</span>
-                    <ChevronRight size={12} className="text-gray-400" />
+                    <HugeiconsIcon icon={ChevronRightIcon} size={12} strokeWidth={2} className="text-gray-400" />
                   </div>
                 </div>
 
@@ -1078,7 +1198,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                   <span>Sort by</span>
                   <div className="flex items-center gap-1 text-gray-400 text-[12px]">
                     <span>{getSortByLabel()}</span>
-                    <ChevronRight size={12} className="text-gray-400" />
+                    <HugeiconsIcon icon={ChevronRightIcon} size={12} strokeWidth={2} className="text-gray-400" />
                   </div>
                 </div>
 
@@ -1096,7 +1216,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                 >
                   <span>Archived only</span>
                   {showArchivedOnly && (
-                    <Check size={14} strokeWidth={2.5} className="text-[#3b82f6]" />
+                    <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-[#3b82f6]" />
                   )}
                 </div>
               </div>
@@ -1128,7 +1248,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                     >
                       <span>{item.label}</span>
                       {groupBy === item.id && (
-                        <Check size={14} strokeWidth={2.5} className="text-[#3b82f6]" />
+                        <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-[#3b82f6]" />
                       )}
                     </div>
                   ))}
@@ -1145,7 +1265,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                   >
                     <span>None</span>
                     {groupBy === 'none' && (
-                      <Check size={14} strokeWidth={2.5} className="text-[#3b82f6]" />
+                      <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-[#3b82f6]" />
                     )}
                   </div>
                 </div>
@@ -1177,7 +1297,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                     >
                       <span>{item.label}</span>
                       {sortBy === item.id && (
-                        <Check size={14} strokeWidth={2.5} className="text-[#3b82f6]" />
+                        <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-[#3b82f6]" />
                       )}
                     </div>
                   ))}
@@ -1205,9 +1325,9 @@ export const Sidebar = React.memo<SidebarProps>(({
                 className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
               >
                 {convoMenu.isPinned ? (
-                  <PinOff size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                  <HugeiconsIcon icon={PinOffIcon} size={13} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 ) : (
-                  <Pin size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                  <HugeiconsIcon icon={PinIcon} size={13} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 )}
                 <span>{convoMenu.isPinned ? 'Unpin' : 'Pin'}</span>
               </button>
@@ -1221,7 +1341,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                 }}
                 className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
               >
-                <Pencil size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                <HugeiconsIcon icon={PencilEdit01Icon} size={13} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 <span>Rename</span>
               </button>
 
@@ -1241,9 +1361,9 @@ export const Sidebar = React.memo<SidebarProps>(({
                 className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
               >
                 {convoMenu.isArchived ? (
-                  <ArchiveRestore size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                  <HugeiconsIcon icon={ArchiveRestoreIcon} size={13} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 ) : (
-                  <Archive size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                  <HugeiconsIcon icon={Archive01Icon} size={13} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 )}
                 <span>{convoMenu.isArchived ? 'Unarchive' : 'Archive'}</span>
               </button>
@@ -1259,7 +1379,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                   }}
                   className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
                 >
-                  <Lock size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                  <HugeiconsIcon icon={LockIcon} size={13} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
                   <span>Lock chat</span>
                 </button>
               ) : (
@@ -1275,7 +1395,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                       }}
                       className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
                     >
-                      <Lock size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                      <HugeiconsIcon icon={LockIcon} size={13} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
                       <span>Lock chat</span>
                     </button>
                   ) : (
@@ -1289,7 +1409,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                       }}
                       className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
                     >
-                      <Unlock size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                      <HugeiconsIcon icon={LockOpenIcon} size={13} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
                       <span>Unlock chat</span>
                     </button>
                   )}
@@ -1303,7 +1423,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                     }}
                     className="h-[28px] px-2.5 rounded-lg text-[12px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] hover:text-gray-900 dark:hover:text-white cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
                   >
-                    <Unlock size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                    <HugeiconsIcon icon={LockOpenIcon} size={13} strokeWidth={1.8} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
                     <span>Remove lock</span>
                   </button>
                 </>
@@ -1321,7 +1441,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                 }}
                 className="h-[28px] px-2.5 rounded-lg text-[12px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 cursor-pointer flex items-center gap-2.5 transition-colors border-none bg-transparent w-full text-left"
               >
-                <Trash2 size={13} className="text-red-500 dark:text-red-400 flex-shrink-0" />
+                <HugeiconsIcon icon={Delete02Icon} size={13} strokeWidth={1.8} className="text-red-500 dark:text-red-400 flex-shrink-0" />
                 <span>Delete</span>
               </button>
             </div>
@@ -1394,15 +1514,15 @@ export const Sidebar = React.memo<SidebarProps>(({
                     }}
                     className="w-full text-[12px] bg-transparent text-gray-900 dark:text-gray-100 outline-none"
                   />
-                  <AnimatedIconButton
-                    Icon={CheckIcon}
+                  <SidebarIconButton
+                    icon={Tick02Icon}
                     iconSize={14}
                     onClick={() => handleSaveRename(editingId)}
                     className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-emerald-500 hover:text-emerald-400 cursor-pointer border-none bg-transparent flex-shrink-0"
                     title="Save title"
                   />
-                  <AnimatedIconButton
-                    Icon={XIcon}
+                  <SidebarIconButton
+                    icon={Cancel01Icon}
                     iconSize={14}
                     onClick={handleCancelRename}
                     className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#2a2d3d] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer border-none bg-transparent flex-shrink-0"
@@ -1441,14 +1561,14 @@ export const Sidebar = React.memo<SidebarProps>(({
                     >
                       {convo.isPinned ? (
                         <div className="relative flex items-center justify-center">
-                          <Pin size={13} fill="currentColor" className="rotate-45 text-gray-700 dark:text-white" />
+                          <HugeiconsIcon icon={PinIcon} size={14} strokeWidth={1.8} className="text-gray-700 dark:text-white" />
                           {thinkingConvoIds?.has(convo.id) && (
                             <span className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full bg-blue-500 animate-ping" />
                           )}
                         </div>
                       ) : (
                         <div className="relative flex items-center justify-center">
-                          <MessageSquareIcon size={15} />
+                          <HugeiconsIcon icon={Comment01Icon} size={15} strokeWidth={1.8} />
                           {thinkingConvoIds?.has(convo.id) && (
                             <span className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full bg-blue-500 animate-ping" />
                           )}
@@ -1502,8 +1622,8 @@ export const Sidebar = React.memo<SidebarProps>(({
 
             {/* Menu Actions */}
             <div className="flex flex-col gap-0.5 pt-1">
-              <AnimatedIconButton
-                Icon={RefreshCwIcon}
+              <SidebarIconButton
+                icon={RefreshCwIcon}
                 iconSize={14}
                 label="Switch Account"
                 iconClassName="text-gray-500"
@@ -1518,8 +1638,8 @@ export const Sidebar = React.memo<SidebarProps>(({
                 className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#18181c] transition-all cursor-pointer border-none bg-transparent text-left"
               />
 
-              <AnimatedIconButton
-                Icon={SettingsIcon}
+              <SidebarIconButton
+                icon={Settings01Icon}
                 iconSize={14}
                 label="Settings"
                 shortcut={effectiveHotkeys.openSettings || 'Ctrl+,'}
@@ -1532,8 +1652,8 @@ export const Sidebar = React.memo<SidebarProps>(({
               />
 
               {googleConnected && (
-                <AnimatedIconButton
-                  Icon={LogOutIcon}
+                <SidebarIconButton
+                  icon={Logout01Icon}
                   iconSize={14}
                   label="Disconnect Account"
                   iconClassName="text-red-500"
@@ -1569,8 +1689,6 @@ export const Sidebar = React.memo<SidebarProps>(({
         >
           <div
             onClick={() => setAccountMenuOpen(!accountMenuOpen)}
-            onMouseEnter={() => profileChevronRef.current?.startAnimation()}
-            onMouseLeave={() => profileChevronRef.current?.stopAnimation()}
             className={`w-full flex items-center ${
               isCollapsed
                 ? 'justify-center p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1c1c22]'
@@ -1603,9 +1721,10 @@ export const Sidebar = React.memo<SidebarProps>(({
 
             {!isCollapsed && (
               <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5">
-                <ChevronDownIcon
-                  ref={profileChevronRef}
-                  size={18}
+                <HugeiconsIcon
+                  icon={ChevronDownIcon}
+                  size={16}
+                  strokeWidth={2}
                   className={`mr-1 mt-2 transition-transform duration-200 ${
                     accountMenuOpen ? 'rotate-180' : ''
                   }`}
@@ -1633,7 +1752,7 @@ export const Sidebar = React.memo<SidebarProps>(({
         <div className="text-[12.5px] leading-relaxed text-gray-700 dark:text-gray-200">
           <span>Chat archived. Find it anytime in the Recents filter under </span>
           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-[#232329] border border-gray-200 dark:border-[#32323a] text-[11px] font-medium text-gray-800 dark:text-gray-200 align-baseline">
-            <ListFilter size={11} />
+            <HugeiconsIcon icon={FilterHorizontalIcon} size={11} strokeWidth={1.8} />
             <span>Archived only</span>
           </span>
         </div>

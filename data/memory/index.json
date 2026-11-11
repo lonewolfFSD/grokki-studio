@@ -9,8 +9,9 @@
     "userConfirmed": true,
     "pinned": false,
     "createdAt": "2026-11-11T04:55:59.058Z",
-    "updatedAt": "2026-11-11T04:55:59.058Z",
+    "updatedAt": "2026-11-11T12:12:32.281Z",
     "connections": [],
-    "history": []
+    "history": [],
+    "reason": "User edited memory in tab"
   }
 ]

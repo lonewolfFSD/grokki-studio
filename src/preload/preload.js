@@ -242,6 +242,7 @@ try {
     pullOllamaModel: (options) => ipcRenderer.invoke('jarvis:pull-ollama-model', options),
     deleteOllamaModel: (options) => ipcRenderer.invoke('jarvis:delete-ollama-model', options),
     getActiveOllamaPull: () => ipcRenderer.invoke('jarvis:get-active-ollama-pull'),
+    dismissOllamaPull: () => ipcRenderer.invoke('jarvis:dismiss-ollama-pull'),
     onOllamaPullProgress: (callback) => {
       const handler = (event, data) => callback(data);
       ipcRenderer.on('ollama:pull-progress', handler);
@@ -265,6 +266,23 @@ try {
     onConfigUpdated: (callback) => {
       ipcRenderer.on('config:updated', (event, data) => callback(data));
     },
+
+    // Grokki Agent Skills Engine
+    getSkills: () => ipcRenderer.invoke('jarvis:get-skills'),
+    toggleSkill: (skillId, enabled) => ipcRenderer.invoke('jarvis:toggle-skill', { skillId, enabled }),
+    saveSkill: (skillData) => ipcRenderer.invoke('jarvis:save-skill', skillData),
+    deleteSkill: (skillId) => ipcRenderer.invoke('jarvis:delete-skill', skillId),
+    importSkillFile: (opts) => ipcRenderer.invoke('jarvis:import-skill-file', opts),
+    openSkillsFolder: () => ipcRenderer.invoke('jarvis:open-skills-folder'),
+    exportSkillFile: (skillId) => ipcRenderer.invoke('jarvis:export-skill-file', skillId),
+    generateSkill: (userRequirement) => ipcRenderer.invoke('jarvis:generate-skill', userRequirement),
+
+    // Grokki Plugins Engine
+    getPlugins: () => ipcRenderer.invoke('jarvis:get-plugins'),
+    togglePlugin: (pluginId, enabled) => ipcRenderer.invoke('jarvis:toggle-plugin', { pluginId, enabled }),
+    savePluginConfig: (pluginId, config) => ipcRenderer.invoke('jarvis:save-plugin-config', { pluginId, config }),
+    addCustomPlugin: (pluginData) => ipcRenderer.invoke('jarvis:add-custom-plugin', pluginData),
+    deletePlugin: (pluginId) => ipcRenderer.invoke('jarvis:delete-plugin', pluginId),
 
     // Grokki Persistent Memory System
     getAllMemories: (filters) => ipcRenderer.invoke('jarvis:get-all-memories', filters),

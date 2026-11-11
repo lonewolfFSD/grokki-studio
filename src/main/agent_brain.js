@@ -303,6 +303,20 @@ function extractJsonBlock(text) {
   return null;
 }
 
+function isExplicitNoFileEditRequested(prompt = '', context = {}) {
+  const p = (typeof prompt === 'string' ? prompt : (context?.activePrompt || '')).toLowerCase().trim();
+  if (!p) return false;
+  return (
+    /\bnot\s+in\s+(?:the\s+)?(?:file|disk|codebase|repo|here)\b/i.test(p) ||
+    /\b(?:don'?t|do\s+not|never)\s+(?:edit|modify|touch|change|overwrite|write\s+to|save\s+to)\s+(?:the\s+)?(?:file|disk|codebase|repo)?\b/i.test(p) ||
+    /\b(?:in\s+(?:this\s+)?chat\s+(?:please|only|here|instead)|only\s+in\s+(?:this\s+)?chat|here\s+itself)\b/i.test(p) ||
+    /\b(?:just|only)\s+(?:in\s+chat|show|display|print|give|write\s+here)\s+(?:the\s+)?(?:code|script|snippet)?\b/i.test(p) ||
+    /\bwithout\s+(?:editing|modifying|changing|saving|writing\s+to)\s+(?:the\s+)?file\b/i.test(p) ||
+    /\b(?:show|write|put|give|display)\s+(?:me\s+)?(?:it|code|the\s+code)\s+(?:here|in\s+chat|in\s+this\s+chat)\b/i.test(p) ||
+    /\b(?:don'?t|do\s+not)\s+(?:edit|modify|change|touch)\s+[a-zA-Z0-9_\-.]+\b/i.test(p)
+  );
+}
+
 function resolveTargetFileForEdit(text, prompt, context, executed = [], history = []) {
   try {
     const root = (context && context.workspaceRoot) || (codingAgentHarness && codingAgentHarness.getWorkspaceRoot()) || process.cwd();
@@ -812,12 +826,30 @@ ACTIVE FILE UNDER DEVELOPMENT:
   Directly inspect "${relPath}" with read_file and apply your changes using edit_file!`;
     }
 
+    const noFileEdit = isExplicitNoFileEditRequested(fullPrompt, context);
+    let noFileEditNotice = '';
+    if (noFileEdit) {
+      noFileEditNotice = `
+
+🚨 USER PREFERENCE OVERRIDE - WRITE CODE IN CHAT ONLY (DO NOT MODIFY FILES ON DISK):
+The user explicitly asked you to write or show the code directly in this chat and NOT in the file itself (e.g. "not in the file", "in this chat please", "don't edit the file").
+- YOU ARE STRICTLY FORBIDDEN from calling write_file or edit_file to modify files on disk.
+- You MAY call read_file to inspect existing code if needed.
+- Present the complete, improved code directly inside a clean Markdown code block (\`\`\`python ... \`\`\`) in your chat reply!`;
+    }
+
+    let skillsSection = '';
+    try {
+      const skillsManager = require('./skills_manager');
+      skillsSection = skillsManager.getActiveSkillsPrompt(fullPrompt, context, config);
+    } catch (_) {}
+
     return `You are Grokki Agent, an expert autonomous software engineer and coding harness operating directly in the user's local project.
 
 CURRENT ACTIVE CHAT MODE: GROKKI AGENT MODE (mode: "agent")
 - You are currently running in **Agent Mode** inside the user's workspace project ("${root}").
 - You have full agentic capabilities and coding tools to inspect, read, edit, write files, search code, and execute terminal commands.
-- If the user asks what mode you are in or if you can edit files on this system, confirm that you are in Agent Mode and ready to inspect, edit, create files, and execute tasks in their project workspace.
+- If the user asks what mode you are in or if you can edit files on this system, confirm that you are in Agent Mode and ready to inspect, edit, create files, and execute tasks in their project workspace.${noFileEditNotice}
 
 PROJECT WORKSPACE:
 - Root directory: "${root}"
@@ -836,18 +868,21 @@ YOUR CODING HARNESS TOOLS:
 
 STRICT OPERATIONAL DIRECTIVES:
 1. NEVER SAY "I cannot directly edit files in your project" or "I don't have access to your local files". You HAVE tools to inspect and modify files directly on disk. Refusing or claiming inability to edit local files is STRICTLY FORBIDDEN.
-2. DO NOT DUMP FULL-FILE CODE IN CHAT FOR THE USER TO COPY-PASTE. Instead of pasting code in chat, use read_file to inspect the file, and then call edit_file or write_file to apply the changes directly to disk!
+2. RESPECT WHERE THE USER WANTS THE CODE:
+   - DEFAULT: When asked to edit, build, or refactor code in their project, use read_file to inspect the file, and then call edit_file or write_file to apply changes directly to disk.
+   - EXCEPTION (CRITICAL): If the user explicitly asks to write or show the code in the chat, says "not in the file", "in this chat please", or "don't edit the file":
+     DO NOT call edit_file or write_file! Output the clean, complete code block directly in your chat response.
 3. WHEN THE USER ASKS TO EDIT, CODE, IMPROVE, FIX, REFACTOR, OR MAKE CODE PROFESSIONAL (e.g. "Make it like a professional coded it", "Can you make it better?", "Refactor this"):
    - "It" refers directly to the file currently being worked on in this conversation (${activeTargetFile ? `specifically "${path.basename(activeTargetFile)}"` : 'the target file'}).
    - DO NOT list the workspace or explore unrelated folders.
    - Step 1: Use read_file to inspect the current code if not already inspected.
-   - Step 2: Use edit_file (or write_file) to apply the professional code improvements directly on disk.
+   - Step 2: If the user asked not to edit the file (or asked to write in chat only), output the improved code directly in a markdown code block in your reply. Otherwise, use edit_file (or write_file) to apply the improvements directly on disk.
    - Step 3: Give a concise summary of what you improved.
 4. ONLY INSPECT OR LIST DIRECTORIES when the user explicitly asks to check or explore the overall project (e.g. "Can you check on this project?", "Inspect this project", "What is in this folder?").
 5. When permission level is "review" or "default", your file edits or command tool calls will present the user with an interactive permission approval card above the chat input. Issue the tool call so the user can review and approve it.
 6. All file paths must be relative to "${root}" or absolute. Keep explanations brief and let tool calls do the work.
 7. STRICT CHAT ISOLATION: Each chat session has its own strictly isolated memory. NEVER assume or bring up projects, tasks, or code from other chats unless the user explicitly mentions or asks to recall them.
-8. CROSS-CHAT & MEMORY ACCESS: When the user specifically asks to recall past chats or long-term memory (e.g. "recall what we did earlier", "check memory", "what did I say about X in the other chat"), call search_memory({ query: "..." }) to look up and retrieve those memories. Every recall action will appear in the live steps list.`;
+8. CROSS-CHAT & MEMORY ACCESS: When the user specifically asks to recall past chats or long-term memory (e.g. "recall what we did earlier", "check memory", "what did I say about X in the other chat"), call search_memory({ query: "..." }) to look up and retrieve those memories. Every recall action will appear in the live steps list.${skillsSection ? `\n${skillsSection}` : ''}`;
   }
 
   getRelevantTools(prompt = '', provider = 'gemini', context = {}) {
@@ -863,7 +898,13 @@ STRICT OPERATIONAL DIRECTIVES:
     if (isAgent) {
       const allDeclarations = this.getToolsDeclaration();
       const allTools = allDeclarations[0]?.functionDeclarations || [];
-      const agentTools = allTools.filter(t => CODING_TOOLS.has(t.name) || ['write_memory', 'search_memory'].includes(t.name));
+      const noFileEdit = isExplicitNoFileEditRequested(prompt, context);
+      const agentTools = allTools.filter(t => {
+        if (noFileEdit && (t.name === 'write_file' || t.name === 'edit_file')) {
+          return false;
+        }
+        return CODING_TOOLS.has(t.name) || ['write_memory', 'search_memory'].includes(t.name);
+      });
       return agentTools.length > 0 ? [{ functionDeclarations: agentTools }] : undefined;
     }
 
@@ -3055,11 +3096,14 @@ STRICT OPERATIONAL DIRECTIVES:
 
     fullPrompt = expandSlashDirective(fullPrompt);
 
-    // Mem0 Long-Term Memory Context Injection (ONLY when user explicitly requests/mentions memory)
-    const isExplicitMemoryQuery = /\b(recall|remember|memory|memories|other chat|past chat|earlier chat|from before|what did i say about|my preferences?)\b/i.test(prompt);
+    const isAgent = Boolean(context && context.mode === 'agent');
+    const isConversationalPrompt = /^(hi|hello|hey|yo|sup|wassup|wazzup|whats?\s*up|what\s+is\s+up|how\s*('?s|is)\s*(it|everything|life)|how\s+are\s+you|how\s+do\s+you\s+do|howdy|greetings|good\s+(morning|afternoon|evening|night|day)|thanks|thank\s+you|ok|okay|bye|cool|nice)\b/i.test(prompt.trim()) && prompt.trim().split(/\s+/).length <= 7;
+
+    // Mem0 Long-Term Memory Context Injection (ONLY when user explicitly requests/mentions memory, never on simple chatter)
+    const isExplicitMemoryQuery = !isConversationalPrompt && /\b(recall|remember|memory|memories|other chat|past chat|earlier chat|from before|what did i say about|my preferences?)\b/i.test(prompt);
     if (isExplicitMemoryQuery) {
       try {
-        const mem0Ctx = await mem0Manager.getMemoriesContext(prompt);
+        const mem0Ctx = await mem0Manager.getMemoriesContext(prompt, { mode: isAgent ? 'agent' : 'chat', isAgent });
         if (mem0Ctx) {
           fullPrompt = `${mem0Ctx}\n${fullPrompt}`;
         }
@@ -3074,7 +3118,6 @@ STRICT OPERATIONAL DIRECTIVES:
       : memory.getConvoHistory(convoId);
 
     let groundingSources = [];
-    const isConversationalPrompt = /^(hi|hello|hey|yo|sup|wassup|wazzup|whats?\s*up|what\s+is\s+up|how\s*('?s|is)\s*(it|everything|life)|how\s+are\s+you|how\s+do\s+you\s+do|howdy|greetings|good\s+(morning|afternoon|evening|night|day)|thanks|thank\s+you|ok|okay|bye|cool|nice)\b/i.test(prompt.trim()) && prompt.trim().split(/\s+/).length <= 7;
     const isWebSearchActive = !isConversationalPrompt && Boolean(
       context && (context.webSearch || context.webSearchEnabled) ||
       shouldAutoSearchWeb(prompt, conversationHistory)
@@ -3095,7 +3138,6 @@ STRICT OPERATIONAL DIRECTIVES:
 
     memory.addTurn('user', prompt, null, context);
 
-    const isAgent = Boolean(context && context.mode === 'agent');
     codingAgentHarness.syncContext(context);
 
     // If agent mode and a target file was worked on or referenced, anchor follow-up instructions to it
@@ -3119,13 +3161,16 @@ STRICT OPERATIONAL DIRECTIVES:
 
     // Groq Free Tier optimization: keep prompt lean (<3500 tokens) to guarantee zero 413 ITPM errors (non-agent only)
     if (!isAgent && provider === 'groq') {
-      const groqMem = memory.persistentMemory ? memory.persistentMemory.retrieveContext(fullPrompt, { projectId: config.activeProjectId }).formattedPromptSection : '';
-      systemContent = `You are Grokki, a fast, deeply knowledgeable, highly intelligent AI assistant for Windows${isWebSearchActive ? ' with active real-time web search capabilities' : ''}.
-CURRENT MODE: REGULAR CHAT. You are in conversational Regular Chat mode. You do NOT have agentic permissions to edit files, create folders, or run terminal commands on the user's system in this chat. If the user asks if you can edit files or asks for agentic tasks, politely deny and instruct them to switch to Agent Mode in the sidebar.
+      const groqMem = (!isConversationalPrompt && isExplicitMemoryQuery && memory.persistentMemory)
+        ? memory.persistentMemory.retrieveContext(fullPrompt, { mode: 'chat', isAgent: false }).formattedPromptSection
+        : '';
+      systemContent = `You are Grokki, a fast, razor-sharp, multi-dimensional AI companion for Windows${isWebSearchActive ? ' with active real-time web search capabilities' : ''}.
+CURRENT MODE: REGULAR CHAT. You blend all-rounded conversational versatility (ChatGPT style), deep analytical reasoning (DeepSeek style), and proactive productivity and workflow pulse (Grok Bot & OpenAI Dots style).
+You do NOT have agentic permissions to edit local files or run terminal commands directly in this chat; if asked for codebase modifications, remind the user to switch to Agent Mode in the sidebar.
 UNIVERSITY & COLLEGE ATTENDANCE: When user asks about attendance, grades, or college portal report and credentials are not yet configured, ask for their 1) College/Portal URL, 2) Roll/Student ID, 3) Password. Note that credentials are kept 100% private locally, and university anti-bot protections may restrict automated fetching.
 User: ${config.userNickname || config.userName || 'Friend'}.
-Tone: ${config.userTone || 'warm, friendly, direct'}.
-Provide comprehensive, structured, in-depth responses like ChatGPT. When live web search grounding is provided, answer directly with the real-time facts, courses, figures, and details. Use clean Markdown formatting, Markdown tables (| Column 1 | Column 2 |) for lists and structured comparisons, and styled clickable Markdown links. Avoid robotic disclaimers.${groqMem ? `\n${groqMem}` : ''}`;
+Tone: ${config.userTone || 'intelligent, witty, versatile, and proactive'}.
+Deliver articulate, comprehensive, and engaging answers. When live web search grounding is provided, answer directly with the real-time facts, courses, figures, and details. Use clean Markdown tables (| Column 1 | Column 2 |) and clickable links when presenting structured comparisons.${groqMem ? `\n${groqMem}` : ''}`;
       historyToUse = rawHistory.slice(-6);
     }
 
@@ -3135,7 +3180,9 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
         systemContent = `You are Grokki, a fast, friendly AI assistant for Windows. Reply naturally in 1-2 conversational sentences. User: ${config.userNickname || config.userName || 'Friend'}.`;
         historyToUse = rawHistory.slice(-2);
       } else {
-        const ollamaMem = memory.persistentMemory ? memory.persistentMemory.retrieveContext(fullPrompt, { projectId: config.activeProjectId }).formattedPromptSection : '';
+        const ollamaMem = (isExplicitMemoryQuery && memory.persistentMemory)
+          ? memory.persistentMemory.retrieveContext(fullPrompt, { mode: 'chat', isAgent: false }).formattedPromptSection
+          : '';
         systemContent = `You are Grokki, a fast, intelligent AI assistant for Windows in Regular Chat mode. You do NOT have agentic permissions to edit files or run terminal commands in this chat. If asked for agentic tasks or file edits, deny and tell the user to switch to Agent Mode in the sidebar.
 UNIVERSITY & COLLEGE ATTENDANCE: When user asks about attendance, grades, or college portal report and credentials are not yet configured, ask for their 1) College/Portal URL, 2) Roll/Student ID, 3) Password. Note that credentials are kept 100% private locally, and university anti-bot protections may restrict automated fetching.
 Answer directly and concisely in clean Markdown. User: ${config.userNickname || config.userName || 'Friend'}. Tone: ${config.userTone || 'warm, direct'}.${ollamaMem ? `\n${ollamaMem}` : ''}`;
@@ -3342,6 +3389,23 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           });
 
           console.log(`[AgentBrain] Executing tool '${name}' with args:`, JSON.stringify(args).slice(0, 150));
+          if ((name === 'write_file' || name === 'edit_file') && isExplicitNoFileEditRequested(fullPrompt, context)) {
+            console.log(`[AgentBrain] Blocked tool '${name}': User requested no file edits on disk (code in chat only).`);
+            const result = {
+              success: false,
+              message: 'File writing is blocked: the user explicitly requested to write the code in the chat only and NOT edit files on disk. Please present the complete code inside a markdown code block directly in your chat response.',
+            };
+            stepToolResults.push({ call, name, result });
+            this.emitAgentStep(context, {
+              id: stepId,
+              conversationId: convoId,
+              status: 'failed',
+              name,
+              args,
+              result,
+            });
+            continue;
+          }
           const result = await this.executeTool(name, args, config.geminiApiKey || apiKey);
           const stepStatus = (result && result.success === false) ? 'failed' : 'completed';
           console.log(`[AgentBrain] Tool '${name}' result: ${stepStatus.toUpperCase()}`, result?.message ? result.message.slice(0, 100) : (result?.error || ''));
@@ -3431,7 +3495,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
       // Post-loop auto-apply safety net for coding agents:
       // If the model outputted an improved/updated script in a markdown code block,
       // ensure the target file on disk is ALWAYS updated with this real implementation!
-      if (isAgent) {
+      if (isAgent && !isExplicitNoFileEditRequested(prompt, context)) {
         const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
         const codeMatch = finalReplyText.match(codeBlockRegex);
         if (codeMatch && codeMatch[1]) {
@@ -3481,7 +3545,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
 
       memory.addTurn('model', finalReplyText);
       try {
-        mem0Manager.extractMemoriesFromTurn(prompt, finalReplyText, (s, u, tok) => this.generateAcademicLLM(s, u, tok)).catch(() => {});
+        mem0Manager.extractMemoriesFromTurn(prompt, finalReplyText, (s, u, tok) => this.generateAcademicLLM(s, u, tok), context).catch(() => {});
       } catch (_) {}
       this.abortController = null;
       this.emitAgentStep(context, { conversationId: convoId, status: 'idle' });
@@ -3531,7 +3595,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         const res = await this.executeTool('upload_to_google_drive', { file_path: directAttachPath }, config.geminiApiKey || config.groqApiKey || '');
         const replyText = res.message || 'File upload completed.';
         memory.addTurn('user', prompt);
-        if (isAgent) {
+        if (isAgent && !isExplicitNoFileEditRequested(prompt, context)) {
           const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
           const codeMatch = replyText.match(codeBlockRegex);
           if (codeMatch && codeMatch[1]) {
@@ -3593,7 +3657,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         }, config.geminiApiKey || config.groqApiKey || '');
         const replyText = res.message || 'WhatsApp prepared.';
         memory.addTurn('user', prompt);
-        if (isAgent) {
+        if (isAgent && !isExplicitNoFileEditRequested(prompt, context)) {
           const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
           const codeMatch = replyText.match(codeBlockRegex);
           if (codeMatch && codeMatch[1]) {
@@ -3680,7 +3744,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
 
         const replyText = `✅ Grokki saved **\`${path.basename(savePath)}\`** to your PC at:\n\`${savePath}\``;
         memory.addTurn('user', prompt);
-        if (isAgent) {
+        if (isAgent && !isExplicitNoFileEditRequested(prompt, context)) {
           const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
           const codeMatch = replyText.match(codeBlockRegex);
           if (codeMatch && codeMatch[1]) {
@@ -3742,7 +3806,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           const visionRes = await this.analyzeAttachedImage(directAttachPath, prompt, config.geminiApiKey || '');
           const replyText = visionRes.message || 'Analyzed attached image.';
           memory.addTurn('user', `${prompt || 'Analyze image'} [Attached image: ${path.basename(directAttachPath)}]`);
-          if (isAgent) {
+          if (isAgent && !isExplicitNoFileEditRequested(prompt, context)) {
           const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
           const codeMatch = replyText.match(codeBlockRegex);
           if (codeMatch && codeMatch[1]) {
@@ -3875,11 +3939,14 @@ To allow me to inspect, edit, create files, or run commands on your system:
 
     fullPrompt = expandSlashDirective(fullPrompt);
 
-    // Mem0 Long-Term Memory Context Injection (ONLY when user explicitly requests/mentions memory)
-    const isExplicitMemoryQuery = /\b(recall|remember|memory|memories|other chat|past chat|earlier chat|from before|what did i say about|my preferences?)\b/i.test(prompt);
+    const isAgent = Boolean(context && context.mode === 'agent');
+    const isConversationalPrompt = /^(hi|hello|hey|yo|sup|wassup|wazzup|whats?\s*up|what\s+is\s+up|how\s*('?s|is)\s*(it|everything|life)|how\s+are\s+you|how\s+do\s+you\s+do|howdy|greetings|good\s+(morning|afternoon|evening|night|day)|thanks|thank\s+you|ok|okay|bye|cool|nice)\b/i.test(prompt.trim()) && prompt.trim().split(/\s+/).length <= 7;
+
+    // Mem0 Long-Term Memory Context Injection (ONLY when user explicitly requests/mentions memory, never on simple chatter)
+    const isExplicitMemoryQuery = !isConversationalPrompt && /\b(recall|remember|memory|memories|other chat|past chat|earlier chat|from before|what did i say about|my preferences?)\b/i.test(prompt);
     if (isExplicitMemoryQuery) {
       try {
-        const mem0Ctx = await mem0Manager.getMemoriesContext(prompt);
+        const mem0Ctx = await mem0Manager.getMemoriesContext(prompt, { mode: isAgent ? 'agent' : 'chat', isAgent });
         if (mem0Ctx) {
           fullPrompt = `${mem0Ctx}\n${fullPrompt}`;
         }
@@ -3892,7 +3959,7 @@ To allow me to inspect, edit, create files, or run commands on your system:
     const conversationHistory = (context && Array.isArray(context.conversationHistory))
       ? context.conversationHistory
       : memory.getConvoHistory(convoId);
-    const isWebSearchActive = Boolean(
+    const isWebSearchActive = !isConversationalPrompt && Boolean(
       context && (context.webSearch || context.webSearchEnabled) ||
       shouldAutoSearchWeb(prompt, conversationHistory)
     );
@@ -3927,7 +3994,6 @@ To allow me to inspect, edit, create files, or run commands on your system:
     const ai = new GoogleGenAI({ apiKey });
     this.currentContext = context || {};
 
-    const isAgent = Boolean(context && context.mode === 'agent');
     codingAgentHarness.syncContext(context);
 
     // If agent mode and a target file was worked on or referenced, anchor follow-up instructions to it
@@ -4029,6 +4095,24 @@ To allow me to inspect, edit, create files, or run commands on your system:
               name,
               args: cleanArgs,
             });
+
+            if ((name === 'write_file' || name === 'edit_file') && isExplicitNoFileEditRequested(fullPrompt, context)) {
+              console.log(`[AgentBrain] Blocked tool '${name}': User requested no file edits on disk (code in chat only).`);
+              const result = {
+                success: false,
+                message: 'File writing is blocked: the user explicitly requested to write the code in the chat only and NOT edit files on disk. Please present the complete code inside a markdown code block directly in your chat response.',
+              };
+              stepToolResults.push({ call, name, result });
+              this.emitAgentStep(context, {
+                id: stepId,
+                conversationId: convoId,
+                status: 'failed',
+                name,
+                args: cleanArgs,
+                result,
+              });
+              continue;
+            }
 
             const result = await this.executeTool(name, cleanArgs, apiKey);
             const stepStatus = (result && result.success === false) ? 'failed' : 'completed';
@@ -4201,7 +4285,7 @@ Rules:
           replyText = 'Ready.';
         }
 
-        if (isAgent) {
+        if (isAgent && !isExplicitNoFileEditRequested(prompt, context)) {
           const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
           const codeMatch = replyText.match(codeBlockRegex);
           if (codeMatch && codeMatch[1]) {
@@ -4240,6 +4324,9 @@ Rules:
         }
 
         memory.addTurn('model', replyText);
+        try {
+          mem0Manager.extractMemoriesFromTurn(prompt, replyText, (s, u, tok) => this.generateAcademicLLM(s, u, tok), context).catch(() => {});
+        } catch (_) {}
         this.abortController = null;
         this.emitAgentStep(context, { conversationId: convoId, status: 'idle' });
 
@@ -4714,6 +4801,12 @@ Rules:
       }
 
       case 'write_file': {
+        if (isExplicitNoFileEditRequested(this.activePrompt)) {
+          return {
+            success: false,
+            message: 'File writing is blocked: the user explicitly requested to write the code in the chat only and NOT edit files on disk.',
+          };
+        }
         const res = await codingAgentHarness.writeFile(args || {});
         return {
           ...res,
@@ -4722,6 +4815,12 @@ Rules:
       }
 
       case 'edit_file': {
+        if (isExplicitNoFileEditRequested(this.activePrompt)) {
+          return {
+            success: false,
+            message: 'File editing is blocked: the user explicitly requested to write the code in the chat only and NOT edit files on disk.',
+          };
+        }
         const res = await codingAgentHarness.editFile(args || {});
         return {
           ...res,

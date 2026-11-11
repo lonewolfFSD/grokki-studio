@@ -14,8 +14,9 @@
   {
     "id": "mem_1794141831741_0rme",
     "memory": "User's favorite tech stack is React and Node.js",
-    "category": "fact",
-    "created_at": 1794141831741
+    "category": "agent",
+    "created_at": 1794141831741,
+    "mode": "agent"
   },
   {
     "id": "mem_1794141831741_glld",
@@ -146,8 +147,9 @@
   {
     "id": "mem_1794318524777_46of",
     "memory": "Grokki Studio's GitHub repository is lonewolfFSD/grokki-studio",
-    "category": "fact",
-    "created_at": 1794318524777
+    "category": "agent",
+    "created_at": 1794318524777,
+    "mode": "agent"
   },
   {
     "id": "mem_1794318524777_im6i",
@@ -158,8 +160,9 @@
   {
     "id": "mem_1794373053753_kx3s",
     "memory": "User prefers improved code organization",
-    "category": "fact",
-    "created_at": 1794373053753
+    "category": "agent",
+    "created_at": 1794373053753,
+    "mode": "agent"
   },
   {
     "id": "mem_1794373053753_lztc",
@@ -170,32 +173,37 @@
   {
     "id": "mem_1794373053753_3dcc",
     "memory": "User prefers to use the `input` function to get user input",
-    "category": "fact",
-    "created_at": 1794373053753
+    "category": "agent",
+    "created_at": 1794373053753,
+    "mode": "agent"
   },
   {
     "id": "mem_1794376643454_jm2o",
     "memory": "Arijit's workspace is located at E:\\Arijit",
-    "category": "fact",
-    "created_at": 1794376643454
+    "category": "agent",
+    "created_at": 1794376643454,
+    "mode": "agent"
   },
   {
     "id": "mem_1794376643454_ef6r",
     "memory": "There are 8 folders and 90 files in the workspace",
-    "category": "fact",
-    "created_at": 1794376643454
+    "category": "agent",
+    "created_at": 1794376643454,
+    "mode": "agent"
   },
   {
     "id": "mem_1794376643454_7cac",
     "memory": "The workspace contains a file named delete.py",
-    "category": "fact",
-    "created_at": 1794376643454
+    "category": "agent",
+    "created_at": 1794376643454,
+    "mode": "agent"
   },
   {
     "id": "mem_1794379108546_p2gu",
     "memory": "User prefers improved code structure",
-    "category": "fact",
-    "created_at": 1794379108546
+    "category": "agent",
+    "created_at": 1794379108546,
+    "mode": "agent"
   },
   {
     "id": "mem_1794379108546_bm36",
@@ -206,14 +214,16 @@
   {
     "id": "mem_1794379108546_jmmj",
     "memory": "User likes better code organization",
-    "category": "fact",
-    "created_at": 1794379108546
+    "category": "agent",
+    "created_at": 1794379108546,
+    "mode": "agent"
   },
   {
     "id": "mem_1794379548290_w7vc",
     "memory": "The main function is now defined inside the if __name__ == \"__main__\": block",
-    "category": "fact",
-    "created_at": 1794379548290
+    "category": "agent",
+    "created_at": 1794379548290,
+    "mode": "agent"
   },
   {
     "id": "mem_1794379548290_z0vn",
@@ -230,37 +240,95 @@
   {
     "id": "mem_1794379650741_dkg5",
     "memory": "The code now implements a bubble sort algorithm",
-    "category": "fact",
-    "created_at": 1794379650741
+    "category": "agent",
+    "created_at": 1794379650741,
+    "mode": "agent"
   },
   {
     "id": "mem_1794379650741_bc2b",
     "memory": "The bubble_sort function takes a list as input and returns the sorted list",
-    "category": "fact",
-    "created_at": 1794379650741
+    "category": "agent",
+    "created_at": 1794379650741,
+    "mode": "agent"
   },
   {
     "id": "mem_1794379650741_ntxn",
     "memory": "The main function has been removed",
-    "category": "fact",
-    "created_at": 1794379650741
+    "category": "agent",
+    "created_at": 1794379650741,
+    "mode": "agent"
   },
   {
     "id": "mem_1794379818108_jgwy",
     "memory": "Quicksort algorithm is the fastest sorting method",
-    "category": "fact",
-    "created_at": 1794379818108
+    "category": "agent",
+    "created_at": 1794379818108,
+    "mode": "agent"
   },
   {
     "id": "mem_1794379818108_tkt6",
     "memory": "Quicksort algorithm has an average time complexity of O(n log n)",
-    "category": "fact",
-    "created_at": 1794379818108
+    "category": "agent",
+    "created_at": 1794379818108,
+    "mode": "agent"
   },
   {
     "id": "mem_1794379818108_9ozs",
     "memory": "Quicksort algorithm can be O(n^2) in the worst-case scenario",
+    "category": "agent",
+    "created_at": 1794379818108,
+    "mode": "agent"
+  },
+  {
+    "id": "mem_1794394186795_9io0",
+    "memory": "User wants to see the code",
     "category": "fact",
-    "created_at": 1794379818108
+    "created_at": 1794394186795
+  },
+  {
+    "id": "mem_1794394186795_rsiq",
+    "memory": "User wants to see the updated code in py1.py",
+    "category": "agent",
+    "created_at": 1794394186795,
+    "mode": "agent"
+  },
+  {
+    "id": "mem_1794394396428_2osh",
+    "memory": "User is 4 years old",
+    "category": "fact",
+    "created_at": 1794394396428
+  },
+  {
+    "id": "mem_1794394396428_6eis",
+    "memory": "User is not eligible to vote",
+    "category": "fact",
+    "created_at": 1794394396428
+  },
+  {
+    "id": "mem_1794394396428_zb34",
+    "memory": "Code correction provided",
+    "category": "fact",
+    "created_at": 1794394396428
+  },
+  {
+    "id": "mem_1794404654744_sxrh",
+    "memory": "User needs a PR review with a focus on clean code practices",
+    "category": "fact",
+    "mode": "chat",
+    "created_at": 1794404654744
+  },
+  {
+    "id": "mem_1794404654744_j9ew",
+    "memory": "User prefers a modular Open Agent Skill in SKILL.md format",
+    "category": "fact",
+    "mode": "chat",
+    "created_at": 1794404654744
+  },
+  {
+    "id": "mem_1794404654744_z143",
+    "memory": "User requires support for GitHub and GitLab",
+    "category": "fact",
+    "mode": "chat",
+    "created_at": 1794404654744
   }
 ]
