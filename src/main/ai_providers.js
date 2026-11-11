@@ -121,8 +121,8 @@ async function callOpenAICompatible({
   // If connecting to local Ollama, pass optimized hardware options to cut VRAM and eliminate memory thrashing
   if (endpoint && (endpoint.includes('127.0.0.1') || endpoint.includes('localhost') || endpoint.includes('11434'))) {
     payload.options = {
-      num_ctx: 2048,
-      num_predict: max_tokens || 1024,
+      num_ctx: 8192,
+      num_predict: max_tokens || 2048,
       num_thread: Math.max(1, Math.min(8, Math.floor((os.cpus()?.length || 4) / 2) || 4)),
       use_mmap: true,
     };

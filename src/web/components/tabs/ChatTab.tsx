@@ -12,6 +12,7 @@ import {
   Copy,
   Check,
   Pencil,
+  Undo2,
   Volume2,
   Square,
   Terminal,
@@ -1207,41 +1208,49 @@ function getFileBadge(filePath: string) {
   if (!filePath) return <span className="text-neutral-400 text-[12px] select-none">📄</span>;
   const clean = filePath.split('?')[0].split('#')[0];
   const ext = clean.split('.').pop()?.toLowerCase();
-  if (ext === 'tsx' || ext === 'jsx') {
-    return <span className="select-none text-[13px] leading-none inline-flex items-center">⚛️</span>;
-  }
-  if (ext === 'ts') {
-    return <span className="text-[#3178c6] font-mono font-bold text-[11px] leading-none select-none">TS</span>;
+  if (ext === 'ts' || ext === 'tsx') {
+    return <span className="text-[#3b82f6] font-mono font-bold text-[11px] leading-none select-none">ts</span>;
   }
   if (ext === 'js' || ext === 'mjs' || ext === 'cjs') {
-    return <span className="text-[#eab308] font-mono font-bold text-[11px] leading-none select-none">js</span>;
+    return <span className="text-[#f59e0b] font-mono font-bold text-[11px] leading-none select-none">js</span>;
+  }
+  if (ext === 'jsx') {
+    return <span className="text-[#38bdf8] font-mono font-bold text-[11px] leading-none select-none">jsx</span>;
+  }
+  if (ext === 'py') {
+    return <span className="text-[#14b8a6] font-mono font-bold text-[11px] leading-none select-none">py</span>;
   }
   if (ext === 'json') {
-    return <span className="select-none text-[12px] leading-none inline-flex items-center">📦</span>;
+    return <span className="text-[#eab308] font-mono font-bold text-[11px] leading-none select-none">json</span>;
   }
   if (ext === 'css' || ext === 'scss' || ext === 'less') {
-    return <span className="select-none text-[12px] leading-none inline-flex items-center">🎨</span>;
+    return <span className="text-[#ec4899] font-mono font-bold text-[11px] leading-none select-none">css</span>;
   }
   if (ext === 'html') {
     return <span className="text-orange-400 font-mono font-bold text-[11px] leading-none select-none">&lt;&gt;</span>;
   }
   if (ext === 'md' || ext === 'txt') {
-    return <span className="select-none text-[12px] leading-none inline-flex items-center">📄</span>;
+    return <span className="text-neutral-400 font-mono text-[11px] leading-none select-none">txt</span>;
   }
-  return <span className="text-neutral-400 text-[12px] select-none">📄</span>;
+  return <span className="text-neutral-400 font-mono text-[11px] leading-none select-none">{ext || 'file'}</span>;
 }
 
 function getBaseFileName(p?: string): string {
   if (!p) return 'file';
-  const norm = p.replace(/\\/g, '/');
+  const clean = p.trim().replace(/^@+/, '');
+  const norm = clean.replace(/\\/g, '/');
   const parts = norm.split('/').filter(Boolean);
-  return parts[parts.length - 1] || p;
+  return parts[parts.length - 1] || clean;
 }
 
 function formatCommandSummary(cmd?: string, summary?: string): string {
   if (summary && summary.trim()) return summary.trim();
   if (!cmd || typeof cmd !== 'string') return 'command';
   const trimmed = cmd.trim();
+
+  if (/^Get-ChildItem/i.test(trimmed)) {
+    return 'list directory files';
+  }
 
   const selectPattern = /Select-String\s+-Path\s+["']?([^"'\r\n]+?)["']?\s+-Pattern\s+["']?([^"'\r\n]+?)["']?(?:\s+-|$)/i.exec(trimmed);
   if (selectPattern) {
@@ -1272,11 +1281,12 @@ const AgentStepRow: React.FC<{
   isLive?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
-}> = ({ step, isLive, isExpanded, onToggleExpand }) => {
+}> = ({ step, isLive = false, isExpanded, onToggleExpand }) => {
   const name = step.name || step.tool || '';
   const args = step.args || {};
   const result = step.result || {};
-  const isRunning = step.status === 'running';
+  const isRunning = step.status === 'running' || (isLive && !step.result && step.status !== 'completed' && step.status !== 'failed');
+  const isFailed = step.status === 'failed' || Boolean(result && (result.success === false || result.error));
 
   // 1. READ FILE
   if (name === 'read_file') {
@@ -1288,21 +1298,36 @@ const AgentStepRow: React.FC<{
     const rangeText = (startLine !== undefined && endLine !== undefined) ? `#L${startLine}-${endLine}` : '';
 
     return (
-      <div className="flex items-center gap-1.5 text-[13px] leading-relaxed py-0.5 select-none font-sans">
-        <span className="text-neutral-400 dark:text-neutral-400">
-          {isRunning ? 'Analyzing' : 'Analyzed'}
-        </span>
-        <span className="inline-flex items-center">{badge}</span>
-        <span className="text-neutral-200 dark:text-neutral-200 font-mono text-[12px]">
-          {baseName}
-        </span>
-        {rangeText && (
-          <span className="text-neutral-500 font-mono text-[12px]">
-            {rangeText}
+      <div className="flex flex-col py-0.5 font-sans">
+        <div
+          className="flex items-center gap-1.5 text-[13px] leading-relaxed select-none cursor-pointer group"
+          onClick={isFailed && result.error ? onToggleExpand : undefined}
+        >
+          <span className={isFailed ? 'text-rose-400 font-medium' : 'text-neutral-400 dark:text-neutral-400'}>
+            {isRunning ? 'Analyzing' : (isFailed ? 'Failed to read' : 'Analyzed')}
           </span>
-        )}
-        {isRunning && (
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping ml-1" />
+          <span className="inline-flex items-center">{badge}</span>
+          <span className="text-neutral-200 dark:text-neutral-200 font-mono text-[12px]">
+            {baseName}
+          </span>
+          {rangeText && (
+            <span className="text-neutral-500 font-mono text-[12px]">
+              {rangeText}
+            </span>
+          )}
+          {isRunning && (
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping ml-1" />
+          )}
+          {isFailed && result.error && (
+            <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+              &gt;
+            </span>
+          )}
+        </div>
+        {isExpanded && isFailed && (result.error || result.message) && (
+          <div className="mt-1 mb-2 p-2 rounded bg-rose-950/30 backdrop-blur-md border border-rose-500/20 font-mono text-[11px] text-rose-300">
+            {result.error || result.message}
+          </div>
         )}
       </div>
     );
@@ -1320,8 +1345,8 @@ const AgentStepRow: React.FC<{
           className="flex items-center gap-1.5 text-[13px] leading-relaxed select-none cursor-pointer group"
           onClick={onToggleExpand}
         >
-          <span className="text-neutral-400 dark:text-neutral-400">
-            {isRunning ? 'Running' : 'Ran'}
+          <span className={isFailed ? 'text-rose-400 font-medium' : 'text-neutral-400 dark:text-neutral-400'}>
+            {isRunning ? 'Running' : (isFailed ? 'Command failed' : 'Ran')}
           </span>
           <span className="text-neutral-200 dark:text-neutral-200 text-[12px] font-normal group-hover:text-white transition-colors">
             {label}
@@ -1334,7 +1359,7 @@ const AgentStepRow: React.FC<{
           )}
         </div>
         {isExpanded && (
-          <div className="mt-1 mb-2 p-2 rounded bg-black/40 border border-white/10 font-mono text-[11px] text-neutral-300 overflow-x-auto max-h-48 scrollbar-thin">
+          <div className="mt-1 mb-2 p-2 rounded bg-black/40 backdrop-blur-md border border-white/10 font-mono text-[11px] text-neutral-300 overflow-x-auto max-h-48 scrollbar-thin">
             <div className="text-neutral-500 select-none mb-1">$ {cmd}</div>
             {result.stdout && <pre className="whitespace-pre-wrap">{result.stdout}</pre>}
             {result.stderr && <pre className="whitespace-pre-wrap text-rose-400 mt-1">{result.stderr}</pre>}
@@ -1363,16 +1388,16 @@ const AgentStepRow: React.FC<{
       <div className="flex flex-col py-0.5 font-sans">
         <div
           className="flex items-center gap-1.5 text-[13px] leading-relaxed select-none cursor-pointer group"
-          onClick={result.diff ? onToggleExpand : undefined}
+          onClick={(result.diff || (isFailed && (result.error || result.message))) ? onToggleExpand : undefined}
         >
-          <span className="text-neutral-400 dark:text-neutral-400">
-            {isRunning ? 'Editing' : 'Edited'}
+          <span className={isFailed ? 'text-rose-400 font-medium' : 'text-neutral-400 dark:text-neutral-400'}>
+            {isRunning ? 'Editing' : (isFailed ? 'Failed to edit' : 'Edited')}
           </span>
           <span className="inline-flex items-center">{badge}</span>
           <span className="text-neutral-200 dark:text-neutral-200 font-mono text-[12px]">
             {baseName}
           </span>
-          {!isRunning && (added > 0 || removed > 0) && (
+          {!isRunning && !isFailed && (added > 0 || removed > 0) && (
             <span className="inline-flex items-center gap-1.5 ml-0.5">
               {added > 0 && (
                 <span className="text-emerald-400 font-mono text-[12px] font-medium">
@@ -1386,7 +1411,7 @@ const AgentStepRow: React.FC<{
               )}
             </span>
           )}
-          {result.diff && (
+          {(result.diff || (isFailed && (result.error || result.message))) && (
             <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
               &gt;
             </span>
@@ -1395,8 +1420,13 @@ const AgentStepRow: React.FC<{
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping ml-1" />
           )}
         </div>
+        {isExpanded && isFailed && (result.error || result.message) && (
+          <div className="mt-1 mb-2 p-2 rounded bg-rose-950/30 backdrop-blur-md border border-rose-500/20 font-mono text-[11px] text-rose-300">
+            {result.error || result.message}
+          </div>
+        )}
         {isExpanded && result.diff && (
-          <div className="mt-1 mb-2 p-2 rounded bg-black/40 border border-white/10 font-mono text-[11px] overflow-x-auto max-h-48 scrollbar-thin">
+          <div className="mt-1 mb-2 p-2 rounded bg-black/40 backdrop-blur-md border border-white/10 font-mono text-[11px] overflow-x-auto max-h-48 scrollbar-thin">
             <pre className="whitespace-pre-wrap text-neutral-300">
               {result.diff.split('\n').map((l: string, idx: number) => (
                 <span
@@ -1427,21 +1457,36 @@ const AgentStepRow: React.FC<{
     const added = result.addedLines || result.linesCount || 0;
 
     return (
-      <div className="flex items-center gap-1.5 text-[13px] leading-relaxed py-0.5 select-none font-sans">
-        <span className="text-neutral-400 dark:text-neutral-400">
-          {isRunning ? 'Creating' : 'Created'}
-        </span>
-        <span className="inline-flex items-center">{badge}</span>
-        <span className="text-neutral-200 dark:text-neutral-200 font-mono text-[12px]">
-          {baseName}
-        </span>
-        {!isRunning && added > 0 && (
-          <span className="text-emerald-400 font-mono text-[12px] font-medium">
-            +{added}
+      <div className="flex flex-col py-0.5 font-sans">
+        <div
+          className="flex items-center gap-1.5 text-[13px] leading-relaxed select-none cursor-pointer group"
+          onClick={isFailed && result.error ? onToggleExpand : undefined}
+        >
+          <span className={isFailed ? 'text-rose-400 font-medium' : 'text-neutral-400 dark:text-neutral-400'}>
+            {isRunning ? 'Creating' : (isFailed ? 'Failed to create' : 'Created')}
           </span>
-        )}
-        {isRunning && (
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping ml-1" />
+          <span className="inline-flex items-center">{badge}</span>
+          <span className="text-neutral-200 dark:text-neutral-200 font-mono text-[12px]">
+            {baseName}
+          </span>
+          {!isRunning && !isFailed && added > 0 && (
+            <span className="text-emerald-400 font-mono text-[12px] font-medium">
+              +{added}
+            </span>
+          )}
+          {isRunning && (
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping ml-1" />
+          )}
+          {isFailed && result.error && (
+            <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+              &gt;
+            </span>
+          )}
+        </div>
+        {isExpanded && isFailed && result.error && (
+          <div className="mt-1 mb-2 p-2 rounded bg-rose-950/30 border border-rose-500/20 font-mono text-[11px] text-rose-300">
+            {result.error}
+          </div>
         )}
       </div>
     );
@@ -1450,14 +1495,15 @@ const AgentStepRow: React.FC<{
   // 5. SEARCH CODE
   if (name === 'search_code') {
     const query = args.query || '';
-    const p = getBaseFileName(args.path);
+    const rawPath = args.path || '';
+    const p = rawPath === '.' || rawPath === './' || !rawPath ? '' : getBaseFileName(rawPath);
     return (
       <div className="flex items-center gap-1.5 text-[13px] leading-relaxed py-0.5 select-none font-sans">
-        <span className="text-neutral-400 dark:text-neutral-400">
-          {isRunning ? 'Searching' : 'Searched'}
+        <span className={isFailed ? 'text-rose-400 font-medium' : 'text-neutral-400 dark:text-neutral-400'}>
+          {isRunning ? 'Searching' : (isFailed ? 'Search failed' : 'Searched')}
         </span>
         <span className="text-neutral-200 font-mono text-[12px]">"{query}"</span>
-        {p && p !== 'file' && <span className="text-neutral-500 font-mono text-[12px]">in {p}</span>}
+        {p && <span className="text-neutral-500 font-mono text-[12px]">in {p}</span>}
         {isRunning && (
           <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping ml-1" />
         )}
@@ -1467,15 +1513,69 @@ const AgentStepRow: React.FC<{
 
   // 6. LIST DIRECTORY
   if (name === 'list_directory') {
-    const dir = getBaseFileName(args.path) || 'project';
+    const rawDir = args.path || result.relativePath || result.root || '';
+    const dir = rawDir === '.' || rawDir === './' || !rawDir ? 'project files' : getBaseFileName(rawDir);
     return (
       <div className="flex items-center gap-1.5 text-[13px] leading-relaxed py-0.5 select-none font-sans">
-        <span className="text-neutral-400 dark:text-neutral-400">
-          {isRunning ? 'Listing' : 'Listed'}
+        <span className={isFailed ? 'text-rose-400 font-medium' : 'text-neutral-400 dark:text-neutral-400'}>
+          {isRunning ? 'Listing' : (isFailed ? 'Failed to list' : 'Listed')}
         </span>
         <span className="text-neutral-200 font-mono text-[12px]">{dir}</span>
         {isRunning && (
           <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping ml-1" />
+        )}
+      </div>
+    );
+  }
+
+  // 7. MEMORY RECALL & SEARCH (search_memory, recall_memory)
+  if (name === 'search_memory' || name === 'recall_memory') {
+    const q = args.query || args.topic || 'memory';
+    return (
+      <div className="flex flex-col py-0.5 font-sans">
+        <div
+          className="flex items-center gap-1.5 text-[13px] leading-relaxed select-none cursor-pointer group"
+          onClick={result.message ? onToggleExpand : undefined}
+        >
+          <span className="text-neutral-400 dark:text-neutral-400">
+            {isRunning ? 'Recalling' : 'Recalled'}
+          </span>
+          <span className="inline-flex items-center text-[13px] select-none">🧠</span>
+          <span className="text-neutral-200 dark:text-neutral-200 text-[12px] font-medium group-hover:text-white transition-colors">
+            memory "{q}"
+          </span>
+          {result.message && (
+            <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+              &gt;
+            </span>
+          )}
+          {isRunning && (
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping ml-1" />
+          )}
+        </div>
+        {isExpanded && result.message && (
+          <div className="mt-1 mb-2 p-2 rounded bg-black/40 backdrop-blur-md border border-white/10 font-sans text-[11.5px] text-neutral-300 overflow-x-auto max-h-48 scrollbar-thin">
+            <div className="whitespace-pre-wrap">{result.message}</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 8. WRITE MEMORY
+  if (name === 'write_memory') {
+    const title = args.title || 'note';
+    return (
+      <div className="flex items-center gap-1.5 text-[13px] leading-relaxed py-0.5 select-none font-sans">
+        <span className="text-neutral-400 dark:text-neutral-400">
+          {isRunning ? 'Saving to' : 'Saved to'}
+        </span>
+        <span className="inline-flex items-center text-[13px] select-none">🧠</span>
+        <span className="text-neutral-200 dark:text-neutral-200 text-[12px] font-medium">
+          memory "{title}"
+        </span>
+        {isRunning && (
+          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping ml-1" />
         )}
       </div>
     );
@@ -1492,6 +1592,128 @@ const AgentStepRow: React.FC<{
       </span>
       {isRunning && (
         <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping ml-1" />
+      )}
+    </div>
+  );
+};
+
+function getStepsSummary(steps: any[], isLive: boolean = false): string {
+  if (!steps || steps.length === 0) return isLive ? 'Working on task...' : 'Working on task';
+
+  const hasRead = steps.some((s) => s.name === 'read_file' || s.name === 'list_directory' || s.name === 'search_code');
+  const hasCommand = steps.some((s) => s.name === 'run_command' || s.name === 'git_operations');
+  const hasEdit = steps.some((s) => s.name === 'edit_file' || s.name === 'write_file');
+  const hasMemory = steps.some((s) => s.name === 'search_memory' || s.name === 'recall_memory' || s.name === 'write_memory');
+
+  const hasFailedEdit = steps.some((s) => (s.name === 'edit_file' || s.name === 'write_file') && (s.status === 'failed' || (s.result && s.result.success === false)));
+  const hasSuccessEdit = steps.some((s) => (s.name === 'edit_file' || s.name === 'write_file') && (!s.result || s.result.success !== false) && s.status !== 'failed');
+
+  const parts: string[] = [];
+  if (hasRead) parts.push(isLive ? 'exploring files' : 'Explored files');
+  if (hasCommand) parts.push(isLive ? 'running commands' : 'ran commands');
+  if (hasEdit) {
+    if (isLive) {
+      parts.push('editing files');
+    } else if (hasSuccessEdit) {
+      parts.push('edited files');
+    } else {
+      parts.push('failed to edit files');
+    }
+  }
+  if (hasMemory) parts.push(isLive ? 'recalling memory' : 'recalled memory');
+
+  if (parts.length === 0) {
+    const firstTool = steps[0]?.name ? steps[0].name.replace(/_/g, ' ') : 'tool';
+    return isLive ? `Running ${firstTool}...` : `Executed ${steps.length} ${firstTool} step${steps.length > 1 ? 's' : ''}`;
+  }
+
+  const joined = parts.join(', ');
+  return joined.charAt(0).toUpperCase() + joined.slice(1);
+}
+
+function formatWorkedDuration(ms?: number): string {
+  if (!ms || ms < 1000) return '';
+  const totalSec = Math.round(ms / 1000);
+  if (totalSec < 60) return `Worked for ${totalSec}s`;
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  if (secs === 0) return `Worked for ${mins}m`;
+  return `Worked for ${mins}m ${secs}s`;
+}
+
+export const AgentStepsAccordion: React.FC<{
+  steps: AgentLiveStep[] | any[];
+  isLive?: boolean;
+  defaultExpanded?: boolean;
+  expandedStepIds: Set<string>;
+  onToggleStepExpand: (stepId: string) => void;
+  messageId?: string;
+}> = ({
+  steps,
+  isLive = false,
+  defaultExpanded = true,
+  expandedStepIds,
+  onToggleStepExpand,
+  messageId = 'live',
+}) => {
+  const [isOpen, setIsOpen] = useState<boolean>(defaultExpanded);
+
+  if (!steps || steps.length === 0) return null;
+
+  const summary = getStepsSummary(steps, isLive);
+
+  let durationText = '';
+  if (steps.length > 0) {
+    const firstTs = steps[0].timestamp;
+    const lastTs = steps[steps.length - 1].timestamp;
+    if (firstTs && lastTs && lastTs > firstTs) {
+      durationText = formatWorkedDuration(lastTs - firstTs);
+    }
+  }
+
+  return (
+    <div className="flex flex-col my-1.5 select-none font-sans max-w-full">
+      {/* Optional "Worked for Xm" Header if duration is meaningful */}
+      {durationText && (
+        <div className="text-[12px] text-neutral-400 dark:text-neutral-400 font-medium mb-1.5 flex items-center gap-1.5">
+          <span>{durationText}</span>
+          <ChevronDown className="w-3 h-3 text-neutral-500" />
+        </div>
+      )}
+
+      {/* Accordion Toggle Pill / Box */}
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="w-fit max-w-full bg-[#13151c]/90 hover:bg-[#1a1c26] border border-white/[0.08] hover:border-white/[0.15] text-neutral-300 dark:text-neutral-300 rounded-lg px-2.5 py-1 text-[12px] font-sans inline-flex items-center gap-2 cursor-pointer transition-all shadow-xs text-left group"
+      >
+        <span className="truncate group-hover:text-white transition-colors">
+          {summary}
+        </span>
+        {isOpen ? (
+          <ChevronDown className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-200 transition-colors flex-shrink-0" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-200 transition-colors flex-shrink-0" />
+        )}
+      </button>
+
+      {/* Collapsible Steps Body with clean indentation */}
+      {isOpen && (
+        <div className="flex flex-col gap-0.5 mt-2 pl-2 animate-in fade-in duration-150">
+          {steps.map((step, idx) => {
+            const stepId = step.id || `step_${messageId}_${idx}`;
+            const stepIsLive = isLive && (idx === steps.length - 1 || step.status === 'running');
+            return (
+              <AgentStepRow
+                key={stepId}
+                step={step}
+                isLive={stepIsLive}
+                isExpanded={expandedStepIds.has(stepId)}
+                onToggleExpand={() => onToggleStepExpand(stepId)}
+              />
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -1866,6 +2088,24 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const [editingContent, setEditingContent] = useState<string>('');
   const [canScrollDown, setCanScrollDown] = useState<boolean>(false);
   const [localModelPull, setLocalModelPull] = useState<ActiveModelPull | null>(null);
+  const [revertModalTarget, setRevertModalTarget] = useState<ChatMessage | null>(null);
+  const [revertFiles, setRevertFiles] = useState<Array<{
+    path: string;
+    fileName: string;
+    relativePath: string;
+    addedLines: number;
+    removedLines: number;
+    isNew: boolean;
+    diff?: string;
+    backup?: {
+      path: string;
+      originalContent?: string | null;
+      existedBefore?: boolean;
+      relativePath?: string;
+    };
+  }>>([]);
+  const [revertFileChangesChecked, setRevertFileChangesChecked] = useState<boolean>(true);
+  const [viewingDiffFile, setViewingDiffFile] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeModelPull) return;
@@ -3056,7 +3296,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         </div>
 
         {displayCode && (
-          <div className="bg-[#07080b] border border-white/[0.06] rounded-lg px-3 py-1.5 font-mono text-[11.5px] leading-relaxed max-h-24 overflow-y-auto mb-2 select-text shadow-inner">
+          <div className="bg-[#07080b]/80 backdrop-blur-md border border-white/[0.06] rounded-lg px-3 py-1.5 font-mono text-[11.5px] leading-relaxed max-h-24 overflow-y-auto mb-2 select-text shadow-inner">
             {renderHighlightedCommand(displayCode)}
           </div>
         )}
@@ -3724,12 +3964,15 @@ export const ChatTab = React.memo<ChatTabProps>(({
           context.webSearch = true;
           context.webSearchEnabled = true;
         }
-        if (Array.isArray(messages) && messages.length > 0) {
-          context.conversationHistory = messages.slice(-16).map((m) => ({
-            role: m.role,
-            content: m.content,
-          }));
-        }
+        context.conversationHistory = Array.isArray(messages)
+          ? messages.slice(-16).map((m) => ({
+              role: m.role,
+              content: m.content,
+              attachedFile: m.attachedFile,
+              mentions: m.mentions,
+              actionsExecuted: m.actionsExecuted,
+            }))
+          : [];
         applyAgentContext(context);
         if (agentMode && onUpdateConversationMeta) {
           onUpdateConversationMeta(targetConvoId, {
@@ -4086,12 +4329,15 @@ export const ChatTab = React.memo<ChatTabProps>(({
           context.webSearch = true;
           context.webSearchEnabled = true;
         }
-        if (historyBefore.length > 0) {
-          context.conversationHistory = historyBefore.slice(-16).map((m) => ({
-            role: m.role,
-            content: m.content,
-          }));
-        }
+        context.conversationHistory = Array.isArray(historyBefore)
+          ? historyBefore.slice(-16).map((m) => ({
+              role: m.role,
+              content: m.content,
+              attachedFile: m.attachedFile,
+              mentions: m.mentions,
+              actionsExecuted: m.actionsExecuted,
+            }))
+          : [];
 
         applyAgentContext(context);
         if (agentMode && onUpdateConversationMeta) {
@@ -4156,6 +4402,222 @@ export const ChatTab = React.memo<ChatTabProps>(({
       setLoading(false);
     }
   };
+
+  const handleOpenRevertModal = (msg: ChatMessage) => {
+    const msgIndex = messages.findIndex((m) => m.id === msg.id);
+    if (msgIndex === -1) return;
+
+    const subsequentMessages = messages.slice(msgIndex + 1);
+    const fileMap = new Map<string, {
+      path: string;
+      fileName: string;
+      relativePath: string;
+      addedLines: number;
+      removedLines: number;
+      isNew: boolean;
+      diff?: string;
+      backup?: {
+        path: string;
+        originalContent?: string | null;
+        existedBefore?: boolean;
+        relativePath?: string;
+      };
+    }>();
+
+    for (const sm of subsequentMessages) {
+      if (Array.isArray(sm.actionsExecuted)) {
+        for (const act of sm.actionsExecuted) {
+          const name = act.name || act.tool || '';
+          if (name === 'edit_file' || name === 'write_file') {
+            const p = act.result?.backup?.path || act.args?.path || act.args?.filePath;
+            if (!p) continue;
+            const normalizedPath = p.replace(/\\/g, '/').toLowerCase();
+            const fileName = getBaseFileName(p);
+            const relativePath = act.result?.backup?.relativePath || fileName;
+            const isNew = act.result?.backup
+              ? act.result.backup.existedBefore === false
+              : (name === 'write_file' && act.result?.action === 'written');
+            const added = Number(act.result?.addedLines) || 0;
+            const removed = Number(act.result?.removedLines) || 0;
+            const diff = act.result?.diff || '';
+
+            if (fileMap.has(normalizedPath)) {
+              const existing = fileMap.get(normalizedPath)!;
+              existing.addedLines += added;
+              existing.removedLines += removed;
+              if (diff) {
+                existing.diff = (existing.diff ? existing.diff + '\n' : '') + diff;
+              }
+              // Preserve earliest backup original content
+              if (!existing.backup?.originalContent && act.result?.backup?.originalContent) {
+                existing.backup.originalContent = act.result.backup.originalContent;
+              }
+            } else {
+              fileMap.set(normalizedPath, {
+                path: p,
+                fileName,
+                relativePath,
+                addedLines: added,
+                removedLines: removed,
+                isNew,
+                diff,
+                backup: act.result?.backup ? { ...act.result.backup } : {
+                  path: p,
+                  originalContent: null,
+                  existedBefore: !isNew,
+                  relativePath,
+                },
+              });
+            }
+          }
+        }
+      }
+    }
+
+    setRevertModalTarget(msg);
+    setRevertFiles(Array.from(fileMap.values()));
+    setRevertFileChangesChecked(true);
+    setViewingDiffFile(null);
+  };
+
+  const handleConfirmRevert = async () => {
+    if (!revertModalTarget) return;
+    const targetMsg = revertModalTarget;
+    const msgIndex = messages.findIndex((m) => m.id === targetMsg.id);
+    if (msgIndex === -1) {
+      setRevertModalTarget(null);
+      return;
+    }
+
+    // 1. If revertFileChangesChecked is true and backups exist, restore files on disk
+    if (revertFileChangesChecked && revertFiles.length > 0) {
+      const effectiveRoot = activeConversation.workspaceRoot || activeWorkspaceRoot || workspaceRoot || '';
+      const backups = revertFiles
+        .map((f) => ({
+          path: f.backup?.path || f.path,
+          relativePath: f.backup?.relativePath || f.relativePath,
+          originalContent: f.backup?.originalContent ?? null,
+          existedBefore: f.backup?.existedBefore ?? !f.isNew,
+          diff: f.diff,
+        }))
+        .filter((b) => Boolean(b && b.path));
+
+      if (backups.length > 0 && window.jarvisAPI?.revertFileChanges) {
+        try {
+          await window.jarvisAPI.revertFileChanges({
+            backups,
+            workspaceRoot: effectiveRoot,
+          });
+        } catch (err) {
+          console.error('[Revert] Failed to revert file changes on disk:', err);
+        }
+      }
+    }
+
+    // 2. Remove that message and any subsequent messages from the conversation history
+    const historyBefore = messages.slice(0, msgIndex);
+    const targetConvoId = activeConversation.id;
+
+    // Cancel active agent task for this conversation
+    if (window.jarvisAPI?.cancelTask) {
+      window.jarvisAPI.cancelTask(targetConvoId).catch(() => {});
+    }
+    cancelledConvosRef.current.add(targetConvoId);
+    setLiveStepsByConvo((prev) => {
+      const next = { ...prev };
+      delete next[targetConvoId];
+      return next;
+    });
+    onSetConvoThinking?.(targetConvoId, false);
+    setLoading(false);
+
+    if (onUpdateConvoMessages) {
+      onUpdateConvoMessages(targetConvoId, () => historyBefore);
+    } else {
+      onUpdateMessages(() => historyBefore);
+    }
+
+    // 3. Put that user message with the image/attachment into the input itself
+    const oldContent = targetMsg.content || '';
+    setInputValue(oldContent);
+
+    if (targetMsg.attachedFile) {
+      if (typeof targetMsg.attachedFile === 'string') {
+        const p = targetMsg.attachedFile;
+        const fName = getBaseFileName(p);
+        const ext = (p.split('.').pop() || '').toLowerCase();
+        const isImg = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'svg'].includes(ext);
+        const previewUrl = isImg
+          ? (p.startsWith('data:') || p.startsWith('http') || p.startsWith('blob:') || p.startsWith('file:')
+              ? p
+              : `file:///${p.replace(/\\/g, '/')}`)
+          : undefined;
+        setAttachedFile({
+          path: p,
+          name: fName,
+          ext: '.' + ext,
+          category: isImg ? 'photo' : 'document',
+          previewUrl,
+        });
+      } else {
+        const att = { ...targetMsg.attachedFile };
+        if (isImageAttachment(att) && att.path && !att.previewUrl) {
+          att.previewUrl = att.path.startsWith('file:') || att.path.startsWith('http') || att.path.startsWith('data:')
+            ? att.path
+            : `file:///${att.path.replace(/\\/g, '/')}`;
+        }
+        setAttachedFile(att);
+      }
+    } else {
+      setAttachedFile(null);
+    }
+
+    if (Array.isArray(targetMsg.mentions)) {
+      setStagedMentions(targetMsg.mentions);
+    } else {
+      setStagedMentions([]);
+    }
+
+    // Direct DOM sync to ensure contenteditable receives value across mounting/docking view transitions
+    const syncInputDom = () => {
+      if (inputRef.current) {
+        inputRef.current.innerText = oldContent;
+        inputRef.current.focus();
+        try {
+          const sel = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(inputRef.current);
+          range.collapse(false);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        } catch (_) {}
+      }
+    };
+
+    syncInputDom();
+    setTimeout(syncInputDom, 30);
+    setTimeout(syncInputDom, 100);
+    setTimeout(syncInputDom, 250);
+
+    // 4. Close modal
+    setRevertModalTarget(null);
+    setRevertFiles([]);
+    setViewingDiffFile(null);
+  };
+
+  useEffect(() => {
+    if (!revertModalTarget) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setRevertModalTarget(null);
+      } else if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        handleConfirmRevert();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [revertModalTarget, revertFileChangesChecked, revertFiles, messages, activeConversation.id]);
 
   const handleSynthesizeConsensus = async (msgId: string) => {
     const msgIndex = messages.findIndex((m) => m.id === msgId);
@@ -4760,6 +5222,149 @@ export const ChatTab = React.memo<ChatTabProps>(({
     </AnimatePresence>
   );
 
+  const renderRevertModal = () => {
+    if (!revertModalTarget) return null;
+
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+        onClick={() => setRevertModalTarget(null)}
+      >
+        <div
+          className="relative w-full max-w-[480px] bg-[#131317] border border-white/10 rounded-2xl shadow-2xl p-6 text-neutral-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between pb-1">
+            <h3 className="text-[17px] font-semibold text-white tracking-tight">Confirm Undo</h3>
+            <button
+              type="button"
+              onClick={() => setRevertModalTarget(null)}
+              className="text-neutral-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer bg-transparent border-none"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Subtitle */}
+          <p className="text-[13px] text-neutral-400 mt-2 mb-4 leading-normal">
+            Confirming this undo action will make the following changes:
+          </p>
+
+          {/* Checkbox: Revert file changes */}
+          {revertFiles.length > 0 ? (
+            <label
+              onClick={() => setRevertFileChangesChecked((prev) => !prev)}
+              className="flex items-center gap-2.5 cursor-pointer select-none mb-3.5 group"
+            >
+              <div
+                className={`w-4 h-4 rounded-[4px] flex items-center justify-center transition-colors ${
+                  revertFileChangesChecked
+                    ? 'bg-[#2f71e3] text-white'
+                    : 'border border-neutral-600 bg-neutral-800/80 group-hover:border-neutral-500'
+                }`}
+              >
+                {revertFileChangesChecked && <Check className="w-3 h-3 stroke-[3]" />}
+              </div>
+              <span className="text-[13.5px] font-medium text-neutral-200">Revert file changes</span>
+            </label>
+          ) : null}
+
+          {/* File List */}
+          {revertFiles.length > 0 ? (
+            <div className="flex flex-col gap-1 max-h-[220px] overflow-y-auto pr-1 my-2 custom-scrollbar">
+              {revertFiles.map((file) => (
+                <div key={file.path} className="flex flex-col">
+                  <div className="flex items-center justify-between py-1 px-1 rounded-lg hover:bg-white/[0.03] transition-colors group">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="shrink-0 flex items-center justify-start w-5">
+                        {getFileBadge(file.path)}
+                      </span>
+                      <span className="text-[13px] text-neutral-200 font-mono truncate" title={file.path}>
+                        {file.fileName}
+                      </span>
+                      {file.isNew ? (
+                        <span className="text-[#ef4444] text-[12px] font-mono font-medium ml-2">
+                          Delete
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[12px] flex items-center gap-1.5 ml-2">
+                          {file.addedLines > 0 && (
+                            <span className="text-[#22c55e]">+{file.addedLines}</span>
+                          )}
+                          {file.removedLines > 0 && (
+                            <span className="text-[#ef4444]">-{file.removedLines}</span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+
+                    {(file.diff || file.addedLines > 0 || file.removedLines > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => setViewingDiffFile(viewingDiffFile === file.path ? null : file.path)}
+                        className="px-3 py-1 text-[11.5px] font-medium rounded-lg bg-[#252528] hover:bg-[#303035] text-neutral-200 hover:text-white border border-white/5 transition-colors cursor-pointer shrink-0 ml-auto"
+                      >
+                        {viewingDiffFile === file.path ? 'Hide Diff' : 'View Diff'}
+                      </button>
+                    )}
+                  </div>
+
+                  {viewingDiffFile === file.path && (
+                    <div className="my-1.5 p-2.5 rounded-lg bg-[#0d0f17] border border-white/10 font-mono text-[11px] max-h-[160px] overflow-y-auto leading-relaxed custom-scrollbar select-text">
+                      {file.diff ? (
+                        file.diff.split('\n').map((line, lIdx) => (
+                          <div
+                            key={lIdx}
+                            className={
+                              line.startsWith('+') && !line.startsWith('+++')
+                                ? 'text-[#22c55e] bg-emerald-950/20 px-1 rounded-xs'
+                                : line.startsWith('-') && !line.startsWith('---')
+                                ? 'text-[#ef4444] bg-rose-950/20 px-1 rounded-xs'
+                                : 'text-neutral-400 px-1'
+                            }
+                          >
+                            {line}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-neutral-500 italic px-1">No diff preview available for this file.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-3 px-3 rounded-lg bg-neutral-900/50 border border-white/5 text-[13px] text-neutral-400">
+              No files were modified by the assistant after this message. Reverting will roll the conversation back to this point and restore your draft in the input.
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-3 pt-4 mt-3">
+            <button
+              type="button"
+              onClick={() => setRevertModalTarget(null)}
+              className="px-4 py-2 text-[13.5px] font-medium text-neutral-400 hover:text-white transition-colors cursor-pointer bg-transparent border-none"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmRevert}
+              className="px-5 py-2.5 text-[13.5px] font-medium text-white bg-[#2f71e3] hover:bg-[#2563eb] rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm border-none"
+            >
+              <span>Confirm</span>
+              <CornerDownLeft className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <WarmTooltipGroup delay={400} warmWindow={300} travel={320} lean={false}>
     <div
@@ -4800,6 +5405,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         className="hidden"
       />
       {renderCameraModal()}
+      {renderRevertModal()}
 
       {/* Background Gradient Effect (Grokki Threads or Grainient Fluid Mesh) */}
       {!!config.chatBackgroundGradient && (
@@ -5525,6 +6131,25 @@ export const ChatTab = React.memo<ChatTabProps>(({
                                 <Pencil className="w-3 h-3" />
                               </button>
                             </WarmTooltip>
+
+                            <WarmTooltip
+                              content="Revert to this message"
+                              side="bottom"
+                              surfaceColor="#f5f5f5"
+                              inkColor="#18181b"
+                              size="sm"
+                              radius={6}
+                              arrow
+                            >
+                              <button
+                                type="button"
+                                aria-label="Revert to this message"
+                                onClick={() => handleOpenRevertModal(msg)}
+                                className="p-1 rounded text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1a1c24] transition-colors cursor-pointer border-none bg-transparent"
+                              >
+                                <Undo2 className="w-3 h-3" />
+                              </button>
+                            </WarmTooltip>
                           </div>
                         </div>
                       </div>
@@ -5550,21 +6175,15 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           </span>
                         </div>
 
-                        {/* Executed Tools Actions (Antigravity Live Progress Style) */}
+                        {/* Executed Tools Actions (Antigravity Accordion Style) */}
                         {msg.actionsExecuted && msg.actionsExecuted.length > 0 && (
-                          <div className="flex flex-col py-0.5 my-2 font-sans select-none border-b border-white/[0.04]">
-                            {msg.actionsExecuted.map((act, i) => {
-                              const stepId = act.id || `act_${msg.id}_${i}`;
-                              return (
-                                <AgentStepRow
-                                  key={stepId}
-                                  step={act}
-                                  isExpanded={expandedStepIds.has(stepId)}
-                                  onToggleExpand={() => toggleStepExpand(stepId)}
-                                />
-                              );
-                            })}
-                          </div>
+                          <AgentStepsAccordion
+                            steps={msg.actionsExecuted}
+                            defaultExpanded={true}
+                            expandedStepIds={expandedStepIds}
+                            onToggleStepExpand={toggleStepExpand}
+                            messageId={msg.id}
+                          />
                         )}
 
                         {/* Perplexity-Style Sources Bar */}
@@ -5887,17 +6506,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
                     </span>
                   </div>
                   {currentLiveSteps.length > 0 ? (
-                    <div className="flex flex-col py-0.5 font-sans select-none">
-                      {currentLiveSteps.map((step) => (
-                        <AgentStepRow
-                          key={step.id}
-                          step={step}
-                          isLive
-                          isExpanded={expandedStepIds.has(step.id)}
-                          onToggleExpand={() => toggleStepExpand(step.id)}
-                        />
-                      ))}
-                    </div>
+                    <AgentStepsAccordion
+                      steps={currentLiveSteps}
+                      isLive
+                      defaultExpanded={true}
+                      expandedStepIds={expandedStepIds}
+                      onToggleStepExpand={toggleStepExpand}
+                      messageId="live"
+                    />
                   ) : (
                     <div className="inline-flex items-center py-1">
                       <LatticeLoader

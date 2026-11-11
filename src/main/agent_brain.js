@@ -248,16 +248,209 @@ function extractJsonBlock(text) {
   if (!text || typeof text !== 'string') return null;
   const startIdx = text.search(/\{/);
   if (startIdx === -1) return null;
+
   let depth = 0;
+  let inString = false;
+  let isEscaped = false;
+
   for (let i = startIdx; i < text.length; i++) {
-    if (text[i] === '{') depth++;
-    else if (text[i] === '}') {
-      depth--;
-      if (depth === 0) {
-        return text.slice(startIdx, i + 1);
+    const char = text[i];
+
+    if (isEscaped) {
+      isEscaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      isEscaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '{') {
+        depth++;
+      } else if (char === '}') {
+        depth--;
+        if (depth === 0) {
+          return text.slice(startIdx, i + 1);
+        }
       }
     }
   }
+
+  return null;
+}
+
+function resolveTargetFileForEdit(text, prompt, context, executed = [], history = []) {
+  try {
+    const root = (context && context.workspaceRoot) || (codingAgentHarness && codingAgentHarness.getWorkspaceRoot()) || process.cwd();
+
+    // 1. Context attachments or mentions
+    const direct = (context && (context.filePath || context.attachedFile?.path || (typeof context.attachedFile === 'string' ? context.attachedFile : null) || context.projectMentions?.[0]?.fullPath || context.projectMentions?.[0]?.path)) || null;
+    if (direct && typeof direct === 'string') {
+      const resolved = codingAgentHarness.resolvePath(direct);
+      if (fs.existsSync(resolved)) return resolved;
+    }
+
+    // 2. Any path from executed steps in current turn
+    if (Array.isArray(executed)) {
+      for (const ex of executed) {
+        const p = ex?.args?.path || ex?.result?.path || ex?.result?.relativePath;
+        if (p && typeof p === 'string') {
+          const resolved = codingAgentHarness.resolvePath(p);
+          if (fs.existsSync(resolved)) return resolved;
+        }
+      }
+    }
+
+    // 3. Extract filename from prompt or text
+    const combined = `${prompt || ''} ${text || ''}`;
+    const fileMatches = combined.match(/\b([a-zA-Z0-9_\-./\\]+\.(?:py|js|ts|tsx|jsx|html|css|json|cpp|c|java|go|rs|md))\b/gi);
+    if (fileMatches) {
+      for (const candidate of fileMatches) {
+        const resolved = codingAgentHarness.resolvePath(candidate);
+        if (fs.existsSync(resolved)) return resolved;
+        const found = codingAgentHarness.findFileInRoot(root, path.basename(candidate));
+        if (found && fs.existsSync(found)) return found;
+      }
+    }
+
+    // 4. Extract from conversation history (scan backwards up to 16 turns)
+    if (Array.isArray(history)) {
+      for (let i = history.length - 1; i >= Math.max(0, history.length - 16); i--) {
+        const turn = history[i];
+        if (Array.isArray(turn?.actionsExecuted)) {
+          for (const act of turn.actionsExecuted) {
+            const p = act?.result?.backup?.path || act?.args?.path || act?.result?.path || act?.result?.relativePath;
+            if (p && typeof p === 'string') {
+              const resolved = codingAgentHarness.resolvePath(p);
+              if (fs.existsSync(resolved)) return resolved;
+              const found = codingAgentHarness.findFileInRoot(root, path.basename(p));
+              if (found && fs.existsSync(found)) return found;
+            }
+          }
+        }
+        if (turn?.attachedFile) {
+          const ap = typeof turn.attachedFile === 'string' ? turn.attachedFile : turn.attachedFile?.path;
+          if (ap) {
+            const resolved = codingAgentHarness.resolvePath(ap);
+            if (fs.existsSync(resolved)) return resolved;
+            const found = codingAgentHarness.findFileInRoot(root, path.basename(ap));
+            if (found && fs.existsSync(found)) return found;
+          }
+        }
+        if (Array.isArray(turn?.mentions)) {
+          for (const m of turn.mentions) {
+            const mp = m?.fullPath || (typeof m === 'string' ? m : m?.path);
+            if (mp) {
+              const resolved = codingAgentHarness.resolvePath(mp);
+              if (fs.existsSync(resolved)) return resolved;
+              const found = codingAgentHarness.findFileInRoot(root, path.basename(mp));
+              if (found && fs.existsSync(found)) return found;
+            }
+          }
+        }
+        const hText = typeof turn?.content === 'string'
+          ? turn.content
+          : (Array.isArray(turn?.parts) ? turn.parts.map(p => p.text || '').join(' ') : '');
+        const hMatches = hText.match(/\b([a-zA-Z0-9_\-./\\]+\.(?:py|js|ts|tsx|jsx|html|css|json|cpp|c|java|go|rs|md))\b/gi);
+        if (hMatches) {
+          for (const candidate of hMatches) {
+            const resolved = codingAgentHarness.resolvePath(candidate);
+            if (fs.existsSync(resolved)) return resolved;
+            const found = codingAgentHarness.findFileInRoot(root, path.basename(candidate));
+            if (found && fs.existsSync(found)) return found;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[AgentBrain] resolveTargetFileForEdit warning:', err.message);
+  }
+  return null;
+}
+
+function safeParseLlmJson(rawStr) {
+  if (!rawStr) return null;
+  try {
+    return JSON.parse(rawStr);
+  } catch (_) {}
+
+  try {
+    let sanitized = '';
+    let inString = false;
+    let isEscaped = false;
+
+    for (let i = 0; i < rawStr.length; i++) {
+      const c = rawStr[i];
+      if (isEscaped) {
+        sanitized += c;
+        isEscaped = false;
+        continue;
+      }
+      if (c === '\\') {
+        sanitized += c;
+        isEscaped = true;
+        continue;
+      }
+      if (c === '"') {
+        inString = !inString;
+        sanitized += c;
+        continue;
+      }
+      if (inString) {
+        if (c === '\n') {
+          sanitized += '\\n';
+        } else if (c === '\r') {
+          // ignore
+        } else if (c === '\t') {
+          sanitized += '\\t';
+        } else {
+          sanitized += c;
+        }
+      } else {
+        sanitized += c;
+      }
+    }
+
+    return JSON.parse(sanitized);
+  } catch (_) {}
+
+  try {
+    const nameMatch = rawStr.match(/"(?:name|function|action)"\s*:\s*"([^"]+)"/i);
+    if (nameMatch) {
+      const name = nameMatch[1];
+      const pathMatch = rawStr.match(/"path"\s*:\s*"([^"]+)"/i);
+      const filePath = pathMatch ? pathMatch[1] : '';
+
+      let replacement = '';
+      const repMatch = rawStr.match(/"(?:replacement|content|code)"\s*:\s*"([\s\S]*?)"\s*(?:,\s*"|\}\s*$)/);
+      if (repMatch) {
+        replacement = repMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+      }
+
+      let target = '';
+      const targetMatch = rawStr.match(/"target"\s*:\s*"([\s\S]*?)"\s*(?:,\s*"|\}\s*$)/);
+      if (targetMatch) {
+        target = targetMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+      }
+
+      return {
+        name,
+        arguments: {
+          path: filePath,
+          target,
+          replacement,
+        },
+      };
+    }
+  } catch (_) {}
+
   return null;
 }
 
@@ -582,12 +775,25 @@ class AgentBrain {
     this.musicPlayerControlHandler = handler;
   }
 
-  buildAgentSystemPrompt(context = {}, config = {}, fullPrompt = '') {
+  buildAgentSystemPrompt(context = {}, config = {}, fullPrompt = '', conversationHistory = []) {
     const root = context.workspaceRoot || (codingAgentHarness && codingAgentHarness.getWorkspaceRoot()) || process.cwd();
     const projectName = context.workspaceName || path.basename(root) || 'Project';
     const permission = context.permission || 'turbo';
     const maxTurns = context.maxTurns || 16;
     const userNick = config.userNickname || config.userName || 'User';
+
+    const activeTargetFile = resolveTargetFileForEdit('', fullPrompt, context, [], conversationHistory);
+    let activeFileBlock = '';
+    if (activeTargetFile) {
+      const relPath = path.relative(root, activeTargetFile);
+      activeFileBlock = `
+
+ACTIVE FILE UNDER DEVELOPMENT:
+- Active File: "${relPath}" (Absolute: "${activeTargetFile}")
+- DIRECTIVE: The user's instruction relates directly to "${relPath}".
+  DO NOT run git status, DO NOT search or list the root folder, and DO NOT list 90 unrelated files.
+  Directly inspect "${relPath}" with read_file and apply your changes using edit_file!`;
+    }
 
     return `You are Grokki Agent, an expert autonomous software engineer and coding harness operating directly in the user's local project.
 
@@ -595,7 +801,7 @@ PROJECT WORKSPACE:
 - Root directory: "${root}"
 - Project name: "${projectName}"
 - Local permission level: "${permission}" (if "review" or "default", file writes, edits, and terminal commands trigger interactive user approval)
-- Step budget: up to ${maxTurns} iterative tool calls to inspect, code, and test.
+- Step budget: up to ${maxTurns} iterative tool calls to inspect, code, and test.${activeFileBlock}
 
 YOUR CODING HARNESS TOOLS:
 - list_directory({ path }): List files and folders in "${root}" (relative path, e.g. "." or "src").
@@ -609,13 +815,17 @@ YOUR CODING HARNESS TOOLS:
 STRICT OPERATIONAL DIRECTIVES:
 1. NEVER SAY "I cannot directly edit files in your project" or "I don't have access to your local files". You HAVE tools to inspect and modify files directly on disk. Refusing or claiming inability to edit local files is STRICTLY FORBIDDEN.
 2. DO NOT DUMP FULL-FILE CODE IN CHAT FOR THE USER TO COPY-PASTE. Instead of pasting code in chat, use read_file to inspect the file, and then call edit_file or write_file to apply the changes directly to disk!
-3. WHEN THE USER ASKS TO IMPROVE, FIX, REFACTOR, OR BUILD (e.g. "Can you improve the design a bit?"):
-   - Step 1: Immediately use list_directory or search_code to locate relevant files (e.g. App.tsx, CSS, components).
-   - Step 2: Use read_file to inspect the current code.
-   - Step 3: Use edit_file (or write_file) to apply the improvements directly on disk.
-   - Step 4: After files are edited, give a concise summary of what you improved and which files were updated.
-4. When permission level is "review" or "default", your file edits or command tool calls will present the user with an interactive permission approval card above the chat input. Issue the tool call so the user can review and approve it.
-5. All file paths must be relative to "${root}" or absolute. Keep explanations brief and let tool calls do the work.`;
+3. WHEN THE USER ASKS TO EDIT, CODE, IMPROVE, FIX, REFACTOR, OR MAKE CODE PROFESSIONAL (e.g. "Make it like a professional coded it", "Can you make it better?", "Refactor this"):
+   - "It" refers directly to the file currently being worked on in this conversation (${activeTargetFile ? `specifically "${path.basename(activeTargetFile)}"` : 'the target file'}).
+   - DO NOT list the workspace or explore unrelated folders.
+   - Step 1: Use read_file to inspect the current code if not already inspected.
+   - Step 2: Use edit_file (or write_file) to apply the professional code improvements directly on disk.
+   - Step 3: Give a concise summary of what you improved.
+4. ONLY INSPECT OR LIST DIRECTORIES when the user explicitly asks to check or explore the overall project (e.g. "Can you check on this project?", "Inspect this project", "What is in this folder?").
+5. When permission level is "review" or "default", your file edits or command tool calls will present the user with an interactive permission approval card above the chat input. Issue the tool call so the user can review and approve it.
+6. All file paths must be relative to "${root}" or absolute. Keep explanations brief and let tool calls do the work.
+7. STRICT CHAT ISOLATION: Each chat session has its own strictly isolated memory. NEVER assume or bring up projects, tasks, or code from other chats unless the user explicitly mentions or asks to recall them.
+8. CROSS-CHAT & MEMORY ACCESS: When the user specifically asks to recall past chats or long-term memory (e.g. "recall what we did earlier", "check memory", "what did I say about X in the other chat"), call search_memory({ query: "..." }) to look up and retrieve those memories. Every recall action will appear in the live steps list.`;
   }
 
   getRelevantTools(prompt = '', provider = 'gemini', context = {}) {
@@ -2700,18 +2910,25 @@ STRICT OPERATIONAL DIRECTIVES:
 
     fullPrompt = expandSlashDirective(fullPrompt);
 
-    // Mem0 Personalized Long-Term Memory Context Injection
-    try {
-      const mem0Ctx = await mem0Manager.getMemoriesContext(prompt);
-      if (mem0Ctx) {
-        fullPrompt = `${mem0Ctx}\n${fullPrompt}`;
-      }
-    } catch (_) {}
+    // Mem0 Long-Term Memory Context Injection (ONLY when user explicitly requests/mentions memory)
+    const isExplicitMemoryQuery = /\b(recall|remember|memory|memories|other chat|past chat|earlier chat|from before|what did i say about|my preferences?)\b/i.test(prompt);
+    if (isExplicitMemoryQuery) {
+      try {
+        const mem0Ctx = await mem0Manager.getMemoriesContext(prompt);
+        if (mem0Ctx) {
+          fullPrompt = `${mem0Ctx}\n${fullPrompt}`;
+        }
+      } catch (_) {}
+    }
+
+    if (context && Array.isArray(context.conversationHistory)) {
+      memory.syncFromExternalHistory(context.conversationHistory, convoId);
+    }
+    const conversationHistory = (context && Array.isArray(context.conversationHistory))
+      ? context.conversationHistory
+      : memory.getConvoHistory(convoId);
 
     let groundingSources = [];
-    const conversationHistory = (context && Array.isArray(context.conversationHistory) && context.conversationHistory.length > 0)
-      ? context.conversationHistory
-      : memory.getHistory();
     const isConversationalPrompt = /^(hi|hello|hey|yo|sup|wassup|wazzup|whats?\s*up|what\s+is\s+up|how\s*('?s|is)\s*(it|everything|life)|how\s+are\s+you|how\s+do\s+you\s+do|howdy|greetings|good\s+(morning|afternoon|evening|night|day)|thanks|thank\s+you|ok|okay|bye|cool|nice)\b/i.test(prompt.trim()) && prompt.trim().split(/\s+/).length <= 7;
     const isWebSearchActive = !isConversationalPrompt && Boolean(
       context && (context.webSearch || context.webSearchEnabled) ||
@@ -2731,23 +2948,27 @@ STRICT OPERATIONAL DIRECTIVES:
       }
     }
 
-    if (context && Array.isArray(context.conversationHistory) && context.conversationHistory.length > 0) {
-      memory.syncFromExternalHistory(context.conversationHistory);
-    }
-
-    memory.addTurn('user', prompt);
+    memory.addTurn('user', prompt, null, context);
 
     const isAgent = Boolean(context && context.mode === 'agent');
-    if (context && context.workspaceRoot) {
-      codingAgentHarness.setWorkspaceRoot(context.workspaceRoot);
-    }
-    if (context && context.permission) {
-      codingAgentHarness.setPermissionLevel(context.permission);
+    codingAgentHarness.syncContext(context);
+
+    // If agent mode and a target file was worked on or referenced, anchor follow-up instructions to it
+    if (isAgent) {
+      const activeTarget = resolveTargetFileForEdit('', fullPrompt, context, [], conversationHistory);
+      if (activeTarget && fs.existsSync(activeTarget)) {
+        const root = (context && context.workspaceRoot) || codingAgentHarness.getWorkspaceRoot();
+        const rel = path.relative(root, activeTarget);
+        const baseName = path.basename(activeTarget);
+        if (!fullPrompt.includes(rel) && !fullPrompt.includes(baseName)) {
+          fullPrompt = `[Active Target File: "${rel}"]\n${fullPrompt}`;
+        }
+      }
     }
 
-    const rawHistory = memory.getHistory();
+    const rawHistory = memory.getConvoHistory(convoId);
     let systemContent = isAgent
-      ? this.buildAgentSystemPrompt(context, config, fullPrompt)
+      ? this.buildAgentSystemPrompt(context, config, fullPrompt, conversationHistory)
       : memory.buildSystemPrompt(config, fullPrompt);
     let historyToUse = rawHistory.slice(-18);
 
@@ -2821,12 +3042,7 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       } catch (_) {}
     }
 
-    if (context && context.workspaceRoot) {
-      codingAgentHarness.setWorkspaceRoot(context.workspaceRoot);
-    }
-    if (context && context.permission) {
-      codingAgentHarness.setPermissionLevel(context.permission);
-    }
+    codingAgentHarness.syncContext(context);
 
     try {
       if (signal.aborted) throw new Error('TASK_CANCELLED');
@@ -2881,15 +3097,15 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
         const toolCalls = Array.isArray(msg.tool_calls) ? [...msg.tool_calls] : [];
 
         // Intercept pseudo-tool calls from OpenRouter / Groq / Open-source models
-        // that output tool calls in the message text body (e.g. call>{"name": "playmusic", ...} or <tool_call>...</tool_call>)
+        // that output tool calls in the message text body (e.g. call>{"name": "playmusic", ...} or <tool_call>...</tool_call> or raw JSON)
         if (replyText) {
           const hasPseudoCall = /(?:call>|<tool_call>|\[TOOL_CALL\]|\bcall:\s*|\bAction:\s*)\s*\{/i.test(replyText) ||
-                                (replyText.startsWith('{') && (replyText.includes('"name"') || replyText.includes('"function"')));
+                                (replyText.includes('{') && (replyText.includes('"name"') || replyText.includes('"function"') || replyText.includes('"action"')));
           if (hasPseudoCall) {
             const jsonStr = extractJsonBlock(replyText);
             if (jsonStr) {
-              try {
-                const parsed = JSON.parse(jsonStr);
+              const parsed = safeParseLlmJson(jsonStr);
+              if (parsed) {
                 let toolName = (parsed.name || parsed.function?.name || parsed.action || '').trim();
                 let toolArgs = parsed.arguments || parsed.args || parsed.parameters || parsed.function?.arguments || {};
                 if (typeof toolArgs === 'string') {
@@ -2910,14 +3126,37 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
                       arguments: toolArgs,
                     },
                   });
-                  replyText = replyText.replace(/(?:call>|<tool_call>|\[TOOL_CALL\]|\bcall:\s*|\bAction:\s*)?[\s\S]*?\}<\/tool_call>|call>[\s\S]*\}|```(?:json)?\s*\{[\s\S]*?\}\s*```/i, '').trim();
+                  replyText = replyText.replace(jsonStr, '').replace(/(?:call>|<tool_call>|\[TOOL_CALL\]|\bcall:\s*|\bAction:\s*)?[\s\S]*?\}<\/tool_call>|call>[\s\S]*\}|```(?:json)?\s*\{[\s\S]*?\}\s*```/i, '').trim();
                   if (replyText.startsWith('{') && replyText.endsWith('}')) {
                     replyText = '';
                   }
                 }
-              } catch (err) {
-                console.warn('[AgentBrain] Failed to parse pseudo-tool call JSON:', err.message);
               }
+            }
+          }
+        }
+
+        // If no tool call was issued, but in agent mode the model outputted code intended to modify the target file
+        if (toolCalls.length === 0 && isAgent) {
+          const targetFile = resolveTargetFileForEdit(replyText, prompt, context, executed, conversationHistory);
+          if (targetFile && typeof targetFile === 'string') {
+            const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
+            const match = replyText.match(codeBlockRegex);
+            const mentionsEditIntent = /(?:edit_file|write_file|updated script|improved code|here(?:'s|\s+is)\s+the\s+improved|here(?:'s|\s+is)\s+the\s+updated|modified version|make the changes|use the)/i.test(replyText);
+
+            if (match && match[1] && (mentionsEditIntent || replyText.includes(path.basename(targetFile)))) {
+              const codeToApply = match[1];
+              toolCalls.push({
+                id: `auto_edit_${Date.now()}`,
+                type: 'function',
+                function: {
+                  name: 'edit_file',
+                  arguments: {
+                    path: targetFile,
+                    replacement: codeToApply,
+                  },
+                },
+              });
             }
           }
         }
@@ -2953,14 +3192,18 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
             args,
           });
 
+          console.log(`[AgentBrain] Executing tool '${name}' with args:`, JSON.stringify(args).slice(0, 150));
           const result = await this.executeTool(name, args, config.geminiApiKey || apiKey);
-          executed.push({ id: stepId, name, args, result });
+          const stepStatus = (result && result.success === false) ? 'failed' : 'completed';
+          console.log(`[AgentBrain] Tool '${name}' result: ${stepStatus.toUpperCase()}`, result?.message ? result.message.slice(0, 100) : (result?.error || ''));
+
+          executed.push({ id: stepId, name, args, result, status: stepStatus });
           stepToolResults.push({ call, name, result });
 
           this.emitAgentStep(context, {
             id: stepId,
             conversationId: convoId,
-            status: 'completed',
+            status: stepStatus,
             name,
             args,
             result,
@@ -3007,6 +3250,84 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
         finalReplyText = executed[executed.length - 1].result?.message || `Done: ${executed[0].name.replace(/_/g, ' ')}.`;
       } else if (!finalReplyText) {
         finalReplyText = 'Ready.';
+      }
+
+      // If the reply is still a raw terminal output dump or empty after executing agent tools, synthesize a human response
+      if (isAgent && executed.length > 0 && (!finalReplyText || finalReplyText.startsWith('```bash\n$'))) {
+        const lastAction = executed[executed.length - 1];
+        const root = context.workspaceRoot || (codingAgentHarness && codingAgentHarness.getWorkspaceRoot()) || process.cwd();
+        const projectName = context.workspaceName || path.basename(root) || 'Project';
+
+        if (lastAction?.name === 'git_operations' && (lastAction.result?.stderr?.includes('not a git repository') || lastAction.result?.message?.includes('not a git repository'))) {
+          try {
+            const listRes = await codingAgentHarness.listDirectory({ path: '.', depth: 2 });
+            if (listRes && listRes.success && listRes.items?.length > 0) {
+              const fileCount = listRes.items.filter(i => i.type === 'file').length;
+              const dirCount = listRes.items.filter(i => i.type === 'directory').length;
+              const topFiles = listRes.items.slice(0, 10).map(i => `- \`${i.relativePath}\``).join('\n');
+              finalReplyText = `Checked **${projectName}** (\`${root}\`). It is not currently initialized as a Git repository.\n\nI inspected the workspace and found **${dirCount} folders and ${fileCount} files**, including:\n${topFiles}\n\nLet me know what you'd like to work on in this project (e.g. initialize git, search files, inspect code, or make edits).`;
+            } else {
+              finalReplyText = `Checked **${projectName}** (\`${root}\`). It is not currently initialized as a Git repository. Let me know what you would like to inspect or build next.`;
+            }
+          } catch (_) {
+            finalReplyText = `Checked **${projectName}** (\`${root}\`). It is not currently initialized as a Git repository. Let me know if you would like me to list the files or initialize a repository.`;
+          }
+        } else if (lastAction?.result?.message && !lastAction.result.message.startsWith('```bash\n$')) {
+          finalReplyText = lastAction.result.message;
+        } else {
+          finalReplyText = `Finished running ${executed.map(e => e.name.replace(/_/g, ' ')).join(', ')} in **${projectName}**.`;
+        }
+      }
+
+      // Post-loop auto-apply safety net for coding agents:
+      // If the model outputted an improved/updated script in a markdown code block,
+      // ensure the target file on disk is ALWAYS updated with this real implementation!
+      if (isAgent) {
+        const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
+        const codeMatch = finalReplyText.match(codeBlockRegex);
+        if (codeMatch && codeMatch[1]) {
+          const targetFile = resolveTargetFileForEdit(finalReplyText, prompt, context, executed, conversationHistory);
+          if (targetFile && fs.existsSync(targetFile)) {
+            const codeToApply = codeMatch[1].trim();
+            const curContent = fs.readFileSync(targetFile, 'utf8').trim();
+            if (codeToApply.length > 5 && curContent !== codeToApply) {
+              console.log(`[AgentBrain] Post-loop code sync: writing real implementation to disk: ${targetFile}`);
+              const editRes = await codingAgentHarness.writeFile({
+                path: targetFile,
+                content: codeMatch[1],
+                overwrite: true,
+              });
+              if (editRes && editRes.success !== false) {
+                // Remove or replace any previous dummy edit for this target file from executed steps
+                const existingIdx = executed.findIndex(e =>
+                  (e.name === 'edit_file' || e.name === 'write_file') &&
+                  (e.args?.path === targetFile || targetFile.includes(path.basename(e.args?.path || '')))
+                );
+                const autoStepId = existingIdx !== -1 ? executed[existingIdx].id : `step_auto_${Date.now()}`;
+                const autoStep = {
+                  id: autoStepId,
+                  name: 'edit_file',
+                  args: { path: targetFile },
+                  result: editRes,
+                  status: 'completed',
+                };
+                if (existingIdx !== -1) {
+                  executed[existingIdx] = autoStep;
+                } else {
+                  executed.push(autoStep);
+                }
+                this.emitAgentStep(context, {
+                  id: autoStepId,
+                  conversationId: convoId,
+                  status: 'completed',
+                  name: 'edit_file',
+                  args: { path: targetFile },
+                  result: editRes,
+                });
+              }
+            }
+          }
+        }
       }
 
       memory.addTurn('model', finalReplyText);
@@ -3061,6 +3382,44 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
         const res = await this.executeTool('upload_to_google_drive', { file_path: directAttachPath }, config.geminiApiKey || config.groqApiKey || '');
         const replyText = res.message || 'File upload completed.';
         memory.addTurn('user', prompt);
+        if (isAgent) {
+          const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
+          const codeMatch = replyText.match(codeBlockRegex);
+          if (codeMatch && codeMatch[1]) {
+            const targetFile = resolveTargetFileForEdit(replyText, prompt, context, executed, conversationHistory);
+            if (targetFile && fs.existsSync(targetFile)) {
+              const codeToApply = codeMatch[1].trim();
+              const curContent = fs.readFileSync(targetFile, 'utf8').trim();
+              if (codeToApply.length > 5 && curContent !== codeToApply) {
+                console.log(`[AgentBrain] Post-loop code sync: writing real implementation to disk: ${targetFile}`);
+                const editRes = await codingAgentHarness.writeFile({
+                  path: targetFile,
+                  content: codeMatch[1],
+                  overwrite: true,
+                });
+                if (editRes && editRes.success !== false) {
+                  const autoStepId = `step_auto_${Date.now()}`;
+                  executed.push({
+                    id: autoStepId,
+                    name: 'edit_file',
+                    args: { path: targetFile },
+                    result: editRes,
+                    status: 'completed',
+                  });
+                  this.emitAgentStep(context, {
+                    id: autoStepId,
+                    conversationId: convoId,
+                    status: 'completed',
+                    name: 'edit_file',
+                    args: { path: targetFile },
+                    result: editRes,
+                  });
+                }
+              }
+            }
+          }
+        }
+
         memory.addTurn('model', replyText);
         return {
           success: res.success !== false,
@@ -3085,6 +3444,44 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
         }, config.geminiApiKey || config.groqApiKey || '');
         const replyText = res.message || 'WhatsApp prepared.';
         memory.addTurn('user', prompt);
+        if (isAgent) {
+          const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
+          const codeMatch = replyText.match(codeBlockRegex);
+          if (codeMatch && codeMatch[1]) {
+            const targetFile = resolveTargetFileForEdit(replyText, prompt, context, executed, conversationHistory);
+            if (targetFile && fs.existsSync(targetFile)) {
+              const codeToApply = codeMatch[1].trim();
+              const curContent = fs.readFileSync(targetFile, 'utf8').trim();
+              if (codeToApply.length > 5 && curContent !== codeToApply) {
+                console.log(`[AgentBrain] Post-loop code sync: writing real implementation to disk: ${targetFile}`);
+                const editRes = await codingAgentHarness.writeFile({
+                  path: targetFile,
+                  content: codeMatch[1],
+                  overwrite: true,
+                });
+                if (editRes && editRes.success !== false) {
+                  const autoStepId = `step_auto_${Date.now()}`;
+                  executed.push({
+                    id: autoStepId,
+                    name: 'edit_file',
+                    args: { path: targetFile },
+                    result: editRes,
+                    status: 'completed',
+                  });
+                  this.emitAgentStep(context, {
+                    id: autoStepId,
+                    conversationId: convoId,
+                    status: 'completed',
+                    name: 'edit_file',
+                    args: { path: targetFile },
+                    result: editRes,
+                  });
+                }
+              }
+            }
+          }
+        }
+
         memory.addTurn('model', replyText);
         return {
           success: res.success !== false,
@@ -3134,6 +3531,44 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
 
         const replyText = `✅ Grokki saved **\`${path.basename(savePath)}\`** to your PC at:\n\`${savePath}\``;
         memory.addTurn('user', prompt);
+        if (isAgent) {
+          const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
+          const codeMatch = replyText.match(codeBlockRegex);
+          if (codeMatch && codeMatch[1]) {
+            const targetFile = resolveTargetFileForEdit(replyText, prompt, context, executed, conversationHistory);
+            if (targetFile && fs.existsSync(targetFile)) {
+              const codeToApply = codeMatch[1].trim();
+              const curContent = fs.readFileSync(targetFile, 'utf8').trim();
+              if (codeToApply.length > 5 && curContent !== codeToApply) {
+                console.log(`[AgentBrain] Post-loop code sync: writing real implementation to disk: ${targetFile}`);
+                const editRes = await codingAgentHarness.writeFile({
+                  path: targetFile,
+                  content: codeMatch[1],
+                  overwrite: true,
+                });
+                if (editRes && editRes.success !== false) {
+                  const autoStepId = `step_auto_${Date.now()}`;
+                  executed.push({
+                    id: autoStepId,
+                    name: 'edit_file',
+                    args: { path: targetFile },
+                    result: editRes,
+                    status: 'completed',
+                  });
+                  this.emitAgentStep(context, {
+                    id: autoStepId,
+                    conversationId: convoId,
+                    status: 'completed',
+                    name: 'edit_file',
+                    args: { path: targetFile },
+                    result: editRes,
+                  });
+                }
+              }
+            }
+          }
+        }
+
         memory.addTurn('model', replyText);
         return {
           success: true,
@@ -3158,7 +3593,45 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
           const visionRes = await this.analyzeAttachedImage(directAttachPath, prompt, config.geminiApiKey || '');
           const replyText = visionRes.message || 'Analyzed attached image.';
           memory.addTurn('user', `${prompt || 'Analyze image'} [Attached image: ${path.basename(directAttachPath)}]`);
-          memory.addTurn('model', replyText);
+          if (isAgent) {
+          const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
+          const codeMatch = replyText.match(codeBlockRegex);
+          if (codeMatch && codeMatch[1]) {
+            const targetFile = resolveTargetFileForEdit(replyText, prompt, context, executed, conversationHistory);
+            if (targetFile && fs.existsSync(targetFile)) {
+              const codeToApply = codeMatch[1].trim();
+              const curContent = fs.readFileSync(targetFile, 'utf8').trim();
+              if (codeToApply.length > 5 && curContent !== codeToApply) {
+                console.log(`[AgentBrain] Post-loop code sync: writing real implementation to disk: ${targetFile}`);
+                const editRes = await codingAgentHarness.writeFile({
+                  path: targetFile,
+                  content: codeMatch[1],
+                  overwrite: true,
+                });
+                if (editRes && editRes.success !== false) {
+                  const autoStepId = `step_auto_${Date.now()}`;
+                  executed.push({
+                    id: autoStepId,
+                    name: 'edit_file',
+                    args: { path: targetFile },
+                    result: editRes,
+                    status: 'completed',
+                  });
+                  this.emitAgentStep(context, {
+                    id: autoStepId,
+                    conversationId: convoId,
+                    status: 'completed',
+                    name: 'edit_file',
+                    args: { path: targetFile },
+                    result: editRes,
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        memory.addTurn('model', replyText);
           return {
             success: true,
             reply: replyText,
@@ -3229,18 +3702,23 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
 
     fullPrompt = expandSlashDirective(fullPrompt);
 
-    // Mem0 Personalized Long-Term Memory Context Injection
-    try {
-      const mem0Ctx = await mem0Manager.getMemoriesContext(prompt);
-      if (mem0Ctx) {
-        fullPrompt = `${mem0Ctx}\n${fullPrompt}`;
-      }
-    } catch (_) {}
+    // Mem0 Long-Term Memory Context Injection (ONLY when user explicitly requests/mentions memory)
+    const isExplicitMemoryQuery = /\b(recall|remember|memory|memories|other chat|past chat|earlier chat|from before|what did i say about|my preferences?)\b/i.test(prompt);
+    if (isExplicitMemoryQuery) {
+      try {
+        const mem0Ctx = await mem0Manager.getMemoriesContext(prompt);
+        if (mem0Ctx) {
+          fullPrompt = `${mem0Ctx}\n${fullPrompt}`;
+        }
+      } catch (_) {}
+    }
 
-    let groundingSources = [];
-    const conversationHistory = (context && Array.isArray(context.conversationHistory) && context.conversationHistory.length > 0)
+    if (context && Array.isArray(context.conversationHistory)) {
+      memory.syncFromExternalHistory(context.conversationHistory, convoId);
+    }
+    const conversationHistory = (context && Array.isArray(context.conversationHistory))
       ? context.conversationHistory
-      : memory.getHistory();
+      : memory.getConvoHistory(convoId);
     const isWebSearchActive = Boolean(
       context && (context.webSearch || context.webSearchEnabled) ||
       shouldAutoSearchWeb(prompt, conversationHistory)
@@ -3277,24 +3755,28 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
     this.currentContext = context || {};
 
     const isAgent = Boolean(context && context.mode === 'agent');
-    if (context && context.workspaceRoot) {
-      codingAgentHarness.setWorkspaceRoot(context.workspaceRoot);
-    }
-    if (context && context.permission) {
-      codingAgentHarness.setPermissionLevel(context.permission);
+    codingAgentHarness.syncContext(context);
+
+    // If agent mode and a target file was worked on or referenced, anchor follow-up instructions to it
+    if (isAgent) {
+      const activeTarget = resolveTargetFileForEdit('', fullPrompt, context, [], conversationHistory);
+      if (activeTarget && fs.existsSync(activeTarget)) {
+        const root = (context && context.workspaceRoot) || codingAgentHarness.getWorkspaceRoot();
+        const rel = path.relative(root, activeTarget);
+        const baseName = path.basename(activeTarget);
+        if (!fullPrompt.includes(rel) && !fullPrompt.includes(baseName)) {
+          fullPrompt = `[Active Target File: "${rel}"]\n${fullPrompt}`;
+        }
+      }
     }
 
     // When Deep Search / Live Grounding is active, omit desktop tools so Gemini synthesizes search results
     const tools = isWebSearchActive ? undefined : this.getRelevantTools(prompt, 'gemini', context);
     const systemInstruction = isAgent
-      ? this.buildAgentSystemPrompt(context, config, fullPrompt)
+      ? this.buildAgentSystemPrompt(context, config, fullPrompt, conversationHistory)
       : memory.buildSystemPrompt(config, fullPrompt);
 
-    if (context && Array.isArray(context.conversationHistory) && context.conversationHistory.length > 0) {
-      memory.syncFromExternalHistory(context.conversationHistory);
-    }
-
-    memory.addTurn('user', prompt);
+    memory.addTurn('user', prompt, null, context);
 
     let lastError = null;
     const selectedGeminiModel = config.geminiModel || 'gemini-2.5-flash';
@@ -3304,7 +3786,7 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
       try {
         if (signal.aborted) throw new Error('TASK_CANCELLED');
 
-        const rawHistory = memory.getHistory();
+        const rawHistory = memory.getConvoHistory(convoId);
         const geminiHistory = rawHistory.map((turn, idx) => {
           if (idx === rawHistory.length - 1 && turn.role === 'user') {
             return {
@@ -3376,13 +3858,14 @@ Provide comprehensive, structured, in-depth responses like ChatGPT. When live we
             });
 
             const result = await this.executeTool(name, cleanArgs, apiKey);
-            executed.push({ id: stepId, name, args: cleanArgs, result });
+            const stepStatus = (result && result.success === false) ? 'failed' : 'completed';
+            executed.push({ id: stepId, name, args: cleanArgs, result, status: stepStatus });
             stepToolResults.push({ call, name, result });
 
             this.emitAgentStep(context, {
               id: stepId,
               conversationId: convoId,
-              status: 'completed',
+              status: stepStatus,
               name,
               args: cleanArgs,
               result,
@@ -3543,6 +4026,44 @@ Rules:
           replyText = executed[0].result?.message || `Done: ${executed[0].name.replace(/_/g, ' ')}.`;
         } else if (!replyText) {
           replyText = 'Ready.';
+        }
+
+        if (isAgent) {
+          const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
+          const codeMatch = replyText.match(codeBlockRegex);
+          if (codeMatch && codeMatch[1]) {
+            const targetFile = resolveTargetFileForEdit(replyText, prompt, context, executed, conversationHistory);
+            if (targetFile && fs.existsSync(targetFile)) {
+              const codeToApply = codeMatch[1].trim();
+              const curContent = fs.readFileSync(targetFile, 'utf8').trim();
+              if (codeToApply.length > 5 && curContent !== codeToApply) {
+                console.log(`[AgentBrain] Post-loop code sync: writing real implementation to disk: ${targetFile}`);
+                const editRes = await codingAgentHarness.writeFile({
+                  path: targetFile,
+                  content: codeMatch[1],
+                  overwrite: true,
+                });
+                if (editRes && editRes.success !== false) {
+                  const autoStepId = `step_auto_${Date.now()}`;
+                  executed.push({
+                    id: autoStepId,
+                    name: 'edit_file',
+                    args: { path: targetFile },
+                    result: editRes,
+                    status: 'completed',
+                  });
+                  this.emitAgentStep(context, {
+                    id: autoStepId,
+                    conversationId: convoId,
+                    status: 'completed',
+                    name: 'edit_file',
+                    args: { path: targetFile },
+                    result: editRes,
+                  });
+                }
+              }
+            }
+          }
         }
 
         memory.addTurn('model', replyText);
@@ -3958,20 +4479,39 @@ Rules:
           search: query,
           category: args.category && args.category !== 'all' ? args.category : undefined,
         });
-        if (results.length === 0) {
+
+        let mem0Results = [];
+        try {
+          mem0Results = await mem0Manager.searchMemories(query, 5);
+        } catch (_) {}
+
+        const combined = [...results];
+        if (Array.isArray(mem0Results)) {
+          for (const m of mem0Results) {
+            combined.push({
+              id: m.id || `mem0_${Date.now()}`,
+              title: m.category || 'Recalled Memory',
+              content: m.memory || m.text,
+              category: m.category || 'memory',
+            });
+          }
+        }
+
+        if (combined.length === 0) {
           return {
             success: true,
             results: [],
             message: `No memories found matching "${args.query}".`,
           };
         }
-        const formatted = results.slice(0, 8).map((m, idx) => {
+        const formatted = combined.slice(0, 8).map((m, idx) => {
           return `${idx + 1}. **${m.title}** *(${m.category})*:\n   ${m.content}`;
         }).join('\n\n');
         return {
           success: true,
-          results,
-          message: `### 🧠 Retrieved Memories (${results.length} found)\n\n${formatted}`,
+          results: combined,
+          query: args.query,
+          message: `### 🧠 Retrieved Memories (${combined.length} found)\n\n${formatted}`,
         };
       }
 

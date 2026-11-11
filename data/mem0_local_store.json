@@ -156,39 +156,111 @@
     "created_at": 1794318524777
   },
   {
-    "id": "mem_1794328886281_vdbd",
-    "memory": "User is developing a React + TypeScript Vite project that displays React and Python course cards",
+    "id": "mem_1794373053753_kx3s",
+    "memory": "User prefers improved code organization",
     "category": "fact",
-    "created_at": 1794328886281
+    "created_at": 1794373053753
   },
   {
-    "id": "mem_1794328886282_qdg5",
-    "memory": "The project uses Tailwind CSS classes together with inline style objects",
+    "id": "mem_1794373053753_lztc",
+    "memory": "User prefers clear and concise comments",
     "category": "fact",
-    "created_at": 1794328886282
+    "created_at": 1794373053753
   },
   {
-    "id": "mem_1794328886282_75f6",
-    "memory": "User wants to add more courses and may consider more advanced state management",
+    "id": "mem_1794373053753_3dcc",
+    "memory": "User prefers to use the `input` function to get user input",
     "category": "fact",
-    "created_at": 1794328886282
+    "created_at": 1794373053753
   },
   {
-    "id": "mem_1794331880147_ifo7",
-    "memory": "User is building a React TypeScript application using Tailwind CSS for a courses website",
+    "id": "mem_1794376643454_jm2o",
+    "memory": "Arijit's workspace is located at E:\\Arijit",
     "category": "fact",
-    "created_at": 1794331880147
+    "created_at": 1794376643454
   },
   {
-    "id": "mem_1794331880147_5c9a",
-    "memory": "User wants a modern, responsive design with dark mode toggle and improved accessibility",
+    "id": "mem_1794376643454_ef6r",
+    "memory": "There are 8 folders and 90 files in the workspace",
     "category": "fact",
-    "created_at": 1794331880147
+    "created_at": 1794376643454
   },
   {
-    "id": "mem_1794331880147_4lcb",
-    "memory": "User requested an enhanced, production‑ready version of App.tsx with reusable components and animations",
+    "id": "mem_1794376643454_7cac",
+    "memory": "The workspace contains a file named delete.py",
     "category": "fact",
-    "created_at": 1794331880147
+    "created_at": 1794376643454
+  },
+  {
+    "id": "mem_1794379108546_p2gu",
+    "memory": "User prefers improved code structure",
+    "category": "fact",
+    "created_at": 1794379108546
+  },
+  {
+    "id": "mem_1794379108546_bm36",
+    "memory": "User studies Python programming",
+    "category": "fact",
+    "created_at": 1794379108546
+  },
+  {
+    "id": "mem_1794379108546_jmmj",
+    "memory": "User likes better code organization",
+    "category": "fact",
+    "created_at": 1794379108546
+  },
+  {
+    "id": "mem_1794379548290_w7vc",
+    "memory": "The main function is now defined inside the if __name__ == \"__main__\": block",
+    "category": "fact",
+    "created_at": 1794379548290
+  },
+  {
+    "id": "mem_1794379548290_z0vn",
+    "memory": "The code is now more modular and easier to read",
+    "category": "fact",
+    "created_at": 1794379548290
+  },
+  {
+    "id": "mem_1794379548290_ks55",
+    "memory": "The code now includes comments to explain what each section does",
+    "category": "fact",
+    "created_at": 1794379548290
+  },
+  {
+    "id": "mem_1794379650741_dkg5",
+    "memory": "The code now implements a bubble sort algorithm",
+    "category": "fact",
+    "created_at": 1794379650741
+  },
+  {
+    "id": "mem_1794379650741_bc2b",
+    "memory": "The bubble_sort function takes a list as input and returns the sorted list",
+    "category": "fact",
+    "created_at": 1794379650741
+  },
+  {
+    "id": "mem_1794379650741_ntxn",
+    "memory": "The main function has been removed",
+    "category": "fact",
+    "created_at": 1794379650741
+  },
+  {
+    "id": "mem_1794379818108_jgwy",
+    "memory": "Quicksort algorithm is the fastest sorting method",
+    "category": "fact",
+    "created_at": 1794379818108
+  },
+  {
+    "id": "mem_1794379818108_tkt6",
+    "memory": "Quicksort algorithm has an average time complexity of O(n log n)",
+    "category": "fact",
+    "created_at": 1794379818108
+  },
+  {
+    "id": "mem_1794379818108_9ozs",
+    "memory": "Quicksort algorithm can be O(n^2) in the worst-case scenario",
+    "category": "fact",
+    "created_at": 1794379818108
   }
 ]

@@ -543,6 +543,7 @@ export interface JarvisAPI {
     error?: string;
   }>;
   executeAI?: (prompt: string, context?: any) => Promise<{ success: boolean; reply?: string; message?: string; actionsExecuted?: any[]; grounding?: GroundingMetadata; error?: string }>;
+  revertFileChanges?: (payload: any) => Promise<any[]>;
   cancelTask?: (convoId?: string) => Promise<{ cancelled: boolean }>;
   executeDualAI?: (prompt: string, brainA: any, brainB: any, context?: any) => Promise<{ success: boolean; isDual: boolean; brainA: any; brainB: any }>;
   synthesizeConsensus?: (prompt: string, replyA: string, replyB: string, brainAName: string, brainBName: string) => Promise<{ success: boolean; consensus: string }>;

@@ -12,29 +12,16 @@ class MemoryManager {
     this.profile = this.loadProfile();
     this.historyPath = path.join(this.storageDir, 'grokki_memory_history.json');
     this.maxHistoryLength = 26;
-    this.conversationHistory = this.loadHistory();
+    this.convoHistories = new Map();
+    this.conversationHistory = [];
   }
 
   loadHistory() {
-    try {
-      if (fs.existsSync(this.historyPath)) {
-        const raw = fs.readFileSync(this.historyPath, 'utf8');
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          return parsed.slice(-this.maxHistoryLength);
-        }
-      }
-    } catch (e) {}
     return [];
   }
 
   saveHistory() {
-    try {
-      fs.writeFileSync(this.historyPath, JSON.stringify(this.conversationHistory, null, 2), 'utf8');
-      return true;
-    } catch (e) {
-      return false;
-    }
+    return true;
   }
 
   loadProfile() {
@@ -74,6 +61,7 @@ class MemoryManager {
   }
 
   addTurn(role, text, toolCalls = null, context = {}) {
+    const convoId = (context && (context.conversationId || context.convoId)) || 'default';
     const cleanText = (text || '').trim();
     const entry = {
       role: role === 'assistant' ? 'model' : role,
@@ -89,17 +77,19 @@ class MemoryManager {
       entry.parts.push({ text: 'Done.' });
     }
 
-    this.conversationHistory.push(entry);
+    let history = this.convoHistories.get(convoId) || [];
+    history.push(entry);
 
-    if (this.conversationHistory.length > this.maxHistoryLength) {
-      this.conversationHistory = this.conversationHistory.slice(-this.maxHistoryLength);
+    if (history.length > this.maxHistoryLength) {
+      history = history.slice(-this.maxHistoryLength);
     }
-    this.saveHistory();
+    this.convoHistories.set(convoId, history);
+    this.conversationHistory = history;
 
     // Auto-process memory extraction on assistant completion
     if ((role === 'model' || role === 'assistant') && cleanText && this.persistentMemory) {
       try {
-        const lastUserTurn = [...this.conversationHistory].reverse().find((t) => t.role === 'user');
+        const lastUserTurn = [...history].reverse().find((t) => t.role === 'user');
         const userPrompt = lastUserTurn?.parts?.[0]?.text || '';
         if (userPrompt && userPrompt.length > 3) {
           this.persistentMemory.processConversationTurn(userPrompt, cleanText, context);
@@ -108,8 +98,12 @@ class MemoryManager {
     }
   }
 
-  syncFromExternalHistory(externalHistory) {
-    if (!Array.isArray(externalHistory) || externalHistory.length === 0) return;
+  syncFromExternalHistory(externalHistory, convoId = 'default') {
+    if (!Array.isArray(externalHistory) || externalHistory.length === 0) {
+      this.conversationHistory = [];
+      this.convoHistories.set(convoId, []);
+      return;
+    }
     const formatted = [];
     for (const item of externalHistory) {
       if (!item) continue;
@@ -122,16 +116,19 @@ class MemoryManager {
         });
       }
     }
-    if (formatted.length > 0) {
-      this.conversationHistory = formatted.slice(-this.maxHistoryLength);
-      this.saveHistory();
-    }
+    this.conversationHistory = formatted.slice(-this.maxHistoryLength);
+    this.convoHistories.set(convoId, this.conversationHistory);
   }
 
-  getHistory() {
+  getConvoHistory(convoId = 'default') {
+    return this.convoHistories.get(convoId) || [];
+  }
+
+  getHistory(convoId) {
+    const list = convoId ? (this.convoHistories.get(convoId) || []) : (this.conversationHistory || []);
     // Sanitize conversation history: ensure purely clean textual parts with valid roles
     // Filter out stale raw /uitars automation commands so they don't infect future conversation
-    const raw = (this.conversationHistory || []).filter((turn) => {
+    const raw = list.filter((turn) => {
       const t = (turn.parts?.[0]?.text || '').trim();
       return !t.startsWith('/uitars') && !t.startsWith('/tars');
     });
@@ -194,9 +191,10 @@ class MemoryManager {
       }
     }
 
-    // Retrieve persistent memory context for active prompt
+    // Retrieve persistent memory context ONLY when explicitly requested by user to recall
     let memoryContext = '';
-    if (config.enableMemoryRetrieval !== false && this.persistentMemory) {
+    const isExplicitMemoryQuery = /\b(recall|remember|memory|memories|preference|preferences|what do you know about me|who am i|my tech stack)\b/i.test(activePrompt);
+    if (isExplicitMemoryQuery && config.enableMemoryRetrieval !== false && this.persistentMemory) {
       try {
         const query = activePrompt || (config && config.activePrompt) || '';
         const { formattedPromptSection } = this.persistentMemory.retrieveContext(query, {

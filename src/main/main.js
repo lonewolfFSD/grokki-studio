@@ -3913,6 +3913,13 @@ ipcMain.handle('jarvis:execute-ai', async (event, prompt, context = {}) => {
   return await agentBrain.run(prompt, config, { ...context, sender: event.sender });
 });
 
+ipcMain.handle('jarvis:revert-file-changes', async (event, payload = {}) => {
+  const codingAgentHarness = require('./coding_agent_harness');
+  const backups = Array.isArray(payload) ? payload : (payload.backups || []);
+  const workspaceRoot = payload.workspaceRoot;
+  return await codingAgentHarness.revertFileBackups(backups, workspaceRoot);
+});
+
 ipcMain.handle('jarvis:execute-dual-ai', async (event, prompt, brainA = {}, brainB = {}, context = {}) => {
   const config = loadConfig();
   return await agentBrain.runDual(prompt, { ...config, ...brainA }, { ...config, ...brainB }, context);
