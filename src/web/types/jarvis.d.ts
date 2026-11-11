@@ -428,7 +428,12 @@ export interface GrokkiPlugin {
   description: string;
   category: 'official' | 'custom' | 'mcp';
   icon?: string;
+  imageUrl?: string;
+  repoUrl?: string;
   isEnabled: boolean;
+  requiresAccount?: boolean;
+  accountName?: string;
+  accountLinked?: boolean;
   mcpServer?: {
     transport?: 'stdio' | 'streamable-http' | 'sse';
     command?: string;
@@ -455,6 +460,23 @@ export interface JarvisAPI {
   savePluginConfig?: (pluginId: string, config: Record<string, any>) => Promise<{ success: boolean; pluginId?: string; config?: Record<string, any>; error?: string }>;
   addCustomPlugin?: (pluginData: Partial<GrokkiPlugin>) => Promise<{ success: boolean; plugin?: GrokkiPlugin; error?: string }>;
   deletePlugin?: (pluginId: string) => Promise<{ success: boolean; pluginId?: string; error?: string }>;
+  fetchMcpRegistry?: (query?: string) => Promise<{
+    success: boolean;
+    source?: 'live' | 'cached';
+    servers: Array<{
+      id: string;
+      name: string;
+      fullName: string;
+      author: string;
+      description: string;
+      stars: number;
+      imageUrl: string;
+      repoUrl: string;
+      command: string;
+      args: string[];
+      transport: 'stdio' | 'streamable-http';
+    }>;
+  }>;
   dismissOllamaPull?: () => Promise<{ success: boolean }>;
   getConfig: () => Promise<JarvisConfig>;
   saveConfig: (cfg: Partial<JarvisConfig>) => Promise<JarvisConfig>;

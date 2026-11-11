@@ -283,6 +283,7 @@ try {
     savePluginConfig: (pluginId, config) => ipcRenderer.invoke('jarvis:save-plugin-config', { pluginId, config }),
     addCustomPlugin: (pluginData) => ipcRenderer.invoke('jarvis:add-custom-plugin', pluginData),
     deletePlugin: (pluginId) => ipcRenderer.invoke('jarvis:delete-plugin', pluginId),
+    fetchMcpRegistry: (query) => ipcRenderer.invoke('jarvis:fetch-mcp-registry', query),
 
     // Grokki Persistent Memory System
     getAllMemories: (filters) => ipcRenderer.invoke('jarvis:get-all-memories', filters),

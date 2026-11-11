@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   ArrowLeft01Icon,
@@ -9,19 +9,20 @@ import {
   Delete02Icon,
   Tick02Icon,
   Cancel01Icon,
-  Globe02Icon,
   Search01Icon,
-  BotIcon,
   ComputerTerminal01Icon,
-  Mic01Icon,
-  WorkflowSquare01Icon,
   Layers01Icon,
-  DatabaseIcon,
-  CloudIcon,
-  FileCodeIcon,
-  CodeSquareIcon,
+  StarIcon,
+  ArrowUpRight01Icon,
 } from '@hugeicons/core-free-icons';
 import { GrokkiPlugin, JarvisConfig } from '../../types/jarvis';
+
+// Real logos for Grokki's official plugins
+import googleLogo from '../../assets/logos/google.png';
+import githubLogo from '../../assets/logos/github.png';
+import notionLogo from '../../assets/logos/notion.png';
+import obsidianLogo from '../../assets/logos/obsidian.png';
+import whatsappLogo from '../../assets/logos/whatsapp.svg';
 
 interface PluginsTabProps {
   config?: JarvisConfig;
@@ -30,119 +31,41 @@ interface PluginsTabProps {
 }
 
 type PluginSubView = 'list' | 'add' | 'configure';
-type AddPluginMode = 'presets' | 'stdio' | 'remote' | 'json';
+type AddPluginMode = 'marketplace' | 'stdio' | 'remote' | 'json';
 
-interface McpPreset {
+interface McpRegistryServer {
   id: string;
   name: string;
-  category: string;
-  transport: 'stdio' | 'streamable-http';
+  fullName: string;
+  author: string;
+  description: string;
+  stars: number;
+  imageUrl: string;
+  repoUrl: string;
   command: string;
   args: string[];
-  description: string;
-  envKeys?: string[];
-  badge?: string;
+  transport: 'stdio' | 'streamable-http';
 }
 
-const MCP_PRESETS: McpPreset[] = [
-  {
-    id: 'github',
-    name: 'GitHub MCP Server',
-    category: 'Developer Tools',
-    transport: 'stdio',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-github'],
-    description: 'Read and query GitHub repositories, pull requests, issues, commits, and releases.',
-    envKeys: ['GITHUB_PERSONAL_ACCESS_TOKEN'],
-    badge: 'Verified',
-  },
-  {
-    id: 'postgres',
-    name: 'PostgreSQL Database',
-    category: 'Databases',
-    transport: 'stdio',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-postgres'],
-    description: 'Inspect schemas, execute analytical queries, and manage local or cloud Postgres instances.',
-    envKeys: ['POSTGRES_CONNECTION_STRING'],
-    badge: 'Verified',
-  },
-  {
-    id: 'filesystem',
-    name: 'Sandboxed Filesystem',
-    category: 'System',
-    transport: 'stdio',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-filesystem', '.'],
-    description: 'Secure, sandboxed read and write access to designated workspace directories.',
-    badge: 'Core',
-  },
-  {
-    id: 'playwright',
-    name: 'Playwright Browser',
-    category: 'Automation & Web',
-    transport: 'stdio',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-playwright'],
-    description: 'Headless Chromium browser automation, webpage navigation, screenshot verification, and scraping.',
-    badge: 'Automation',
-  },
-  {
-    id: 'brave-search',
-    name: 'Brave Search API',
-    category: 'Search & Research',
-    transport: 'stdio',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-brave-search'],
-    description: 'Privacy-first web and local search indexing directly within agent loops.',
-    envKeys: ['BRAVE_API_KEY'],
-    badge: 'Search',
-  },
-  {
-    id: 'sqlite',
-    name: 'SQLite Explorer',
-    category: 'Databases',
-    transport: 'stdio',
-    command: 'uvx',
-    args: ['mcp-server-sqlite', '--db-path', 'database.sqlite'],
-    description: 'Zero-config local SQLite inspection and SQL query execution for datasets and apps.',
-    badge: 'Python uvx',
-  },
-  {
-    id: 'memory-graph',
-    name: 'Knowledge Memory Graph',
-    category: 'Memory & Context',
-    transport: 'stdio',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-memory'],
-    description: 'Persistent knowledge graph memory allowing agents to remember entities and relations across sessions.',
-    badge: 'Memory',
-  },
-  {
-    id: 'deepseek-client',
-    name: 'DeepSeek Cordis Router',
-    category: 'Harness',
-    transport: 'stdio',
-    command: 'npx',
-    args: ['-y', '@deepseek-ai/dsh-mcp-client'],
-    description: 'Official DeepSeek Harness MCP client bridge connecting external tool providers.',
-    badge: 'DeepSeek',
-  },
-];
-
-export const PluginsTab: React.FC<PluginsTabProps> = () => {
+export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
   const [currentView, setCurrentView] = useState<PluginSubView>('list');
   const [officialPlugins, setOfficialPlugins] = useState<GrokkiPlugin[]>([]);
   const [customPlugins, setCustomPlugins] = useState<GrokkiPlugin[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Configure View State
+  // In-Tab Configure Sub-View State
   const [configuringPlugin, setConfiguringPlugin] = useState<GrokkiPlugin | null>(null);
   const [tempConfig, setTempConfig] = useState<Record<string, any>>({});
 
-  // Add Plugin View State (In-Tab)
-  const [addMode, setAddMode] = useState<AddPluginMode>('presets');
+  // In-Tab Add Plugin Sub-View State
+  const [addMode, setAddMode] = useState<AddPluginMode>('marketplace');
+  const [registryServers, setRegistryServers] = useState<McpRegistryServer[]>([]);
+  const [isRegistryLoading, setIsRegistryLoading] = useState(false);
+  const [registrySearch, setRegistrySearch] = useState('');
+  const [installingId, setInstallingId] = useState<string | null>(null);
+
+  // Custom Form Fields
   const [newPluginName, setNewPluginName] = useState('');
   const [newPluginDesc, setNewPluginDesc] = useState('');
   const [newMcpCommand, setNewMcpCommand] = useState('npx');
@@ -152,22 +75,85 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
   const [newRemoteAuthHeader, setNewRemoteAuthHeader] = useState('');
   const [rawJsonConfig, setRawJsonConfig] = useState('');
   const [addError, setAddError] = useState<string | null>(null);
-  const [presetSearch, setPresetSearch] = useState('');
+
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const showNotice = (msg: string) => {
     setNotice(msg);
-    setTimeout(() => setNotice(null), 3000);
+    setTimeout(() => setNotice(null), 3500);
+  };
+
+  const checkAccountStatuses = async (): Promise<Record<string, boolean>> => {
+    const statuses: Record<string, boolean> = {
+      'google-workspace': false,
+      whatsapp: false,
+      notion: false,
+      obsidian: false,
+      'git-tools': false,
+    };
+
+    try {
+      if (window.jarvisAPI?.getGoogleStatus) {
+        const res = await window.jarvisAPI.getGoogleStatus();
+        statuses['google-workspace'] = Boolean(res?.connected);
+      }
+    } catch {}
+
+    try {
+      if (window.jarvisAPI?.getOpenWAStatus) {
+        const res = await window.jarvisAPI.getOpenWAStatus();
+        statuses['whatsapp'] = Boolean(res?.connected);
+      }
+    } catch {}
+
+    try {
+      if (window.jarvisAPI?.getNotionStatus) {
+        const res = await window.jarvisAPI.getNotionStatus();
+        statuses['notion'] = Boolean(res?.connected);
+      }
+    } catch {}
+
+    try {
+      if (window.jarvisAPI?.getObsidianStatus) {
+        const res = await window.jarvisAPI.getObsidianStatus();
+        statuses['obsidian'] = Boolean(res?.connected);
+      }
+    } catch {}
+
+    try {
+      if (window.jarvisAPI?.getGitHubStatus) {
+        const res = await window.jarvisAPI.getGitHubStatus();
+        let isGit = Boolean(res?.connected);
+        if (!isGit && window.jarvisAPI?.getGitStatus) {
+          const gitRes = await window.jarvisAPI.getGitStatus();
+          isGit = Boolean(gitRes?.isRepo);
+        }
+        statuses['git-tools'] = isGit;
+      }
+    } catch {}
+
+    return statuses;
   };
 
   const fetchPlugins = useCallback(async () => {
     setIsLoading(true);
     try {
-      if (window.jarvisAPI?.getPlugins) {
-        const res = await window.jarvisAPI.getPlugins();
-        if (res && res.success) {
-          setOfficialPlugins(res.official || []);
-          setCustomPlugins(res.custom || []);
-        }
+      const [pluginsRes, liveStatuses] = await Promise.all([
+        window.jarvisAPI?.getPlugins ? window.jarvisAPI.getPlugins() : Promise.resolve(null),
+        checkAccountStatuses(),
+      ]);
+
+      if (pluginsRes && pluginsRes.success) {
+        const enrichedOfficial = (pluginsRes.official || []).map((p: GrokkiPlugin) => {
+          const isLinked = p.requiresAccount ? (liveStatuses[p.id] ?? p.accountLinked ?? false) : true;
+          return {
+            ...p,
+            accountLinked: isLinked,
+            isEnabled: p.requiresAccount && !isLinked ? false : p.isEnabled,
+          };
+        });
+        setOfficialPlugins(enrichedOfficial);
+        setCustomPlugins(pluginsRes.custom || []);
       }
     } catch (err) {
       console.warn('[PluginsTab] Fetch failed:', err);
@@ -180,8 +166,46 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
     fetchPlugins();
   }, [fetchPlugins]);
 
+  // Live MCP Registry Fetcher
+  const fetchRegistry = useCallback(async (query: string = '') => {
+    setIsRegistryLoading(true);
+    try {
+      if (window.jarvisAPI?.fetchMcpRegistry) {
+        const res = await window.jarvisAPI.fetchMcpRegistry(query);
+        if (res && res.success && Array.isArray(res.servers)) {
+          setRegistryServers(res.servers);
+        }
+      }
+    } catch (err) {
+      console.warn('[PluginsTab] Registry fetch failed:', err);
+    } finally {
+      setIsRegistryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (currentView === 'add' && addMode === 'marketplace') {
+      fetchRegistry(registrySearch);
+    }
+  }, [currentView, addMode, fetchRegistry]);
+
+  const handleSearchChange = (val: string) => {
+    setRegistrySearch(val);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      fetchRegistry(val);
+    }, 350);
+  };
+
   const handleToggle = async (plugin: GrokkiPlugin, e: React.MouseEvent) => {
     e.stopPropagation();
+
+    // Block enabling if account is required and not linked in Workspace settings
+    if (!plugin.isEnabled && plugin.requiresAccount && !plugin.accountLinked) {
+      showNotice(`⚠️ ${plugin.name} cannot be turned on. Connect your account in Workspace settings first.`);
+      return;
+    }
+
     const nextState = !plugin.isEnabled;
 
     if (plugin.category === 'official') {
@@ -196,7 +220,12 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
 
     try {
       if (window.jarvisAPI?.togglePlugin) {
-        await window.jarvisAPI.togglePlugin(plugin.id, nextState);
+        const res = await window.jarvisAPI.togglePlugin(plugin.id, nextState);
+        if (res && res.error) {
+          showNotice(`⚠️ ${res.error}`);
+          fetchPlugins();
+          return;
+        }
         showNotice(`${plugin.name} ${nextState ? 'enabled' : 'disabled'}`);
       }
     } catch (err) {
@@ -243,32 +272,38 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
     }
   };
 
-  // Preset One-Click Install
-  const handleInstallPreset = async (preset: McpPreset) => {
+  // Real MCP Registry 1-Click Install
+  const handleInstallFromRegistry = async (server: McpRegistryServer) => {
+    setInstallingId(server.id);
     try {
       if (window.jarvisAPI?.addCustomPlugin) {
         const res = await window.jarvisAPI.addCustomPlugin({
-          id: preset.id,
-          name: preset.name,
-          description: preset.description,
+          id: server.id,
+          name: server.name,
+          description: server.description,
           category: 'mcp',
           icon: 'mcp',
+          imageUrl: server.imageUrl,
+          repoUrl: server.repoUrl,
           mcpServer: {
-            transport: preset.transport,
-            command: preset.command,
-            args: preset.args,
+            transport: server.transport || 'stdio',
+            command: server.command,
+            args: server.args,
           },
         });
+
         if (res?.success) {
-          showNotice(`Installed ${preset.name}`);
+          showNotice(`Installed ${server.name} successfully!`);
           setCurrentView('list');
           await fetchPlugins();
         } else {
-          alert(res?.error || 'Failed to install preset.');
+          alert(res?.error || 'Failed to install plugin.');
         }
       }
     } catch (err: any) {
-      alert(`Failed to install: ${err.message}`);
+      alert(`Installation failed: ${err.message}`);
+    } finally {
+      setInstallingId(null);
     }
   };
 
@@ -312,7 +347,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
         };
       } else if (addMode === 'remote') {
         if (!newRemoteUrl.trim()) {
-          setAddError('Remote server URL is required.');
+          setAddError('Remote endpoint URL is required.');
           return;
         }
 
@@ -358,8 +393,8 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
     }
   };
 
-  // Raw JSON / Claude & DeepSeek Config Import
-  const handleImportRawJson = async () => {
+  // Config JSON Batch Importer
+  const handleImportJson = async () => {
     setAddError(null);
     if (!rawJsonConfig.trim()) {
       setAddError('Please paste a JSON configuration.');
@@ -368,16 +403,15 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
 
     try {
       const parsed = JSON.parse(rawJsonConfig.trim());
-      let serversToInstall: Array<{ name: string; mcp: any }> = [];
+      const serversToInstall: Array<{ name: string; mcp: any }> = [];
 
-      // Format 1: { "mcpServers": { "name": { command, args, env } } }
       if (parsed.mcpServers && typeof parsed.mcpServers === 'object') {
         Object.entries(parsed.mcpServers).forEach(([srvName, srvConf]: [string, any]) => {
           serversToInstall.push({
             name: srvName,
             mcp: {
               transport: srvConf.transport || (srvConf.url ? 'streamable-http' : 'stdio'),
-              command: srvConf.command,
+              command: srvConf.command || 'npx',
               args: srvConf.args || [],
               env: srvConf.env,
               url: srvConf.url,
@@ -386,12 +420,11 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
           });
         });
       } else if (parsed.name && (parsed.command || parsed.url)) {
-        // Format 2: Single server object { name, command, args }
         serversToInstall.push({
           name: parsed.name,
           mcp: {
             transport: parsed.transport || (parsed.url ? 'streamable-http' : 'stdio'),
-            command: parsed.command,
+            command: parsed.command || 'npx',
             args: parsed.args || [],
             env: parsed.env,
             url: parsed.url,
@@ -399,7 +432,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
           },
         });
       } else {
-        throw new Error('Unrecognized format. Must contain "mcpServers" or valid server definition.');
+        throw new Error('Unrecognized format. Must contain "mcpServers" object or valid server schema.');
       }
 
       if (window.jarvisAPI?.addCustomPlugin) {
@@ -412,7 +445,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
           });
         }
 
-        showNotice(`Imported ${serversToInstall.length} MCP plugin(s) successfully!`);
+        showNotice(`Imported ${serversToInstall.length} MCP server(s)!`);
         setCurrentView('list');
         setRawJsonConfig('');
         await fetchPlugins();
@@ -422,63 +455,66 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
     }
   };
 
-  const filteredPresets = useMemo(() => {
-    if (!presetSearch.trim()) return MCP_PRESETS;
-    const q = presetSearch.toLowerCase();
-    return MCP_PRESETS.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
-    );
-  }, [presetSearch]);
+  // Real Icon & Image Renderer for Grokki Plugins
+  const renderPluginIcon = (icon?: string, id?: string, imageUrl?: string | null) => {
+    if (imageUrl) {
+      return (
+        <img
+          src={imageUrl}
+          alt="Plugin logo"
+          className="w-10 h-10 rounded-xl object-cover shrink-0 border border-gray-200 dark:border-zinc-800"
+          onError={(e) => {
+            (e.currentTarget as HTMLElement).style.display = 'none';
+          }}
+        />
+      );
+    }
 
-  const renderPluginIcon = (icon?: string, id?: string) => {
     switch (icon || id) {
-      case 'teams':
-      case 'agent-teams':
+      case 'google':
+      case 'google-workspace':
         return (
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500/15 via-blue-500/10 to-indigo-500/20 border border-teal-500/30 flex items-center justify-center shrink-0">
-            <HugeiconsIcon icon={BotIcon} size={20} strokeWidth={2} className="text-teal-400" />
+          <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 flex items-center justify-center shrink-0 p-2 shadow-xs">
+            <img src={googleLogo} alt="Google" className="w-full h-full object-contain" />
           </div>
         );
-      case 'voice':
-      case 'voice-input':
+      case 'desktop':
+      case 'desktop-automation':
         return (
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500/15 to-blue-600/15 border border-sky-500/30 flex items-center justify-center shrink-0">
-            <HugeiconsIcon icon={Mic01Icon} size={20} strokeWidth={2} className="text-sky-400" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/15 to-indigo-500/20 border border-blue-500/30 flex items-center justify-center shrink-0">
+            <HugeiconsIcon icon={ComputerTerminal01Icon} size={20} strokeWidth={2} className="text-blue-500 dark:text-blue-400" />
           </div>
         );
-      case 'shell':
+      case 'notion':
         return (
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/15 to-cyan-500/15 border border-blue-500/30 flex items-center justify-center shrink-0">
-            <HugeiconsIcon icon={ComputerTerminal01Icon} size={20} strokeWidth={2} className="text-blue-400" />
+          <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 flex items-center justify-center shrink-0 p-2 shadow-xs">
+            <img src={notionLogo} alt="Notion" className="w-full h-full object-contain" />
           </div>
         );
-      case 'loop':
-      case 'agent-loop':
+      case 'obsidian':
         return (
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/15 via-purple-500/10 to-fuchsia-500/20 border border-purple-500/30 flex items-center justify-center shrink-0">
-            <HugeiconsIcon icon={WorkflowSquare01Icon} size={20} strokeWidth={2} className="text-purple-400" />
+          <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 flex items-center justify-center shrink-0 p-2 shadow-xs">
+            <img src={obsidianLogo} alt="Obsidian" className="w-full h-full object-contain" />
           </div>
         );
-      case 'subagent':
+      case 'whatsapp':
         return (
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/15 to-blue-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0">
-            <HugeiconsIcon icon={Layers01Icon} size={20} strokeWidth={2} className="text-cyan-400" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center shrink-0 p-2">
+            <img src={whatsappLogo} alt="WhatsApp" className="w-full h-full object-contain" />
           </div>
         );
-      case 'search':
-      case 'web-search':
+      case 'git':
+      case 'git-tools':
         return (
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500/15 to-emerald-500/15 border border-teal-500/30 flex items-center justify-center shrink-0">
-            <HugeiconsIcon icon={Search01Icon} size={20} strokeWidth={2} className="text-teal-400" />
+          <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 flex items-center justify-center shrink-0 p-2 shadow-xs">
+            <img src={githubLogo} alt="GitHub" className="w-full h-full object-contain dark:invert" />
           </div>
         );
-      case 'database':
+      case 'memory':
+      case 'persistent-memory':
         return (
-          <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
-            <HugeiconsIcon icon={DatabaseIcon} size={20} strokeWidth={2} className="text-amber-400" />
+          <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center shrink-0">
+            <HugeiconsIcon icon={Layers01Icon} size={20} strokeWidth={2} className="text-purple-400" />
           </div>
         );
       default:
@@ -537,7 +573,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
             </div>
           </div>
 
-          {/* Official Core Capability Packs (Matching Claude/DeepSeek Layout) */}
+          {/* Official Core Capability Packs (Real Grokki Features) */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <h2 className="text-xs font-semibold text-gray-500 dark:text-zinc-400">
@@ -546,67 +582,99 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
             </div>
 
             <div className="flex flex-col gap-2">
-              {officialPlugins.map((plugin) => (
-                <div
-                  key={plugin.id}
-                  onClick={() => handleOpenConfigure(plugin)}
-                  className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer ${
-                    plugin.isEnabled
-                      ? 'bg-white dark:bg-[#0c0d10] border-gray-200/80 dark:border-zinc-800/80 hover:border-gray-300 dark:hover:border-zinc-700 hover:bg-gray-50/70 dark:hover:bg-[#111216]'
-                      : 'bg-gray-50/50 dark:bg-[#070709] border-gray-200/50 dark:border-zinc-800/60 opacity-60 hover:opacity-85'
-                  }`}
-                >
-                  <div className="flex items-center gap-3.5 min-w-0 pr-4">
-                    {renderPluginIcon(plugin.icon, plugin.id)}
+              {officialPlugins.map((plugin) => {
+                const isBlockedByAccount = plugin.requiresAccount && !plugin.accountLinked;
+                return (
+                  <div
+                    key={plugin.id}
+                    onClick={() => handleOpenConfigure(plugin)}
+                    className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer ${
+                      plugin.isEnabled
+                        ? 'bg-white dark:bg-[#0c0d10] border-gray-200/80 dark:border-zinc-800/80 hover:border-gray-300 dark:hover:border-zinc-700 hover:bg-gray-50/70 dark:hover:bg-[#111216]'
+                        : isBlockedByAccount
+                        ? 'bg-gray-50/40 dark:bg-[#070709] border-gray-200/40 dark:border-zinc-850/50 opacity-60 hover:opacity-80'
+                        : 'bg-gray-50/50 dark:bg-[#070709] border-gray-200/50 dark:border-zinc-800/60 opacity-60 hover:opacity-85'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0 pr-4">
+                      {renderPluginIcon(plugin.icon, plugin.id)}
 
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-gray-950 dark:text-white truncate">
-                          {plugin.name}
-                        </span>
-                        {plugin.badge && (
-                          <span className="text-[10px] font-medium text-blue-500 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/20">
-                            {plugin.badge}
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-gray-950 dark:text-white truncate">
+                            {plugin.name}
                           </span>
-                        )}
+                          {plugin.badge && (
+                            <span className="text-[10px] font-medium text-blue-500 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/20">
+                              {plugin.badge}
+                            </span>
+                          )}
+                          {plugin.requiresAccount && (
+                            plugin.accountLinked ? (
+                              <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/25">
+                                Linked
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onNavigateTab) onNavigateTab('workspace');
+                                }}
+                                className="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-1.5 py-0.2 rounded border border-amber-500/25 flex items-center gap-1 cursor-pointer transition-colors"
+                                title="Click to open Workspace settings and connect this account"
+                              >
+                                Not linked in Workspace ↗
+                              </button>
+                            )
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-zinc-400 line-clamp-1 leading-relaxed mt-0.5">
+                          {plugin.description}
+                        </p>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-zinc-400 line-clamp-1 leading-relaxed mt-0.5">
-                        {plugin.description}
-                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenConfigure(plugin, e)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                        title="Configure plugin"
+                      >
+                        <HugeiconsIcon icon={Settings01Icon} size={15} strokeWidth={1.8} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggle(plugin, e)}
+                        className={`w-9 h-5 rounded-full p-0.5 transition-colors relative shrink-0 focus:outline-none ${
+                          isBlockedByAccount
+                            ? 'bg-gray-200/60 dark:bg-zinc-800/60 border border-gray-300/60 dark:border-zinc-700/60 opacity-40 cursor-not-allowed'
+                            : plugin.isEnabled
+                            ? 'bg-gray-950 dark:bg-white text-white dark:text-gray-950 cursor-pointer'
+                            : 'bg-gray-200 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 cursor-pointer'
+                        }`}
+                        title={
+                          isBlockedByAccount
+                            ? `Cannot be enabled. Connect your ${plugin.accountName || 'account'} in Workspace settings first.`
+                            : plugin.isEnabled
+                            ? 'Disable plugin'
+                            : 'Enable plugin'
+                        }
+                      >
+                        <div
+                          className={`w-4 h-4 rounded-full transition-transform shadow-xs ${
+                            plugin.isEnabled
+                              ? 'translate-x-4 bg-white dark:bg-zinc-950'
+                              : 'translate-x-0 bg-white dark:bg-zinc-400'
+                          }`}
+                        />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    <button
-                      type="button"
-                      onClick={(e) => handleOpenConfigure(plugin, e)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                      title="Configure plugin"
-                    >
-                      <HugeiconsIcon icon={Settings01Icon} size={15} strokeWidth={1.8} />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={(e) => handleToggle(plugin, e)}
-                      className={`w-9 h-5 rounded-full p-0.5 transition-colors relative shrink-0 focus:outline-none cursor-pointer ${
-                        plugin.isEnabled
-                          ? 'bg-gray-950 dark:bg-white text-white dark:text-gray-950'
-                          : 'bg-gray-200 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700'
-                      }`}
-                      title={plugin.isEnabled ? 'Disable plugin' : 'Enable plugin'}
-                    >
-                      <div
-                        className={`w-4 h-4 rounded-full transition-transform shadow-xs ${
-                          plugin.isEnabled
-                            ? 'translate-x-4 bg-white dark:bg-zinc-950'
-                            : 'translate-x-0 bg-white dark:bg-zinc-400'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -627,7 +695,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
                   No community or MCP plugins installed
                 </p>
                 <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1 max-w-md leading-relaxed">
-                  Install verified Model Context Protocol (MCP) servers, DeepSeek Cordis plugins, or connect custom tools to expand Grokki's capabilities.
+                  Connect external Model Context Protocol (MCP) servers or community packages with real-time tool execution.
                 </p>
                 <button
                   type="button"
@@ -638,7 +706,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
                   className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
                 >
                   <HugeiconsIcon icon={Add01Icon} size={14} strokeWidth={2.5} />
-                  <span>Browse MCP Presets & Install</span>
+                  <span>Browse MCP Registry & Install</span>
                 </button>
               </div>
             ) : (
@@ -654,7 +722,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
                     }`}
                   >
                     <div className="flex items-center gap-3.5 min-w-0 pr-4">
-                      {renderPluginIcon(plugin.icon, plugin.id)}
+                      {renderPluginIcon(plugin.icon, plugin.id, plugin.imageUrl)}
 
                       <div className="flex flex-col min-w-0">
                         <div className="flex items-center gap-2">
@@ -717,7 +785,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
         </div>
       )}
 
-      {/* VIEW 2: IN-TAB "ADD PLUGIN" (NO MODAL - FULL TAB INTERFACE) */}
+      {/* VIEW 2: IN-TAB "ADD PLUGIN" (NO MODAL - REAL REGISTRY FETCHING WITH IMAGES) */}
       {currentView === 'add' && (
         <div className="max-w-4xl mx-auto w-full flex flex-col gap-6 animate-in fade-in duration-150">
           {/* Top Bar with Back Button */}
@@ -742,25 +810,25 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
 
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">
-              Install Plugin & Connect MCP
+              Install Model Context Protocol (MCP) Plugins
             </h1>
             <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
-              Select a verified MCP server preset, connect a local command, stream a remote HTTP endpoint, or paste your Claude/DeepSeek config.
+              Browse real community servers from the open MCP registry, connect a local subprocess command, or stream a remote HTTP endpoint.
             </p>
           </div>
 
-          {/* Sub-Navigation Pills */}
+          {/* Sub-Navigation Tabs */}
           <div className="flex items-center gap-1.5 p-1 rounded-xl bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 w-fit">
             <button
               type="button"
-              onClick={() => setAddMode('presets')}
+              onClick={() => setAddMode('marketplace')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                addMode === 'presets'
+                addMode === 'marketplace'
                   ? 'bg-white dark:bg-zinc-800 text-gray-900 dark:text-white font-semibold shadow-xs'
                   : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
-              Marketplace Presets
+              Real MCP Registry
             </button>
             <button
               type="button"
@@ -771,7 +839,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
                   : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
-              Custom MCP (stdio)
+              Custom Local (stdio)
             </button>
             <button
               type="button"
@@ -803,71 +871,132 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
             </div>
           )}
 
-          {/* TAB 1: PRESETS / MARKETPLACE */}
-          {addMode === 'presets' && (
+          {/* TAB 1: REAL MCP REGISTRY (WITH REAL AVATARS & LIVE DATA) */}
+          {addMode === 'marketplace' && (
             <div className="flex flex-col gap-4">
-              <div className="relative w-full max-w-md">
-                <HugeiconsIcon
-                  icon={Search01Icon}
-                  size={15}
-                  strokeWidth={2}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Filter MCP servers (GitHub, Postgres, Playwright, SQLite...)"
-                  value={presetSearch}
-                  onChange={(e) => setPresetSearch(e.target.value)}
-                  className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-zinc-600 outline-none"
-                />
+              <div className="flex items-center justify-between gap-4">
+                <div className="relative flex-1 max-w-md">
+                  <HugeiconsIcon
+                    icon={Search01Icon}
+                    size={15}
+                    strokeWidth={2}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search real MCP servers (playwright, postgres, github, sqlite...)"
+                    value={registrySearch}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-zinc-600 outline-none"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => fetchRegistry(registrySearch)}
+                  disabled={isRegistryLoading}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 text-xs font-medium text-gray-600 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors cursor-pointer shrink-0"
+                >
+                  <HugeiconsIcon icon={RefreshCwIcon} size={14} strokeWidth={2} className={isRegistryLoading ? 'animate-spin' : ''} />
+                  <span>Refresh Registry</span>
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                {filteredPresets.map((preset) => (
-                  <div
-                    key={preset.id}
-                    className="p-4 rounded-xl border border-gray-200/80 dark:border-zinc-800/80 bg-white dark:bg-[#0c0d10] hover:border-gray-300 dark:hover:border-zinc-700 flex flex-col justify-between gap-4 transition-all"
-                  >
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-gray-950 dark:text-white">
-                          {preset.name}
-                        </span>
-                        {preset.badge && (
-                          <span className="text-[10px] font-mono text-blue-500 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/20">
-                            {preset.badge}
-                          </span>
-                        )}
-                      </div>
+              {isRegistryLoading ? (
+                <div className="p-12 flex flex-col items-center justify-center text-center">
+                  <HugeiconsIcon icon={RefreshCwIcon} size={24} strokeWidth={2} className="animate-spin text-gray-400 dark:text-zinc-500 mb-2" />
+                  <p className="text-xs text-gray-500 dark:text-zinc-400">Fetching live servers from MCP registry...</p>
+                </div>
+              ) : registryServers.length === 0 ? (
+                <div className="p-12 rounded-2xl border border-dashed border-gray-200 dark:border-zinc-800 text-center">
+                  <p className="text-xs text-gray-500 dark:text-zinc-400">No matching MCP servers found.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                  {registryServers.map((server) => {
+                    const isInstalled = customPlugins.some((p) => p.id === server.id);
+                    const isInstalling = installingId === server.id;
 
-                      <p className="text-xs text-gray-500 dark:text-zinc-400 leading-relaxed">
-                        {preset.description}
-                      </p>
-
-                      <div className="mt-2 font-mono text-[10.5px] text-gray-600 dark:text-zinc-400 bg-gray-50 dark:bg-[#121318] p-2 rounded-lg border border-gray-100 dark:border-zinc-800 truncate">
-                        {preset.command} {preset.args.join(' ')}
-                      </div>
-
-                      {preset.envKeys && preset.envKeys.length > 0 && (
-                        <div className="text-[10.5px] text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-1">
-                          <span>Requires environment:</span>
-                          <span className="font-mono">{preset.envKeys.join(', ')}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-end pt-2 border-t border-gray-100 dark:border-zinc-800/60">
-                      <button
-                        type="button"
-                        onClick={() => handleInstallPreset(preset)}
-                        className="px-3.5 py-1.5 rounded-lg bg-gray-950 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold hover:bg-gray-800 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer select-none"
+                    return (
+                      <div
+                        key={server.id}
+                        className="p-4 rounded-xl border border-gray-200/80 dark:border-zinc-800/80 bg-white dark:bg-[#0c0d10] hover:border-gray-300 dark:hover:border-zinc-700 flex flex-col justify-between gap-4 transition-all"
                       >
-                        Install Plugin
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-start gap-3">
+                            {server.imageUrl ? (
+                              <img
+                                src={server.imageUrl}
+                                alt={server.name}
+                                className="w-10 h-10 rounded-xl object-cover shrink-0 border border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
+                                <HugeiconsIcon icon={PuzzleIcon} size={18} strokeWidth={2} className="text-gray-500" />
+                              </div>
+                            )}
+
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-semibold text-gray-950 dark:text-white truncate">
+                                  {server.name}
+                                </span>
+                                {server.stars > 0 && (
+                                  <span className="flex items-center gap-1 text-[10.5px] font-mono text-amber-500 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20 shrink-0">
+                                    <HugeiconsIcon icon={StarIcon} size={10} strokeWidth={2} />
+                                    <span>{server.stars >= 1000 ? `${(server.stars / 1000).toFixed(1)}k` : server.stars}</span>
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[11px] font-mono text-gray-400 dark:text-zinc-500 truncate">
+                                {server.fullName || server.author}
+                              </span>
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-gray-600 dark:text-zinc-400 leading-relaxed line-clamp-2">
+                            {server.description}
+                          </p>
+
+                          <div className="font-mono text-[10.5px] text-gray-600 dark:text-zinc-400 bg-gray-50 dark:bg-[#121318] p-2 rounded-lg border border-gray-100 dark:border-zinc-800 truncate">
+                            {server.command} {server.args.join(' ')}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-zinc-800/60">
+                          {server.repoUrl ? (
+                            <a
+                              href={server.repoUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-black dark:text-zinc-400 dark:hover:text-white transition-colors"
+                            >
+                              <span>View Source</span>
+                              <HugeiconsIcon icon={ArrowUpRight01Icon} size={12} strokeWidth={2} />
+                            </a>
+                          ) : <div />}
+
+                          <button
+                            type="button"
+                            disabled={isInstalled || isInstalling}
+                            onClick={() => handleInstallFromRegistry(server)}
+                            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-xs select-none ${
+                              isInstalled
+                                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 cursor-default'
+                                : 'bg-gray-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-gray-800 dark:hover:bg-zinc-200 cursor-pointer'
+                            }`}
+                          >
+                            {isInstalled ? 'Installed' : isInstalling ? 'Installing...' : 'Install Plugin'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -923,7 +1052,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
                   <input
                     type="text"
                     disabled
-                    value="stdio (Local Process Subprocess)"
+                    value="stdio (Local Subprocess)"
                     className="w-full font-mono bg-gray-100 dark:bg-zinc-900/60 border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-500 dark:text-zinc-400 outline-none"
                   />
                 </div>
@@ -973,7 +1102,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
             </form>
           )}
 
-          {/* TAB 3: REMOTE HTTP / SSE MCP (DeepSeek streamable-http) */}
+          {/* TAB 3: REMOTE HTTP / SSE MCP */}
           {addMode === 'remote' && (
             <form onSubmit={handleAddCustomPlugin} className="flex flex-col gap-4 max-w-2xl">
               <div className="flex flex-col gap-1.5">
@@ -983,7 +1112,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Remote Cloud MCP, Enterprise Vector API"
+                  placeholder="e.g. Remote Cloud MCP, Vector DB Endpoint"
                   value={newPluginName}
                   onChange={(e) => setNewPluginName(e.target.value)}
                   className="w-full bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
@@ -992,7 +1121,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-gray-800 dark:text-zinc-200">
-                  Remote Endpoint URL * (streamable-http / SSE)
+                  Remote Endpoint URL * (HTTP / SSE)
                 </label>
                 <input
                   type="url"
@@ -1035,11 +1164,11 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
             </form>
           )}
 
-          {/* TAB 4: IMPORT CLAUDE / DEEPSEEK CONFIG JSON */}
+          {/* TAB 4: IMPORT CONFIG JSON */}
           {addMode === 'json' && (
             <div className="flex flex-col gap-4 max-w-2xl">
               <p className="text-xs text-gray-600 dark:text-zinc-400 leading-relaxed">
-                Paste any standard <code className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 font-mono text-[11px]">claude_desktop_config.json</code> or DeepSeek Cordis patch JSON snippet below. Grokki will automatically parse the server configurations, transports, arguments, and environment variables.
+                Paste any standard MCP configuration JSON snippet below containing <code className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 font-mono text-[11px]">mcpServers</code>. Grokki will automatically register the commands, arguments, and environment variables.
               </p>
 
               <textarea
@@ -1053,7 +1182,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
               <div className="flex items-center gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={handleImportRawJson}
+                  onClick={handleImportJson}
                   className="px-5 py-2 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold hover:bg-gray-800 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer select-none"
                 >
                   Import & Install
@@ -1071,7 +1200,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
         </div>
       )}
 
-      {/* VIEW 3: IN-TAB "CONFIGURE PLUGIN" (NO MODAL - FULL TAB INTERFACE) */}
+      {/* VIEW 3: IN-TAB "CONFIGURE PLUGIN" (NO MODAL) */}
       {currentView === 'configure' && configuringPlugin && (
         <div className="max-w-3xl mx-auto w-full flex flex-col gap-6 animate-in fade-in duration-150">
           {/* Top Bar with Back Button */}
@@ -1104,7 +1233,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            {renderPluginIcon(configuringPlugin.icon, configuringPlugin.id)}
+            {renderPluginIcon(configuringPlugin.icon, configuringPlugin.id, configuringPlugin.imageUrl)}
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold tracking-tight text-gray-950 dark:text-white">
@@ -1123,50 +1252,111 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
           </div>
 
           <div className="p-6 rounded-2xl bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800/80 flex flex-col gap-4 text-xs">
-            {/* Specific Settings Per Plugin */}
-            {configuringPlugin.id === 'shell' && (
+            {/* Real Settings Per Grokki Plugin */}
+            {configuringPlugin.id === 'google-workspace' && (
               <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-gray-800 dark:text-zinc-200">
-                    Command Timeout (milliseconds)
-                  </label>
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-gray-800 dark:text-zinc-200">Calendar Agenda Sync</span>
+                    <span className="text-[11px] text-gray-500 dark:text-zinc-400">Sync upcoming events with Grokki's Today agenda timeline</span>
+                  </div>
                   <input
-                    type="number"
-                    value={tempConfig.timeoutMs ?? 30000}
-                    onChange={(e) =>
-                      setTempConfig({ ...tempConfig, timeoutMs: parseInt(e.target.value) || 30000 })
-                    }
-                    className="w-full bg-gray-50 dark:bg-[#111216] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
+                    type="checkbox"
+                    checked={tempConfig.syncCalendar !== false}
+                    onChange={(e) => setTempConfig({ ...tempConfig, syncCalendar: e.target.checked })}
+                    className="w-4 h-4 rounded accent-gray-900 dark:accent-white"
                   />
                 </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-gray-800 dark:text-zinc-200">
-                    Max Command Output Lines
-                  </label>
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-gray-800 dark:text-zinc-200">Draft Email Authorization</span>
+                    <span className="text-[11px] text-gray-500 dark:text-zinc-400">Allow agent to compose drafts in Gmail without automatic sending</span>
+                  </div>
                   <input
-                    type="number"
-                    value={tempConfig.maxOutputLines ?? 1000}
-                    onChange={(e) =>
-                      setTempConfig({ ...tempConfig, maxOutputLines: parseInt(e.target.value) || 1000 })
-                    }
-                    className="w-full bg-gray-50 dark:bg-[#111216] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
+                    type="checkbox"
+                    checked={tempConfig.allowDraftEmails !== false}
+                    onChange={(e) => setTempConfig({ ...tempConfig, allowDraftEmails: e.target.checked })}
+                    className="w-4 h-4 rounded accent-gray-900 dark:accent-white"
                   />
                 </div>
               </div>
             )}
 
-            {configuringPlugin.id === 'agent-loop' && (
+            {configuringPlugin.id === 'desktop-automation' && (
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="font-semibold text-gray-800 dark:text-zinc-200">
-                    Max Consecutive Steps per Turn
+                    UI Interaction Timeout (milliseconds)
                   </label>
                   <input
                     type="number"
-                    value={tempConfig.maxSteps ?? 25}
+                    value={tempConfig.timeoutMs ?? 15000}
                     onChange={(e) =>
-                      setTempConfig({ ...tempConfig, maxSteps: parseInt(e.target.value) || 25 })
+                      setTempConfig({ ...tempConfig, timeoutMs: parseInt(e.target.value) || 15000 })
+                    }
+                    className="w-full bg-gray-50 dark:bg-[#111216] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-gray-800 dark:text-zinc-200">Fallback to Vision Model</span>
+                    <span className="text-[11px] text-gray-500 dark:text-zinc-400">Capture desktop screenshot when accessibility elements are unavailable</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={tempConfig.fallbackToVision !== false}
+                    onChange={(e) => setTempConfig({ ...tempConfig, fallbackToVision: e.target.checked })}
+                    className="w-4 h-4 rounded accent-gray-900 dark:accent-white"
+                  />
+                </div>
+              </div>
+            )}
+
+            {configuringPlugin.id === 'notion' && (
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-gray-800 dark:text-zinc-200">Auto-sync Document Pages</span>
+                    <span className="text-[11px] text-gray-500 dark:text-zinc-400">Keep recent Notion document links indexed in memory</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={tempConfig.autoSyncPages !== false}
+                    onChange={(e) => setTempConfig({ ...tempConfig, autoSyncPages: e.target.checked })}
+                    className="w-4 h-4 rounded accent-gray-900 dark:accent-white"
+                  />
+                </div>
+              </div>
+            )}
+
+            {configuringPlugin.id === 'obsidian' && (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-semibold text-gray-800 dark:text-zinc-200">
+                    Default Vault Directory
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. C:\Users\Username\Documents\ObsidianVault"
+                    value={tempConfig.defaultVaultPath || ''}
+                    onChange={(e) => setTempConfig({ ...tempConfig, defaultVaultPath: e.target.value })}
+                    className="w-full bg-gray-50 dark:bg-[#111216] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none font-mono"
+                  />
+                </div>
+              </div>
+            )}
+
+            {configuringPlugin.id === 'git-tools' && (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-semibold text-gray-800 dark:text-zinc-200">
+                    Max Diff Inspection Lines
+                  </label>
+                  <input
+                    type="number"
+                    value={tempConfig.maxDiffLines ?? 1500}
+                    onChange={(e) =>
+                      setTempConfig({ ...tempConfig, maxDiffLines: parseInt(e.target.value) || 1500 })
                     }
                     className="w-full bg-gray-50 dark:bg-[#111216] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
                   />
@@ -1174,82 +1364,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
               </div>
             )}
 
-            {configuringPlugin.id === 'web-search' && (
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-gray-800 dark:text-zinc-200">
-                    Search Engine Provider
-                  </label>
-                  <select
-                    value={tempConfig.provider || 'deepseek'}
-                    onChange={(e) => setTempConfig({ ...tempConfig, provider: e.target.value })}
-                    className="w-full bg-gray-50 dark:bg-[#111216] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
-                  >
-                    <option value="deepseek">DeepSeek Search (Default)</option>
-                    <option value="duckduckgo">DuckDuckGo</option>
-                    <option value="brave">Brave Search API</option>
-                    <option value="google">Google Custom Search</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {configuringPlugin.id === 'subagent' && (
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-gray-800 dark:text-zinc-200">
-                    Max Recursion Depth
-                  </label>
-                  <input
-                    type="number"
-                    value={tempConfig.maxDepth ?? 3}
-                    onChange={(e) =>
-                      setTempConfig({ ...tempConfig, maxDepth: parseInt(e.target.value) || 3 })
-                    }
-                    className="w-full bg-gray-50 dark:bg-[#111216] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
-                  />
-                </div>
-              </div>
-            )}
-
-            {configuringPlugin.id === 'agent-teams' && (
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-gray-800 dark:text-zinc-200">
-                    Max Team Members
-                  </label>
-                  <input
-                    type="number"
-                    value={tempConfig.maxMembers ?? 4}
-                    onChange={(e) =>
-                      setTempConfig({ ...tempConfig, maxMembers: parseInt(e.target.value) || 4 })
-                    }
-                    className="w-full bg-gray-50 dark:bg-[#111216] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
-                  />
-                </div>
-              </div>
-            )}
-
-            {configuringPlugin.id === 'voice-input' && (
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-gray-800 dark:text-zinc-200">
-                    Transcription Engine
-                  </label>
-                  <select
-                    value={tempConfig.engine || 'SenseVoice'}
-                    onChange={(e) => setTempConfig({ ...tempConfig, engine: e.target.value })}
-                    className="w-full bg-gray-50 dark:bg-[#111216] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
-                  >
-                    <option value="SenseVoice">SenseVoice (FunASR Multilingual)</option>
-                    <option value="Whisper">OpenAI Whisper (Local)</option>
-                    <option value="WebSpeech">System WebSpeech API</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Custom MCP Details */}
+            {/* Custom MCP Server Details */}
             {configuringPlugin.category === 'mcp' && configuringPlugin.mcpServer && (
               <div className="flex flex-col gap-3 font-mono text-xs">
                 <div className="flex items-center gap-2 text-gray-500 dark:text-zinc-400 font-sans">
@@ -1271,7 +1386,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = () => {
 
                 {configuringPlugin.mcpServer.url && (
                   <div className="flex flex-col gap-1">
-                    <span className="text-gray-500 dark:text-zinc-400 font-sans">Remote Server URL:</span>
+                    <span className="text-gray-500 dark:text-zinc-400 font-sans">Remote Endpoint URL:</span>
                     <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#070709] border border-gray-200 dark:border-zinc-800 text-gray-900 dark:text-zinc-200 overflow-x-auto">
                       {configuringPlugin.mcpServer.url}
                     </div>

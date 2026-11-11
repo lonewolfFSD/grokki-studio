@@ -14,6 +14,7 @@ data/notion_credentials.json
 data/github_tokens.json
 data/github_credentials.json
 data/obsidian_vault.json
+data/plugins.json
 data/jarvis-config.json
 
 # Build outputs

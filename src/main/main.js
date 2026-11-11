@@ -4834,6 +4834,10 @@ ipcMain.handle('jarvis:delete-plugin', async (event, pluginId) => {
   return pluginsManager.deletePlugin(pluginId);
 });
 
+ipcMain.handle('jarvis:fetch-mcp-registry', async (event, query) => {
+  return pluginsManager.fetchMcpRegistry(query);
+});
+
 ipcMain.handle('jarvis:fetch-elevenlabs-voices', async (event, { apiKey, search, pageSize } = {}) => {
   const config = loadConfig();
   const keyToUse = (apiKey !== undefined ? apiKey : config.elevenlabsApiKey) || '';

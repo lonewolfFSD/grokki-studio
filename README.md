@@ -11,17 +11,18 @@
     <img alt="React" src="https://img.shields.io/badge/React-19.3-27272a?style=flat&logo=react&logoColor=61DAFB&labelColor=18181b">
     <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-7.0-27272a?style=flat&logo=typescript&logoColor=white&labelColor=18181b">
     <img alt="MCP" src="https://img.shields.io/badge/Model%20Context%20Protocol-SDK%201.32-27272a?style=flat&logo=anthropic&logoColor=white&labelColor=18181b">
-    <img alt="License" src="https://img.shields.io/badge/License-Non--Commercial-27272a?style=flat&labelColor=18181b">
+    <img alt="License" src="https://img.shields.io/badge/License-MIT-27272a?style=flat&labelColor=18181b">
   </p>
 
   <h3>Autonomous AI Desktop Assistant & Operating System Agent for Windows</h3>
-  <p>Dual-engine Chat and Agent modes, Model Context Protocol (MCP) plugins, Calide-style Skill playbooks, physical OS mouse & keyboard automation, real-time desktop vision, and hybrid local/cloud intelligence living in an Apple-style Dynamic Island & Top Notch.</p>
+  <p>Dual-engine Chat and Agent modes, Model Context Protocol (MCP) plugins, Skill playbooks, physical OS mouse & keyboard automation, real-time desktop vision, and hybrid local/cloud intelligence inside an interactive Dynamic Island.</p>
 
   <p>
     <a href="#dual-core-modes"><strong>Dual Modes</strong></a> ·
     <a href="#capabilities-engine"><strong>Capabilities & MCP</strong></a> ·
     <a href="#desktop-agency"><strong>OS Agency</strong></a> ·
-    <a href="#hitodama-control-center"><strong>Top Notch</strong></a> ·
+    <a href="#dynamic-island"><strong>Dynamic Island</strong></a> ·
+    <a href="#pocket-grokki-mobile"><strong>Mobile LAN</strong></a> ·
     <a href="#ai-brains"><strong>AI Brains</strong></a> ·
     <a href="#tool-arsenal"><strong>Tool Arsenal</strong></a> ·
     <a href="#installation"><strong>Installation</strong></a>
@@ -30,22 +31,22 @@
 </div>
 
 <p align="center">
-  <img src="assets/screenshots/Grokki Studio BLURRED.png" alt="Grokki Studio & Dynamic Island Workspace" width="100%">
+  <img src="assets/screenshots/Grokki Studio BLURRED.png" alt="Grokki Studio Workspace" width="100%">
 </p>
 
 ---
 
 ## Overview
 
-**Grokki** is an autonomous desktop computing agent designed to live directly at the top edge of your Windows screen. Unlike web-sandboxed chatbots, Grokki has native, physical agency over your operating system: he inspects native application accessibility trees with zero-token vision, executes multi-step plans across background apps, operates your mouse and keyboard, manages local files, and orchestrates specialized tool suites through standard **Model Context Protocol (MCP)** plugins and **Skills (`SKILL.md`)**.
+**Grokki** is an autonomous desktop computing agent engineered natively for Windows. Unlike web-sandboxed chatbots, Grokki has native, physical agency over your operating system: he inspects native application accessibility trees with zero-token vision, executes multi-step plans across background apps, operates your mouse and keyboard, manages local files, and orchestrates specialized tool suites through standard **Model Context Protocol (MCP)** plugins and **Skills (`SKILL.md`)**.
 
 | Core Architecture | Scope | Technical Execution |
 | :--- | :--- | :--- |
 | **Dual Mode Engine** | Chat & Agent | Mode-aware sidebar and runtime: general conversation vs. autonomous project agent loops |
-| **Agent Skills Engine** | First-Person Calide Playbooks | Standardized `SKILL.md` execution instructions with AI generation via "Write with Grokki" |
-| **MCP Plugins Ecosystem** | DeepSeek & Claude Standard | Built-in official packs + 4 MCP installation pipelines (`stdio`, `streamable-http`, presets, JSON) |
+| **Agent Skills Engine** | First-Person Playbooks | Standardized `SKILL.md` execution instructions with AI generation via "Write with Grokki" |
+| **MCP Plugins Ecosystem** | MCP Specification | Built-in official capabilities + 4 MCP installation pipelines (`stdio`, `streamable-http`, presets, JSON) |
 | **Native UI Automation** | Vercel `agent-desktop` | Deterministic, zero-token UI Automation (UIA) tree snapshots & background element clicking |
-| **Hitodama Top Notch** | Dynamic Island & Notch | Zero-shadow frosted glass capsule: volume, media transport, apps, clipboard history, stats |
+| **Dynamic Island** | Floating Companion Capsule | Responsive floating HUD: quick interactions, active tool indicators, and summon hopping |
 | **P2P Pocket Grokki Mobile** | Private Local LAN | Encrypted QR pairing, device summon hopping, animated envelope file beam, attendance tracker |
 | **Air-Gapped Local Models** | Ollama Engine | Automatic binary detection, in-app model downloader with real-time progress, zero-cloud execution |
 | **Multi-Brain Consensus** | Dual-Battle Matrix | Concurrently dispatches prompts to dual brains, tracks latency, cross-examines & synthesizes |
@@ -60,7 +61,7 @@ Grokki separates daily conversational assistance from multi-turn autonomous codi
 - **Clean Conversational Flow**: Optimized for rapid questions, brainstorming, writing, and research.
 - **Dynamic Suggested Prompts**: Smart contextual prompt chips tailored to your workflow.
 - **Context-Aware Navigation**: Hides agent-specific configuration clutter to maintain a distraction-free conversation canvas.
-- **Fast Keyboard Search (`Ctrl+K`)**: Full-text modal search across past chats with keyboard arrows and instant opening.
+- **Fast Keyboard Search (`Ctrl+K`)**: Full-text modal search across past chats with keyboard navigation and instant opening.
 
 ### 2. Grokki Agent Mode
 - **Locked Project Root**: Point the agent to any workspace directory on disk; roots are automatically locked upon first interaction to prevent accidental cross-folder drift.
@@ -80,7 +81,7 @@ Grokki features a unified capabilities system combining **Agent Skills** (system
 
 ### 1. Agent Skills & Playbooks (`SKILL.md`)
 Skills define how Grokki acts as a specialist using standardized `SKILL.md` files:
-- **First-Person Calide Prompt Architecture**: Structured as authoritative, first-person system directives (`"You are a lazy senior developer. The best code is the code never written..."`) with YAML frontmatter headers (`name`, `description`).
+- **First-Person Prompt Architecture**: Structured as authoritative, first-person system directives (`"You are a lazy senior developer. The best code is the code never written..."`) with YAML frontmatter headers (`name`, `description`).
 - **"Write with Grokki" AI Skill Generator**:
   - Describe what you want Grokki to do in natural language (e.g. *"Surgical bug doctor that traces root causes"*).
   - Grokki writes a complete, battle-tested `SKILL.md` in the background.
@@ -90,29 +91,32 @@ Skills define how Grokki acts as a specialist using standardized `SKILL.md` file
   - Drag-and-drop `.md` importing, direct export to disk, and one-click opening in File Explorer.
 
 ### 2. Plugins & Model Context Protocol (MCP)
-Modeled directly after the **DeepSeek Harness (`dsh`)** and **Claude Code** plugin architectures, Grokki includes a full-featured in-tab plugin manager:
+Grokki includes a full-featured in-tab plugin manager supporting both official native services and community MCP servers:
 
-#### Official Core Packs (Built-in)
-1. **Agent Teams (Beta)**: Multi-agent coordination, team roster management, and shared task boards.
-2. **Voice input (Beta)**: Local offline speech-to-text powered by SenseVoice (FunASR).
-3. **Shell**: Execution safety boundaries (command timeout limits, max output lines, hung process auto-kill).
-4. **Agent loop**: Step limits, read/write authorization gates, and tool dispatch rules.
-5. **Subagent**: Recursion depth controls, concurrent subagent limits, and model inheritance strategies.
-6. **Web search**: Pluggable search providers (DeepSeek Search, Brave Search, DuckDuckGo, Google).
+#### Official Core Capabilities (Built-In)
+- **Google Workspace (Core)**: Access Gmail, Google Drive, Google Calendar, Docs, and Sheets directly. *(Requires connected Google account in Workspace settings)*
+- **Desktop Automation (`agent-desktop`) (Core)**: Zero-token native Windows UI automation, background element clicks, typing, and window lifecycle control.
+- **Notion Workspace**: Query, create, and manage Notion pages, project task databases, and documentation. *(Requires connected Notion account in Workspace settings)*
+- **Obsidian Vault**: Read, write, and index local Markdown notes with bi-directional wikilinks in your personal vault. *(Requires configured Obsidian vault in Workspace settings)*
+- **WhatsApp Gateway**: Automated WhatsApp messaging, direct message dispatch, and contact interactions. *(Requires paired WhatsApp session in Workspace settings)*
+- **Developer Tools & Git**: Execute Git status, commits, branch management, and automated code reviews. *(Requires connected GitHub account in Workspace settings)*
+- **Persistent Memory (Core)**: Episodic vector memory and entity recall across chat sessions powered by LanceDB.
+
+*Note: Official plugins requiring third-party authentication are strictly gated—they cannot be turned on until their respective accounts are linked in Workspace settings.*
 
 #### 4 MCP Installation Pipelines (In-Tab Sub-View)
-- **Marketplace Presets**: 1-click verified installs for popular MCP servers:
-  - `GitHub MCP`: Pull requests, issues, repo search (`@modelcontextprotocol/server-github`).
-  - `PostgreSQL Database`: Schema inspection and safe queries (`@modelcontextprotocol/server-postgres`).
+- **Live MCP Registry**: Real-time integration with GitHub's live MCP repository search (`topic:mcp-server`) with verified presets, real author avatars, star counts, and 1-click installation:
+  - `GitHub Integration`: Repositories, commits, pull requests, issues (`@modelcontextprotocol/server-github`).
+  - `Playwright Browser`: Structured accessibility snapshots and web actions (`@modelcontextprotocol/server-playwright`).
+  - `PostgreSQL Database`: Schema inspection and queries (`@modelcontextprotocol/server-postgres`).
+  - `SQLite Explorer`: Local SQLite databases via Python `uvx` (`mcp-server-sqlite`).
   - `Filesystem Sandboxed`: Workspace directory read/write (`@modelcontextprotocol/server-filesystem`).
-  - `Playwright Browser`: Headless browser automation (`@modelcontextprotocol/server-playwright`).
-  - `Brave Search`: Privacy-first search indexing (`@modelcontextprotocol/server-brave-search`).
-  - `SQLite Explorer`: Local database inspection via Python `uvx` (`mcp-server-sqlite`).
-  - `Knowledge Memory Graph`: Entity-relationship memory (`@modelcontextprotocol/server-memory`).
-  - `DeepSeek Cordis Router`: Official DeepSeek Harness client (`@deepseek-ai/dsh-mcp-client`).
-- **Custom `stdio` Subprocesses**: Run any local MCP executable (`npx`, `uvx`, `python`, `node`, `docker`, binary path) with custom arguments and environment variables (`KEY=VALUE`).
-- **Remote `streamable-http` / `sse` Endpoints**: Connect to remote MCP servers via DeepSeek's native HTTP streaming protocol with Bearer token authentication.
-- **Import Config JSON**: Directly paste any `claude_desktop_config.json` (`{"mcpServers": { ... }}`) or DeepSeek patch JSON; Grokki parses and installs all servers automatically.
+  - `Chrome DevTools`: Headless DevTools execution and performance profiling.
+  - `Scrapling Web Scraper`: Fast web scraping framework (`scrapling-mcp`).
+  - `Context7 Platform`: Up-to-date documentation and code index fetching (`@upstash/context7-mcp`).
+- **Custom `stdio` Subprocesses**: Run any local MCP executable (`npx`, `uvx`, `python`, `node`, `docker`, binary path) with custom arguments and environment variables.
+- **Remote `streamable-http` / `sse` Endpoints**: Connect to remote MCP servers over HTTP/SSE with Bearer token authentication.
+- **Import Config JSON**: Directly paste standard MCP configuration JSON (`{"mcpServers": { ... }}`); Grokki parses and installs all servers automatically.
 
 ---
 
@@ -124,25 +128,17 @@ Grokki bridges cloud intelligence with native Windows automation:
 - **Zero-Token Accessibility Snapshots**: Inspects the native Windows UI Automation (UIA) tree directly into structured elements with scoped `@ref` IDs, bypassing vision models and saving hundreds of vision tokens per interaction.
 - **Headless Background Operation**: Clicks buttons, switches tabs, and inputs text programmatically in the background without stealing active window focus or moving your mouse cursor.
 - **Stale Reference Protection**: Real-time validation rejects outdated refs with `STALE_REF` if dialogs shift, preventing misclicks.
-- **Hybrid Vision Fallback**: Seamlessly falls back to Gemini Vision for raw canvases, video players, and graphic-heavy apps.
+- **Hybrid Vision Fallback**: Seamlessly falls back to multimodal vision for raw canvases, video players, and graphic-heavy apps.
 
 ---
 
-## Hitodama Control Center
+## Dynamic Island
 
-Access essential operating system controls instantly by hovering near the top notch or tapping the dynamic island:
+Grokki features a responsive, floating Dynamic Island companion on your desktop:
 
-* **Zero-Shadow Capsule Architecture**: Engineered with a high-contrast frosted glass design system that dynamically follows your active theme palette.
-* **Unified Control Hub**:
-  * **Controls**: Live OS volume bar capsule with percentage thumb, preset buttons (`25%`, `50%`, `75%`, `MAX`), and quick tiles (`Wi-Fi`, `Bluetooth`, `Audio Output`, `Night Light`, `Dark Mode`, `Speech to Text`).
-  * **Today**: Agenda timeline, upcoming calendar appointments, and quick tasks.
-  * **Studio**: Live Windows Media playback detection displaying album art covers, track title, artist, playback status badge, and transport controls.
-  * **Apps**: Fast application launcher categorized by work, code, media, and tools.
-  * **Games**: Installed PC games launcher with auto-fetched poster art.
-  * **Wallpaper**: Instant dynamic wallpaper switcher with blur presets.
-  * **Themes**: Live theme palette selector with instant desktop & mobile sync.
-  * **Clipboard**: Persistent clipboard history with image thumbnail previews, direct one-click paste into active windows, pin/unpin toggles, and deletion.
-  * **Stats**: Real-time hardware telemetry: CPU load %, processor model, RAM usage (`used / total GB`), and host system uptime.
+- **Quick Summon & Dismiss**: Summon or dismiss the Dynamic Island instantly from anywhere using `Alt + Q`.
+- **Active State Indicators**: Real-time status indicators for background agent execution, active tools, speech-to-text, and local model pulls.
+- **Voice Input Capsule**: Quick floating speech-to-text dynamic island activated via `Ctrl + Space`.
 
 ---
 
@@ -170,7 +166,7 @@ Grokki supports both cloud flagships and completely offline local inference:
 | **OpenAI** | `gpt-4o`, `gpt-4o-mini`, `o3-mini` | Direct API gateway, leading structured output and code generation |
 | **xAI Grok** | `grok-2-1212`, `grok-2-vision` | High-speed frontier intelligence with vision support |
 | **DeepSeek** | `deepseek-chat`, `deepseek-reasoner` | Specialized STEM and code reasoning architecture |
-| **OpenRouter** | `openrouter/auto`, community free models | Unified aggregator with automatic model fallback |
+| **OpenRouter** | `openrouter/auto`, community models | Unified aggregator with automatic model fallback |
 
 ---
 
@@ -180,7 +176,7 @@ Grokki supports both cloud flagships and completely offline local inference:
 Grokki Agent Runtime
 ├── Capabilities & Extensions
 │   ├── Agent Skills (SKILL.md playbooks, "Write with Grokki" AI generation, YAML validation)
-│   └── Model Context Protocol (MCP) Engine (stdio, streamable-http, presets, JSON import)
+│   └── Model Context Protocol (MCP) Engine (stdio, streamable-http, live registry, JSON import)
 │
 ├── Native Desktop UI Automation (agent-desktop)
 │   ├── Accessibility tree snapshots (`desktop_snapshot`) with scoped @ref IDs
@@ -188,21 +184,17 @@ Grokki Agent Runtime
 │   ├── Headless text and value input (`desktop_type`)
 │   └── App and window lifecycle control (`desktop_app_control`)
 │
-├── Hitodama Control Center (Desktop Notch & Pocket Companion)
-│   ├── OS volume slider, media transport controls & album artwork
-│   ├── Persistent clipboard history with image thumbnail previews
-│   └── Telemetry: CPU load %, RAM used/total, host uptime
-│
 ├── Workspace Integrations
 │   ├── Google Workspace: Gmail, Calendar, Drive, Docs, Sheets, Tasks
 │   ├── Notion: Databases, pages, notes, and documentation
 │   ├── Obsidian: Local vault note authoring, bi-directional linking, search
-│   └── WhatsApp Gateway: Self-hosted Baileys / OpenWA integration
+│   ├── WhatsApp Gateway: Self-hosted Baileys / OpenWA integration
+│   └── Git & GitHub: Status, commit, push, pull, branch, clone
 │
 ├── Developer & Productivity Tools
 │   ├── Artifact Canvas: Live HTML/CSS/SVG sandbox preview and editor
+│   ├── Persistent Memory: Episodic vector memory recall powered by LanceDB
 │   ├── VS Code Bug Doctor: Live problem and syntax diagnosis with direct fixes
-│   ├── Git CLI: status, commit, push, pull, branch, clone
 │   └── Document Parser: PDF, DOCX, TXT, Markdown, CSV, JSON
 │
 └── Voice & Speech Synthesis
@@ -236,7 +228,6 @@ npm run dev
 
 ### Shortcuts
 - **`Alt + Q`**: Summon or dismiss the Dynamic Island from any application.
-- **Top Edge Hover**: Hover your mouse at the top-center edge of your screen to slide down the **Hitodama Notch**.
 - **`Ctrl + Space`**: Open the floating Speech-to-Text dynamic island.
 - **`Ctrl + K`**: Open the Fast Search modal across conversations.
 - **`Ctrl + ,`**: Open Studio Settings.
@@ -270,7 +261,7 @@ release/Grokki Studio-Setup-1.52.331.exe
 
 ## License
 
-Distributed under the **Grokki Studio Non-Commercial License**. Free for personal and educational use; commercial redistribution, monetization, or reselling is strictly prohibited. See [`LICENSE`](LICENSE), [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md), and [`TERMS_OF_USE.md`](TERMS_OF_USE.md) for details.
+Distributed under the **MIT License**. Free and open-source software for personal, educational, and commercial use. See [`LICENSE.md`](LICENSE.md) for details.
 
 <div align="center">
   <sub>Built for autonomous desktop computing on Windows.</sub>
