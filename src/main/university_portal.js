@@ -524,7 +524,32 @@ async function handlePortalTool(args = {}, academicLLM = null) {
     });
   }
 
-  // Attempt live connection to portal
+  // 1. If portal is ADBU (or default), use the proven ADBU AcademicPortalManager
+  const isAdbu = !portalUrl || portalUrl.includes('dbuniversity.ac.in') || /adbu|don\s+bosco/i.test(universityName);
+  if (isAdbu) {
+    const academicPortal = require('./academic_portal');
+    try {
+      console.log(`[UniversityPortal] Syncing via ADBU AcademicPortalManager for student: ${username}...`);
+      academicPortal.saveCredentials('adbu', username, password);
+      await academicPortal.sync(true);
+      const summary = academicPortal.getSummaryForAI();
+      const cached = academicPortal.getCachedData();
+      return {
+        success: true,
+        message: summary,
+        summary,
+        data: cached,
+      };
+    } catch (err) {
+      console.warn('[UniversityPortal] ADBU sync error:', err.message);
+      return {
+        success: false,
+        message: `❌ **ADBU Portal Login Failed**: ${err.message}\n\nPlease verify your student roll ID (e.g. \`DC2025BCA0020\`) and password.\n\n---\n${PRIVACY_STATEMENT}\n\n${RESTRICTION_DISCLAIMER}`,
+      };
+    }
+  }
+
+  // 2. Generic portal handler for other institutions
   console.log(`[UniversityPortal] Connecting to portal: ${portalUrl} for student: ${username}...`);
   const fetchResult = await fetchFromPortal(portalUrl, username, password, universityName);
 

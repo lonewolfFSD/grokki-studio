@@ -4883,6 +4883,33 @@ ipcMain.handle('jarvis:open-workspace-file', async (event, filePathOrName) => {
   return await workspaceContext.openWorkspaceFile(filePathOrName);
 });
 
+// Academic / University Portal Integration (Assam Don Bosco University ERP)
+const academicPortal = require('./academic_portal');
+
+ipcMain.handle('jarvis:get-academic-status', async () => {
+  return academicPortal.getStatus();
+});
+
+ipcMain.handle('jarvis:save-academic-credentials', async (event, { university, username, password }) => {
+  return academicPortal.saveCredentials(university, username, password);
+});
+
+ipcMain.handle('jarvis:sync-academic-portal', async () => {
+  try {
+    return await academicPortal.sync();
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('jarvis:disconnect-academic-portal', async () => {
+  return academicPortal.unlink();
+});
+
+ipcMain.handle('jarvis:get-academic-data', async () => {
+  return academicPortal.getCachedData();
+});
+
 
 
 // --- GROKKI PERSISTENT MEMORY IPC HANDLERS ---
