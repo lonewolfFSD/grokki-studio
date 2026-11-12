@@ -1079,7 +1079,7 @@ export const Sidebar = React.memo<SidebarProps>(({
           {!isCollapsed && (
             <div className="flex items-center justify-between px-3 pt-0.5 pb-1 flex-shrink-0">
               <span className="text-[10.5px] font-bold text-gray-400 dark:text-gray-500 tracking-wider uppercase select-none">
-                {showArchivedOnly ? 'Archived' : (appMode === 'agent' ? 'Projects & Sessions' : 'Recents')}
+                {showArchivedOnly ? 'Archived' : (appMode === 'agent' ? 'Projects' : 'Recents')}
               </span>
 
               <button

@@ -38,5 +38,13 @@
     "name": "Android (Host)",
     "pairedAt": 1793168205904,
     "lastSeen": 1793196315878
+  },
+  {
+    "id": "phone_1794459487248_yzfb8p",
+    "type": "Android",
+    "ip": "10.202.54.156",
+    "name": "Android (Host)",
+    "pairedAt": 1794459487509,
+    "lastSeen": 1794459487509
   }
 ]

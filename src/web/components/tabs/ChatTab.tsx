@@ -2087,7 +2087,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           </div>
 
           {/* Agent Skills Button */}
-          <button
+          {/* <button
             type="button"
             onClick={() => onNavigateTab('skills')}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11.5px] font-medium bg-gray-100 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-gray-700 dark:text-gray-300 border border-gray-200/70 dark:border-white/[0.08] transition-all cursor-pointer shadow-xs"
@@ -2095,7 +2095,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           >
             <HugeiconsIcon icon={Layers01Icon} size={13} strokeWidth={1.8} className="text-zinc-500 dark:text-zinc-400 shrink-0" />
             <span className="font-semibold text-gray-900 dark:text-white">Skills</span>
-          </button>
+          </button> */}
         </div>
       </div>
     );
@@ -5591,23 +5591,25 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 />
               </motion.div>
             ) : (
-              /* Grokki Tag Pill with 3D Cosmic Logo Icon in Chat mode */
+              /* Grokki Studio Wordmark Brand Pill in Chat mode */
               <motion.div
                 key="chat-brand-pill"
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/80 dark:border-white/[0.08] shadow-2xs mb-4 select-none"
+                className="inline-flex items-center justify-center mb-1 select-none"
               >
                 <img
-                  src={grokkiIcon}
-                  alt="Grokki"
-                  className="w-4.5 h-4.5 object-contain"
+                  src={grokkiWordmarkDark}
+                  alt="Grokki Studio"
+                  className="hidden dark:block h-18 mt-4 w-auto object-contain select-none"
                 />
-                <span className="text-xs font-semibold tracking-tight text-gray-900 dark:text-white">
-                  Grokki
-                </span>
+                <img
+                  src={grokkiWordmarkLight}
+                  alt="Grokki Studio"
+                  className="block dark:hidden h-18 mt-4 w-auto object-contain select-none"
+                />
               </motion.div>
             )}
           </AnimatePresence>
