@@ -1,17 +1,23 @@
 [
   {
     "id": "mem_profile_1794372959058_tsky",
-    "category": "profile",
-    "title": "User Greeting",
-    "content": "Hello Arijit",
+    "category": "knowledge",
+    "title": "User is a Programmer",
+    "content": "User has mentioned that he is a programmer and software engineer, who loves bulding softwares and other products. User have a great interest in complex and challenging task and loves to solve it.",
     "tags": [],
     "confidence": 1,
     "userConfirmed": true,
-    "pinned": false,
+    "pinned": true,
     "createdAt": "2026-11-11T04:55:59.058Z",
-    "updatedAt": "2026-11-11T12:12:32.281Z",
+    "updatedAt": "2026-11-12T14:22:29.645Z",
     "connections": [],
-    "history": [],
+    "history": [
+      {
+        "date": "2026-11-11T12:12:32.281Z",
+        "previousContent": "Hello Arijit",
+        "reason": "User edited memory in tab"
+      }
+    ],
     "reason": "User edited memory in tab"
   }
 ]

@@ -637,7 +637,10 @@ FORMAT REQUIREMENTS (Clean GitHub Markdown):
       'search', 'for', 'locate', 'file', 'files', 'folder', 'folders', 'directory',
       'named', 'called', 'in', 'on', 'to', 'and', 'open', 'it', 'its', 'location',
       'explorer', 'recent', 'recently', 'last', 'latest', 'that', 'this', 'can', 'you',
-      'please', 'check', 'show', 'me', 'grokki', 'pc', 'computer', 'laptop'
+      'please', 'check', 'show', 'me', 'grokki', 'pc', 'computer', 'laptop',
+      'how', 'many', 'much', 'are', 'is', 'was', 'were', 'of', 'count', 'tell', 'there',
+      'all', 'what', 'give', 'list', 'number', 'total', 'see', 'view', 'read', 'look',
+      'at', 'display', 'get', 'inside', 'under', 'content', 'contents', 'present'
     ]);
 
     // Detect implied file type from query if not explicitly passed
@@ -647,19 +650,20 @@ FORMAT REQUIREMENTS (Clean GitHub Markdown):
       else if (/\b(word|docx|doc)\b/i.test(rawQuery)) effectiveType = 'word';
       else if (/\b(ppt|pptx|presentation|slides?)\b/i.test(rawQuery)) effectiveType = 'ppt';
       else if (/\b(excel|xlsx|csv|spreadsheet)\b/i.test(rawQuery)) effectiveType = 'excel';
+      else if (/\b(python|py)\b/i.test(rawQuery)) effectiveType = 'python';
       else if (/\b(image|images|photo|photos|picture|screenshot|png|jpg)\b/i.test(rawQuery)) effectiveType = 'image';
       else if (/\b(video|videos|recording|mp4|mkv)\b/i.test(rawQuery)) effectiveType = 'video';
       else if (/\b(zip|rar|archive)\b/i.test(rawQuery)) effectiveType = 'archive';
       else if (/\b(folder|directory)\b/i.test(rawQuery) && !/\bfile\b/i.test(rawQuery)) effectiveType = 'folder';
     }
 
-    const typeTokens = new Set(['pdf', 'pdfs', 'word', 'docx', 'doc', 'ppt', 'pptx', 'presentation', 'excel', 'xlsx', 'csv', 'image', 'photo', 'picture', 'video', 'mp4', 'zip']);
+    const typeTokens = new Set(['pdf', 'pdfs', 'word', 'docx', 'doc', 'ppt', 'pptx', 'presentation', 'excel', 'xlsx', 'csv', 'image', 'photo', 'picture', 'video', 'mp4', 'zip', 'python', 'py', 'code', 'script']);
 
     const tokens = rawQuery
       .toLowerCase()
       .replace(/[^\w\s.-]/g, ' ')
       .split(/\s+/)
-      .filter((t) => t.length > 1 && !stopWords.has(t) && !typeTokens.has(t));
+      .filter((t) => (t.length > 1 || /\d/.test(t)) && !stopWords.has(t) && !typeTokens.has(t));
 
     const cleanPhrase = tokens.join(' ');
 
@@ -668,6 +672,7 @@ FORMAT REQUIREMENTS (Clean GitHub Markdown):
       word: ['.docx', '.doc', '.rtf', '.odt'],
       ppt: ['.pptx', '.ppt'],
       excel: ['.xlsx', '.xls', '.csv'],
+      python: ['.py', '.pyw', '.ipynb'],
       image: ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg'],
       video: ['.mp4', '.mkv', '.mov', '.avi', '.webm'],
       audio: ['.mp3', '.wav', '.m4a', '.flac'],
@@ -683,6 +688,7 @@ FORMAT REQUIREMENTS (Clean GitHub Markdown):
     const home = os.homedir();
     const oneDrive = path.join(home, 'OneDrive');
     const searchRoots = [
+      { dir: 'E:\\Arijit', depth: 4, priority: 20 },
       { dir: path.join(home, 'Desktop'), depth: 4, priority: 15 },
       { dir: path.join(home, 'Downloads'), depth: 4, priority: 15 },
       { dir: path.join(home, 'Documents'), depth: 4, priority: 14 },
@@ -700,7 +706,8 @@ FORMAT REQUIREMENTS (Clean GitHub Markdown):
       'node_modules', '.git', '.vscode', '.gemini', 'appdata', '$recycle.bin',
       'system volume information', 'windows', 'program files', 'program files (x86)',
       'programdata', 'venv', '.venv', '__pycache__', 'dist', 'build', '.next',
-      'target', 'coverage', '.cache', 'packages'
+      'target', 'coverage', '.cache', 'packages', 'assistant ai', 'dylamic island',
+      'grokki website', 'brain'
     ]);
 
     const candidates = [];
@@ -773,10 +780,29 @@ FORMAT REQUIREMENTS (Clean GitHub Markdown):
               }
             }
 
+            // If filename didn't match all tokens, check content for small script/text files (< 64KB)
+            if (!isDir && (ext === '.py' || ext === '.pyw' || ext === '.txt' || ext === '.md' || ext === '.js') && tokens.length > 0) {
+              try {
+                const stat = fs.statSync(fullPath);
+                if (stat.size > 0 && stat.size < 65536) {
+                  const content = fs.readFileSync(fullPath, 'utf8').toLowerCase();
+                  let contentMatches = 0;
+                  for (const tok of tokens) {
+                    if (content.includes(tok)) contentMatches++;
+                  }
+                  if (contentMatches > 0) {
+                    score += contentMatches * 40;
+                    if (contentMatches === tokens.length) score += 90;
+                    matchedTokenCount += contentMatches;
+                  }
+                }
+              } catch (_) {}
+            }
+
             // Require at least 1 significant token match
             if (matchedTokenCount === 0) {
               score = 0;
-            } else if (matchedTokenCount === tokens.length && tokens.length > 1) {
+            } else if (matchedTokenCount >= tokens.length && tokens.length > 1) {
               score += 60; // Huge bonus for matching all user search terms
             }
           }

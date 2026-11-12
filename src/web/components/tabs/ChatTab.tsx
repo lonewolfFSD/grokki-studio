@@ -2108,6 +2108,19 @@ export const ChatTab = React.memo<ChatTabProps>(({
     setEditingContent('');
   }, [activeConversation.id]);
   const [activeArtifact, setActiveArtifact] = useState<Artifact | null>(null);
+  const [canvasWidth, setCanvasWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('grokki_canvas_width');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (parsed >= 380 && parsed <= (typeof window !== 'undefined' ? window.innerWidth - 100 : 2000)) {
+          return parsed;
+        }
+      }
+    } catch (_) {}
+    return typeof window !== 'undefined' ? Math.min(960, Math.max(520, Math.round(window.innerWidth * 0.48))) : 640;
+  });
+  const [isCanvasResizing, setIsCanvasResizing] = useState(false);
   const [attachedFile, setAttachedFile] = useState<AttachedFileInfo | null>(null);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [dualBattleEnabled, setDualBattleEnabled] = useState(false);
@@ -5435,8 +5448,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-0 transition-all duration-300 ${
-        activeArtifact ? 'lg:pr-[50vw]' : ''
+      style={{
+        paddingRight: activeArtifact ? `${canvasWidth}px` : undefined,
+      }}
+      className={`relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-0 ${
+        isCanvasResizing ? 'transition-none select-none' : 'transition-all duration-200'
       }`}
     >
       {/* Drag & Drop Visual Dropzone Overlay */}
@@ -7034,7 +7050,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
       </div>
 
       {/* Conversation Timeline on the FULL RIGHT of screen (Matte, Dots Only, No Lines, No Glow, No Shadows) */}
-      {messages.length > 1 && (
+      {messages.length > 1 && !activeArtifact && (
         <ConversationTimeline
           messages={messages}
           conversationTitle={activeConversation.title || 'Conversation'}
@@ -7049,6 +7065,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
             artifact={activeArtifact}
             onClose={() => setActiveArtifact(null)}
             isDark={isDarkTheme}
+            width={canvasWidth}
+            onWidthChange={setCanvasWidth}
+            isResizing={isCanvasResizing}
+            onResizingChange={setIsCanvasResizing}
           />
         )}
       </AnimatePresence>

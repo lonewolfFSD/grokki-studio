@@ -817,13 +817,28 @@ class AgentBrain {
     let activeFileBlock = '';
     if (activeTargetFile) {
       const relPath = path.relative(root, activeTargetFile);
+      let fileSnippet = '';
+      try {
+        const stat = fs.statSync(activeTargetFile);
+        if (stat.isFile() && stat.size < 65536) {
+          const raw = fs.readFileSync(activeTargetFile, 'utf8');
+          const ext = path.extname(activeTargetFile).slice(1) || 'py';
+          fileSnippet = `
+- CURRENT CODE IN "${path.basename(activeTargetFile)}":
+\`\`\`${ext}
+${raw}
+\`\`\`
+The full current content of "${path.basename(activeTargetFile)}" is ALREADY provided above.
+DO NOT tell the user to call read_file! Proceed immediately to improve it and either show the improved code in chat or call edit_file / write_file!`;
+        }
+      } catch (_) {}
+
       activeFileBlock = `
 
 ACTIVE FILE UNDER DEVELOPMENT:
 - Active File: "${relPath}" (Absolute: "${activeTargetFile}")
-- DIRECTIVE: The user's instruction relates directly to "${relPath}".
-  DO NOT run git status, DO NOT search or list the root folder, and DO NOT list 90 unrelated files.
-  Directly inspect "${relPath}" with read_file and apply your changes using edit_file!`;
+- DIRECTIVE: The user's instruction relates directly to "${relPath}".${fileSnippet || `
+  Directly inspect "${relPath}" with read_file and apply your changes using edit_file!`}`;
     }
 
     const noFileEdit = isExplicitNoFileEditRequested(fullPrompt, context);
@@ -888,6 +903,10 @@ STRICT OPERATIONAL DIRECTIVES:
   getRelevantTools(prompt = '', provider = 'gemini', context = {}) {
     const p = (prompt || '').toLowerCase().trim();
     const isAgent = Boolean(context && context.mode === 'agent');
+    const MUTATING_AGENT_TOOLS = new Set([
+      'write_file', 'edit_file', 'run_command', 'git_operations', 'cli_copilot',
+      'ui_tars_desktop_agent', 'autonomous_browser_agent'
+    ]);
     const CODING_TOOLS = new Set([
       'read_file', 'write_file', 'edit_file', 'run_command', 'list_directory', 'search_code', 'git_operations', 'cli_copilot',
       'organize_folder', 'ui_tars_desktop_agent', 'autonomous_browser_agent'
@@ -917,7 +936,7 @@ STRICT OPERATIONAL DIRECTIVES:
       return undefined;
     }
 
-    const hasActionIntent = /\b(open|launch|start|run|close|quit|kill|click|press|type|find|locate|search\s+for\s+file|volume|sound|mute|unmute|brightness|screenshot|screen\s*shot|snip|capture|record\s*screen|window|minimize|maximize|snap\s*window|shutdown|restart|reboot|sleep|lock\s*pc|wifi|bluetooth|clean\s*up|cleanup|organize|timer|alarm|lock\s*mode|island|whatsapp|send\s*(message|wa|text|file|email)|check\s*(email|emails|mail|inbox)|gmail|drive|calendar|agenda|schedule|meeting|viva|quiz|play\s*(music|song|youtube)|pause\s*music|spotify)\b/i.test(p);
+    const hasActionIntent = /\b(open|launch|start|run|close|quit|kill|click|press|type|find|locate|search|file|files|folder|folders|directory|read|see|view|cat|volume|sound|mute|unmute|brightness|screen|monitor|look\s+at\s+screen|see\s+on\s+screen|read\s+screen|what\s+do\s+you\s+see|what\s+is\s+on\s+my\s+screen|screenshot|screen\s*shot|snip|capture|record\s*screen|window|minimize|maximize|snap\s*window|shutdown|restart|reboot|sleep|lock\s*pc|wifi|bluetooth|clean\s*up|cleanup|organize|timer|alarm|lock\s*mode|island|whatsapp|send\s*(message|wa|text|file|email)|check\s*(email|emails|mail|inbox)|gmail|drive|calendar|agenda|schedule|meeting|viva|quiz|play\s*(music|song|youtube)|pause\s*music|spotify|\.py|\.js|\.txt|\.md|\.pdf|\.docx)\b/i.test(p);
 
     // Ollama Local Models: Small local models MUST NEVER receive 40+ tool definitions on non-action queries!
     // Non-action queries (conversational, coding, reasoning, general knowledge) get 0 tools for instant (<1s) replies.
@@ -928,19 +947,20 @@ STRICT OPERATIONAL DIRECTIVES:
     const allDeclarations = this.getToolsDeclaration();
     let allTools = allDeclarations[0]?.functionDeclarations || [];
 
-    // Grokki Chat CANNOT access or execute coding tools - only Grokki Agent can!
+    // Grokki Chat CANNOT mutate or edit files - only Grokki Agent can! Read-only inspection tools remain available.
     if (!isAgent) {
-      allTools = allTools.filter(t => !CODING_TOOLS.has(t.name));
+      allTools = allTools.filter(t => !MUTATING_AGENT_TOOLS.has(t.name));
     }
 
     // If provider is Groq (has strict 8000 TPM limit) or Ollama (local model), filter strictly to relevant tools
     if (provider === 'groq' || provider === 'ollama') {
       const isDesktop = /\b(open|launch|start|click|type|find|locate|window|software|app|desktop|notepad|spotify|chrome|calc|calculator|volume|brightness|close|minimize|maximize|snap|shutdown|restart|sleep|lock|pc|wifi|bluetooth|cleanup|clean\s+up|organize|timer|alarm|island)\b/i.test(p);
+      const isScreen = /\b(screen|monitor|display|look\s+at\s+screen|see\s+on\s+screen|read\s+screen|what\s+do\s+you\s+see|what\s+is\s+on\s+my\s+screen|screenshot|screen\s*shot|snip|capture)\b/i.test(p);
       const isGoogle = /\b(google|drive|sheet|doc|gmail|email|mail|calendar|task|tasks|classroom|course|assignment|announcement)\b/i.test(p);
       const isUni = /\b(university|college|exam|viva|quiz|notes|study)\b/i.test(p);
       const isMedia = /\b(music|song|songs|play|pause|next|youtube|video|spotify)\b/i.test(p);
       const isWhatsApp = /\b(whatsapp|wa|message|messages|chat|chats|text|texts|contact|contacts|phone)\b/i.test(p);
-      const isCoding = /\b(code|coding|file|files|read|write|edit|refactor|script|program|bash|terminal|command|powershell|git|diff|patch|dir|directory|search|find|grep|test|build|bug|error|fix|harness)\b/i.test(p);
+      const isCoding = /\b(code|coding|file|files|read|write|edit|refactor|script|program|bash|terminal|command|powershell|git|diff|patch|dir|directory|search|find|grep|test|build|bug|error|fix|harness|py|python|js|see|view|cat|open)\b/i.test(p);
       const isMemory = /\b(memory|remember|recall|forget|memorize|preference|preferences|my\s+name|what\s+do\s+you\s+know\s+about\s+me|who\s+am\s+i|update\s+memory|save\s+(?:this\s+)?to\s+memory)\b/i.test(p);
 
       const selectedNames = new Set();
@@ -949,15 +969,28 @@ STRICT OPERATIONAL DIRECTIVES:
         ['write_memory', 'edit_memory', 'search_memory', 'delete_memory'].forEach(n => selectedNames.add(n));
       }
 
-      if (isCoding && isAgent) {
-        ['read_file', 'write_file', 'edit_file', 'run_command', 'list_directory', 'search_code', 'git_operations', 'cli_copilot'].forEach(n => selectedNames.add(n));
+      const isFindFile = /\b(find|locate|where\s+did\s+i|where\s+is\s+my|where\s+are\s+my|search\s+for\s+(?:a\s+)?(?:file|folder|script))\b/i.test(p);
+      if (isCoding) {
+        if (isAgent) {
+          ['read_file', 'write_file', 'edit_file', 'run_command', 'list_directory', 'search_code', 'git_operations', 'cli_copilot', 'find_files_and_folders'].forEach(n => selectedNames.add(n));
+        } else if (isFindFile) {
+          // Explicit file discovery on the PC: DO NOT pass search_code so LLM never hallucinates code greps!
+          ['find_files_and_folders', 'read_file', 'list_directory'].forEach(n => selectedNames.add(n));
+        } else {
+          ['read_file', 'list_directory', 'search_code', 'find_files_and_folders'].forEach(n => selectedNames.add(n));
+        }
+      }
+
+      if (isScreen) {
+        ['read_screen_and_act', 'snap_and_solve_screen', 'screen_capture_and_recorder', 'desktop_snapshot'].forEach(n => selectedNames.add(n));
       }
 
       if (isDesktop) {
         ['open_app', 'desktop_click', 'desktop_type', 'desktop_find', 'desktop_snapshot',
          'close_active_window', 'system_volume', 'window_manager', 'system_power', 'system_brightness',
          'storage_and_cleanup', 'screen_capture_and_recorder', 'connectivity_control', 'power_and_theme_control',
-         'pc_health_and_optimizer', 'organize_folder', 'stop_timer', 'toggle_island_lock_mode'
+         'pc_health_and_optimizer', 'organize_folder', 'stop_timer', 'toggle_island_lock_mode', 'read_screen_and_act',
+         'find_files_and_folders', 'read_file', 'list_directory'
         ].forEach(n => selectedNames.add(n));
       }
 
@@ -1117,7 +1150,7 @@ STRICT OPERATIONAL DIRECTIVES:
           },
           {
             name: 'search_code',
-            description: 'Search for text or regular expression matches across all source code files in the workspace (ripgrep-style). Returns file paths and line numbers.',
+            description: 'Search for literal text matches across source code files in the active workspace. Do NOT use to find files on the PC (use find_files_and_folders instead). Do NOT hallucinate function definitions (e.g. "def foo") that may not exist.',
             parameters: {
               type: 'OBJECT',
               properties: {
@@ -2075,12 +2108,12 @@ STRICT OPERATIONAL DIRECTIVES:
           },
           {
             name: 'find_files_and_folders',
-            description: 'Smart Local File & Folder Search + Explorer Opener: Searches across Desktop, Downloads, Documents, OneDrive, Pictures, Videos, and Drives (D:, E:) when the user asks to find a file/folder or says they forgot where they saved something. Automatically opens File Explorer and highlights the file/folder.',
+            description: 'Smart Local File & Folder Search: Searches across user PC drives (E:, D:, Desktop, Downloads, Documents) for files and scripts by name, topic, or content (e.g. "python file that checks even or odd", "Assignment 3", "resume"). ALWAYS use this tool whenever the user asks to "find", "locate", or search for a file or folder on their PC.',
             parameters: {
               type: 'OBJECT',
               properties: {
-                query: { type: 'STRING', description: 'Filename, folder name, or keywords to search for (e.g. "resume", "operating systems", "assignment 2"). Leave empty if searching purely for the most recent file of a specific type.' },
-                file_type: { type: 'STRING', description: 'Optional filter: "pdf", "word", "ppt", "excel", "image", "video", "audio", "archive", "code", "text", or "folder"' },
+                query: { type: 'STRING', description: 'Filename, folder name, or keywords to search for (e.g. "check even or odd", "py5.py", "assignment 3").' },
+                file_type: { type: 'STRING', description: 'Optional filter: "python", "pdf", "word", "ppt", "excel", "image", "video", "audio", "archive", "code", "text", or "folder"' },
                 open_in_explorer: { type: 'BOOLEAN', description: 'True (default) to automatically open File Explorer with the found file/folder highlighted' },
                 open_file: { type: 'BOOLEAN', description: 'True if the user also wants to launch/open the file itself' },
               },
@@ -2260,11 +2293,33 @@ STRICT OPERATIONAL DIRECTIVES:
       return { tool: 'access_university_portal', args: { action: 'get_report', university_name: uniName } };
     }
 
+    // Fast Screen Perception & Vision Interceptor (Dynamic Island & Chat screen inspection)
+    // e.g. "what do you see on my screen", "what's on my screen", "what is on my screen", "look at my screen",
+    // "read my screen", "inspect my screen", "describe my screen", "what am i looking at", "can you see my screen"
+    const isScreenVisionRequest =
+      /\b(?:what\s+(?:do\s+you\s+see|is|are|am\s+i\s+looking\s+at)|can\s+you\s+see|look\s+at|read|inspect|describe|check|view|summarize)\s+(?:what(?:'s|\s+is)\s+)?(?:on\s+)?(?:my\s+|the\s+)?(?:screen|monitor|display|desktop|active\s+window)\b/i.test(p) ||
+      /\b(?:what(?:'s|\s+is)\s+on\s+(?:my\s+|the\s+)?(?:screen|monitor|display))\b/i.test(p) ||
+      /\b(?:look\s+at\s+my\s+screen|read\s+my\s+screen|see\s+my\s+screen|see\s+on\s+my\s+screen)\b/i.test(p) ||
+      /\b(?:what\s+do\s+you\s+see\s+on\s+(?:my\s+|the\s+)?screen)\b/i.test(p) ||
+      /\b(?:see\s+what(?:'s|\s+is)\s+on\s+(?:my\s+|the\s+)?screen)\b/i.test(p) ||
+      /^(?:what('?s|\s+is)\s+on\s+screen|see\s+screen|look\s+screen|screen\s+look)$/i.test(p);
+
+    if (isScreenVisionRequest && !p.includes('clean my screen') && !p.includes('brightness') && !p.includes('lock screen')) {
+      return {
+        tool: 'read_screen_and_act',
+        args: { task: prompt },
+      };
+    }
+
     // Fast Slash Command Interceptor
     if (p.startsWith('/')) {
       const parts = raw.slice(1).trim().split(/\s+/);
       const cmd = (parts[0] || '').toLowerCase();
       const rest = parts.slice(1).join(' ').trim();
+
+      if (cmd === 'screen' || cmd === 'see' || cmd === 'vision') {
+        return { tool: 'read_screen_and_act', args: { task: rest || 'Describe what is currently on my screen' } };
+      }
 
       if (cmd === 'status' || cmd === 'health') {
         return { tool: 'pc_health_and_optimizer', args: { action: 'check' } };
@@ -3147,8 +3202,19 @@ STRICT OPERATIONAL DIRECTIVES:
         const root = (context && context.workspaceRoot) || codingAgentHarness.getWorkspaceRoot();
         const rel = path.relative(root, activeTarget);
         const baseName = path.basename(activeTarget);
+        let contentSnippet = '';
+        try {
+          const stat = fs.statSync(activeTarget);
+          if (stat.isFile() && stat.size < 65536) {
+            const raw = fs.readFileSync(activeTarget, 'utf8');
+            const ext = path.extname(activeTarget).slice(1) || 'py';
+            contentSnippet = `\n[Existing Content of "${baseName}"]:\n\`\`\`${ext}\n${raw}\n\`\`\``;
+          }
+        } catch (_) {}
         if (!fullPrompt.includes(rel) && !fullPrompt.includes(baseName)) {
-          fullPrompt = `[Active Target File: "${rel}"]\n${fullPrompt}`;
+          fullPrompt = `[Active Target File: "${rel}"]${contentSnippet}\n${fullPrompt}`;
+        } else if (contentSnippet && !fullPrompt.includes(contentSnippet.slice(0, 30))) {
+          fullPrompt = `${contentSnippet}\n${fullPrompt}`;
         }
       }
     }
@@ -3166,6 +3232,7 @@ STRICT OPERATIONAL DIRECTIVES:
         : '';
       systemContent = `You are Grokki, a fast, razor-sharp, multi-dimensional AI companion for Windows${isWebSearchActive ? ' with active real-time web search capabilities' : ''}.
 CURRENT MODE: REGULAR CHAT. You blend all-rounded conversational versatility (ChatGPT style), deep analytical reasoning (DeepSeek style), and proactive productivity and workflow pulse (Grok Bot & OpenAI Dots style).
+SCREEN PERCEPTION: You have visual desktop perception via read_screen_and_act. NEVER claim you cannot see the user's monitor or are text-only.
 You do NOT have agentic permissions to edit local files or run terminal commands directly in this chat; if asked for codebase modifications, remind the user to switch to Agent Mode in the sidebar.
 UNIVERSITY & COLLEGE ATTENDANCE: When user asks about attendance, grades, or college portal report and credentials are not yet configured, ask for their 1) College/Portal URL, 2) Roll/Student ID, 3) Password. Note that credentials are kept 100% private locally, and university anti-bot protections may restrict automated fetching.
 User: ${config.userNickname || config.userName || 'Friend'}.
@@ -3183,7 +3250,7 @@ Deliver articulate, comprehensive, and engaging answers. When live web search gr
         const ollamaMem = (isExplicitMemoryQuery && memory.persistentMemory)
           ? memory.persistentMemory.retrieveContext(fullPrompt, { mode: 'chat', isAgent: false }).formattedPromptSection
           : '';
-        systemContent = `You are Grokki, a fast, intelligent AI assistant for Windows in Regular Chat mode. You do NOT have agentic permissions to edit files or run terminal commands in this chat. If asked for agentic tasks or file edits, deny and tell the user to switch to Agent Mode in the sidebar.
+        systemContent = `You are Grokki, a fast, intelligent AI assistant for Windows in Regular Chat mode. SCREEN PERCEPTION: You have visual desktop perception via read_screen_and_act. NEVER claim you cannot see the user's monitor or are text-only. You do NOT have agentic permissions to edit files or run terminal commands in this chat. If asked for agentic tasks or file edits, deny and tell the user to switch to Agent Mode in the sidebar.
 UNIVERSITY & COLLEGE ATTENDANCE: When user asks about attendance, grades, or college portal report and credentials are not yet configured, ask for their 1) College/Portal URL, 2) Roll/Student ID, 3) Password. Note that credentials are kept 100% private locally, and university anti-bot protections may restrict automated fetching.
 Answer directly and concisely in clean Markdown. User: ${config.userNickname || config.userName || 'Friend'}. Tone: ${config.userTone || 'warm, direct'}.${ollamaMem ? `\n${ollamaMem}` : ''}`;
         if (isWebSearchActive) {
@@ -3332,27 +3399,54 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           }
         }
 
+        if (toolCalls.length === 0 && replyText) {
+          const proseCallMatch = replyText.match(/(?:please\s+call|let'?s\s+(?:start\s+by\s+)?call(?:ing)?|call|invoke|use)\s+`?([a-zA-Z_]+)`?\s+(?:with\s+(?:the\s+path\s+to\s+)?|for\s+|on\s+)?["'`]?([a-zA-Z0-9_\-./\\]+\.[a-zA-Z0-9_]+)["'`]?/i);
+          if (proseCallMatch) {
+            const guessedTool = proseCallMatch[1].toLowerCase().trim();
+            const guessedTarget = proseCallMatch[2].trim();
+            if (['read_file', 'edit_file', 'write_file', 'list_directory'].includes(guessedTool) && guessedTarget) {
+              console.log(`[AgentBrain] Intercepted prose tool invocation: ${guessedTool}("${guessedTarget}")`);
+              toolCalls.push({
+                id: `prose_${Date.now()}`,
+                type: 'function',
+                function: {
+                  name: guessedTool,
+                  arguments: { path: guessedTarget },
+                },
+              });
+              replyText = '';
+            }
+          }
+        }
+
+        let isAutoEdit = false;
         // If no tool call was issued, but in agent mode the model outputted code intended to modify the target file
         if (toolCalls.length === 0 && isAgent) {
           const targetFile = resolveTargetFileForEdit(replyText, prompt, context, executed, conversationHistory);
-          if (targetFile && typeof targetFile === 'string') {
+          if (targetFile && typeof targetFile === 'string' && fs.existsSync(targetFile)) {
             const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
             const match = replyText.match(codeBlockRegex);
             const mentionsEditIntent = /(?:edit_file|write_file|updated script|improved code|here(?:'s|\s+is)\s+the\s+improved|here(?:'s|\s+is)\s+the\s+updated|modified version|make the changes|use the)/i.test(replyText);
 
             if (match && match[1] && (mentionsEditIntent || replyText.includes(path.basename(targetFile)))) {
-              const codeToApply = match[1];
-              toolCalls.push({
-                id: `auto_edit_${Date.now()}`,
-                type: 'function',
-                function: {
-                  name: 'edit_file',
-                  arguments: {
-                    path: targetFile,
-                    replacement: codeToApply,
+              const codeToApply = match[1].trim();
+              let curContent = '';
+              try { curContent = fs.readFileSync(targetFile, 'utf8').trim(); } catch (_) {}
+
+              if (curContent !== codeToApply && codeToApply.length > 5) {
+                isAutoEdit = true;
+                toolCalls.push({
+                  id: `auto_edit_${Date.now()}`,
+                  type: 'function',
+                  function: {
+                    name: 'edit_file',
+                    arguments: {
+                      path: targetFile,
+                      replacement: match[1],
+                    },
                   },
-                },
-              });
+                });
+              }
             }
           }
         }
@@ -3427,6 +3521,18 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         const singleShotActions = ['play_music', 'play_youtube_music', 'control_music', 'system_volume', 'close_active_window', 'system_power', 'system_brightness'];
         if (toolCalls.every(c => singleShotActions.includes(c.function.name))) {
           finalReplyText = stepToolResults[0]?.result?.message || 'Done.';
+          break;
+        }
+
+        // Auto-edit has written the code to disk: complete the task immediately without re-looping!
+        if (isAutoEdit) {
+          finalReplyText = replyText;
+          break;
+        }
+
+        // If the model called edit_file and the file had no changes needed, terminate immediately
+        if (stepToolResults.some(s => s.name === 'edit_file' && (s.result?.noChange || (s.result?.addedLines === 0 && s.result?.removedLines === 0)))) {
+          finalReplyText = replyText || stepToolResults[0]?.result?.message || 'File is already up to date.';
           break;
         }
 
@@ -3858,7 +3964,11 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
     const fastIntent = this.checkFastIntent(prompt);
     if (fastIntent) {
       console.log(`[AgentBrain] Fast OS Intent matched: ${fastIntent.tool}`, fastIntent.args);
-      const res = await this.executeTool(fastIntent.tool, fastIntent.args, config.geminiApiKey || config.groqApiKey || '');
+      const res = await this.executeTool(
+        fastIntent.tool,
+        fastIntent.args,
+        config.geminiApiKey || config.groqApiKey || config.openaiApiKey || config.openrouterApiKey || config.grokApiKey || ''
+      );
       const replyText = res.message || 'Done.';
       memory.addTurn('user', prompt);
       memory.addTurn('model', replyText);
@@ -4003,8 +4113,19 @@ To allow me to inspect, edit, create files, or run commands on your system:
         const root = (context && context.workspaceRoot) || codingAgentHarness.getWorkspaceRoot();
         const rel = path.relative(root, activeTarget);
         const baseName = path.basename(activeTarget);
+        let contentSnippet = '';
+        try {
+          const stat = fs.statSync(activeTarget);
+          if (stat.isFile() && stat.size < 65536) {
+            const raw = fs.readFileSync(activeTarget, 'utf8');
+            const ext = path.extname(activeTarget).slice(1) || 'py';
+            contentSnippet = `\n[Existing Content of "${baseName}"]:\n\`\`\`${ext}\n${raw}\n\`\`\``;
+          }
+        } catch (_) {}
         if (!fullPrompt.includes(rel) && !fullPrompt.includes(baseName)) {
-          fullPrompt = `[Active Target File: "${rel}"]\n${fullPrompt}`;
+          fullPrompt = `[Active Target File: "${rel}"]${contentSnippet}\n${fullPrompt}`;
+        } else if (contentSnippet && !fullPrompt.includes(contentSnippet.slice(0, 30))) {
+          fullPrompt = `${contentSnippet}\n${fullPrompt}`;
         }
       }
     }
@@ -4664,10 +4785,10 @@ Rules:
   }
 
   async executeTool(name, args, apiKey) {
-    const CODING_TOOLS = new Set([
-      'read_file', 'write_file', 'edit_file', 'run_command', 'list_directory', 'search_code', 'git_operations', 'cli_copilot'
+    const MUTATING_AGENT_TOOLS = new Set([
+      'write_file', 'edit_file', 'run_command', 'git_operations', 'cli_copilot'
     ]);
-    if (CODING_TOOLS.has(name) && (!this.currentContext || this.currentContext.mode !== 'agent')) {
+    if (MUTATING_AGENT_TOOLS.has(name) && (!this.currentContext || this.currentContext.mode !== 'agent')) {
       return {
         success: false,
         error: 'File modification and terminal commands are restricted to Grokki Agent mode. Switch to Grokki Agent to edit files or run commands.',
@@ -4793,7 +4914,14 @@ Rules:
 
       // DeepSeek Harness Developer & Coding Agent Tools
       case 'read_file': {
-        const res = await codingAgentHarness.readFile(args || {});
+        let res = await codingAgentHarness.readFile(args || {});
+        if (!res.success && args && (args.path || args.file)) {
+          const target = args.path || args.file;
+          const search = await powerTools.searchFilesAndFolders({ query: path.basename(target), open_in_explorer: false });
+          if (search.success && search.bestMatch) {
+            res = await codingAgentHarness.readFile({ ...args, path: search.bestMatch });
+          }
+        }
         return {
           ...res,
           message: res.success ? `\`\`\`\n${res.content}\n\`\`\`` : `Failed to read file: ${res.error}`,
@@ -4837,7 +4965,14 @@ Rules:
       }
 
       case 'list_directory': {
-        const res = await codingAgentHarness.listDirectory(args || {});
+        let res = await codingAgentHarness.listDirectory(args || {});
+        if (!res.success && args && (args.path || args.dir || args.directory)) {
+          const target = args.path || args.dir || args.directory;
+          const search = await powerTools.searchFilesAndFolders({ query: path.basename(target), file_type: 'folder', open_in_explorer: false });
+          if (search.success && search.bestMatch) {
+            res = await codingAgentHarness.listDirectory({ ...args, path: search.bestMatch });
+          }
+        }
         return {
           ...res,
           message: res.success ? res.message : `Failed to list directory: ${res.error}`,
@@ -4845,7 +4980,18 @@ Rules:
       }
 
       case 'search_code': {
-        const res = await codingAgentHarness.searchCode(args || {});
+        let res = await codingAgentHarness.searchCode(args || {});
+        if ((!res.success || res.count === 0) && (this.activePrompt || args?.query)) {
+          const fallbackQuery = this.activePrompt || args?.query || '';
+          const search = await powerTools.searchFilesAndFolders({ query: fallbackQuery, open_in_explorer: false });
+          if (search.success && search.matches && search.matches.length > 0) {
+            return {
+              success: true,
+              matches: search.matches,
+              message: search.message,
+            };
+          }
+        }
         return {
           ...res,
           message: res.success ? res.message : `Failed to search code: ${res.error}`,
@@ -7111,17 +7257,44 @@ Instructions:
           message: `📸 **Screen Snap & Solve**\n\n${(res.text || '').trim()}`,
         };
       } catch (gemErr) {
-        return { success: false, message: `Snap & Solve Vision error: ${gemErr.message}` };
+        console.warn('[AgentBrain] Snap & Solve Gemini error, trying OpenAI/OpenRouter fallback:', gemErr.message);
       }
+    }
+
+    // 3. Fallback to OpenAI / OpenRouter / Grok if available
+    const openaiKey = (config.openaiApiKey || process.env.OPENAI_API_KEY || '').trim();
+    if (openaiKey) {
+      try {
+        const visionData = await callOpenAICompatible({
+          endpoint: 'https://api.openai.com/v1',
+          apiKey: openaiKey,
+          model: config.openaiModel || 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: solvePrompt },
+                { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
+              ],
+            },
+          ],
+          temperature: 0.2,
+          timeout: 30000,
+        });
+        const reply = visionData?.choices?.[0]?.message?.content;
+        if (reply && reply.trim().length > 10) {
+          return { success: true, message: `📸 **Screen Snap & Solve**\n\n${reply.trim()}` };
+        }
+      } catch (_) {}
     }
 
     return {
       success: false,
-      message: 'Screen captured, but no Groq or Gemini API key was found for Vision analysis.',
+      message: 'Screen captured, but no vision API key (Gemini, Groq, OpenAI) was available for analysis.',
     };
   }
 
-  // Vision Screen Reader (Supports both Groq Vision & Gemini Vision)
+  // Vision Screen Reader (Multi-Provider: Gemini, Groq, OpenAI, OpenRouter, xAI Grok, Ollama)
   async readScreenWithVision(task, apiKey) {
     const base64Image = await this.captureScreenBase64();
     if (!base64Image) {
@@ -7131,24 +7304,85 @@ Instructions:
     const config = this.activeConfig || {};
     const groqKey = (config.groqApiKey || process.env.GROQ_API_KEY || '').trim();
     const geminiKey = (apiKey || config.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
+    const openaiKey = (config.openaiApiKey || process.env.OPENAI_API_KEY || '').trim();
+    const openrouterKey = (config.openrouterApiKey || process.env.OPENROUTER_API_KEY || '').trim();
+    const grokKey = (config.grokApiKey || process.env.XAI_API_KEY || '').trim();
+    const currentProvider = config.provider || 'gemini';
 
     const cleanTask = (task && typeof task === 'string' && task.trim() && task !== 'undefined')
       ? task.trim()
       : 'What is currently on my screen?';
 
-    const visionSystemPrompt = `You are Grokki, an intelligent desktop AI assistant. Look closely at the screenshot of the user's monitor and provide a helpful, natural, and comprehensive description of what is displayed.
+    const visionSystemPrompt = `You are Grokki, an intelligent desktop AI companion. Look closely at the screenshot of the user's monitor and provide a helpful, natural, and comprehensive description of what is displayed.
 Guidelines:
-1. Identify the open application(s), active browser tabs, websites, IDEs, or windows.
-2. Summarize the key content, headlines, code, documents, or media visible on the screen.
-3. Directly answer the user's inquiry: "${cleanTask}".
-4. Write in clean Markdown, keeping the explanation concise (2 to 4 informative sentences). Never output isolated word fragments or cut-off labels.`;
+1. Identify the open application(s), active browser tabs, websites, video player (e.g. YouTube video title, creator, channel), IDEs, or windows.
+2. Note: Grokki's floating Dynamic Island pill may appear at the top-center of the screen — ignore the island widget itself and focus on the user's active window, desktop, or background content behind it.
+3. Summarize the key content, headlines, code, documents, or media visible on the screen.
+4. Directly answer the user's inquiry: "${cleanTask}".
+5. Write in clean Markdown, keeping the explanation concise and natural (2 to 4 informative sentences). Never output isolated word fragments or cut-off labels.`;
 
-    if (groqKey && (config.provider === 'groq' || !geminiKey)) {
+    const userMessageContent = [
+      { type: 'text', text: `Please inspect my screen: "${cleanTask}"` },
+      { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
+    ];
+
+    const tryOllama = async () => {
+      const ollamaEndpoint = (config.ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+      const localVisionModel = (config.ollamaVisionModel || 'moondream').trim();
+      try {
+        const nativeController = new AbortController();
+        const nativeTimeout = setTimeout(() => nativeController.abort(), 35000);
+        const nativeRes = await fetch(`${ollamaEndpoint}/api/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: localVisionModel,
+            prompt: `${visionSystemPrompt}\n\nTask: ${cleanTask}`,
+            images: [base64Image],
+            stream: false,
+          }),
+          signal: nativeController.signal,
+        });
+        clearTimeout(nativeTimeout);
+        if (nativeRes.ok) {
+          const data = await nativeRes.json();
+          const reply = (data?.response || '').trim();
+          if (reply && reply.length > 10) return reply;
+        }
+      } catch (_) {}
+
+      try {
+        const visionData = await callOpenAICompatible({
+          endpoint: `${ollamaEndpoint}/v1`,
+          apiKey: 'ollama',
+          model: localVisionModel,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: `${visionSystemPrompt}\n\nTask: ${cleanTask}` },
+                { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
+              ],
+            },
+          ],
+          temperature: 0.2,
+          timeout: 35000,
+        });
+        const reply = (visionData?.choices?.[0]?.message?.content || '').trim();
+        if (reply && reply.length > 10) return reply;
+      } catch (_) {}
+      return null;
+    };
+
+    const tryGroq = async () => {
+      if (!groqKey) return null;
       const groqVisionCandidates = Array.from(new Set([
         (config.groqVisionModel || '').trim(),
+        'meta-llama/llama-4-scenic-1b',
         'qwen/qwen3.8-27b',
+        'llama-3.2-11b-vision-preview',
+        'llama-3.2-90b-vision-preview',
       ].filter(Boolean)));
-
       for (const visionModel of groqVisionCandidates) {
         try {
           const visionData = await callOpenAICompatible({
@@ -7156,66 +7390,153 @@ Guidelines:
             apiKey: groqKey,
             model: visionModel,
             messages: [
-              {
-                role: 'system',
-                content: visionSystemPrompt,
-              },
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: `Please inspect my screen: "${cleanTask}"` },
-                  { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
-                ],
-              },
+              { role: 'system', content: visionSystemPrompt },
+              { role: 'user', content: userMessageContent },
             ],
             temperature: 0.3,
             timeout: 25000,
           });
           const reply = visionData?.choices?.[0]?.message?.content;
-          if (reply && reply.trim().length > 30 && !reply.trim().startsWith('-oss-120b')) {
-            return { success: true, message: reply.trim() };
+          if (reply && reply.trim().length > 20 && !reply.trim().startsWith('-oss-120b')) {
+            return reply.trim();
           }
         } catch (e) {
-          console.warn(`[AgentBrain] Groq vision (${visionModel}) failed, trying fallback:`, e.message);
+          console.warn(`[AgentBrain] Groq vision (${visionModel}) failed:`, e.message);
         }
+      }
+      return null;
+    };
+
+    const tryGemini = async () => {
+      if (!geminiKey) return null;
+      const geminiCandidates = Array.from(new Set([
+        config.geminiModel || 'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        this.models[0]
+      ].filter(Boolean)));
+      for (const model of geminiCandidates) {
+        try {
+          const ai = new GoogleGenAI({ apiKey: geminiKey });
+          const res = await ai.models.generateContent({
+            model,
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: `${visionSystemPrompt}\n\nUser Question: ${cleanTask}` },
+                  { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
+                ],
+              },
+            ],
+            config: { maxOutputTokens: 600, temperature: 0.2 },
+          });
+          const reply = (res.text || '').trim();
+          if (reply && reply.length > 10) return reply;
+        } catch (e) {
+          console.warn(`[AgentBrain] Gemini vision (${model}) failed:`, e.message);
+        }
+      }
+      return null;
+    };
+
+    const tryOpenAI = async () => {
+      if (!openaiKey) return null;
+      const models = [config.openaiModel || 'gpt-4o-mini', 'gpt-4o'];
+      for (const model of models) {
+        try {
+          const visionData = await callOpenAICompatible({
+            endpoint: 'https://api.openai.com/v1',
+            apiKey: openaiKey,
+            model,
+            messages: [
+              { role: 'system', content: visionSystemPrompt },
+              { role: 'user', content: userMessageContent },
+            ],
+            temperature: 0.3,
+            timeout: 25000,
+          });
+          const reply = visionData?.choices?.[0]?.message?.content;
+          if (reply && reply.trim().length > 10) return reply.trim();
+        } catch (e) {
+          console.warn(`[AgentBrain] OpenAI vision (${model}) failed:`, e.message);
+        }
+      }
+      return null;
+    };
+
+    const tryOpenRouter = async () => {
+      if (!openrouterKey) return null;
+      const models = [config.openrouterModel || 'google/gemini-2.0-flash-001', 'meta-llama/llama-3.2-11b-vision-instruct:free'];
+      for (const model of models) {
+        try {
+          const visionData = await callOpenAICompatible({
+            endpoint: 'https://openrouter.ai/api/v1',
+            apiKey: openrouterKey,
+            model,
+            messages: [
+              { role: 'system', content: visionSystemPrompt },
+              { role: 'user', content: userMessageContent },
+            ],
+            temperature: 0.3,
+            timeout: 25000,
+          });
+          const reply = visionData?.choices?.[0]?.message?.content;
+          if (reply && reply.trim().length > 10) return reply.trim();
+        } catch (e) {
+          console.warn(`[AgentBrain] OpenRouter vision (${model}) failed:`, e.message);
+        }
+      }
+      return null;
+    };
+
+    const tryGrok = async () => {
+      if (!grokKey) return null;
+      try {
+        const visionData = await callOpenAICompatible({
+          endpoint: 'https://api.x.ai/v1',
+          apiKey: grokKey,
+          model: 'grok-2-vision-1212',
+          messages: [
+            { role: 'system', content: visionSystemPrompt },
+            { role: 'user', content: userMessageContent },
+          ],
+          temperature: 0.3,
+          timeout: 25000,
+        });
+        const reply = visionData?.choices?.[0]?.message?.content;
+        if (reply && reply.trim().length > 10) return reply.trim();
+      } catch (e) {
+        console.warn(`[AgentBrain] xAI Grok vision failed:`, e.message);
+      }
+      return null;
+    };
+
+    // Determine execution order based on current provider
+    const providersQueue = [];
+    if (currentProvider === 'groq') providersQueue.push(tryGroq);
+    else if (currentProvider === 'gemini') providersQueue.push(tryGemini);
+    else if (currentProvider === 'openai') providersQueue.push(tryOpenAI);
+    else if (currentProvider === 'openrouter') providersQueue.push(tryOpenRouter);
+    else if (currentProvider === 'grok') providersQueue.push(tryGrok);
+    else if (currentProvider === 'ollama') providersQueue.push(tryOllama);
+
+    // Append all other available providers as fallbacks
+    const allProviders = [tryGemini, tryGroq, tryOpenAI, tryOpenRouter, tryGrok, tryOllama];
+    for (const p of allProviders) {
+      if (!providersQueue.includes(p)) providersQueue.push(p);
+    }
+
+    for (const runProvider of providersQueue) {
+      const result = await runProvider();
+      if (result) {
+        return { success: true, message: result };
       }
     }
 
-    if (!geminiKey) {
-      return { success: true, message: 'Screen captured. Add a Groq or Gemini API key for vision reading.' };
-    }
-
-    try {
-      const ai = new GoogleGenAI({ apiKey: geminiKey });
-      const res = await ai.models.generateContent({
-        model: this.models[0],
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: `${visionSystemPrompt}\n\nUser Question: ${cleanTask}` },
-              {
-                inlineData: {
-                  mimeType: 'image/jpeg',
-                  data: base64Image,
-                },
-              },
-            ],
-          },
-        ],
-        config: {
-          maxOutputTokens: 500,
-          temperature: 0.2,
-        },
-      });
-
-      return {
-        success: true,
-        message: (res.text || '').trim() || 'Screen analyzed.',
-      };
-    } catch (err) {
-      return { success: false, message: `Screen analysis: ${err.message}` };
-    }
+    return {
+      success: false,
+      message: 'Screen captured, but no vision-capable model could analyze it. Please ensure an API key (Gemini, Groq, OpenAI, OpenRouter, xAI) is saved or a local vision model in Ollama is running (`ollama run moondream`).',
+    };
   }
 
   async analyzeAttachedImage(imagePath, userPrompt = '', apiKey = '') {

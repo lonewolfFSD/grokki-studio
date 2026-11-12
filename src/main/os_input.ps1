@@ -761,15 +761,19 @@ switch ($action.ToLower()) {
     "capture" {
         Add-Type -AssemblyName System.Windows.Forms
         Add-Type -AssemblyName System.Drawing
-        $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-        $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
-        $graphics = [System.Drawing.Graphics]::FromImage($bmp)
-        $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-        $target = Join-Path $env:TEMP 'screen_capture.jpg'
-        $bmp.Save($target, [System.Drawing.Imaging.ImageFormat]::Jpeg)
-        $bmp.Dispose()
-        $graphics.Dispose()
-        Write-Output $target
+        try {
+            $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+            $graphics = [System.Drawing.Graphics]::FromImage($bmp)
+            $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+            $target = Join-Path $env:TEMP 'screen_capture.jpg'
+            $bmp.Save($target, [System.Drawing.Imaging.ImageFormat]::Jpeg)
+            $bmp.Dispose()
+            $graphics.Dispose()
+            Write-Output $target
+        } catch {
+            Write-Output ""
+        }
     }
     "grab-selection" {
         Add-Type -AssemblyName System.Windows.Forms

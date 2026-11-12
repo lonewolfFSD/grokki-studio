@@ -748,6 +748,14 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
   const [turboOptimized, setTurboOptimized] = useState<boolean>(true);
   const [turboApplying, setTurboApplying] = useState<boolean>(false);
 
+  // Hugging Face Direct Importer State
+  const [hfInput, setHfInput] = useState('');
+  const [hfLoading, setHfLoading] = useState(false);
+  const [hfResolvedRepo, setHfResolvedRepo] = useState<string | null>(null);
+  const [hfGgufFiles, setHfGgufFiles] = useState<Array<{ name: string; size: string; quant: string; isRecommended: boolean }>>([]);
+  const [selectedHfFile, setSelectedHfFile] = useState<string>('');
+  const [hfError, setHfError] = useState<string | null>(null);
+
   useEffect(() => {
     if (window.jarvisAPI?.getOllamaHardwareStatus) {
       window.jarvisAPI.getOllamaHardwareStatus().then((res) => {
@@ -924,6 +932,112 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
     } finally {
       setDeletingModel(null);
     }
+  };
+
+  const parseHfRepo = (input: string): string | null => {
+    let clean = input.trim();
+    if (!clean) return null;
+    clean = clean.replace(/^https?:\/\/(www\.)?(huggingface\.co|hf\.co)\//i, '');
+    clean = clean.replace(/\/(tree|blob)\/[^/]+.*$/i, '');
+    clean = clean.replace(/\/+$/, '');
+    const parts = clean.split('/');
+    if (parts.length >= 2) {
+      return `${parts[0]}/${parts[1]}`;
+    }
+    return null;
+  };
+
+  const extractQuant = (filename: string): string => {
+    const match = filename.match(/[-._]([iI]?[qQ]\d+[_A-Za-z\d]*|f16|f32|bf16)\.gguf$/i);
+    if (match) return match[1].toUpperCase();
+    return filename.replace(/\.gguf$/i, '');
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (!bytes || isNaN(bytes)) return '';
+    const gb = bytes / (1024 * 1024 * 1024);
+    if (gb >= 1) return `${gb.toFixed(2)} GB`;
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(0)} MB`;
+  };
+
+  const handleResolveHfRepo = async (rawInput?: string) => {
+    const text = rawInput !== undefined ? rawInput : hfInput;
+    const repo = parseHfRepo(text);
+    if (!repo) {
+      setHfError('Enter a valid Hugging Face repository (e.g. bartowski/Llama-3.2-3B-Instruct-GGUF).');
+      return;
+    }
+
+    setHfLoading(true);
+    setHfError(null);
+    setHfGgufFiles([]);
+    setHfResolvedRepo(null);
+
+    try {
+      const res = await fetch(`https://huggingface.co/api/models/${repo}/tree/main`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error(`Repository "${repo}" was not found or is private.`);
+        }
+        throw new Error(`Hugging Face API returned HTTP ${res.status}`);
+      }
+
+      const files = await res.json();
+      if (!Array.isArray(files)) {
+        throw new Error('Unexpected response format from Hugging Face.');
+      }
+
+      const ggufs = files
+        .filter((f: any) => f.type === 'file' && f.path && f.path.toLowerCase().endsWith('.gguf'))
+        .map((f: any) => {
+          const quant = extractQuant(f.path);
+          const isRecommended = /q4_k_m/i.test(quant) || /q4_k/i.test(quant);
+          return {
+            name: f.path,
+            size: formatFileSize(f.size),
+            quant,
+            isRecommended,
+          };
+        });
+
+      if (ggufs.length === 0) {
+        throw new Error(`No .gguf files found in "${repo}". This repository might contain unquantized PyTorch/Safetensors weights instead.`);
+      }
+
+      ggufs.sort((a, b) => {
+        if (a.isRecommended && !b.isRecommended) return -1;
+        if (!a.isRecommended && b.isRecommended) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      setHfResolvedRepo(repo);
+      setHfGgufFiles(ggufs);
+      setSelectedHfFile(ggufs[0].name);
+    } catch (err: any) {
+      setHfError(err.message || 'Failed to inspect Hugging Face repository.');
+    } finally {
+      setHfLoading(false);
+    }
+  };
+
+  const handleImportHfModel = async () => {
+    if (!hfResolvedRepo || !selectedHfFile) return;
+    const fileObj = hfGgufFiles.find(f => f.name === selectedHfFile);
+    const tag = fileObj?.quant ? fileObj.quant : selectedHfFile;
+    const modelTarget = `hf.co/${hfResolvedRepo}:${tag}`;
+    await handlePullModel(modelTarget);
+  };
+
+  const handleCustomPull = (val: string) => {
+    const trimmed = val.trim();
+    if (!trimmed) return;
+    if (trimmed.includes('huggingface.co') || trimmed.startsWith('hf.co/')) {
+      setHfInput(trimmed);
+      handleResolveHfRepo(trimmed);
+      return;
+    }
+    handlePullModel(trimmed);
   };
 
   useEffect(() => {
@@ -1980,15 +2094,21 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
                 type="text"
                 value={customModelInput}
                 onChange={(e) => setCustomModelInput(e.target.value)}
-                placeholder="Enter any custom model tag from ollama.com (e.g. codellama, gemma2:9b)..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleCustomPull(customModelInput);
+                  }
+                }}
+                placeholder="Enter any model tag (e.g. codellama, qwen2.5:7b, or hf.co/...)"
                 disabled={!!activePullingModel}
-                className="flex-1 w-full h-9 px-3 rounded-xl border border-gray-200 dark:border-[#252836] bg-gray-50/50 dark:bg-[#161820] text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 transition-all"
+                className="flex-1 w-full h-9 px-3 rounded-xl border border-gray-200 dark:border-[#252836] bg-gray-50/50 dark:bg-[#161820] text-xs font-mono text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 transition-all"
               />
               <button
                 type="button"
-                onClick={() => handlePullModel(customModelInput)}
+                onClick={() => handleCustomPull(customModelInput)}
                 disabled={!customModelInput.trim() || !!activePullingModel}
-                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white border-none cursor-pointer transition-all disabled:opacity-50 whitespace-nowrap w-full sm:w-auto"
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl text-xs font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-black dark:hover:bg-gray-100 border-none cursor-pointer transition-all disabled:opacity-50 whitespace-nowrap w-full sm:w-auto"
               >
                 {activePullingModel === customModelInput.trim() ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1997,6 +2117,83 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
                 )}
                 <span>Pull Model</span>
               </button>
+            </div>
+
+            {/* Hugging Face Direct GGUF Importer */}
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-[#252836] flex flex-col gap-3">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                  Import from Hugging Face
+                </span>
+                <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                  Paste any Hugging Face GGUF repository or model URL to pull directly into Ollama.
+                </span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-2">
+                <input
+                  type="text"
+                  value={hfInput}
+                  onChange={(e) => {
+                    setHfInput(e.target.value);
+                    if (hfError) setHfError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleResolveHfRepo();
+                    }
+                  }}
+                  placeholder="e.g. bartowski/Llama-3.2-3B-Instruct-GGUF or huggingface.co/..."
+                  disabled={hfLoading || !!activePullingModel}
+                  className="flex-1 w-full h-9 px-3 rounded-xl border border-gray-200 dark:border-[#252836] bg-gray-50/50 dark:bg-[#161820] text-xs font-mono text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleResolveHfRepo()}
+                  disabled={!hfInput.trim() || hfLoading || !!activePullingModel}
+                  className="h-9 px-4 rounded-xl text-xs font-medium border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#1a1c24] hover:bg-gray-50 dark:hover:bg-[#20232d] text-gray-700 dark:text-gray-200 cursor-pointer transition-all disabled:opacity-50 whitespace-nowrap w-full sm:w-auto"
+                >
+                  {hfLoading ? 'Inspecting...' : 'Inspect Repo'}
+                </button>
+              </div>
+
+              {hfError && (
+                <div className="text-[11px] text-red-500 bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg font-mono">
+                  {hfError}
+                </div>
+              )}
+
+              {hfResolvedRepo && hfGgufFiles.length > 0 && (
+                <div className="p-3 rounded-xl border border-gray-200 dark:border-[#252836] bg-gray-50/50 dark:bg-[#161820] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex flex-col gap-1 w-full sm:w-auto flex-1">
+                    <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                      Select Quantization ({hfGgufFiles.length} files in {hfResolvedRepo})
+                    </span>
+                    <select
+                      value={selectedHfFile}
+                      onChange={(e) => setSelectedHfFile(e.target.value)}
+                      disabled={!!activePullingModel}
+                      className="w-full h-8 px-2 rounded-lg border border-gray-200 dark:border-[#2a2d3d] bg-white dark:bg-[#101217] text-xs font-mono text-gray-900 dark:text-gray-100 outline-none cursor-pointer"
+                    >
+                      {hfGgufFiles.map((f) => (
+                        <option key={f.name} value={f.name}>
+                          {f.quant} {f.size ? `(${f.size})` : ''} {f.isRecommended ? '— Recommended' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleImportHfModel}
+                    disabled={!selectedHfFile || !!activePullingModel}
+                    className="h-8 px-4 rounded-lg text-xs font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-black dark:hover:bg-gray-100 border-none cursor-pointer transition-all disabled:opacity-50 whitespace-nowrap self-stretch sm:self-end"
+                  >
+                    {activePullingModel ? 'Downloading...' : 'Import to Ollama'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -39,7 +39,14 @@ interface ArtifactCanvasPaneProps {
   artifact: Artifact | null;
   onClose: () => void;
   isDark?: boolean;
+  width?: number;
+  onWidthChange?: (width: number) => void;
+  isResizing?: boolean;
+  onResizingChange?: (resizing: boolean) => void;
 }
+
+const MIN_CANVAS_WIDTH = 380;
+const DEFAULT_CANVAS_WIDTH = typeof window !== 'undefined' ? Math.min(960, Math.max(520, Math.round(window.innerWidth * 0.48))) : 640;
 
 export const detectArtifactType = (
   language: string,
@@ -70,8 +77,91 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
   artifact,
   onClose,
   isDark = true,
+  width: externalWidth,
+  onWidthChange,
+  isResizing: externalIsResizing,
+  onResizingChange,
 }) => {
   if (!artifact) return null;
+
+  const [internalWidth, setInternalWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('grokki_canvas_width');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (parsed >= MIN_CANVAS_WIDTH && parsed <= (typeof window !== 'undefined' ? window.innerWidth - 100 : 2000)) {
+          return parsed;
+        }
+      }
+    } catch (_) {}
+    return DEFAULT_CANVAS_WIDTH;
+  });
+  const [internalIsResizing, setInternalIsResizing] = useState(false);
+
+  const canvasWidth = externalWidth !== undefined ? externalWidth : internalWidth;
+  const setCanvasWidth = (w: number) => {
+    setInternalWidth(w);
+    onWidthChange?.(w);
+  };
+
+  const isResizing = externalIsResizing !== undefined ? externalIsResizing : internalIsResizing;
+  const setIsResizing = (r: boolean) => {
+    setInternalIsResizing(r);
+    onResizingChange?.(r);
+  };
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+
+    let rafId: number | null = null;
+    let latestClientX = e.clientX;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      latestClientX = moveEvent.clientX;
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          const newWidth = window.innerWidth - latestClientX;
+          const maxAllowedWidth = Math.max(MIN_CANVAS_WIDTH, window.innerWidth - 120);
+          const clamped = Math.min(maxAllowedWidth, Math.max(MIN_CANVAS_WIDTH, newWidth));
+          setCanvasWidth(clamped);
+        });
+      }
+    };
+
+    const onMouseUp = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      setIsResizing(false);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+
+      try {
+        const finalWidth = window.innerWidth - latestClientX;
+        const maxAllowedWidth = Math.max(MIN_CANVAS_WIDTH, window.innerWidth - 120);
+        const clamped = Math.min(maxAllowedWidth, Math.max(MIN_CANVAS_WIDTH, finalWidth));
+        localStorage.setItem('grokki_canvas_width', String(clamped));
+      } catch (_) {}
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleResetWidth = () => {
+    const defaultW = Math.min(960, Math.max(520, Math.round(window.innerWidth * 0.48)));
+    setCanvasWidth(defaultW);
+    try {
+      localStorage.setItem('grokki_canvas_width', String(defaultW));
+    } catch (_) {}
+  };
 
   const artifactType = useMemo(
     () => artifact.type || detectArtifactType(artifact.language, artifact.content),
@@ -252,10 +342,33 @@ export const ArtifactCanvasPane: React.FC<ArtifactCanvasPaneProps> = ({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: '100%', opacity: 0 }}
       transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-      className={`fixed top-0 right-0 bottom-0 z-40 bg-white dark:bg-[#0d0f17] text-gray-900 dark:text-gray-100 border-l border-gray-200 dark:border-[#1c202c] shadow-2xl flex flex-col transition-all duration-200 select-none ${
-        isFullscreen ? 'w-full left-0 z-[60]' : 'w-full md:w-[50vw] lg:w-[48vw] xl:w-[46vw]'
-      }`}
+      style={
+        isFullscreen
+          ? { width: '100vw', left: 0 }
+          : { width: `${canvasWidth}px` }
+      }
+      className={`fixed top-0 right-0 bottom-0 z-40 bg-white dark:bg-[#0d0f17] text-gray-900 dark:text-gray-100 border-l border-gray-200 dark:border-[#1c202c] shadow-2xl flex flex-col select-none ${
+        isResizing ? 'transition-none select-none' : 'transition-all duration-150'
+      } ${isFullscreen ? 'z-[60]' : ''}`}
     >
+      {/* Left Edge Drag-to-Resize Handle */}
+      {!isFullscreen && (
+        <div
+          onMouseDown={handleResizeStart}
+          onDoubleClick={handleResetWidth}
+          title="Drag to resize canvas (double-click to reset)"
+          className={`absolute top-0 -left-1.5 bottom-0 w-3 cursor-col-resize z-50 group flex items-center justify-center select-none transition-colors ${
+            isResizing ? 'bg-blue-500/30' : 'hover:bg-blue-500/20'
+          }`}
+        >
+          {/* Subtle center drag notch */}
+          <div
+            className={`w-1 h-8 rounded-full transition-colors ${
+              isResizing ? 'bg-blue-400' : 'bg-gray-300/60 dark:bg-white/20 group-hover:bg-blue-400/80 dark:group-hover:bg-blue-400/80'
+            }`}
+          />
+        </div>
+      )}
       {/* Top Header Bar */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-[#1c202c] bg-white/95 dark:bg-[#12141f]/90 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-3 min-w-0">

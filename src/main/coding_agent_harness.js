@@ -114,7 +114,34 @@ class CodingAgentHarness {
       if (foundInRoot) return path.normalize(foundInRoot);
     }
 
+    // 5. Global user workspace and disk fallback lookup
+    const globalFound = this.findGlobally(cleanPath);
+    if (globalFound) return path.normalize(globalFound);
+
     return direct;
+  }
+
+  findGlobally(targetName) {
+    if (!targetName) return null;
+    const clean = String(targetName).trim();
+    const base = path.basename(clean).toLowerCase();
+    const roots = [
+      'E:\\Arijit',
+      path.join(os.homedir(), 'Desktop'),
+      path.join(os.homedir(), 'Documents'),
+      path.join(os.homedir(), 'Downloads'),
+      'E:\\',
+      'D:\\',
+      os.homedir()
+    ];
+    for (const r of roots) {
+      if (!fs.existsSync(r)) continue;
+      const direct = path.join(r, clean);
+      if (fs.existsSync(direct)) return direct;
+      const found = this.findFileInRoot(r, base, 3);
+      if (found) return found;
+    }
+    return null;
   }
 
   /**
@@ -300,6 +327,19 @@ class CodingAgentHarness {
         originalContent: original,
         existedBefore: true,
       };
+
+      // If replacement is identical to original, it's a no-op!
+      if (original.trim() === rep.trim()) {
+        return {
+          success: true,
+          noChange: true,
+          path: fullPath,
+          relativePath: path.relative(this.getWorkspaceRoot(), fullPath),
+          addedLines: 0,
+          removedLines: 0,
+          message: `File ${path.relative(this.getWorkspaceRoot(), fullPath)} is already up to date with the latest code.`,
+        };
+      }
 
       // Check if target is missing, empty, or equals original (full file rewrite)
       if (!target || target.trim() === '' || target.trim() === original.trim()) {
@@ -703,14 +743,15 @@ class CodingAgentHarness {
 
       walk(fullPath, 1);
 
+      const displayPath = path.isAbsolute(fullPath) ? fullPath : (path.relative(this.getWorkspaceRoot(), fullPath) || '.');
       return {
         success: true,
         root: fullPath,
         relativePath: path.relative(this.getWorkspaceRoot(), fullPath) || '.',
         totalItems: items.length,
         items: items.slice(0, 200),
-        message: `Found ${items.length} items in \`${path.relative(this.getWorkspaceRoot(), fullPath) || '.'}\`:\n` +
-          items.slice(0, 50).map(i => `${i.type === 'directory' ? '📁' : '📄'} ${i.relativePath} ${i.size ? `(${i.size}B)` : ''}`).join('\n') +
+        message: `Found ${items.length} items in \`${displayPath}\`:\n` +
+          items.slice(0, 50).map(i => `${i.type === 'directory' ? '📁' : '📄'} ${i.name} ${i.size ? `(${i.size}B)` : ''}`).join('\n') +
           (items.length > 50 ? `\n...and ${items.length - 50} more items.` : ''),
       };
     } catch (err) {
@@ -728,7 +769,7 @@ class CodingAgentHarness {
         return { success: false, error: `Search path does not exist: ${searchPath}` };
       }
 
-      const ignoredDirs = new Set(['.git', 'node_modules', 'dist', 'build', '__pycache__', '.venv']);
+      const ignoredDirs = new Set(['.git', 'node_modules', 'dist', 'build', '__pycache__', '.venv', 'release', 'data', '.gemini', '.next', 'coverage']);
       const results = [];
       let matcher;
       try {
@@ -776,6 +817,94 @@ class CodingAgentHarness {
       };
 
       walk(root);
+
+      // Fallback: If 0 results and query had function/definition patterns, or root was default workspace
+      if (results.length === 0) {
+        const stripped = query.replace(/^(def\s+|function\s+|class\s+|const\s+|let\s+|var\s+)/i, '').trim();
+        const simplified = stripped.replace(/^(is_|has_|get_|check_)/i, '').trim();
+        const candidateTerms = [stripped, simplified].filter(q => q && q.length > 2 && q !== query);
+
+        // Search root with simplified terms
+        for (const term of candidateTerms) {
+          if (results.length >= max_results) break;
+          const altMatcher = is_regex ? new RegExp(term, 'g') : null;
+          const walkAlt = (dir) => {
+            if (results.length >= max_results) return;
+            try {
+              const entries = fs.readdirSync(dir, { withFileTypes: true });
+              for (const entry of entries) {
+                if (results.length >= max_results) break;
+                if (ignoredDirs.has(entry.name) || entry.name.startsWith('.')) continue;
+                const full = path.join(dir, entry.name);
+                if (entry.isDirectory()) walkAlt(full);
+                else if (entry.isFile()) {
+                  const ext = path.extname(entry.name).toLowerCase();
+                  if (!['.ts', '.tsx', '.js', '.jsx', '.json', '.html', '.css', '.md', '.py'].includes(ext)) continue;
+                  try {
+                    const content = fs.readFileSync(full, 'utf8');
+                    const lines = content.split(/\r?\n/);
+                    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+                      if (results.length >= max_results) break;
+                      const line = lines[lineIdx];
+                      const isMatch = altMatcher ? altMatcher.test(line) : line.toLowerCase().includes(term.toLowerCase());
+                      if (isMatch) {
+                        results.push({
+                          file: path.relative(this.getWorkspaceRoot(), full),
+                          line: lineIdx + 1,
+                          text: line.trim(),
+                        });
+                      }
+                    }
+                  } catch (_) {}
+                }
+              }
+            } catch (_) {}
+          };
+          walkAlt(root);
+          if (results.length > 0) break;
+        }
+
+        // Search user root (E:\Arijit) if still 0 matches and searchPath was empty
+        if (results.length === 0 && !searchPath && fs.existsSync('E:\\Arijit')) {
+          const userTerms = [query, stripped, simplified].filter((q, i, arr) => q && q.length > 2 && arr.indexOf(q) === i);
+          for (const term of userTerms) {
+            if (results.length >= max_results) break;
+            const walkUser = (dir, depth = 0) => {
+              if (depth > 3 || results.length >= max_results) return;
+              try {
+                const entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                  if (results.length >= max_results) break;
+                  if (entry.name.startsWith('.') || ignoredDirs.has(entry.name)) continue;
+                  const full = path.join(dir, entry.name);
+                  if (entry.isDirectory()) walkUser(full, depth + 1);
+                  else if (entry.isFile()) {
+                    const ext = path.extname(entry.name).toLowerCase();
+                    if (!['.py', '.js', '.ts', '.txt', '.md'].includes(ext)) continue;
+                    try {
+                      const content = fs.readFileSync(full, 'utf8');
+                      const lines = content.split(/\r?\n/);
+                      for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+                        if (results.length >= max_results) break;
+                        const line = lines[lineIdx];
+                        if (line.toLowerCase().includes(term.toLowerCase())) {
+                          results.push({
+                            file: full,
+                            line: lineIdx + 1,
+                            text: line.trim(),
+                          });
+                        }
+                      }
+                    } catch (_) {}
+                  }
+                }
+              } catch (_) {}
+            };
+            walkUser('E:\\Arijit');
+            if (results.length > 0) break;
+          }
+        }
+      }
 
       const formatted = results
         .map(r => `📄 ${r.file}:${r.line} -> ${r.text}`)

@@ -330,5 +330,82 @@
     "category": "fact",
     "mode": "chat",
     "created_at": 1794404654744
+  },
+  {
+    "id": "mem_1794502184473_3bkd",
+    "memory": "User has Python files in their project",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794502184474
+  },
+  {
+    "id": "mem_1794502287561_51t1",
+    "memory": "User needs to read Assignment 3",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794502287561
+  },
+  {
+    "id": "mem_1794502338847_sla7",
+    "memory": "User is working on 'Assignment 3'",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794502338847
+  },
+  {
+    "id": "mem_1794502338847_hwms",
+    "memory": "User needs a list of files in a specific directory",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794502338847
+  },
+  {
+    "id": "mem_1794502390379_7c83",
+    "memory": "User wants to see the contents of 'py5.py'",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794502390379
+  },
+  {
+    "id": "mem_1794503643957_q0vv",
+    "memory": "User is looking for a Python file to check if a number is even or odd",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794503643957
+  },
+  {
+    "id": "mem_1794503643957_lymc",
+    "memory": "Files found: print_odd.py and print_even.py",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794503643957
+  },
+  {
+    "id": "mem_1794503714772_o9hg",
+    "memory": "User wants to improve `print_even.py`",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794503714772
+  },
+  {
+    "id": "mem_1794504648469_9txt",
+    "memory": "User requested a professional version of the `print_even.py` script",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794504648469
+  },
+  {
+    "id": "mem_1794504648469_f844",
+    "memory": "User prefers code with type hints and docstrings",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794504648469
+  },
+  {
+    "id": "mem_1794504648469_77pg",
+    "memory": "User wants to know if the changes should be applied directly",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794504648469
   }
 ]
