@@ -34,6 +34,9 @@ export default defineConfig({
             if (id.includes('motion')) {
               return 'vendor-motion';
             }
+            if (id.includes('three') || id.includes('@pixiv')) {
+              return 'vendor-three';
+            }
             return 'vendor-core';
           }
         },

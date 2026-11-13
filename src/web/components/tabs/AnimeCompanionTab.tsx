@@ -39,22 +39,44 @@ const PRESET_ROOMS: RoomBackground[] = [
   {
     id: 'anime_room',
     name: 'Cozy Bedroom',
-    url: '/assets/backgrounds/anime_room.png',
+    url: './assets/backgrounds/anime_room.png',
   },
   {
     id: 'chill_room',
     name: 'Lofi Chill Room',
-    url: '/assets/backgrounds/chill_room.png',
+    url: './assets/backgrounds/chill_room.png',
   },
   {
     id: 'sunset_room',
     name: 'Sunset Balcony',
-    url: '/assets/backgrounds/sunset_room.png',
+    url: './assets/backgrounds/sunset_room.png',
   },
   {
     id: 'tokyo_cafe',
     name: 'Tokyo Night Cafe',
-    url: '/assets/backgrounds/tokyo_cafe.png',
+    url: './assets/backgrounds/tokyo_cafe.png',
+  },
+];
+
+interface PresetAvatar {
+  id: string;
+  name: string;
+  desc: string;
+  url: string;
+}
+
+const PRESET_AVATARS: PresetAvatar[] = [
+  {
+    id: 'aiko',
+    name: 'Aiko (Kizuna)',
+    desc: 'Sweet & Expressive',
+    url: './assets/avatars/Aiko.vrm',
+  },
+  {
+    id: 'alicia',
+    name: 'Alicia Solid',
+    desc: 'Classic Anime Girl',
+    url: './assets/avatars/alicia.vrm',
   },
 ];
 
@@ -141,7 +163,20 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     "Hi there! I'm Ani. I'm so happy you came to hang out in my room!"
   );
   const [showSpeechBubble, setShowSpeechBubble] = useState<boolean>(true);
-  const [modelUrl, setModelUrl] = useState<string>('/assets/avatars/alicia.vrm');
+  const [modelUrl, setModelUrl] = useState<string>(() => {
+    try {
+      return localStorage.getItem('ani_companion_avatar_url') || './assets/avatars/Aiko.vrm';
+    } catch {
+      return './assets/avatars/Aiko.vrm';
+    }
+  });
+
+  const handleSelectAvatar = (url: string) => {
+    setModelUrl(url);
+    try {
+      localStorage.setItem('ani_companion_avatar_url', url);
+    } catch {}
+  };
 
   // Save memory changes to localStorage
   useEffect(() => {
@@ -191,10 +226,10 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     const isHappy = targetEmotionRef.current === 'happy';
 
     // In three-vrm normalized bone coordinate space:
-    // Left upper arm: positive Z (+1.25 rad) lowers arm down along body
-    // Right upper arm: negative Z (-1.25 rad) lowers arm down along body
-    let targetLUArm = { x: 0.04, y: 0.02, z: 1.25 + breath };
-    let targetRUArm = { x: 0.04, y: -0.02, z: -1.25 - breath };
+    // Left upper arm: negative Z (-1.25 rad) lowers arm down along body
+    // Right upper arm: positive Z (+1.25 rad) lowers arm down along body
+    let targetLUArm = { x: 0.04, y: 0.02, z: -1.25 - breath };
+    let targetRUArm = { x: 0.04, y: -0.02, z: 1.25 + breath };
     let targetLLArm = { x: 0.06, y: 0.14, z: 0.0 };
     let targetRLArm = { x: 0.06, y: -0.14, z: 0.0 };
     let targetLHand = { x: 0.0, y: 0.0, z: 0.0 };
@@ -204,8 +239,8 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     if (isHappy && isSpeaking) {
       // Gentle Happy Expression: cute cheer, soft bounce
       const cheerWave = Math.sin(elapsed * 2.5) * 0.05;
-      targetLUArm = { x: 0.15, y: 0.1, z: 0.85 + cheerWave };
-      targetRUArm = { x: 0.15, y: -0.1, z: -0.85 - cheerWave };
+      targetLUArm = { x: 0.15, y: 0.1, z: -0.85 - cheerWave };
+      targetRUArm = { x: 0.15, y: -0.1, z: 0.85 + cheerWave };
       targetLLArm = { x: 0.12, y: 0.3, z: 0.0 };
       targetRLArm = { x: 0.12, y: -0.3, z: 0.0 };
       targetHead.z = Math.sin(elapsed * 2.0) * 0.04;
@@ -214,16 +249,16 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
       const gestureSway = Math.sin(elapsed * 1.8) * 0.06;
       const elbowSway = Math.cos(elapsed * 1.8) * 0.08;
 
-      targetRUArm = { x: 0.25, y: -0.15, z: -0.68 + gestureSway };
+      targetRUArm = { x: 0.25, y: -0.15, z: 0.68 - gestureSway };
       targetRLArm = { x: 0.15, y: -0.65 + elbowSway, z: 0.04 };
       targetRHand = { x: 0.04, y: -0.08, z: 0.04 };
 
-      targetLUArm = { x: 0.04, y: 0.02, z: 1.25 + breath };
+      targetLUArm = { x: 0.04, y: 0.02, z: -1.25 - breath };
       targetLLArm = { x: 0.08, y: 0.12, z: 0.0 };
       targetHead.x = breath * 1.0 + Math.sin(elapsed * 1.8) * 0.02;
     } else if (isThinking) {
       // Thoughtful gesture: hand near chin, curious head tilt
-      targetRUArm = { x: 0.38, y: -0.2, z: -0.52 };
+      targetRUArm = { x: 0.38, y: -0.2, z: 0.52 };
       targetRLArm = { x: 0.2, y: -1.0, z: 0.1 };
       targetHead.z = 0.08;
       targetHead.x = -0.04;
@@ -278,7 +313,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
 
     // Camera: Positioned to frame character centered with headroom
     const camera = new THREE.PerspectiveCamera(28.0, width / height, 0.1, 20.0);
-    camera.position.set(0.0, 1.05, 1.7);
+    camera.position.set(0.0, 1.0, 1.6);
     cameraRef.current = camera;
 
     // WebGL Renderer with transparency
@@ -299,11 +334,11 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     // OrbitControls: LOCKED ROTATION WITH FREELY ADJUSTABLE ZOOM
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableRotate = false;
-    controls.enableZoom = true; // Zoom enabled so user can adjust framing
-    controls.minDistance = 1.0;
-    controls.maxDistance = 3.2;
+    controls.enableZoom = true; // Zoom enabled so user can freely adjust framing
+    controls.minDistance = 0.7;
+    controls.maxDistance = 3.5;
     controls.enablePan = false;
-    controls.target.set(0.0, 1.05, 0.0);
+    controls.target.set(0.0, 0.95, 0.0);
     controls.update();
 
     // LookAt Target
@@ -475,14 +510,14 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           vrm.lookAt.target = lookAtTargetRef.current;
         }
 
-        // Lower character down by 0.22m to ensure generous headroom
-        vrm.scene.position.set(0, -0.22, 0);
+        // Lower character down by 0.28m to ensure generous headroom
+        vrm.scene.position.set(0, -0.28, 0);
 
         // Immediately set resting arm pose so model never flashes in T-pose
         const leftUpperArm = vrm.humanoid?.getNormalizedBoneNode('leftUpperArm');
         const rightUpperArm = vrm.humanoid?.getNormalizedBoneNode('rightUpperArm');
-        if (leftUpperArm) leftUpperArm.rotation.set(0.04, 0.02, 1.25);
-        if (rightUpperArm) rightUpperArm.rotation.set(0.04, -0.02, -1.25);
+        if (leftUpperArm) leftUpperArm.rotation.set(0.04, 0.02, -1.25);
+        if (rightUpperArm) rightUpperArm.rotation.set(0.04, -0.02, 1.25);
 
         vrmRef.current = vrm;
         if (sceneRef.current) {
@@ -1065,8 +1100,34 @@ Ani:`;
               </p>
             </div>
 
-            {/* Custom 3D VRM Model Source */}
+            {/* 3D Avatar Selection */}
             <div className="mt-5 pt-4 border-t border-white/10">
+              <label className="text-xs font-medium text-gray-300 block mb-2">
+                Choose 3D Character
+              </label>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                {PRESET_AVATARS.map((av) => (
+                  <button
+                    key={av.id}
+                    type="button"
+                    onClick={() => handleSelectAvatar(av.url)}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer relative ${
+                      modelUrl === av.url
+                        ? 'bg-sky-500/20 border-sky-400 text-sky-200'
+                        : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <div className="text-xs font-semibold">{av.name}</div>
+                    <div className="text-[10px] opacity-70 mt-0.5">{av.desc}</div>
+                    {modelUrl === av.url && (
+                      <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-sky-500 flex items-center justify-center">
+                        <Check className="w-2.5 h-2.5 text-white" />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
               <label className="text-xs font-medium text-gray-300 block mb-1">
                 Custom Avatar Models (.VRM)
               </label>

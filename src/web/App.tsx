@@ -15,7 +15,7 @@ import { PluginsTab } from './components/tabs/PluginsTab';
 import { AppearanceTab } from './components/tabs/AppearanceTab';
 import { StudioSettingsTab } from './components/tabs/StudioSettingsTab';
 import { AboutTab } from './components/tabs/AboutTab';
-import { AnimeCompanionTab } from './components/tabs/AnimeCompanionTab';
+const AnimeCompanionTab = React.lazy(() => import('./components/tabs/AnimeCompanionTab'));
 import { SettingsModal, SettingsSection } from './components/SettingsModal';
 import { ChatLockModal, LockedChatScreen } from './components/ChatLockModal';
 import { JarvisConfig, GoogleProfile, SystemInfo, Conversation, ChatLockMethod, ActiveModelPull } from './types/jarvis';
@@ -1208,10 +1208,19 @@ export const App: React.FC = () => {
             )}
 
             {activeTab === 'companion' && (
-              <AnimeCompanionTab
-                config={config}
-                onChangeConfig={handleConfigChange}
-              />
+              <React.Suspense
+                fallback={
+                  <div className="w-full h-full bg-[#070709] flex flex-col items-center justify-center gap-3 text-gray-400">
+                    <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+                    <span className="text-xs tracking-wider uppercase font-mono">Loading Ani...</span>
+                  </div>
+                }
+              >
+                <AnimeCompanionTab
+                  config={config}
+                  onChangeConfig={handleConfigChange}
+                />
+              </React.Suspense>
             )}
 
             {activeTab === 'memory' && (
