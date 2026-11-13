@@ -20,6 +20,8 @@ import {
   Loader2,
   Trash2,
   Image as ImageIcon,
+  ArrowBigUp,
+  ArrowUp,
 } from 'lucide-react';
 import { JarvisConfig } from '../../types/jarvis';
 
@@ -36,7 +38,78 @@ interface RoomBackground {
   url: string;
 }
 
+// Animated dark threads/particle-network background component
+const ThreadsBackground: React.FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d')!;
+    let animId: number;
+    const particles: { x: number; y: number; vx: number; vy: number; r: number }[] = [];
+    const resize = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    for (let i = 0; i < 90; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        r: 0.8 + Math.random() * 1.4,
+      });
+    }
+    const draw = () => {
+      ctx.fillStyle = '#06060d';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Draw connecting lines
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 130) {
+            const alpha = (1 - dist / 130) * 0.22;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(140,80,255,${alpha})`;
+            ctx.lineWidth = 0.7;
+            ctx.stroke();
+          }
+        }
+      }
+      // Draw particles
+      particles.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(170,100,255,0.65)';
+        ctx.fill();
+      });
+      animId = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />;
+};
+
 const PRESET_ROOMS: RoomBackground[] = [
+  {
+    id: 'threads',
+    name: 'Dark Threads',
+    url: 'threads',
+  },
   {
     id: 'sunset_room',
     name: 'Sunset Balcony',
@@ -70,21 +143,15 @@ const PRESET_AVATARS: PresetAvatar[] = [
   {
     id: 'aiko_v1',
     name: 'Aiko v1 (Classic)',
-    desc: 'Sweet Kizuna AI Original',
+    desc: 'Original',
     url: './assets/avatars/Aiko.vrm',
   },
   {
     id: 'aiko_v2',
     name: 'Aiko v2 (Halloween)',
-    desc: 'Gothic Halloween Kizuna AI',
+    desc: 'Gothic Halloween',
     url: './assets/avatars/Aiko_v2.vrm',
-  },
-  {
-    id: 'alicia',
-    name: 'Alicia Solid',
-    desc: 'Classic Anime Girl',
-    url: './assets/avatars/alicia.vrm',
-  },
+  }
 ];
 
 interface AnimPreset {
@@ -203,7 +270,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   const [showInput, setShowInput] = useState<boolean>(false);
   const [isListening, setIsListening] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
-  const [currentBgUrl, setCurrentBgUrl] = useState<string>(PRESET_ROOMS[0].url);
+  const [currentBgUrl, setCurrentBgUrl] = useState<string>(() => {
+    try { return localStorage.getItem('ani_companion_bg_url') || 'threads'; } catch { return 'threads'; }
+  });
   const [cuteVoicePreset, setCuteVoicePreset] = useState<'luna' | 'stella' | 'bella'>('luna');
   const [inputMessage, setInputMessage] = useState<string>('');
   const [isThinking, setIsThinking] = useState<boolean>(false);
@@ -1308,11 +1377,16 @@ ${avatarName}:`;
   };
 
   // Custom Background Image Upload
+  const handleSetBg = (url: string) => {
+    setCurrentBgUrl(url);
+    try { localStorage.setItem('ani_companion_bg_url', url); } catch {}
+  };
+
   const handleBackgroundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const objectUrl = URL.createObjectURL(file);
-      setCurrentBgUrl(objectUrl);
+      handleSetBg(objectUrl);
       setShowSettings(false);
     }
   };
@@ -1343,13 +1417,17 @@ ${avatarName}:`;
 
   return (
     <div className="relative w-full h-full flex-1 min-h-0 flex flex-col bg-[#07080b] overflow-hidden select-none">
-      {/* Illustrated Anime Room Background (Grok Ani style with subtle depth of field) */}
+      {/* Animated Room Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <img
-          src={currentBgUrl}
-          alt="Room Background"
-          className="w-full h-full object-cover scale-105 filter blur-[1px] brightness-[0.92] contrast-[1.05] transition-all duration-700"
-        />
+        {currentBgUrl === 'threads' ? (
+          <ThreadsBackground />
+        ) : (
+          <img
+            src={currentBgUrl}
+            alt="Room Background"
+            className="w-full h-full object-cover scale-105 filter blur-[1px] brightness-[0.92] contrast-[1.05] transition-all duration-700"
+          />
+        )}
         {/* Soft vignette to blend 3D avatar seamlessly into the room */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/30 pointer-events-none" />
       </div>
@@ -1365,7 +1443,7 @@ ${avatarName}:`;
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md gap-2.5">
           <Loader2 className="w-6 h-6 text-gray-300 animate-spin" />
           <p className="text-xs font-medium text-gray-300 tracking-wide">
-            Entering Ani&apos;s Room...
+            Entering Aiko&apos;s Room...
           </p>
         </div>
       )}
@@ -1436,7 +1514,7 @@ ${avatarName}:`;
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="relative flex items-center w-full rounded-2xl bg-black/80 backdrop-blur-2xl mb-6 border border-white/20 focus-within:border-white/45 shadow-2xl p-2 transition-all"
+              className="relative flex items-center w-full rounded-3xl bg-black/80 backdrop-blur-2xl mb-6 border border-white/20 focus-within:border-white/45 shadow-2xl p-2 transition-all"
             >
               <input
                 type="text"
@@ -1445,18 +1523,18 @@ ${avatarName}:`;
                 onChange={(e) => setInputMessage(e.target.value)}
                 placeholder={`Talk to ${avatarName}...`}
                 disabled={isThinking}
-                className="flex-1 bg-transparent border-none outline-none px-4 py-3 text-xs sm:text-sm text-white placeholder-gray-400 font-sans"
+                className="flex-1 bg-transparent border-none outline-none px-4 py-3 text-xs sm:text-base text-white placeholder-gray-400 font-sans"
               />
 
               <button
                 type="submit"
                 disabled={!inputMessage.trim() || isThinking}
-                className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 active:bg-white/35 text-white border border-white/10 cursor-pointer disabled:opacity-30 transition-all shrink-0 shadow-sm"
+                className="flex items-center justify-center w-11 h-11 mr-0.5 rounded-xl bg-white/90 hover:bg-white/30 active:bg-white/35 text-white border border-white/10 cursor-pointer disabled:opacity-30 transition-all shrink-0 shadow-sm"
               >
                 {isThinking ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-gray-300" />
+                  <Loader2 className="w-5 h-5 animate-spin text-gray-900" />
                 ) : (
-                  <Send className="w-4 h-4 ml-0.5" />
+                  <ArrowUp className="w-6 h-6 ml-0.5 text-black" />
                 )}
               </button>
             </form>
@@ -1566,18 +1644,24 @@ ${avatarName}:`;
                   <button
                     key={room.id}
                     type="button"
-                    onClick={() => setCurrentBgUrl(room.url)}
+                    onClick={() => handleSetBg(room.url)}
                     className={`relative h-16 rounded-lg overflow-hidden border-2 transition-all cursor-pointer text-left p-2 flex flex-col justify-end ${
                       currentBgUrl === room.url
                         ? 'border-white'
                         : 'border-white/15 hover:border-white/35 opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <img
-                      src={room.url}
-                      alt={room.name}
-                      className="absolute inset-0 w-full h-full object-cover -z-10"
-                    />
+                    {room.url === 'threads' ? (
+                      <div className="absolute inset-0 bg-[#06060d] flex items-center justify-center -z-10">
+                        <span className="text-purple-400 text-base opacity-50">✦</span>
+                      </div>
+                    ) : (
+                      <img
+                        src={room.url}
+                        alt={room.name}
+                        className="absolute inset-0 w-full h-full object-cover -z-10"
+                      />
+                    )}
                     <div className="absolute inset-0 bg-black/40 -z-10" />
                     <span className="text-[11px] font-semibold text-white drop-shadow">
                       {room.name}
@@ -1730,17 +1814,12 @@ ${avatarName}:`;
                       onClick={() => handleSelectAvatar(av.url)}
                       className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer relative ${
                         isSelected
-                          ? 'bg-sky-500/25 border-sky-400 text-sky-200 ring-1 ring-sky-400/40'
+                          ? 'bg-white/5 border-white text-white'
                           : 'bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold">{av.name}</span>
-                        {isSelected && (
-                          <span className="w-4 h-4 rounded-full bg-sky-500 flex items-center justify-center shrink-0">
-                            <Check className="w-2.5 h-2.5 text-white" />
-                          </span>
-                        )}
                       </div>
                       <div className="text-[10px] opacity-75 mt-0.5">{av.desc}</div>
                     </button>
@@ -1752,7 +1831,7 @@ ${avatarName}:`;
                 Custom Avatar Models (.VRM)
               </label>
               <p className="text-[11px] text-gray-400 mb-2.5 leading-relaxed">
-                Place any VRoid Studio or VRM 3D avatar directly into your avatars directory or upload one on the fly.
+                Place any VRM 3D avatar directly into your avatars directory or upload one on the fly.
               </p>
 
               <div className="flex items-center gap-2">
