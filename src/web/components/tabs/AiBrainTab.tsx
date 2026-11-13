@@ -15,6 +15,10 @@ import {
   Trash2,
   HardDrive,
   Zap,
+  Terminal,
+  Copy,
+  Check,
+  Sparkles,
 } from 'lucide-react';
 import { JarvisConfig, AiProvider, ActiveModelPull } from '../../types/jarvis';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
@@ -397,6 +401,8 @@ interface ProviderDetail {
   modelField: string;
   defaultModel: string;
   links: { label: string; url: string }[];
+  isGateway?: boolean;
+  quickstartCmd?: string;
 }
 
 // Everything the configuration card needs for each provider.
@@ -516,6 +522,8 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     keyPlaceholder: 'Leave empty for local OmniRoute or enter gateway token',
     modelField: 'omnirouteModel',
     defaultModel: 'auto',
+    isGateway: true,
+    quickstartCmd: 'omniroute start --port 20128',
     links: [
       { label: 'OmniRoute GitHub', url: 'https://github.com/cheaper-inference/OmniRoute' },
       { label: 'Docs / Portal', url: 'https://omniroute.online' },
@@ -534,6 +542,8 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     keyPlaceholder: 'Leave empty for local OmniRoute or enter gateway token',
     modelField: 'omnirouteModel',
     defaultModel: 'auto',
+    isGateway: true,
+    quickstartCmd: 'omniroute start --port 20128',
     links: [
       { label: 'OmniRoute GitHub', url: 'https://github.com/cheaper-inference/OmniRoute' },
     ],
@@ -551,6 +561,8 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     keyPlaceholder: 'sk-litellm... or master key',
     modelField: 'litellmModel',
     defaultModel: 'gpt-4o',
+    isGateway: true,
+    quickstartCmd: 'pip install litellm && litellm --port 4000',
     links: [
       { label: 'LiteLLM GitHub', url: 'https://github.com/BerriAI/litellm' },
       { label: 'Documentation', url: 'https://docs.litellm.ai/' },
@@ -569,6 +581,8 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     keyPlaceholder: 'Leave empty for local Bifrost or enter gateway token',
     modelField: 'bifrostModel',
     defaultModel: 'auto',
+    isGateway: true,
+    quickstartCmd: 'docker run -d -p 8080:8080 maximai/bifrost',
     links: [
       { label: 'Bifrost GitHub', url: 'https://github.com/maximhq/bifrost' },
     ],
@@ -586,6 +600,8 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     keyPlaceholder: 'pk-... or leave empty for local container',
     modelField: 'portkeyModel',
     defaultModel: 'auto',
+    isGateway: true,
+    quickstartCmd: 'npx @portkey-ai/gateway',
     links: [
       { label: 'Portkey Gateway GitHub', url: 'https://github.com/Portkey-AI/gateway' },
       { label: 'Portkey App', url: 'https://portkey.ai/' },
@@ -604,6 +620,7 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     keyPlaceholder: 'sk-helicone-... or upstream OpenAI key',
     modelField: 'heliconeModel',
     defaultModel: 'gpt-4o',
+    isGateway: true,
     links: [
       { label: 'Helicone GitHub', url: 'https://github.com/Helicone/helicone' },
       { label: 'Helicone Console', url: 'https://www.helicone.ai/' },
@@ -622,6 +639,8 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     keyPlaceholder: 'Optional router bearer token',
     modelField: 'routellmModel',
     defaultModel: 'router-mf',
+    isGateway: true,
+    quickstartCmd: 'pip install routellm && routellm --port 6060',
     links: [
       { label: 'RouteLLM GitHub', url: 'https://github.com/lmsys/routellm' },
     ],
@@ -639,6 +658,8 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     keyPlaceholder: 'sk-... (Token created in New API console)',
     modelField: 'newapiModel',
     defaultModel: 'auto',
+    isGateway: true,
+    quickstartCmd: 'docker run -d -p 3000:3000 calciumion/new-api',
     links: [
       { label: 'New API GitHub', url: 'https://github.com/Calcium-Ion/new-api' },
     ],
@@ -656,6 +677,8 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     keyPlaceholder: 'Leave empty for local instance or enter API key',
     modelField: 'higressModel',
     defaultModel: 'auto',
+    isGateway: true,
+    quickstartCmd: 'docker run -d -p 8080:8080 higress-registry.cn-hangzhou.cr.aliyuncs.com/higress/all-in-one',
     links: [
       { label: 'Higress GitHub', url: 'https://github.com/alibaba/higress' },
       { label: 'Higress AI', url: 'https://higress.ai/' },
@@ -674,6 +697,8 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     keyPlaceholder: 'ClawRouter bearer token',
     modelField: 'clawrouterModel',
     defaultModel: 'auto',
+    isGateway: true,
+    quickstartCmd: 'pip install clawrouter && clawrouter --port 8000',
     links: [
       { label: 'ClawRouter GitHub', url: 'https://github.com/ClawRouter' },
     ],
@@ -691,6 +716,8 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     keyPlaceholder: 'Master API key (leave empty if local without auth)',
     modelField: 'freellmapiModel',
     defaultModel: 'auto',
+    isGateway: true,
+    quickstartCmd: 'git clone https://github.com/tashfeenahmed/freellmapi.git && cd freellmapi && npm install && npm run dev',
     links: [
       { label: 'FreeLLMAPI GitHub', url: 'https://github.com/tashfeenahmed/freellmapi' },
       { label: 'Quickstart & Setup', url: 'https://github.com/tashfeenahmed/freellmapi#quick-installation' },
@@ -715,7 +742,7 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
     const p = config.provider;
     const dynamicGateways = [
       'omniroute', 'omnirouter', 'litellm', 'bifrost', 'portkey', 'helicone',
-      'routellm', 'newapi', 'higress', 'clawrouter', 'ollama', 'openrouter'
+      'routellm', 'newapi', 'higress', 'clawrouter', 'freellmapi', 'ollama', 'openrouter'
     ];
     if (dynamicGateways.includes(p)) {
       const cached = config.cachedProviderModels?.[p] || [];
@@ -756,6 +783,7 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
   const [fetchedModels, setFetchedModels] = useState<{ [provider: string]: string[] }>(() => config.cachedProviderModels || {});
   const [customInputMode, setCustomInputMode] = useState<{ [provider: string]: boolean }>({});
   const [modelFilter, setModelFilter] = useState<{ [provider: string]: string }>({});
+  const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
 
   const isDark =
     config.dashboardTheme === 'dark' ||
@@ -1150,6 +1178,13 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       return { success: true, latencyMs, reply: data.choices?.[0]?.message?.content?.trim() || 'READY' };
     } catch (err: any) {
       clearTimeout(timeout);
+      let errMsg = err.message || '';
+      if (errMsg === 'fetch failed' || errMsg.includes('fetch failed') || errMsg.includes('Failed to fetch')) {
+        return {
+          success: false,
+          error: `Could not reach ${detail?.title || provider} at ${ep}. Gateway is offline or not running.`,
+        };
+      }
       return {
         success: false,
         error: `Could not reach ${detail?.title || provider} at ${ep}. Ensure the router/gateway is running. (${err.message})`,
@@ -1188,6 +1223,10 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       return { success: true, models: models.filter(Boolean) };
     } catch (err: any) {
       clearTimeout(timeout);
+      let errMsg = err.message || '';
+      if (errMsg === 'fetch failed' || errMsg.includes('fetch failed') || errMsg.includes('Failed to fetch')) {
+        return { success: false, error: `Could not reach ${detail?.title || providerId} at ${ep}. Gateway is offline or not running.` };
+      }
       return { success: false, error: `Discovery failed at ${ep}: ${err.message}` };
     }
   };
@@ -1216,8 +1255,8 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       } else {
         const detail = PROVIDER_DETAILS[provider];
         let errMsg = res?.error || 'Invalid API Key or Provider offline';
-        if (errMsg.includes('Unknown provider')) {
-          errMsg = `Could not reach ${detail?.title || provider} at ${endpoint || detail?.endpointDefault || 'endpoint'}. Ensure the router/gateway is running.`;
+        if (errMsg === 'fetch failed' || errMsg.includes('fetch failed') || errMsg.includes('Unknown provider')) {
+          errMsg = `Could not reach ${detail?.title || provider} at ${endpoint || detail?.endpointDefault || 'gateway endpoint'}. Gateway server is offline or not running.`;
         }
         setTestResult((prev) => ({
           ...prev,
@@ -1228,11 +1267,16 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
         }));
       }
     } catch (err: any) {
+      const detail = PROVIDER_DETAILS[provider];
+      let errMsg = err.message || 'Connection failed';
+      if (errMsg === 'fetch failed' || errMsg.includes('fetch failed') || errMsg.includes('Failed to fetch')) {
+        errMsg = `Could not reach ${detail?.title || provider} at ${endpoint || detail?.endpointDefault || 'gateway endpoint'}. Gateway server is offline or not running.`;
+      }
       setTestResult((prev) => ({
         ...prev,
         [provider]: {
           success: false,
-          message: err.message || 'Connection failed',
+          message: errMsg,
         },
       }));
     } finally {
@@ -1281,20 +1325,30 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
           }
         }
       } else {
+        const detail = PROVIDER_DETAILS[providerId];
+        let errMsg = res?.error || 'Failed to fetch models from provider.';
+        if (errMsg === 'fetch failed' || errMsg.includes('fetch failed') || errMsg.includes('Failed to fetch')) {
+          errMsg = `Could not reach ${detail?.title || providerId} at ${endpoint || detail?.endpointDefault || 'gateway endpoint'}. Gateway server is offline or not running.`;
+        }
         setTestResult((prev) => ({
           ...prev,
           [providerId]: {
             success: false,
-            message: res?.error || 'Failed to fetch models from provider.',
+            message: errMsg,
           },
         }));
       }
     } catch (err: any) {
+      const detail = PROVIDER_DETAILS[providerId];
+      let errMsg = err.message || 'Model discovery failed';
+      if (errMsg === 'fetch failed' || errMsg.includes('fetch failed') || errMsg.includes('Failed to fetch')) {
+        errMsg = `Could not reach ${detail?.title || providerId} at ${endpoint || detail?.endpointDefault || 'gateway endpoint'}. Gateway server is offline or not running.`;
+      }
       setTestResult((prev) => ({
         ...prev,
         [providerId]: {
           success: false,
-          message: err.message || 'Model discovery failed',
+          message: errMsg,
         },
       }));
     } finally {
@@ -1872,6 +1926,43 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
                   className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-gray-500/20 bg-gray-500/10 hover:bg-gray-500/20 text-gray-700 dark:text-gray-300 transition-all cursor-pointer flex-shrink-0 disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${ollamaStatus.loading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Gateway Service Setup & Command Helper */}
+        {detail.isGateway && (
+          <div className="rounded-xl p-3.5 border border-sky-500/20 bg-sky-500/5 dark:bg-sky-500/[0.04] flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-sky-700 dark:text-sky-300 flex items-center gap-1.5">
+                <Terminal className="w-3.5 h-3.5" />
+                <span>Local Gateway Service</span>
+              </span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">
+                {detail.endpointDefault || 'http://localhost'}
+              </span>
+            </div>
+            <p className="m-0 text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+              {detail.title} runs locally on your PC. If test connection or model fetch fails, start the gateway server using the command below:
+            </p>
+            {detail.quickstartCmd && (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-[#12141a] border border-gray-200 dark:border-[#1e2029]">
+                <code className="text-[11px] font-mono text-gray-800 dark:text-gray-200 truncate select-all">
+                  {detail.quickstartCmd}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(detail.quickstartCmd!);
+                    setCopiedCmd(providerId);
+                    setTimeout(() => setCopiedCmd(null), 2000);
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold bg-white dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-white/10 cursor-pointer shrink-0 transition-all"
+                >
+                  {copiedCmd === providerId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedCmd === providerId ? 'Copied' : 'Copy'}</span>
                 </button>
               </div>
             )}

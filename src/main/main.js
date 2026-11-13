@@ -5838,7 +5838,14 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
     const latencyMs = Date.now() - startTime;
     return { success: true, latencyMs, reply: data.choices?.[0]?.message?.content?.trim() || 'READY' };
   } catch (err) {
-    return { success: false, error: err.message };
+    let errMsg = err.message || 'Connection failed';
+    if (err.cause?.code === 'ECONNREFUSED' || errMsg.includes('fetch failed')) {
+      const provKey = (provider || '').trim().toLowerCase();
+      const g = OPENAI_GATEWAY_CONFIGS[provKey] || OPENAI_GATEWAY_CONFIGS[provider] || { name: provider };
+      const ep = (endpoint || g.defaultEndpoint || 'gateway endpoint').replace(/\/+$/, '');
+      errMsg = `Could not reach ${g.name || provider} at ${ep}. Gateway server is offline or not running.`;
+    }
+    return { success: false, error: errMsg };
   }
 });
 
@@ -6001,7 +6008,14 @@ ipcMain.handle('dashboard:fetch-provider-models', async (event, { provider, key,
     }
     return { success: true, models: models.filter(Boolean) };
   } catch (err) {
-    return { success: false, error: err.message };
+    let errMsg = err.message || 'Discovery failed';
+    if (err.cause?.code === 'ECONNREFUSED' || errMsg.includes('fetch failed')) {
+      const provKey = (provider || '').trim().toLowerCase();
+      const g = OPENAI_GATEWAY_CONFIGS[provKey] || OPENAI_GATEWAY_CONFIGS[provider] || { name: provider };
+      const ep = (endpoint || g.defaultEndpoint || 'gateway endpoint').replace(/\/+$/, '');
+      errMsg = `Could not reach ${g.name || provider} at ${ep}. Gateway server is offline or not running.`;
+    }
+    return { success: false, error: errMsg };
   }
 });
 
