@@ -39,27 +39,86 @@ interface RoomBackground {
   url: string;
 }
 
-// Animated dark threads/particle-network background component
+// Galaxy starfield canvas layer
+const StarField: React.FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d')!;
+    let animId: number;
+    type Star = { x: number; y: number; r: number; alpha: number; speed: number; twinkleOffset: number };
+    let stars: Star[] = [];
+
+    const init = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      stars = Array.from({ length: 160 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: 0.3 + Math.random() * 1.1,
+        alpha: 0.3 + Math.random() * 0.7,
+        speed: 0.004 + Math.random() * 0.012,
+        twinkleOffset: Math.random() * Math.PI * 2,
+      }));
+    };
+
+    init();
+    const ro = new ResizeObserver(init);
+    ro.observe(canvas);
+
+    let t = 0;
+    const draw = () => {
+      t += 0.016;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach((s) => {
+        const twinkle = s.alpha * (0.55 + 0.45 * Math.sin(t * s.speed * 60 + s.twinkleOffset));
+        // Tiny glow
+        const grd = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 2.8);
+        grd.addColorStop(0, `rgba(255,200,230,${twinkle})`);
+        grd.addColorStop(1, 'rgba(255,180,220,0)');
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r * 2.8, 0, Math.PI * 2);
+        ctx.fillStyle = grd;
+        ctx.fill();
+        // Core dot
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,220,240,${twinkle})`;
+        ctx.fill();
+      });
+      animId = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => { cancelAnimationFrame(animId); ro.disconnect(); };
+  }, []);
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />;
+};
+
+// Animated dark threads background with galaxy stars
 const ThreadsBackground: React.FC = () => {
   return (
-    <div className="absolute inset-0 w-full h-full bg-[#06060d]">
+    <div className="absolute inset-0 w-full h-full bg-[#07020f]">
+      {/* Galaxy starfield underneath */}
+      <StarField />
+      {/* Pink flowing threads on top */}
       <Threads
-        color={[0.42, 0.18, 1.0]}
-        accentColor={[0.7, 0.3, 1.0]}
+        color={[1.0, 0.35, 0.65]}
+        accentColor={[1.0, 0.6, 0.85]}
         amplitude={1.5}
         distance={0.5}
-        lineCount={80}
-        thickness={0.7}
-        softness={1.2}
-        speed={0.5}
-        waves={1.1}
+        lineCount={75}
+        thickness={0.65}
+        softness={1.3}
+        speed={0.45}
+        waves={1.08}
         angle={20}
-        taper={0.9}
-        brightness={1.5}
-        fade={0.08}
-        opacity={1}
+        taper={0.88}
+        brightness={1.6}
+        fade={0.06}
+        opacity={0.88}
         enableMouseInteraction={false}
-        className=" w-full h-full"
+        className="w-full h-full"
       />
     </div>
   );
