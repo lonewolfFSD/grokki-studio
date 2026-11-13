@@ -546,6 +546,27 @@ export const Sidebar = React.memo<SidebarProps>(({
   const [isCapabilitiesOpen, setIsCapabilitiesOpen] = useState(false);
   const [capabilitiesMenuPos, setCapabilitiesMenuPos] = useState({ top: 0, left: 0 });
 
+  const extrasBtnRef = useRef<HTMLDivElement>(null);
+  const extrasMenuRef = useRef<HTMLDivElement>(null);
+  const [isExtrasOpen, setIsExtrasOpen] = useState(false);
+  const [extrasMenuPos, setExtrasMenuPos] = useState({ top: 0, left: 0 });
+
+  const handleToggleExtras = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isExtrasOpen) {
+      setIsExtrasOpen(false);
+    } else {
+      if (extrasBtnRef.current) {
+        const rect = extrasBtnRef.current.getBoundingClientRect();
+        setExtrasMenuPos({
+          top: Math.max(12, rect.top),
+          left: rect.right + 8,
+        });
+      }
+      setIsExtrasOpen(true);
+    }
+  };
+
   const handleToggleCapabilities = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isCapabilitiesOpen) {
@@ -564,6 +585,7 @@ export const Sidebar = React.memo<SidebarProps>(({
 
   useEffect(() => {
     setIsCapabilitiesOpen(false);
+    setIsExtrasOpen(false);
   }, [appMode]);
 
   useEffect(() => {
@@ -589,6 +611,30 @@ export const Sidebar = React.memo<SidebarProps>(({
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isCapabilitiesOpen]);
+
+  useEffect(() => {
+    if (!isExtrasOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        extrasMenuRef.current && !extrasMenuRef.current.contains(target) &&
+        extrasBtnRef.current && !extrasBtnRef.current.contains(target)
+      ) {
+        setIsExtrasOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsExtrasOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isExtrasOpen]);
 
   const sortedConversations = useMemo(() => {
     if (!conversations || conversations.length === 0) return [];
@@ -1062,14 +1108,26 @@ export const Sidebar = React.memo<SidebarProps>(({
                   onClick={() => onSelectTab('overview')}
                 />
                 {companionEnabled && (
-                  <SidebarRow
-                    icon={User02Icon}
-                    label="Companion"
-                    isActive={activeTab === 'companion'}
-                    isCollapsed={isCollapsed}
-                    variant="pink"
-                    onClick={() => onSelectTab('companion')}
-                  />
+                  <div ref={extrasBtnRef} className="w-full">
+                    <SidebarRow
+                      icon={AiSparklesIcon}
+                      label="Extras"
+                      isActive={activeTab === 'companion' || isExtrasOpen}
+                      isCollapsed={isCollapsed}
+                      variant={activeTab === 'companion' ? 'pink' : 'default'}
+                      onClick={handleToggleExtras}
+                      rightSlot={
+                        <HugeiconsIcon
+                          icon={ChevronRightIcon}
+                          size={13}
+                          strokeWidth={2}
+                          className={`text-gray-400 transition-all duration-150 ${
+                            isExtrasOpen ? 'text-gray-900 dark:text-gray-100 translate-x-0.5' : 'group-hover:text-gray-600 dark:group-hover:text-gray-300'
+                          }`}
+                        />
+                      }
+                    />
+                  </div>
                 )}
               </>
             )}
@@ -1183,6 +1241,36 @@ export const Sidebar = React.memo<SidebarProps>(({
                 </div>
                 {activeTab === 'plugins' && (
                   <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-blue-500 dark:text-[#3b82f6]" />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Extras Popover Menu */}
+          {isExtrasOpen && (
+            <div
+              ref={extrasMenuRef}
+              style={{ top: `${extrasMenuPos.top}px`, left: `${extrasMenuPos.left}px` }}
+              className="fixed z-[9999] w-[176px] rounded-xl bg-white dark:bg-[#222225] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-white/[0.09] shadow-2xl p-1 flex flex-col gap-0.5 select-none animate-in fade-in zoom-in-95 duration-100"
+            >
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectTab('companion');
+                  setIsExtrasOpen(false);
+                }}
+                className={`h-[28px] px-2.5 rounded-lg text-[12.5px] cursor-pointer flex items-center justify-between transition-colors ${
+                  activeTab === 'companion'
+                    ? 'bg-pink-500/15 dark:bg-pink-500/20 text-pink-600 dark:text-pink-300 font-medium'
+                    : 'text-gray-700 dark:text-gray-200 hover:bg-pink-500/10 dark:hover:bg-pink-500/15 hover:text-pink-600 dark:hover:text-pink-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <HugeiconsIcon icon={User02Icon} size={14} strokeWidth={1.8} className={activeTab === 'companion' ? 'text-pink-500' : 'text-gray-500 dark:text-gray-400'} />
+                  <span>Companion</span>
+                </div>
+                {activeTab === 'companion' && (
+                  <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-pink-500" />
                 )}
               </div>
             </div>
