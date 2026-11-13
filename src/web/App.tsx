@@ -25,6 +25,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import GlowCursor from './components/GlowCursor';
 import { SmoothCursor } from '@/components/ui/smooth-cursor';
 import { Preloader } from './components/Preloader';
+import { OnboardingModal } from './components/OnboardingModal';
 
 const DEFAULT_CONFIG: JarvisConfig = {
   provider: 'gemini',
@@ -76,6 +77,9 @@ const DEFAULT_CONFIG: JarvisConfig = {
   clawrouterApiKey: '',
   clawrouterModel: 'auto',
   clawrouterEndpoint: 'http://localhost:8000/v1',
+  freellmapiApiKey: '',
+  freellmapiModel: 'auto',
+  freellmapiEndpoint: 'http://localhost:3001/v1',
   ttsVoice: 'expr-voice-2-f',
   ttsProvider: 'grokki_voice',
   grokkiVoiceId: 'expr-voice-2-f',
@@ -124,6 +128,13 @@ const DEFAULT_CONFIG: JarvisConfig = {
 
 export const App: React.FC = () => {
   const [showPreloader, setShowPreloader] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('grokki_onboarding_completed') !== 'true';
+    } catch {
+      return false;
+    }
+  });
   const [activeTab, setActiveTab] = useState<TabId>('chat');
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsActiveSection, setSettingsActiveSection] = useState<SettingsSection>('settings');
@@ -425,6 +436,10 @@ export const App: React.FC = () => {
 
     loadGoogleStatus();
 
+    const handleTriggerOnboarding = () => setShowOnboarding(true);
+    window.addEventListener('grokki:open-onboarding', handleTriggerOnboarding);
+    (window as any).openGrokkiOnboarding = handleTriggerOnboarding;
+
     if (api.getSystemInfo) {
       api.getSystemInfo().then((info) => {
         if (info) setSystemInfo(info);
@@ -487,6 +502,8 @@ export const App: React.FC = () => {
       if (unsubGoogleDisconn) unsubGoogleDisconn();
       if (unsubWorkspaceRefresh) unsubWorkspaceRefresh();
       window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('grokki:open-onboarding', handleTriggerOnboarding);
+      delete (window as any).openGrokkiOnboarding;
     };
   }, []);
 
@@ -1289,6 +1306,17 @@ export const App: React.FC = () => {
         activeModelPull={activeModelPull}
         onPullModel={handlePullModel}
       />
+
+      {/* First-Run Onboarding Experience */}
+      {showOnboarding && (
+        <ErrorBoundary>
+          <OnboardingModal
+            config={config}
+            onChangeConfig={handleConfigChange}
+            onComplete={() => setShowOnboarding(false)}
+          />
+        </ErrorBoundary>
+      )}
 
       {/* Chat Lock Modal */}
       <ChatLockModal

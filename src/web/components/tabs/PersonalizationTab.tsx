@@ -50,9 +50,18 @@ export const PersonalizationTab = React.memo<PersonalizationTabProps>(({
 
       {/* User Identity Form */}
       <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
-          User Profile
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
+            User Profile
+          </h3>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('grokki:open-onboarding'))}
+            className="text-xs font-medium px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-[#181920] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#242630] hover:border-gray-400 dark:hover:border-white/30 transition-colors cursor-pointer"
+          >
+            <span>Re-run Onboarding</span>
+          </button>
+        </div>
         <div className="grid grid-cols-2 gap-3.5 w-full">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-gray-900 dark:text-gray-100">

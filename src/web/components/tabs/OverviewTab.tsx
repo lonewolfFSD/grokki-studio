@@ -314,6 +314,7 @@ export const OverviewTab = React.memo<OverviewTabProps>(({
       newapi: `New API (${config.newapiModel || 'auto'})`,
       higress: `Higress (${config.higressModel || 'auto'})`,
       clawrouter: `ClawRouter (${config.clawrouterModel || 'auto'})`,
+      freellmapi: `FreeLLMAPI (${config.freellmapiModel || 'auto'})`,
     }[config.provider] || config.provider;
 
   const hotkeyParts = (config.hotkey || 'Alt+Q').split('+').map((k) => k.trim());

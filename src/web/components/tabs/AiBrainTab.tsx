@@ -204,6 +204,28 @@ export const ClawRouterLogo: React.FC<{ className?: string }> = ({ className = '
   </svg>
 );
 
+// Official FreeLLMAPI Aggregator Logo (Tashfeen Ahmed)
+export const FreeLLMAPILogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 32 32" className={`${className} object-contain`} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="32" height="32" rx="7" fill="url(#freellm-grad)" />
+    <defs>
+      <linearGradient id="freellm-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#10B981" />
+        <stop offset="1" stopColor="#06B6D4" />
+      </linearGradient>
+    </defs>
+    <path
+      d="M10 13C8.34 13 7 14.34 7 16C7 17.66 8.34 19 10 19C12.2 19 13.8 16 16 16C18.2 16 19.8 19 22 19C23.66 19 25 17.66 25 16C25 14.34 23.66 13 22 13C19.8 13 18.2 16 16 16C13.8 16 12.2 13 10 13Z"
+      stroke="white"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="10" cy="16" r="1.5" fill="white" />
+    <circle cx="22" cy="16" r="1.5" fill="white" />
+  </svg>
+);
+
 interface AiBrainTabProps {
   config: JarvisConfig;
   onChangeConfig: (patch: Partial<JarvisConfig>) => void;
@@ -309,6 +331,15 @@ export const CURATED_MODELS: Record<string, { value: string; label: string; tag?
     { value: 'deepseek-r1', label: 'deepseek-r1', tag: 'DeepSeek' },
     { value: 'claude-3-7-sonnet', label: 'claude-3-7-sonnet', tag: 'Anthropic' },
     { value: 'gpt-4o', label: 'gpt-4o', tag: 'OpenAI' },
+  ],
+  freellmapi: [
+    { value: 'auto', label: 'auto (Free Smart Router)', tag: 'Recommended' },
+    { value: 'free/gemini-2.5-flash', label: 'free/gemini-2.5-flash', tag: 'Fast Multimodal' },
+    { value: 'free/deepseek-r1', label: 'free/deepseek-r1', tag: 'Reasoning' },
+    { value: 'free/llama-3.3-70b-instruct', label: 'free/llama-3.3-70b-instruct', tag: 'High Intelligence' },
+    { value: 'free/qwen-2.5-coder-32b', label: 'free/qwen-2.5-coder-32b', tag: 'Coding' },
+    { value: 'free/mistral-large-2411', label: 'free/mistral-large-2411', tag: 'Flagship' },
+    { value: 'free/cerebras-llama3.1-70b', label: 'free/cerebras-llama3.1-70b', tag: 'Sub-second Speed' },
   ],
   grok: [
     { value: 'grok-2-1212', label: 'grok-2-1212', tag: 'Flagship Grok 2' },
@@ -645,6 +676,24 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     defaultModel: 'auto',
     links: [
       { label: 'ClawRouter GitHub', url: 'https://github.com/ClawRouter' },
+    ],
+  },
+  freellmapi: {
+    title: 'FreeLLMAPI Gateway',
+    description: 'Self-hosted AI aggregator by Tashfeen Ahmed. Pools permanent free developer allowances from 80+ AI providers (Gemini, Groq, Cerebras, GitHub Models, NVIDIA, Mistral) behind a single OpenAI-compatible endpoint with automatic quota failover.',
+    endpointField: 'freellmapiEndpoint',
+    endpointLabel: 'FreeLLMAPI Endpoint',
+    endpointPlaceholder: 'http://localhost:3001/v1',
+    endpointDefault: 'http://localhost:3001/v1',
+    endpointHint: 'Default local server: http://localhost:3001/v1 (or port 31415 for desktop app)',
+    keyField: 'freellmapiApiKey',
+    keyLabel: 'API key (optional)',
+    keyPlaceholder: 'Master API key (leave empty if local without auth)',
+    modelField: 'freellmapiModel',
+    defaultModel: 'auto',
+    links: [
+      { label: 'FreeLLMAPI GitHub', url: 'https://github.com/tashfeenahmed/freellmapi' },
+      { label: 'Quickstart & Setup', url: 'https://github.com/tashfeenahmed/freellmapi#quick-installation' },
     ],
   },
 };
@@ -1468,6 +1517,14 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       tag: 'Smart Multi-Route',
       Logo: ClawRouterLogo,
     },
+    {
+      id: 'freellmapi',
+      label: 'FreeLLMAPI',
+      subLabel: '80+ Free AI Providers Gateway',
+      badge: config.freellmapiModel || 'auto',
+      tag: '1300+ Free Models',
+      Logo: FreeLLMAPILogo,
+    },
   ];
 
   const currentProviders = category === 'paid' ? paidProviders : freeProviders;
@@ -1506,6 +1563,8 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       patch.higressModel = 'auto';
     } else if (providerId === 'clawrouter' && !config.clawrouterModel) {
       patch.clawrouterModel = 'auto';
+    } else if (providerId === 'freellmapi' && !config.freellmapiModel) {
+      patch.freellmapiModel = 'auto';
     }
     onChangeConfig(patch);
   };

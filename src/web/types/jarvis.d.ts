@@ -27,7 +27,8 @@ export type AiProvider =
   | 'routellm'
   | 'newapi'
   | 'higress'
-  | 'clawrouter';
+  | 'clawrouter'
+  | 'freellmapi';
 
 export interface GrainientCustomSettings {
   colors?: string[];
@@ -124,6 +125,9 @@ export interface JarvisConfig {
   clawrouterApiKey?: string;
   clawrouterModel?: string;
   clawrouterEndpoint?: string;
+  freellmapiApiKey?: string;
+  freellmapiModel?: string;
+  freellmapiEndpoint?: string;
   wakeWord?: string;
   hotkey?: string;
   hotkeys?: StudioHotkeys;

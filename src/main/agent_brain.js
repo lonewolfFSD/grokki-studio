@@ -556,6 +556,10 @@ function resolveOpenAIEndpointAndKey(provider, config = {}) {
     endpoint = (config.clawrouterEndpoint || 'http://localhost:8000/v1').replace(/\/+$/, '');
     apiKey = (config.clawrouterApiKey || process.env.CLAWROUTER_API_KEY || '').trim();
     model = config.clawrouterModel || 'auto';
+  } else if (provider === 'freellmapi') {
+    endpoint = (config.freellmapiEndpoint || 'http://localhost:3001/v1').replace(/\/+$/, '');
+    apiKey = (config.freellmapiApiKey || process.env.FREELLMAPI_API_KEY || '').trim();
+    model = config.freellmapiModel || 'auto';
   }
 
   return { endpoint, apiKey, model };
@@ -3109,9 +3113,14 @@ STRICT OPERATIONAL DIRECTIVES:
       apiKey = (config.clawrouterApiKey || process.env.CLAWROUTER_API_KEY || '').trim();
       model = config.clawrouterModel || 'auto';
       modelCandidates = [model];
+    } else if (provider === 'freellmapi') {
+      endpoint = (config.freellmapiEndpoint || 'http://localhost:3001/v1').replace(/\/+$/, '');
+      apiKey = (config.freellmapiApiKey || process.env.FREELLMAPI_API_KEY || '').trim();
+      model = (context && context.model) || config.freellmapiModel || 'auto';
+      modelCandidates = [model];
     }
 
-    const isApiKeyOptional = ['ollama', 'omniroute', 'omnirouter', 'litellm', 'bifrost', 'portkey', 'helicone', 'routellm', 'newapi', 'higress', 'clawrouter'].includes(provider);
+    const isApiKeyOptional = ['ollama', 'omniroute', 'omnirouter', 'litellm', 'bifrost', 'portkey', 'helicone', 'routellm', 'newapi', 'higress', 'clawrouter', 'freellmapi'].includes(provider);
     if (!isApiKeyOptional && !apiKey) {
       return { success: false, error: `NO_${provider.toUpperCase()}_API_KEY` };
     }
@@ -4005,7 +4014,7 @@ To allow me to inspect, edit, create files, or run commands on your system:
 
     const provider = (context && context.provider) || config.provider || 'gemini';
 
-    if (['groq', 'ollama', 'openrouter', 'omniroute', 'omnirouter', 'openai', 'grok', 'deepseek', 'qwen', 'litellm', 'bifrost', 'portkey', 'helicone', 'routellm', 'newapi', 'higress', 'clawrouter'].includes(provider)) {
+    if (['groq', 'ollama', 'openrouter', 'omniroute', 'omnirouter', 'openai', 'grok', 'deepseek', 'qwen', 'litellm', 'bifrost', 'portkey', 'helicone', 'routellm', 'newapi', 'higress', 'clawrouter', 'freellmapi'].includes(provider)) {
       return await this.runOpenAICompatible(prompt, config, context);
     }
 

@@ -265,6 +265,9 @@ function loadConfig() {
     clawrouterApiKey: '',
     clawrouterModel: 'auto',
     clawrouterEndpoint: 'http://localhost:8000/v1',
+    freellmapiApiKey: '',
+    freellmapiModel: 'auto',
+    freellmapiEndpoint: 'http://localhost:3001/v1',
     wakeWord: 'Hey Grokki',
     hotkey: 'Alt+Q',
     voiceEnabled: true,
@@ -5777,6 +5780,7 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
       newapi: { defaultEndpoint: 'http://localhost:3000/v1', defaultModel: 'auto', name: 'New API' },
       higress: { defaultEndpoint: 'http://localhost:8080/v1', defaultModel: 'auto', name: 'Higress' },
       clawrouter: { defaultEndpoint: 'http://localhost:8000/v1', defaultModel: 'auto', name: 'ClawRouter' },
+      freellmapi: { defaultEndpoint: 'http://localhost:3001/v1', defaultModel: 'auto', name: 'FreeLLMAPI' },
     };
 
     if (OPENAI_GATEWAY_CONFIGS[provKey] || OPENAI_GATEWAY_CONFIGS[provider]) {
@@ -5948,6 +5952,7 @@ ipcMain.handle('dashboard:fetch-provider-models', async (event, { provider, key,
       newapi: { defaultEndpoint: 'http://localhost:3000/v1' },
       higress: { defaultEndpoint: 'http://localhost:8080/v1' },
       clawrouter: { defaultEndpoint: 'http://localhost:8000/v1' },
+      freellmapi: { defaultEndpoint: 'http://localhost:3001/v1' },
     };
 
     if (OPENAI_GATEWAY_CONFIGS[provKey] || OPENAI_GATEWAY_CONFIGS[provider]) {

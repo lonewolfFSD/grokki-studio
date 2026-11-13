@@ -61,6 +61,57 @@ import {
   Gauge,
   Info,
 } from 'lucide-react';
+import { ArtifactCanvasPane, Artifact } from '../ArtifactCanvasPane';
+import { PerplexitySourcesBar } from '../PerplexitySourcesBar';
+import { RelatedImagesCarousel } from '../RelatedImagesCarousel';
+import { WeatherCarousel, parseWeatherForecastFromMarkdown, stripWeatherTableFromMarkdown } from '../WeatherCarousel';
+import { WorkspaceMentionMenu } from '../WorkspaceMentionMenu';
+import { WorkspaceMentionPill } from '../WorkspaceMentionPill';
+import SpecularButton from '../../../effects/SpecularButton';
+import GradualBlur from '../../../effects/GradualBlur';
+import { GroundingMetadata, GroundingImage, WorkspaceMention } from '../../types/jarvis';
+import { highlightCode } from '../../utils/syntaxHighlight';
+import { AnimatePresence, motion } from 'motion/react';
+import { marked } from 'marked';
+import { JarvisConfig, AiProvider, Conversation, ChatMessage, AttachedFileInfo, ActiveModelPull, AgentLiveStep } from '../../types/jarvis';
+import GlideSelect, { GlideSelectOption } from './GlideSelect';
+import {
+  CURATED_MODELS,
+  GeminiLogo,
+  GroqLogo,
+  OllamaLogo,
+  OpenRouterLogo,
+  OmniRouterLogo,
+  OpenAILogo,
+  GrokLogo,
+  DeepSeekLogo,
+  QwenLogo,
+  LiteLLMLogo,
+  BifrostLogo,
+  PortkeyLogo,
+  HeliconeLogo,
+  RouteLLMLogo,
+  NewApiLogo,
+  HigressLogo,
+  ClawRouterLogo,
+  FreeLLMAPILogo,
+} from './AiBrainTab';
+import { Sliders } from 'lucide-react';
+import Threads from './Threads';
+import Grainient from './Grainient';
+import Noise from './Noise';
+import LatticeLoader from './LatticeLoader';
+import WarmTooltip, { WarmTooltipGroup } from '../WarmTooltip';
+import { getEffectiveHotkeys, matchesHotkey } from '../../utils/hotkeys';
+import { DEFAULT_GRAINIENT_SETTINGS } from '../GrainientCustomizerModal';
+
+import grokkiIcon from '../../assets/grokki_icon.svg';
+import grokkiLogo from '../../assets/grokki_logo.png';
+import grokkiWordmarkDark from '../../assets/grokki_wordmark.png';
+import grokkiWordmarkLight from '../../assets/grokki_wordmark_light.png';
+import { ImageLightboxModal } from '../ImageLightboxModal';
+import { ChatImageAttachment, isImageAttachment } from '../ChatImageAttachment';
+import { ConversationTimeline } from '../ConversationTimeline';
 
 export type AgentEffort = 'low' | 'medium' | 'high' | 'highest';
 export type AgentPermission = 'review' | 'default' | 'auto' | 'turbo';
@@ -181,56 +232,6 @@ const formatTokenNumber = (num: number): string => {
   }
   return num.toString();
 };
-import { ArtifactCanvasPane, Artifact } from '../ArtifactCanvasPane';
-import { PerplexitySourcesBar } from '../PerplexitySourcesBar';
-import { RelatedImagesCarousel } from '../RelatedImagesCarousel';
-import { WeatherCarousel, parseWeatherForecastFromMarkdown, stripWeatherTableFromMarkdown } from '../WeatherCarousel';
-import { WorkspaceMentionMenu } from '../WorkspaceMentionMenu';
-import { WorkspaceMentionPill } from '../WorkspaceMentionPill';
-import SpecularButton from '@/effects/SpecularButton';
-import GradualBlur from '@/effects/GradualBlur';
-import { GroundingMetadata, GroundingImage, WorkspaceMention } from '../../types/jarvis';
-import { highlightCode } from '../../utils/syntaxHighlight';
-import { AnimatePresence, motion } from 'motion/react';
-import { marked } from 'marked';
-import { JarvisConfig, AiProvider, Conversation, ChatMessage, AttachedFileInfo, ActiveModelPull, AgentLiveStep } from '../../types/jarvis';
-import GlideSelect, { GlideSelectOption } from './GlideSelect';
-import {
-  CURATED_MODELS,
-  GeminiLogo,
-  GroqLogo,
-  OllamaLogo,
-  OpenRouterLogo,
-  OmniRouterLogo,
-  OpenAILogo,
-  GrokLogo,
-  DeepSeekLogo,
-  QwenLogo,
-  LiteLLMLogo,
-  BifrostLogo,
-  PortkeyLogo,
-  HeliconeLogo,
-  RouteLLMLogo,
-  NewApiLogo,
-  HigressLogo,
-  ClawRouterLogo,
-} from './AiBrainTab';
-import { Sliders } from 'lucide-react';
-import Threads from './Threads';
-import Grainient from './Grainient';
-import Noise from './Noise';
-import LatticeLoader from './LatticeLoader';
-import WarmTooltip, { WarmTooltipGroup } from '../WarmTooltip';
-import { getEffectiveHotkeys, matchesHotkey } from '../../utils/hotkeys';
-import { DEFAULT_GRAINIENT_SETTINGS } from '../GrainientCustomizerModal';
-
-import grokkiIcon from '../../assets/grokki_icon.svg';
-import grokkiLogo from '../../assets/grokki_logo.png';
-import grokkiWordmarkDark from '../../assets/grokki_wordmark.png';
-import grokkiWordmarkLight from '../../assets/grokki_wordmark_light.png';
-import { ImageLightboxModal } from '../ImageLightboxModal';
-import { ChatImageAttachment, isImageAttachment } from '../ChatImageAttachment';
-import { ConversationTimeline } from '../ConversationTimeline';
 
 const GRADIENT_ASCII_COLORS = ['#23378e', '#f6f8ff', '#a5d8ff', '#38bdf8'];
 
@@ -2276,6 +2277,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     newapi: { name: 'New API', modelField: 'newapiModel', defaultModel: 'auto', Logo: NewApiLogo },
     higress: { name: 'Higress', modelField: 'higressModel', defaultModel: 'auto', Logo: HigressLogo },
     clawrouter: { name: 'ClawRouter', modelField: 'clawrouterModel', defaultModel: 'auto', Logo: ClawRouterLogo },
+    freellmapi: { name: 'FreeLLMAPI', modelField: 'freellmapiModel', defaultModel: 'auto', Logo: FreeLLMAPILogo },
   }), []);
 
   const currentBrainInfo = brainMeta[activeBrain] || brainMeta.gemini;
@@ -2379,6 +2381,9 @@ export const ChatTab = React.memo<ChatTabProps>(({
       } else if (activeBrain === 'clawrouter') {
         ep = config.clawrouterEndpoint || 'http://localhost:8000/v1';
         key = config.clawrouterApiKey;
+      } else if (activeBrain === 'freellmapi') {
+        ep = config.freellmapiEndpoint || 'http://localhost:3001/v1';
+        key = config.freellmapiApiKey;
       } else if (activeBrain === 'groq') {
         key = config.groqApiKey;
       } else if (activeBrain === 'openrouter') {
