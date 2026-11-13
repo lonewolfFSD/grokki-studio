@@ -190,40 +190,43 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     const isSpeaking = isSpeakingRef.current;
     const isHappy = targetEmotionRef.current === 'happy';
 
-    // Target bone rotations (Euler)
-    let targetLUArm = { x: 0.06, y: 0.04, z: 1.25 + breath };
-    let targetRUArm = { x: 0.06, y: -0.04, z: -1.25 - breath };
-    let targetLLArm = { x: 0.08, y: 0.16, z: 0.0 };
-    let targetRLArm = { x: 0.08, y: -0.16, z: 0.0 };
+    // Target bone rotations (Euler in radians)
+    // In VRM normalized coordinates:
+    // Left arm down: z = -1.25 rad (towards -Y floor)
+    // Right arm down: z = +1.25 rad (towards -Y floor)
+    let targetLUArm = { x: 0.04, y: 0.02, z: -1.24 - breath };
+    let targetRUArm = { x: 0.04, y: -0.02, z: 1.24 + breath };
+    let targetLLArm = { x: 0.06, y: 0.14, z: 0.0 };
+    let targetRLArm = { x: 0.06, y: -0.14, z: 0.0 };
     let targetLHand = { x: 0.0, y: 0.0, z: 0.0 };
     let targetRHand = { x: 0.0, y: 0.0, z: 0.0 };
-    let targetHead = { x: breath * 0.6, y: 0.0, z: weightShiftCycle * 0.02 };
+    let targetHead = { x: breath * 0.5, y: 0.0, z: weightShiftCycle * 0.02 };
 
     if (isHappy && isSpeaking) {
       // Gentle Happy Expression: cute cheer, soft bounce
       const cheerWave = Math.sin(elapsed * 2.5) * 0.05;
-      targetLUArm = { x: 0.18, y: 0.12, z: 0.85 + cheerWave };
-      targetRUArm = { x: 0.18, y: -0.12, z: -0.85 - cheerWave };
-      targetLLArm = { x: 0.15, y: 0.35, z: 0.0 };
-      targetRLArm = { x: 0.15, y: -0.35, z: 0.0 };
-      targetHead.z = Math.sin(elapsed * 2.0) * 0.05;
+      targetLUArm = { x: 0.15, y: 0.1, z: -0.85 - cheerWave };
+      targetRUArm = { x: 0.15, y: -0.1, z: 0.85 + cheerWave };
+      targetLLArm = { x: 0.12, y: 0.3, z: 0.0 };
+      targetRLArm = { x: 0.12, y: -0.3, z: 0.0 };
+      targetHead.z = Math.sin(elapsed * 2.0) * 0.04;
     } else if (isSpeaking) {
       // Conversational Gesture: right hand articulates softly toward torso
       const gestureSway = Math.sin(elapsed * 1.8) * 0.06;
       const elbowSway = Math.cos(elapsed * 1.8) * 0.08;
 
-      targetRUArm = { x: 0.28, y: -0.18, z: -0.72 + gestureSway };
-      targetRLArm = { x: 0.18, y: -0.7 + elbowSway, z: 0.05 };
-      targetRHand = { x: 0.05, y: -0.1, z: 0.05 };
+      targetRUArm = { x: 0.25, y: -0.15, z: 0.7 - gestureSway };
+      targetRLArm = { x: 0.15, y: -0.65 + elbowSway, z: 0.04 };
+      targetRHand = { x: 0.04, y: -0.08, z: 0.04 };
 
-      targetLUArm = { x: 0.06, y: 0.04, z: 1.25 + breath };
-      targetLLArm = { x: 0.1, y: 0.14, z: 0.0 };
-      targetHead.x = breath * 1.2 + Math.sin(elapsed * 1.8) * 0.02;
+      targetLUArm = { x: 0.04, y: 0.02, z: -1.24 - breath };
+      targetLLArm = { x: 0.08, y: 0.12, z: 0.0 };
+      targetHead.x = breath * 1.0 + Math.sin(elapsed * 1.8) * 0.02;
     } else if (isThinking) {
       // Thoughtful gesture: hand near chin, curious head tilt
-      targetRUArm = { x: 0.42, y: -0.22, z: -0.55 };
-      targetRLArm = { x: 0.22, y: -1.05, z: 0.12 };
-      targetHead.z = 0.09;
+      targetRUArm = { x: 0.38, y: -0.2, z: 0.55 };
+      targetRLArm = { x: 0.2, y: -1.0, z: 0.1 };
+      targetHead.z = 0.08;
       targetHead.x = -0.04;
     }
 
@@ -276,7 +279,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
 
     // Camera: Positioned to frame character centered with headroom
     const camera = new THREE.PerspectiveCamera(28.0, width / height, 0.1, 20.0);
-    camera.position.set(0.0, 1.08, 2.65);
+    camera.position.set(0.0, 1.05, 1.7);
     cameraRef.current = camera;
 
     // WebGL Renderer with transparency
@@ -294,12 +297,14 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // OrbitControls: LOCKED ROTATION AND ZOOMING
+    // OrbitControls: LOCKED ROTATION WITH FREELY ADJUSTABLE ZOOM
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableRotate = false;
-    controls.enableZoom = false;
+    controls.enableZoom = true; // Zoom enabled so user can adjust framing
+    controls.minDistance = 1.0;
+    controls.maxDistance = 3.2;
     controls.enablePan = false;
-    controls.target.set(0.0, 1.02, 0.0);
+    controls.target.set(0.0, 1.05, 0.0);
     controls.update();
 
     // LookAt Target
@@ -471,7 +476,8 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           vrm.lookAt.target = lookAtTargetRef.current;
         }
 
-        vrm.scene.position.set(0, 0, 0);
+        // Lower character down by 0.22m to ensure generous headroom
+        vrm.scene.position.set(0, -0.22, 0);
 
         vrmRef.current = vrm;
         if (sceneRef.current) {
@@ -782,10 +788,10 @@ Ani:`;
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/30 pointer-events-none" />
       </div>
 
-      {/* 3D WebGL Viewport */}
+      {/* 3D WebGL Viewport (Full 100% Unrestricted Canvas - Zero Clipping) */}
       <div
         ref={mountRef}
-        className="relative flex-1 w-full h-full z-10"
+        className="absolute inset-0 w-full h-full z-10"
       />
 
       {/* Loading Overlay */}
@@ -826,7 +832,7 @@ Ani:`;
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.2 }}
-            className="absolute top-12 left-1/2 -translate-x-1/2 z-20 max-w-lg w-[90%] px-5 py-3 rounded-2xl bg-black/75 backdrop-blur-2xl border border-white/20 text-white shadow-2xl pointer-events-auto"
+            className="absolute top-6 left-1/2 -translate-x-1/2 z-20 max-w-lg w-[90%] px-5 py-3 rounded-2xl bg-black/75 backdrop-blur-2xl border border-white/20 text-white shadow-2xl pointer-events-auto"
           >
             <p className="text-xs sm:text-sm font-normal leading-relaxed text-gray-100 m-0 text-center">
               {currentSpeech}
