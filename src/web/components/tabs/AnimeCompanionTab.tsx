@@ -5,6 +5,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { VRM, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
 import { motion, AnimatePresence } from 'motion/react';
+import Threads from '../../../effects/Threads';
 import {
   Mic,
   MicOff,
@@ -40,68 +41,28 @@ interface RoomBackground {
 
 // Animated dark threads/particle-network background component
 const ThreadsBackground: React.FC = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d')!;
-    let animId: number;
-    const particles: { x: number; y: number; vx: number; vy: number; r: number }[] = [];
-    const resize = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-    };
-    resize();
-    window.addEventListener('resize', resize);
-    for (let i = 0; i < 90; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.35,
-        vy: (Math.random() - 0.5) * 0.35,
-        r: 0.8 + Math.random() * 1.4,
-      });
-    }
-    const draw = () => {
-      ctx.fillStyle = '#06060d';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      // Draw connecting lines
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 130) {
-            const alpha = (1 - dist / 130) * 0.22;
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(140,80,255,${alpha})`;
-            ctx.lineWidth = 0.7;
-            ctx.stroke();
-          }
-        }
-      }
-      // Draw particles
-      particles.forEach((p) => {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(170,100,255,0.65)';
-        ctx.fill();
-      });
-      animId = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener('resize', resize);
-    };
-  }, []);
-  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />;
+  return (
+    <div className="absolute inset-0 w-full h-full bg-[#06060d]">
+      <Threads
+        color={[0.42, 0.18, 1.0]}
+        accentColor={[0.7, 0.3, 1.0]}
+        amplitude={1.5}
+        distance={0.5}
+        lineCount={80}
+        thickness={0.7}
+        softness={1.2}
+        speed={0.5}
+        waves={1.1}
+        angle={20}
+        taper={0.9}
+        brightness={1.5}
+        fade={0.08}
+        opacity={1}
+        enableMouseInteraction={false}
+        className=" w-full h-full"
+      />
+    </div>
+  );
 };
 
 const PRESET_ROOMS: RoomBackground[] = [
