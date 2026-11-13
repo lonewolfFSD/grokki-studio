@@ -28,7 +28,7 @@ interface AnimeCompanionTabProps {
   onChangeConfig?: (patch: Partial<JarvisConfig>) => void;
 }
 
-type EmotionPreset = 'neutral' | 'happy' | 'angry' | 'surprised' | 'relaxed';
+type EmotionPreset = 'neutral' | 'happy' | 'angry' | 'surprised' | 'relaxed' | 'shy';
 
 interface RoomBackground {
   id: string;
@@ -92,7 +92,10 @@ interface AnimPreset {
 const ANIM_PRESETS: AnimPreset[] = [
   { id: 'idle', name: 'Idle', icon: '✨', file: './assets/animations/idle.vrma', loop: true },
   { id: 'greeting', name: 'Wave', icon: '👋', file: './assets/animations/greeting.vrma', loop: false },
-  { id: 'cheering', name: 'Dance', icon: '💃', file: './assets/animations/cheering.vrma', loop: false },
+  { id: 'look_away', name: 'Shy Blush', icon: '🙈', file: './assets/animations/look_away.vrma', loop: false },
+  { id: 'reaching_out', name: 'Sweet Reach', icon: '🌸', file: './assets/animations/reaching_out.vrma', loop: false },
+  { id: 'hand_raising', name: 'Hesitant', icon: '🙋', file: './assets/animations/hand_raising.vrma', loop: false },
+  { id: 'dismissing', name: 'Flustered', icon: '🫣', file: './assets/animations/dismissing.vrma', loop: false },
   { id: 'talking', name: 'Talk', icon: '💬', file: './assets/animations/talking.vrma', loop: false },
   { id: 'victory', name: 'Peace', icon: '✌️', file: './assets/animations/victory.vrma', loop: false },
   { id: 'thankful', name: 'Bow', icon: '🙇', file: './assets/animations/thankful.vrma', loop: false },
@@ -109,7 +112,11 @@ const MEMORY_STORAGE_KEY = 'ani_companion_memory_v1';
 // Dynamic emotion detector
 function detectEmotionFromText(text: string): EmotionPreset {
   const t = text.toLowerCase();
-  if (/\b(haha|lol|yay|awesome|great|love|happy|glad|cool|perfect|amazing|wonderful|super|cheers|hehe|cute|pog)\b/i.test(t)) {
+  // Check shy / blushing / flustered first
+  if (/\b(shy|blush|blushing|embarrassed|flustered|crush|cute|cutie|pretty|sweetheart|love you|like you|b-baka|kiss|darling|daddy|hehe|aww|hug|tender)\b/i.test(t)) {
+    return 'shy';
+  }
+  if (/\b(haha|lol|yay|awesome|great|happy|glad|cool|perfect|amazing|wonderful|super|cheers|pog)\b/i.test(t)) {
     return 'happy';
   }
   if (/\b(no|never|stop|hate|angry|mad|annoying|grr|pout|bad|worst|wrong|baka)\b/i.test(t)) {
@@ -140,14 +147,16 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   // Speech Recognition
   const recognitionRef = useRef<any>(null);
 
-  // Dynamic Neural Emotion state
+  // Dynamic Neural Emotion & Shy Blush state
   const targetEmotionRef = useRef<EmotionPreset>('neutral');
   const currentEmotionWeightsRef = useRef<Record<string, number>>({
     happy: 0,
     angry: 0,
     surprised: 0,
     relaxed: 0,
+    shy: 0,
   });
+  const blushWeightRef = useRef<number>(0);
 
   // Dedicated Companion Memory
   const [memory, setMemory] = useState<ChatMemoryMessage[]>(() => {
@@ -321,6 +330,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
 
     const isSpeaking = isSpeakingRef.current;
     const isHappy = targetEmotionRef.current === 'happy';
+    const isShy = targetEmotionRef.current === 'shy';
 
     // In three-vrm normalized bone coordinate space:
     // Left upper arm: negative Z (-1.25 rad) lowers arm down along body
@@ -333,7 +343,17 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     let targetRHand = { x: 0.0, y: 0.0, z: 0.0 };
     let targetHead = { x: breath * 0.5, y: 0.0, z: weightShiftCycle * 0.02 };
 
-    if (isHappy && isSpeaking) {
+    if (isShy) {
+      // Girly Shy / Embarrassed Posture: head tilts away downcast, hands held timidly close to chest
+      const shyBreath = Math.sin(elapsed * 1.6) * 0.02;
+      targetHead.x = -0.07 + breath * 0.4; // Downcast shy glance
+      targetHead.y = 0.10 + shyBreath;     // Turned bashfully away
+      targetHead.z = 0.06;                 // Sweet anime head tilt
+      targetLUArm = { x: 0.14, y: 0.08, z: -1.12 - breath };
+      targetRUArm = { x: 0.14, y: -0.08, z: 1.12 + breath };
+      targetLLArm = { x: 0.16, y: 0.28, z: 0.0 };
+      targetRLArm = { x: 0.16, y: -0.28, z: 0.0 };
+    } else if (isHappy && isSpeaking) {
       // Gentle Happy Expression: cute cheer, soft bounce
       const cheerWave = Math.sin(elapsed * 2.5) * 0.05;
       targetLUArm = { x: 0.15, y: 0.1, z: -0.85 - cheerWave };
@@ -523,20 +543,69 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           }
         }
 
-        // Dynamic Emotion Lerping (strictly capped so mouth never distorts)
+        // Dynamic Emotion & Shy Blush Lerping (strictly capped so mouth never distorts)
         const activeTarget = targetEmotionRef.current;
-        const emotions: EmotionPreset[] = ['happy', 'angry', 'surprised', 'relaxed'];
+        const emotions: ('happy' | 'angry' | 'surprised' | 'relaxed')[] = ['happy', 'angry', 'surprised', 'relaxed'];
         emotions.forEach((emo) => {
-          let targetWeight = emo === activeTarget ? 1.0 : 0.0;
-          if (emo === 'surprised') targetWeight *= 0.15; // Eyes widen slightly, jaw never drops
-          if (emo === 'happy') targetWeight *= 0.55;
-          if (emo === 'angry') targetWeight *= 0.35;
-          if (emo === 'relaxed') targetWeight *= 0.6;
+          let targetWeight = 0.0;
+          if (activeTarget === 'shy') {
+            // Shy: sweet bashful smile + gentle relaxed eyes
+            if (emo === 'happy') targetWeight = 0.48;
+            if (emo === 'relaxed') targetWeight = 0.60;
+          } else if (emo === activeTarget) {
+            targetWeight = 1.0;
+            if (emo === 'surprised') targetWeight = 0.15; // Eyes widen slightly, jaw never drops
+            if (emo === 'happy') targetWeight = 0.55;
+            if (emo === 'angry') targetWeight = 0.35;
+            if (emo === 'relaxed') targetWeight = 0.6;
+          }
           const currentWeight = currentEmotionWeightsRef.current[emo] || 0.0;
           const nextWeight = smoothLerp(currentWeight, targetWeight, 3.5, delta);
           currentEmotionWeightsRef.current[emo] = nextWeight;
           currentVrm.expressionManager?.setValue(emo, nextWeight);
         });
+
+        // Shy downward bashful eye glance
+        const targetLookDown = activeTarget === 'shy' ? 0.45 : 0.0;
+        const currentLookDown = currentVrm.expressionManager?.getValue('lookDown') || 0.0;
+        currentVrm.expressionManager?.setValue('lookDown', smoothLerp(currentLookDown, targetLookDown, 3.5, delta));
+
+        // Shy Red Blush: smoothly illuminate face materials with soft rosy glow
+        const targetBlush = activeTarget === 'shy' ? 1.0 : 0.0;
+        blushWeightRef.current = smoothLerp(blushWeightRef.current, targetBlush, 3.0, delta);
+        const blush = blushWeightRef.current;
+
+        if (currentVrm.scene && blush > 0.005) {
+          currentVrm.scene.traverse((obj: any) => {
+            if (obj.isMesh && obj.material) {
+              const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+              mats.forEach((mat: any) => {
+                if (mat.name && mat.name.toLowerCase().includes('face')) {
+                  if (mat.emissive) {
+                    // Soft anime rosy blush on cheeks & face
+                    mat.emissive.setRGB(blush * 0.45, blush * 0.10, blush * 0.18);
+                  }
+                  if (mat.shadeColorFactor) {
+                    // Warm shade color for cute anime blush depth
+                    mat.shadeColorFactor.setRGB(1.0, 1.0 - blush * 0.22, 1.0 - blush * 0.16);
+                  }
+                }
+              });
+            }
+          });
+        } else if (currentVrm.scene && blush <= 0.005) {
+          // Reset emissive when blush decays
+          currentVrm.scene.traverse((obj: any) => {
+            if (obj.isMesh && obj.material) {
+              const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+              mats.forEach((mat: any) => {
+                if (mat.name && mat.name.toLowerCase().includes('face') && mat.emissive) {
+                  mat.emissive.setRGB(0, 0, 0);
+                }
+              });
+            }
+          });
+        }
 
         // Lip-Sync Visemes (gentle anime mouth movement, no horror gaping)
         if (analyserRef.current && isSpeakingRef.current) {
@@ -918,11 +987,17 @@ Ani:`;
 
       if (/\b(hi|hello|hey|greetings|howdy|sup)\b/i.test(promptLower) || /\b(hi|hello|hey)\b/i.test(replyLower)) {
         playAnimation('greeting', false);
-      } else if (/\b(dance|cheer|cute|yay|love|like|awesome|happy|smile|shy)\b/i.test(promptLower) || /\b(dance|yay|happy|love|like|shy)\b/i.test(replyLower)) {
-        playAnimation('cheering', false);
+      } else if (/\b(shy|blush|blushing|embarrassed|flustered|crush|timid)\b/i.test(promptLower) || /\b(shy|blush|embarrassed|flustered|crush)\b/i.test(replyLower)) {
+        playAnimation('look_away', false, 0.5);
+      } else if (/\b(cute|pretty|love|sweet|hug|hold|kiss|cutie|darling)\b/i.test(promptLower) || /\b(love|cute|sweet|hug|kiss|darling)\b/i.test(replyLower)) {
+        playAnimation('reaching_out', false, 0.5);
+      } else if (/\b(baka|stop|no way|flustered|tsundere|silly)\b/i.test(promptLower) || /\b(baka|flustered|silly)\b/i.test(replyLower)) {
+        playAnimation('dismissing', false, 0.5);
+      } else if (/\b(question|help|wonder|listen|can you|what if)\b/i.test(promptLower)) {
+        playAnimation('hand_raising', false, 0.5);
       } else if (/\b(thanks|thank you|arigato)\b/i.test(promptLower) || /\b(welcome|thank)\b/i.test(replyLower)) {
         playAnimation('thankful', false);
-      } else if (/\b(win|victory|peace|cool|pog|great)\b/i.test(promptLower)) {
+      } else if (/\b(win|victory|peace|cool|pog|great|yay)\b/i.test(promptLower)) {
         playAnimation('victory', false);
       } else {
         playAnimation('talking', false);
@@ -1136,7 +1211,7 @@ Ani:`;
             initial={{ opacity: 0, y: 20, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 15, scale: 0.96 }}
-            className="absolute bottom-32 left-1/2 -translate-x-1/2 z-20 max-w-xl w-[92%] pointer-events-auto"
+            className="absolute bottom-22 left-1/2 -translate-x-1/2 z-20 max-w-xl w-[92%] pointer-events-auto"
           >
             <form
               onSubmit={(e) => {
@@ -1170,32 +1245,6 @@ Ani:`;
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Quick Reaction Motions Bar (Wave, Dance, Peace, Bow, Idle) */}
-      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 p-1 rounded-full bg-black/55 backdrop-blur-2xl border border-white/15 shadow-xl pointer-events-auto">
-        {[
-          { id: 'greeting', label: 'Wave', icon: '👋' },
-          { id: 'cheering', label: 'Dance', icon: '💃' },
-          { id: 'victory', label: 'Peace', icon: '✌️' },
-          { id: 'thankful', label: 'Bow', icon: '🙇' },
-          { id: 'idle', label: 'Idle', icon: '✨' },
-        ].map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => playAnimation(item.id, item.id === 'idle')}
-            className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
-              activeAnim === item.id
-                ? 'bg-sky-500/35 text-sky-200 border border-sky-400/60 shadow'
-                : 'text-gray-300 hover:text-white hover:bg-white/10 border border-transparent'
-            }`}
-            title={`Perform ${item.label}`}
-          >
-            <span className="text-sm">{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </div>
 
       {/* Four Circle Floating Action Buttons */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3.5 p-2 rounded-full bg-black/55 backdrop-blur-2xl border border-white/20 shadow-2xl pointer-events-auto">
@@ -1385,9 +1434,32 @@ Ani:`;
                   Mocap Active
                 </span>
               </div>
-              <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
-                Pixiv authentic human motion capture is active. You can also load any custom .vrma animation.
+              <p className="text-[11px] text-gray-400 mb-2.5 leading-relaxed">
+                Pixiv authentic humanoid motion library. Click any gesture to preview:
               </p>
+
+              {/* Grid of cute motions */}
+              <div className="grid grid-cols-3 gap-1.5 mb-3">
+                {ANIM_PRESETS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      if (p.id === 'look_away') targetEmotionRef.current = 'shy';
+                      playAnimation(p.id, p.loop);
+                    }}
+                    className={`p-1.5 rounded-xl border text-center transition-all cursor-pointer ${
+                      activeAnim === p.id
+                        ? 'bg-sky-500/25 border-sky-400 text-sky-200'
+                        : 'bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="text-sm">{p.icon}</div>
+                    <div className="text-[10px] font-medium mt-0.5 truncate">{p.name}</div>
+                  </button>
+                ))}
+              </div>
+
               <label className="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium border border-white/10 transition-all cursor-pointer">
                 <Upload className="w-3.5 h-3.5" />
                 <span>Load Custom .VRMA Animation</span>
