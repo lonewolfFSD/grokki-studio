@@ -311,9 +311,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // Camera: Positioned zoomed-in with generous headroom below the top message bubble
+    // Camera: Zoomed-in portrait framing with avatar lowered comfortably below the message box
     const camera = new THREE.PerspectiveCamera(28.0, width / height, 0.1, 20.0);
-    camera.position.set(0.0, 0.88, 1.32);
+    camera.position.set(0.0, 0.72, 1.35);
     cameraRef.current = camera;
 
     // WebGL Renderer with transparency
@@ -331,19 +331,20 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // OrbitControls: LOCKED ROTATION WITH FREELY ADJUSTABLE ZOOM
+    // OrbitControls: LOCKED ROTATION WITH FREELY ADJUSTABLE ZOOM & PANNING
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableRotate = false;
     controls.enableZoom = true; // Zoom enabled so user can freely adjust framing
     controls.minDistance = 0.5;
     controls.maxDistance = 3.5;
-    controls.enablePan = false;
-    controls.target.set(0.0, 0.84, 0.0);
+    controls.enablePan = true; // Right-click or middle-click drag to pan vertically/horizontally
+    controls.screenSpacePanning = true;
+    controls.target.set(0.0, 0.72, 0.0);
     controls.update();
 
     // LookAt Target aligned with lowered head
     const lookAtTarget = new THREE.Object3D();
-    lookAtTarget.position.set(0.0, 0.95, 1.1);
+    lookAtTarget.position.set(0.0, 0.72, 1.1);
     scene.add(lookAtTarget);
     lookAtTargetRef.current = lookAtTarget;
 
@@ -369,7 +370,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
       if (lookAtTargetRef.current) {
-        lookAtTargetRef.current.position.set(x * 0.65, 0.95 + y * 0.25, 1.1);
+        lookAtTargetRef.current.position.set(x * 0.65, 0.72 + y * 0.25, 1.1);
       }
     };
     window.addEventListener('pointermove', handlePointerMove);
@@ -510,8 +511,8 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           vrm.lookAt.target = lookAtTargetRef.current;
         }
 
-        // Lower character down by 0.36m to ensure generous headroom below the message box
-        vrm.scene.position.set(0, -0.36, 0);
+        // Lower character down by 0.60m so top of hair is clearly below the message box
+        vrm.scene.position.set(0, -0.60, 0);
 
         // Immediately set resting arm pose so model never flashes in T-pose
         const leftUpperArm = vrm.humanoid?.getNormalizedBoneNode('leftUpperArm');
