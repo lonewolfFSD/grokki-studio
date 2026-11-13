@@ -40,10 +40,6 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
               High-contrast studio theme mode: Clean Light vs Midnight Obsidian Dark.
             </p>
           </div>
-          <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 flex items-center gap-1.5 select-none">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            {isDark ? 'Obsidian Dark' : 'Clean Light'} Active
-          </span>
         </div>
         <div className="grid grid-cols-2 gap-3.5 w-full">
           <div
@@ -54,9 +50,6 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
                 : 'border border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#13141a] hover:border-gray-400'
             }`}
           >
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0 border border-amber-500/20">
-              <Sun className="w-4 h-4" />
-            </div>
             <div>
               <strong className="text-xs font-semibold text-gray-900 dark:text-gray-100 block">
                 Clean Light (Studio Paper)
@@ -75,9 +68,6 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
                 : 'border border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#13141a] hover:border-gray-400'
             }`}
           >
-            <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center shrink-0 border border-sky-500/20">
-              <Moon className="w-4 h-4" />
-            </div>
             <div>
               <strong className="text-xs font-semibold text-gray-900 dark:text-gray-100 block">
                 Midnight Obsidian (Deep Dark)

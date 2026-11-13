@@ -2366,13 +2366,13 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
           <h2 className="m-0 text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
             AI Models
           </h2>
-          <p className="m-0 mt-1.5 text-xs w-full max-w-lg text-gray-500 dark:text-gray-400">
+          <p className="m-0 mt-1.5 text-xs w-full max-w-sm text-gray-500 dark:text-gray-400">
             Choose the provider and model Grokki uses. Switch between paid flagship models and free or open-source options.
           </p>
         </div>
 
         {/* Paid vs Free segmented control */}
-        <div className="flex items-center gap-1 bg-gray-100 dark:bg-[#13141a] p-1 rounded-full border border-gray-200 dark:border-[#1e2029] self-start sm:self-auto">
+        <div className="flex items-center gap-1 bg-gray-100 dark:bg-[#13141a] p-1.5 rounded-full border border-gray-200 dark:border-[#1e2029] self-start sm:self-auto">
           <button type="button" onClick={() => setCategory('paid')} className={categoryTabClass('paid')}>
             <span>Paid</span>
           </button>

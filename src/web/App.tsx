@@ -15,6 +15,7 @@ import { PluginsTab } from './components/tabs/PluginsTab';
 import { AppearanceTab } from './components/tabs/AppearanceTab';
 import { StudioSettingsTab } from './components/tabs/StudioSettingsTab';
 import { AboutTab } from './components/tabs/AboutTab';
+import { AnimeCompanionTab } from './components/tabs/AnimeCompanionTab';
 import { SettingsModal, SettingsSection } from './components/SettingsModal';
 import { ChatLockModal, LockedChatScreen } from './components/ChatLockModal';
 import { JarvisConfig, GoogleProfile, SystemInfo, Conversation, ChatLockMethod, ActiveModelPull } from './types/jarvis';
@@ -1072,6 +1073,7 @@ export const App: React.FC = () => {
   const tabTitles: Record<TabId, string> = {
     chat: appMode === 'agent' ? 'Grokki Agent' : 'Grokki Chat',
     overview: 'Home',
+    companion: '3D Live Companion',
     workspace: 'Plugins',
     plugins: 'Plugins',
     skills: 'Agent Skills',
@@ -1192,6 +1194,13 @@ export const App: React.FC = () => {
                 userName={displayName}
                 onNavigateTab={handleSelectTab}
                 googleConnected={googleConnected}
+              />
+            )}
+
+            {activeTab === 'companion' && (
+              <AnimeCompanionTab
+                config={config}
+                onChangeConfig={handleConfigChange}
               />
             )}
 

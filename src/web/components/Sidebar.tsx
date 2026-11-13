@@ -29,6 +29,7 @@ import {
   RefreshCwIcon,
   Settings01Icon,
   Logout01Icon,
+  AiSparklesIcon,
 } from '@hugeicons/core-free-icons';
 import { motion } from 'motion/react';
 import ChatSearchModal from './ChatSearchModal';
@@ -42,7 +43,7 @@ import grokkiLogo from '../assets/grokki_logo.png';
 import grokkiWordmarkDark from '../assets/grokki_wordmark.png';
 import grokkiWordmarkLight from '../assets/grokki_wordmark_light.png';
 
-export type TabId = 'chat' | 'overview' | 'plugins' | 'skills' | 'workspace' | 'memory' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
+export type TabId = 'chat' | 'overview' | 'companion' | 'plugins' | 'skills' | 'workspace' | 'memory' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
 
 const MIN_EXPANDED_WIDTH = 180;
 const DEFAULT_SIDEBAR_WIDTH = 240;
@@ -1036,13 +1037,22 @@ export const Sidebar = React.memo<SidebarProps>(({
             </WarmTooltip>
 
             {appMode !== 'agent' && (
-              <SidebarRow
-                icon={Home01Icon}
-                label="Home"
-                isActive={activeTab === 'overview'}
-                isCollapsed={isCollapsed}
-                onClick={() => onSelectTab('overview')}
-              />
+              <>
+                <SidebarRow
+                  icon={Home01Icon}
+                  label="Home"
+                  isActive={activeTab === 'overview'}
+                  isCollapsed={isCollapsed}
+                  onClick={() => onSelectTab('overview')}
+                />
+                <SidebarRow
+                  icon={AiSparklesIcon}
+                  label="3D Companion"
+                  isActive={activeTab === 'companion'}
+                  isCollapsed={isCollapsed}
+                  onClick={() => onSelectTab('companion')}
+                />
+              </>
             )}
 
             {appMode === 'agent' && (

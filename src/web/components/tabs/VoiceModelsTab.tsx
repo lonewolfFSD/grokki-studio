@@ -1053,16 +1053,9 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
               <h2 className="m-0 text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
                 Voice Models
               </h2>
-              {activeVoice && (
-                <span className="inline-flex items-center gap-1.5 px-4.5 py-1.5 rounded-lg bg-gray-100 dark:bg-[#13141a] border border-gray-200 dark:border-[#1e2029] text-[11px] font-semibold text-gray-600 dark:text-gray-300">
-                  {activeVoice.name}
-                  <span className="text-[10px] opacity-60 font-normal">
-                    • {isElevenLabs ? 'ElevenLabs' : 'Grokki Voice'}
-                  </span>
-                </span>
-              )}
+              
             </div>
-            <p className="m-0 mt-1.5 text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-lg">
+            <p className="m-0 mt-1.5 text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-sm">
               {isElevenLabs
                 ? `Ultra-realistic neural voices powered by ElevenLabs v3 (${sourceVoices.length} voices ready).`
                 : `Ultra-fast neural speech running 100% locally on your device. Sub-100ms latency, zero cloud dependency, natural conversational flow.`}
