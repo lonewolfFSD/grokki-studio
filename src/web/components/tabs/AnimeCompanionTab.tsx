@@ -2,48 +2,45 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { VRM, VRMLoaderPlugin, VRMUtils, VRMExpressionPresetName } from '@pixiv/three-vrm';
+import { VRM, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Sparkles,
   Volume2,
   VolumeX,
   Send,
   Upload,
-  RefreshCw,
+  RotateCcw,
   Camera,
-  Smile,
-  Frown,
-  Meh,
-  Heart,
-  MessageSquare,
-  HelpCircle,
-  Eye,
-  Settings2,
+  Loader2,
 } from 'lucide-react';
-import { JarvisConfig, AiProvider } from '../../types/jarvis';
-import Threads from './Threads';
+import { JarvisConfig } from '../../types/jarvis';
 
 interface AnimeCompanionTabProps {
   config: JarvisConfig;
-  onChangeConfig: (patch: Partial<JarvisConfig>) => void;
-  onSendChatPrompt?: (prompt: string) => Promise<string | void>;
+  onChangeConfig?: (patch: Partial<JarvisConfig>) => void;
 }
 
-type Emotion = 'neutral' | 'happy' | 'angry' | 'surprised' | 'relaxed';
+type EmotionPreset = 'neutral' | 'happy' | 'angry' | 'surprised' | 'relaxed';
 
-interface VisemeFrequencies {
-  aa: number;
-  ih: number;
-  ou: number;
-  ee: number;
-  oh: number;
+// Dynamic emotion analyzer from conversational text
+function detectEmotionFromText(text: string): EmotionPreset {
+  const t = text.toLowerCase();
+  if (/\b(haha|lol|yay|awesome|great|love|happy|glad|cool|perfect|amazing|wonderful|excellent|super)\b/i.test(t)) {
+    return 'happy';
+  }
+  if (/\b(what|really|wow|whoa|huh|wait|seriously|omg|incredible|unbelievable)\b/i.test(t) || t.includes('?!') || t.includes('!')) {
+    return 'surprised';
+  }
+  if (/\b(no|never|stop|hate|angry|mad|annoying|grr|pout|bad|worst|wrong)\b/i.test(t)) {
+    return 'angry';
+  }
+  if (/\b(peace|calm|relax|sleep|rest|chill|sure|okay|alright|fine|gentle|soft)\b/i.test(t)) {
+    return 'relaxed';
+  }
+  return 'relaxed';
 }
 
-export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
-  config,
-  onChangeConfig,
-}) => {
+export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const vrmRef = useRef<VRM | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -55,25 +52,82 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
   // Audio Analyser for Lip Sync
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const audioSourceRef = useRef<AudioNode | null>(null);
   const isSpeakingRef = useRef<boolean>(false);
+  const currentAudioElementRef = useRef<HTMLAudioElement | null>(null);
 
-  // Component UI State
+  // Dynamic emotion interpolation state
+  const targetEmotionRef = useRef<EmotionPreset>('neutral');
+  const currentEmotionWeightsRef = useRef<Record<string, number>>({
+    happy: 0,
+    angry: 0,
+    surprised: 0,
+    relaxed: 0,
+  });
+
+  // UI State
   const [loading, setLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [companionName, setCompanionName] = useState<string>('Ani');
-  const [currentEmotion, setCurrentEmotion] = useState<Emotion>('neutral');
+  const [avatarName, setAvatarName] = useState<string>('Aiko');
   const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
   const [inputMessage, setInputMessage] = useState<string>('');
   const [isThinking, setIsThinking] = useState<boolean>(false);
-  const [lastSpeech, setLastSpeech] = useState<string>(
-    "Konichiwa! I'm Ani, your 3D live desktop companion. Talk to me or choose an emotion!"
-  );
-  const [showSpeechBubble, setShowSpeechBubble] = useState<boolean>(true);
-  const [modelUrl, setModelUrl] = useState<string>('/assets/avatars/default.vrm');
-  const [showHelp, setShowHelp] = useState<boolean>(false);
+  const [currentSpeech, setCurrentSpeech] = useState<string>('');
+  const [showSpeechBubble, setShowSpeechBubble] = useState<boolean>(false);
+  const [modelUrl, setModelUrl] = useState<string>('/assets/avatars/alicia.vrm');
 
-  // 1. Initialize Three.js Scene, Camera, Lighting, and Controls
+  // Smooth lerp helper
+  const lerp = (start: number, end: number, factor: number) => {
+    return start + (end - start) * factor;
+  };
+
+  // Helper to set humanoid natural arm rest pose
+  const applyRestingArmPose = (vrm: VRM, elapsed: number) => {
+    if (!vrm.humanoid) return;
+
+    const leftUpperArm = vrm.humanoid.getNormalizedBoneNode('leftUpperArm');
+    const rightUpperArm = vrm.humanoid.getNormalizedBoneNode('rightUpperArm');
+    const leftLowerArm = vrm.humanoid.getNormalizedBoneNode('leftLowerArm');
+    const rightLowerArm = vrm.humanoid.getNormalizedBoneNode('rightLowerArm');
+    const leftHand = vrm.humanoid.getNormalizedBoneNode('leftHand');
+    const rightHand = vrm.humanoid.getNormalizedBoneNode('rightHand');
+    const chest = vrm.humanoid.getNormalizedBoneNode('chest');
+    const spine = vrm.humanoid.getNormalizedBoneNode('spine');
+    const head = vrm.humanoid.getNormalizedBoneNode('head');
+
+    // Subtle natural breathing oscillation
+    const breath = Math.sin(elapsed * 1.6) * 0.018;
+    const armSway = Math.sin(elapsed * 1.6) * 0.012;
+
+    if (chest) chest.rotation.x = breath;
+    if (spine) spine.rotation.x = breath * 0.6;
+
+    // Subtle curious head tilt when thinking
+    if (head && isThinking) {
+      head.rotation.z = THREE.MathUtils.lerp(head.rotation.z, 0.08, 0.05);
+    }
+
+    // Natural arm resting angles down by the sides (NEVER T-Pose)
+    if (leftUpperArm) {
+      leftUpperArm.rotation.set(0.08, 0.08, -1.24 + armSway);
+    }
+    if (rightUpperArm) {
+      rightUpperArm.rotation.set(0.08, -0.08, 1.24 - armSway);
+    }
+    if (leftLowerArm) {
+      leftLowerArm.rotation.set(0.12, 0.22, -0.1);
+    }
+    if (rightLowerArm) {
+      rightLowerArm.rotation.set(0.12, -0.22, 0.1);
+    }
+    if (leftHand) {
+      leftHand.rotation.set(0.0, 0.0, -0.05);
+    }
+    if (rightHand) {
+      rightHand.rotation.set(0.0, 0.0, 0.05);
+    }
+  };
+
+  // 1. Initialize Three.js WebGL Scene
   useEffect(() => {
     const container = mountRef.current;
     if (!container) return;
@@ -85,12 +139,12 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // Camera: Portrait view framing head and upper torso
-    const camera = new THREE.PerspectiveCamera(30.0, width / height, 0.1, 20.0);
-    camera.position.set(0.0, 1.38, 1.45);
+    // Camera: Portrait view centered on avatar head & upper body
+    const camera = new THREE.PerspectiveCamera(28.0, width / height, 0.1, 20.0);
+    camera.position.set(0.0, 1.34, 1.15);
     cameraRef.current = camera;
 
-    // Renderer
+    // WebGL Renderer
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -100,18 +154,18 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.05;
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Controls: OrbitControls with constrained angles
+    // Controls: OrbitControls with constrained bounds
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.target.set(0.0, 1.28, 0.0);
-    controls.minDistance = 0.7;
-    controls.maxDistance = 2.8;
+    controls.dampingFactor = 0.06;
+    controls.target.set(0.0, 1.22, 0.0);
+    controls.minDistance = 0.6;
+    controls.maxDistance = 2.4;
     controls.maxPolarAngle = Math.PI / 2 + 0.1;
     controls.minPolarAngle = Math.PI / 4;
     controlsRef.current = controls;
@@ -122,42 +176,39 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
     scene.add(lookAtTarget);
     lookAtTargetRef.current = lookAtTarget;
 
-    // Lighting (Anime Studio Setup)
-    // Key Light
-    const keyLight = new THREE.DirectionalLight(0xfff6ea, 1.6);
-    keyLight.position.set(1.2, 2.0, 1.5);
+    // Studio Lighting
+    const keyLight = new THREE.DirectionalLight(0xfff5ea, 1.6);
+    keyLight.position.set(1.0, 2.0, 1.4);
     scene.add(keyLight);
 
-    // Cool Back/Rim Light (Grokki Blue Glow)
-    const rimLight = new THREE.DirectionalLight(0x38bdf8, 2.2);
-    rimLight.position.set(-1.2, 1.8, -1.2);
+    const rimLight = new THREE.DirectionalLight(0x60a5fa, 1.8);
+    rimLight.position.set(-1.2, 1.6, -1.2);
     scene.add(rimLight);
 
-    // Warm Fill Light
-    const fillLight = new THREE.DirectionalLight(0xf472b6, 0.8);
-    fillLight.position.set(-1.0, 0.8, 1.2);
+    const fillLight = new THREE.DirectionalLight(0xfdf2f8, 0.7);
+    fillLight.position.set(-1.0, 0.9, 1.2);
     scene.add(fillLight);
 
-    // Ambient Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
     scene.add(ambientLight);
 
-    // Cursor move handler for smooth procedural LookAt
+    // Smooth Cursor LookAt Handler
     const handlePointerMove = (e: MouseEvent) => {
       const rect = container.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
       if (lookAtTargetRef.current) {
-        lookAtTargetRef.current.position.set(x * 0.8, 1.3 + y * 0.4, 1.2);
+        lookAtTargetRef.current.position.set(x * 0.75, 1.28 + y * 0.35, 1.1);
       }
     };
     window.addEventListener('pointermove', handlePointerMove);
 
-    // Resize Observer
+    // Responsive Resize Observer
     const handleResize = () => {
       if (!container || !rendererRef.current || !cameraRef.current) return;
       const w = container.clientWidth;
       const h = container.clientHeight;
+      if (w === 0 || h === 0) return;
       cameraRef.current.aspect = w / h;
       cameraRef.current.updateProjectionMatrix();
       rendererRef.current.setSize(w, h);
@@ -165,7 +216,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
     const ro = new ResizeObserver(handleResize);
     ro.observe(container);
 
-    // Animation Loop
+    // Main 60 FPS Render Loop
     const clock = new THREE.Clock();
     let blinkTimer = 0;
     let isBlinking = false;
@@ -181,19 +232,15 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
 
       const currentVrm = vrmRef.current;
       if (currentVrm) {
-        // 1. Procedural Natural Breathing
-        const chest = currentVrm.humanoid?.getNormalizedBoneNode('chest');
-        const spine = currentVrm.humanoid?.getNormalizedBoneNode('spine');
-        const breath = Math.sin(elapsed * 1.8) * 0.015;
-        if (chest) chest.rotation.x = breath;
-        if (spine) spine.rotation.x = breath * 0.5;
+        // 1. Maintain natural arm posture and breathing
+        applyRestingArmPose(currentVrm, elapsed);
 
-        // 2. Procedural Eyelid Blinking
+        // 2. Procedural Poisson Blinking
         blinkTimer += delta;
-        if (blinkTimer > 3.2 && !isBlinking) {
+        if (blinkTimer > 3.4 && !isBlinking) {
           isBlinking = true;
           blinkProgress = 0;
-          blinkTimer = (Math.random() - 0.5) * 1.5; // Randomize next blink
+          blinkTimer = (Math.random() - 0.5) * 1.8;
         }
 
         if (isBlinking) {
@@ -206,18 +253,27 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
           }
         }
 
-        // 3. Audio Lip-Sync Processing
+        // 3. Dynamic Emotion Blendshape Lerping
+        const activeTarget = targetEmotionRef.current;
+        const emotions: EmotionPreset[] = ['happy', 'angry', 'surprised', 'relaxed'];
+        emotions.forEach((emo) => {
+          const targetWeight = emo === activeTarget ? 1.0 : 0.0;
+          const currentWeight = currentEmotionWeightsRef.current[emo] || 0.0;
+          const nextWeight = lerp(currentWeight, targetWeight, Math.min(1.0, delta * 4.0));
+          currentEmotionWeightsRef.current[emo] = nextWeight;
+          currentVrm.expressionManager?.setValue(emo, nextWeight);
+        });
+
+        // 4. Audio-Driven Lip-Sync Processing
         if (analyserRef.current && isSpeakingRef.current) {
           const freqData = new Uint8Array(analyserRef.current.frequencyBinCount);
           analyserRef.current.getByteFrequencyData(freqData);
 
-          // Calculate energy across frequency bands
           const lowEnergy = (freqData[2] + freqData[3] + freqData[4]) / 3 / 255;
           const midEnergy = (freqData[8] + freqData[10] + freqData[12]) / 3 / 255;
           const highEnergy = (freqData[20] + freqData[24] + freqData[28]) / 3 / 255;
 
-          // Drive visemes with smooth decay
-          const aaVal = Math.min(1.0, lowEnergy * 1.6);
+          const aaVal = Math.min(1.0, lowEnergy * 1.7);
           const ohVal = Math.min(1.0, midEnergy * 1.4);
           const eeVal = Math.min(1.0, highEnergy * 1.3);
 
@@ -225,15 +281,16 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
           currentVrm.expressionManager?.setValue('oh', ohVal);
           currentVrm.expressionManager?.setValue('ee', eeVal);
         } else {
-          // Decay mouth to rest position
-          currentVrm.expressionManager?.setValue('aa', 0.0);
-          currentVrm.expressionManager?.setValue('oh', 0.0);
-          currentVrm.expressionManager?.setValue('ee', 0.0);
-          currentVrm.expressionManager?.setValue('ih', 0.0);
-          currentVrm.expressionManager?.setValue('ou', 0.0);
+          // Smoothly return mouth to rest
+          const currentAa = currentVrm.expressionManager?.getValue('aa') || 0;
+          const currentOh = currentVrm.expressionManager?.getValue('oh') || 0;
+          const currentEe = currentVrm.expressionManager?.getValue('ee') || 0;
+          currentVrm.expressionManager?.setValue('aa', lerp(currentAa, 0.0, delta * 8.0));
+          currentVrm.expressionManager?.setValue('oh', lerp(currentOh, 0.0, delta * 8.0));
+          currentVrm.expressionManager?.setValue('ee', lerp(currentEe, 0.0, delta * 8.0));
         }
 
-        // Update VRM (Expression manager, spring bones physics, LookAt)
+        // 5. Update VRM Physics & LookAt
         currentVrm.update(delta);
       }
 
@@ -247,10 +304,13 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
       ro.disconnect();
       renderer.dispose();
       if (container) container.innerHTML = '';
+      if (currentAudioElementRef.current) {
+        currentAudioElementRef.current.pause();
+      }
     };
   }, []);
 
-  // 2. Load VRM Model (Default or Custom File)
+  // 2. Load VRM Model
   const loadVRM = useCallback((url: string) => {
     setLoading(true);
     setLoadError(null);
@@ -274,17 +334,20 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
           VRMUtils.deepDispose(vrmRef.current.scene);
         }
 
-        // Clean up unnecessary meshes and joints
+        // Clean up unnecessary meshes and joints for performance
         VRMUtils.removeUnnecessaryVertices(gltf.scene);
         VRMUtils.removeUnnecessaryJoints(gltf.scene);
 
-        // Rotate VRM0 models to face the camera properly
+        // Rotate VRM 0.0 models if needed
         VRMUtils.rotateVRM0(vrm);
 
         // Bind lookAt target
         if (lookAtTargetRef.current) {
           vrm.lookAt.target = lookAtTargetRef.current;
         }
+
+        // Immediately apply natural resting arm angles
+        applyRestingArmPose(vrm, 0);
 
         vrmRef.current = vrm;
         if (sceneRef.current) {
@@ -295,8 +358,8 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
       },
       undefined,
       (err) => {
-        console.error('[AnimeCompanion] VRM load error:', err);
-        setLoadError('Could not load VRM avatar. Please select a valid .vrm file.');
+        console.error('[LiveAvatar] VRM load error:', err);
+        setLoadError('Could not load avatar. Please check the model file.');
         setLoading(false);
       }
     );
@@ -306,169 +369,176 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
     loadVRM(modelUrl);
   }, [modelUrl, loadVRM]);
 
-  // 3. Set Avatar Facial Expression
-  const applyEmotion = useCallback((emotion: Emotion) => {
-    const vrm = vrmRef.current;
-    if (!vrm || !vrm.expressionManager) return;
+  // 3. Audio & Voice Speech Synthesis
+  const speakSpeech = useCallback(
+    async (text: string) => {
+      setCurrentSpeech(text);
+      setShowSpeechBubble(true);
+      if (!voiceEnabled || !text.trim()) return;
 
-    setCurrentEmotion(emotion);
-    const presets: Emotion[] = ['happy', 'angry', 'surprised', 'relaxed'];
-    presets.forEach((p) => vrm.expressionManager?.setValue(p, 0.0));
+      // Stop any prior playback
+      if (currentAudioElementRef.current) {
+        currentAudioElementRef.current.pause();
+        currentAudioElementRef.current = null;
+      }
 
-    if (emotion !== 'neutral') {
-      vrm.expressionManager.setValue(emotion, 1.0);
-    }
-  }, []);
-
-  // 4. Lip-Sync & Voice Audio Playback
-  const speakText = useCallback(async (text: string) => {
-    setLastSpeech(text);
-    setShowSpeechBubble(true);
-    if (!voiceEnabled) return;
-
-    try {
-      if (window.jarvisAPI?.ttsSpeak) {
-        isSpeakingRef.current = true;
-        // Connect Web Audio API Analyser to capture speaker waveform
-        if (!audioContextRef.current) {
-          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-          if (AudioContextClass) {
-            audioContextRef.current = new AudioContextClass();
-            const analyser = audioContextRef.current.createAnalyser();
-            analyser.fftSize = 64;
-            analyserRef.current = analyser;
-          }
-        }
-
-        const res = await window.jarvisAPI.ttsSpeak({
-          text,
-          voice: config.ttsVoice || 'expr-voice-2-f',
-          provider: (config.ttsProvider as any) || 'grokki_voice',
-        });
-
-        if (res && res.success && res.base64Audio) {
-          const audio = new Audio(`data:audio/mp3;base64,${res.base64Audio}`);
-          if (audioContextRef.current && analyserRef.current) {
-            if (audioContextRef.current.state === 'suspended') {
-              await audioContextRef.current.resume();
-            }
-            const source = audioContextRef.current.createMediaElementSource(audio);
-            source.connect(analyserRef.current);
-            analyserRef.current.connect(audioContextRef.current.destination);
-          }
-
-          audio.onended = () => {
-            isSpeakingRef.current = false;
-          };
-          audio.onerror = () => {
-            isSpeakingRef.current = false;
-          };
-          await audio.play();
-        } else {
-          // Fallback simulation of mouth movement if native audio playback fails
-          let ticks = 0;
-          const interval = setInterval(() => {
-            ticks++;
-            const vrm = vrmRef.current;
-            if (vrm) {
-              const mouth = Math.sin(ticks * 0.8) > 0.2 ? 0.6 : 0.0;
-              vrm.expressionManager?.setValue('aa', mouth);
-            }
-            if (ticks > 25) {
-              clearInterval(interval);
-              vrmRef.current?.expressionManager?.setValue('aa', 0.0);
-              isSpeakingRef.current = false;
-            }
-          }, 100);
+      // Initialize Web Audio API Analyser
+      if (!audioContextRef.current) {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          audioContextRef.current = new AudioCtx();
+          const analyser = audioContextRef.current.createAnalyser();
+          analyser.fftSize = 64;
+          analyserRef.current = analyser;
         }
       }
-    } catch (err) {
-      console.warn('[AnimeCompanion] Voice playback failed:', err);
-      isSpeakingRef.current = false;
-    }
-  }, [config.ttsVoice, config.ttsProvider, voiceEnabled]);
 
-  // 5. Send Prompt & Conversational Interaction
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+
+      const voice = config.grokkiVoiceId || config.ttsVoice || 'expr-voice-3-f';
+
+      try {
+        let hasSpoken = false;
+
+        // Try native IPC Grokki Voice / ElevenLabs TTS
+        if (window.jarvisAPI?.speakText) {
+          const res = await window.jarvisAPI.speakText(text, voice);
+          if (res && res.success && res.base64Audio) {
+            hasSpoken = true;
+            isSpeakingRef.current = true;
+            const audio = new Audio(`data:${res.mimeType || 'audio/mpeg'};base64,${res.base64Audio}`);
+            currentAudioElementRef.current = audio;
+
+            if (audioContextRef.current && analyserRef.current) {
+              const source = audioContextRef.current.createMediaElementSource(audio);
+              source.connect(analyserRef.current);
+              analyserRef.current.connect(audioContextRef.current.destination);
+            }
+
+            audio.onended = () => {
+              isSpeakingRef.current = false;
+              targetEmotionRef.current = 'neutral';
+            };
+            audio.onerror = () => {
+              isSpeakingRef.current = false;
+              targetEmotionRef.current = 'neutral';
+            };
+
+            await audio.play();
+          }
+        }
+
+        // Seamless fallback to browser Web Speech API if native audio worker is unavailable
+        if (!hasSpoken && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 1.05;
+          utterance.pitch = 1.15;
+
+          const voices = window.speechSynthesis.getVoices();
+          const naturalVoice =
+            voices.find((v) => /natural|jenny|aria|samantha|zira|female/i.test(v.name)) ||
+            voices.find((v) => v.lang.startsWith('en')) ||
+            voices[0];
+          if (naturalVoice) utterance.voice = naturalVoice;
+
+          utterance.onstart = () => {
+            isSpeakingRef.current = true;
+          };
+          utterance.onend = () => {
+            isSpeakingRef.current = false;
+            targetEmotionRef.current = 'neutral';
+          };
+          utterance.onerror = () => {
+            isSpeakingRef.current = false;
+            targetEmotionRef.current = 'neutral';
+          };
+
+          window.speechSynthesis.speak(utterance);
+        }
+      } catch (err) {
+        console.warn('[LiveAvatar] Speech playback error:', err);
+        isSpeakingRef.current = false;
+      }
+    },
+    [config.ttsVoice, config.grokkiVoiceId, voiceEnabled]
+  );
+
+  // 4. Send Message & Connect to Real AI Brain
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isThinking) return;
 
     const userPrompt = inputMessage.trim();
     setInputMessage('');
     setIsThinking(true);
+    targetEmotionRef.current = 'relaxed';
 
     try {
       let replyText = '';
-      if (window.jarvisAPI?.streamChat) {
-        const stream = window.jarvisAPI.streamChat({
-          prompt: `You are Ani, an adorable, witty anime 3D companion living inside Grokki Studio. Keep answers punchy, expressive, and fun in 1-3 sentences. User says: "${userPrompt}"`,
-          config,
+
+      // Direct connection to Grokki AI Brain
+      if (window.jarvisAPI?.executeAI) {
+        const res = await window.jarvisAPI.executeAI(userPrompt, {
+          systemPrompt:
+            'You are Aiko, an intelligent, engaging 3D desktop companion in Grokki Studio. Keep answers concise (1 to 3 sentences), conversational, natural, and direct.',
         });
 
-        // Collect reply
-        for await (const chunk of stream) {
-          if (chunk?.content) replyText += chunk.content;
+        if (res && res.reply) {
+          replyText = res.reply.trim();
+        } else if (res && res.message) {
+          replyText = res.message.trim();
+        } else if (res && res.error) {
+          replyText = `Error: ${res.error}`;
         }
       }
 
       if (!replyText) {
-        replyText = `Hehe, I heard you say "${userPrompt}"! Let's explore together! ✨`;
+        replyText = "I'm here. What would you like to explore or work on?";
       }
 
-      // Sentiment analysis for emotion triggers
-      const lower = replyText.toLowerCase();
-      if (lower.includes('happy') || lower.includes('great') || lower.includes('love') || lower.includes('yay') || lower.includes('awesome')) {
-        applyEmotion('happy');
-      } else if (lower.includes('what') || lower.includes('really') || lower.includes('wow') || lower.includes('amazing')) {
-        applyEmotion('surprised');
-      } else if (lower.includes('no') || lower.includes('bad') || lower.includes('stop') || lower.includes('grr')) {
-        applyEmotion('angry');
-      } else {
-        applyEmotion('relaxed');
-      }
+      // Dynamically detect emotion from the actual AI reply
+      const dynamicEmotion = detectEmotionFromText(replyText);
+      targetEmotionRef.current = dynamicEmotion;
 
-      await speakText(replyText);
+      // Speak and sync mouth visemes
+      await speakSpeech(replyText);
     } catch (err: any) {
-      const fallback = "Oopsie! I had a little hiccup connecting to the AI brain, but I'm still here!";
-      applyEmotion('surprised');
-      await speakText(fallback);
+      console.error('[LiveAvatar] AI Brain execution failed:', err);
+      targetEmotionRef.current = 'surprised';
+      await speakSpeech(err?.message || 'Sorry, I had trouble reaching the AI model.');
     } finally {
       setIsThinking(false);
     }
   };
 
-  // 6. Custom VRM Avatar File Drop / Upload
+  // Custom VRM File Upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const objectUrl = URL.createObjectURL(file);
       setModelUrl(objectUrl);
-      setCompanionName(file.name.replace(/\.vrm$/i, ''));
+      const name = file.name.replace(/\.vrm$/i, '');
+      setAvatarName(name.charAt(0).toUpperCase() + name.slice(1));
     }
   };
 
-  // Reset Camera View
+  // Camera Reset
   const handleResetCamera = () => {
     if (cameraRef.current && controlsRef.current) {
-      cameraRef.current.position.set(0.0, 1.38, 1.45);
-      controlsRef.current.target.set(0.0, 1.28, 0.0);
+      cameraRef.current.position.set(0.0, 1.34, 1.15);
+      controlsRef.current.target.set(0.0, 1.22, 0.0);
       controlsRef.current.update();
     }
   };
 
   return (
-    <div className="relative w-full h-full min-h-[500px] flex flex-col bg-[#07080b] overflow-hidden select-none">
-      {/* Dynamic Background Shader Threads */}
-      <div className="absolute inset-0 pointer-events-none z-0 opacity-40">
-        <Threads
-          color="#3b82f6"
-          accentColor="#ec4899"
-          amplitude={1.2}
-          distance={0.3}
-          enableMouseInteraction={false}
-        />
-      </div>
+    <div className="relative w-full h-full flex-1 min-h-0 flex flex-col bg-[#07080b] overflow-hidden select-none">
+      {/* Subtle Studio Radial Vignette */}
+      <div className="absolute inset-0 pointer-events-none z-0 bg-[radial-gradient(circle_at_50%_35%,rgba(30,41,59,0.35)_0%,rgba(7,8,11,0.95)_75%)]" />
 
-      {/* 3D WebGL Canvas Viewport */}
+      {/* 3D WebGL Viewport */}
       <div
         ref={mountRef}
         className="relative flex-1 w-full h-full z-10 cursor-grab active:cursor-grabbing"
@@ -476,39 +546,39 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
 
       {/* Loading Overlay */}
       {loading && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md gap-3">
-          <RefreshCw className="w-8 h-8 text-sky-400 animate-spin" />
-          <p className="text-sm font-semibold text-white tracking-wide">
-            Summoning 3D Avatar...
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md gap-2.5">
+          <Loader2 className="w-6 h-6 text-gray-300 animate-spin" />
+          <p className="text-xs font-medium text-gray-300 tracking-wide">
+            Loading Avatar...
           </p>
         </div>
       )}
 
       {/* Error Toast */}
       {loadError && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 px-4 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-200 text-xs flex items-center gap-2 backdrop-blur-md shadow-lg">
-          <span>{loadError}</span>
+        <div className="absolute top-5 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-200 text-xs backdrop-blur-md shadow-lg">
+          {loadError}
         </div>
       )}
 
-      {/* Top Floating Glass Header HUD */}
+      {/* Top Header HUD */}
       <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
-        {/* Avatar Status Pill */}
-        <div className="flex items-center gap-3 px-3.5 py-2 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-xl pointer-events-auto">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+        {/* Name & Status Pill */}
+        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-xl border border-white/10 shadow-lg pointer-events-auto">
+          <span className="w-2 h-2 rounded-full bg-emerald-400" />
           <span className="text-xs font-semibold text-white tracking-tight">
-            {companionName}
+            {avatarName}
           </span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-gray-300 font-mono">
-            60 FPS Live
+          <span className="text-[10px] text-gray-400 font-mono pl-1 border-l border-white/10">
+            60 FPS
           </span>
         </div>
 
-        {/* Action Controls */}
+        {/* Clean Controls */}
         <div className="flex items-center gap-2 pointer-events-auto">
           {/* Custom VRM Upload */}
-          <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium border border-white/10 backdrop-blur-md transition-all cursor-pointer shadow-md">
-            <Upload className="w-3.5 h-3.5" />
+          <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-medium border border-white/10 backdrop-blur-md transition-all cursor-pointer shadow-sm">
+            <Upload className="w-3.5 h-3.5 text-gray-300" />
             <span>Load .VRM</span>
             <input
               type="file"
@@ -522,124 +592,76 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({
           <button
             type="button"
             onClick={handleResetCamera}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 backdrop-blur-md transition-all cursor-pointer shadow-md"
-            title="Reset Camera View"
+            className="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-gray-300 hover:text-white border border-white/10 backdrop-blur-md transition-all cursor-pointer shadow-sm"
+            title="Reset View"
           >
             <Camera className="w-3.5 h-3.5" />
           </button>
 
-          {/* Voice Toggle */}
+          {/* Voice Audio Toggle */}
           <button
             type="button"
             onClick={() => setVoiceEnabled(!voiceEnabled)}
-            className={`p-2 rounded-xl border backdrop-blur-md transition-all cursor-pointer shadow-md ${
+            className={`p-2 rounded-xl border backdrop-blur-md transition-all cursor-pointer shadow-sm ${
               voiceEnabled
-                ? 'bg-sky-500/20 border-sky-400/40 text-sky-300'
-                : 'bg-white/10 border-white/10 text-gray-400'
+                ? 'bg-white/15 border-white/20 text-white'
+                : 'bg-white/5 border-white/10 text-gray-500'
             }`}
-            title={voiceEnabled ? 'Mute Companion' : 'Enable Speech'}
+            title={voiceEnabled ? 'Mute Speech' : 'Enable Speech'}
           >
-            {voiceEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            {voiceEnabled ? (
+              <Volume2 className="w-3.5 h-3.5" />
+            ) : (
+              <VolumeX className="w-3.5 h-3.5" />
+            )}
           </button>
         </div>
       </div>
 
-      {/* Floating Speech Bubble */}
+      {/* Clean Subtitle / Speech Display */}
       <AnimatePresence>
-        {showSpeechBubble && lastSpeech && (
+        {showSpeechBubble && currentSpeech && (
           <motion.div
-            initial={{ opacity: 0, y: 15, scale: 0.95 }}
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            className="absolute top-20 left-1/2 -translate-x-1/2 z-20 max-w-md w-[90%] px-5 py-3.5 rounded-2xl bg-black/60 backdrop-blur-2xl border border-white/15 text-white shadow-2xl pointer-events-auto"
+            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            transition={{ duration: 0.2 }}
+            className="absolute top-16 left-1/2 -translate-x-1/2 z-20 max-w-lg w-[90%] px-4 py-3 rounded-2xl bg-black/70 backdrop-blur-2xl border border-white/15 text-white shadow-2xl pointer-events-auto"
           >
-            <div className="flex items-start gap-2.5">
-              <Sparkles className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-              <p className="text-xs sm:text-sm font-medium leading-relaxed tracking-wide text-gray-100 m-0">
-                {lastSpeech}
-              </p>
-            </div>
+            <p className="text-xs sm:text-sm font-normal leading-relaxed text-gray-200 m-0 text-center">
+              {currentSpeech}
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Bottom Floating Interaction HUD */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 max-w-xl w-[92%] flex flex-col gap-2.5 pointer-events-auto">
-        {/* Quick Emotion Reaction Bar */}
-        <div className="flex items-center justify-center gap-1.5 overflow-x-auto py-1 px-3 rounded-xl bg-black/40 backdrop-blur-xl border border-white/10 w-fit mx-auto shadow-lg">
-          <button
-            type="button"
-            onClick={() => applyEmotion('happy')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1 border-none ${
-              currentEmotion === 'happy' ? 'bg-amber-400/20 text-amber-300' : 'text-gray-300 hover:text-white'
-            }`}
-          >
-            <span>😊 Happy</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => applyEmotion('surprised')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1 border-none ${
-              currentEmotion === 'surprised' ? 'bg-sky-400/20 text-sky-300' : 'text-gray-300 hover:text-white'
-            }`}
-          >
-            <span>😮 Wow</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => applyEmotion('angry')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1 border-none ${
-              currentEmotion === 'angry' ? 'bg-rose-400/20 text-rose-300' : 'text-gray-300 hover:text-white'
-            }`}
-          >
-            <span>😤 Pout</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => applyEmotion('relaxed')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1 border-none ${
-              currentEmotion === 'relaxed' ? 'bg-emerald-400/20 text-emerald-300' : 'text-gray-300 hover:text-white'
-            }`}
-          >
-            <span>✨ Relaxed</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => applyEmotion('neutral')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer border-none ${
-              currentEmotion === 'neutral' ? 'bg-white/20 text-white' : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            <span>Reset</span>
-          </button>
-        </div>
-
-        {/* Chat Prompt Floating Input */}
+      {/* Bottom Floating Chat Input */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 max-w-xl w-[92%] pointer-events-auto">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSendMessage();
           }}
-          className="relative flex items-center w-full rounded-2xl bg-black/60 backdrop-blur-2xl border border-white/20 focus-within:border-sky-400/80 shadow-2xl p-1.5 transition-all"
+          className="relative flex items-center w-full rounded-2xl bg-black/65 backdrop-blur-2xl border border-white/15 focus-within:border-white/35 shadow-2xl p-1.5 transition-all"
         >
           <input
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder={`Talk to ${companionName}... (e.g. "Tell me a joke", "How are you?")`}
+            placeholder={`Talk to ${avatarName}...`}
             disabled={isThinking}
-            className="flex-1 bg-transparent border-none outline-none px-4 py-2.5 text-xs sm:text-sm text-white placeholder-gray-400 font-sans"
+            className="flex-1 bg-transparent border-none outline-none px-4 py-2.5 text-xs sm:text-sm text-white placeholder-gray-500 font-sans"
           />
 
           <button
             type="submit"
             disabled={!inputMessage.trim() || isThinking}
-            className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white border-none cursor-pointer disabled:opacity-40 transition-all shrink-0 shadow-md"
+            className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/15 hover:bg-white/25 active:bg-white/30 text-white border border-white/10 cursor-pointer disabled:opacity-30 transition-all shrink-0 shadow-sm"
           >
             {isThinking ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin text-gray-300" />
             ) : (
-              <Send className="w-4 h-4 ml-0.5" />
+              <Send className="w-3.5 h-3.5 ml-0.5" />
             )}
           </button>
         </form>

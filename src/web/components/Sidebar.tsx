@@ -30,6 +30,7 @@ import {
   Settings01Icon,
   Logout01Icon,
   AiSparklesIcon,
+  User02Icon,
 } from '@hugeicons/core-free-icons';
 import { motion } from 'motion/react';
 import ChatSearchModal from './ChatSearchModal';
@@ -1046,8 +1047,8 @@ export const Sidebar = React.memo<SidebarProps>(({
                   onClick={() => onSelectTab('overview')}
                 />
                 <SidebarRow
-                  icon={AiSparklesIcon}
-                  label="3D Companion"
+                  icon={User02Icon}
+                  label="Live Avatar"
                   isActive={activeTab === 'companion'}
                   isCollapsed={isCollapsed}
                   onClick={() => onSelectTab('companion')}

@@ -1073,7 +1073,7 @@ export const App: React.FC = () => {
   const tabTitles: Record<TabId, string> = {
     chat: appMode === 'agent' ? 'Grokki Agent' : 'Grokki Chat',
     overview: 'Home',
-    companion: '3D Live Companion',
+    companion: 'Live Avatar',
     workspace: 'Plugins',
     plugins: 'Plugins',
     skills: 'Agent Skills',
@@ -1152,7 +1152,11 @@ export const App: React.FC = () => {
         />
 
         {/* Tab Panels */}
-        <main id="grokki-main-scroll" className={`flex-1 min-h-0 overflow-y-auto ${activeTab === 'chat' ? 'h-full flex flex-col relative bg-[#f7f7fa] dark:bg-[#070709] overflow-hidden' : 'px-8 py-6'}`}>
+        <main id="grokki-main-scroll" className={`flex-1 min-h-0 ${
+          activeTab === 'chat' || activeTab === 'companion'
+            ? 'h-full flex flex-col relative bg-[#f7f7fa] dark:bg-[#070709] overflow-hidden p-0'
+            : 'overflow-y-auto px-8 py-6'
+        }`}>
           <div className={activeTab === 'chat' ? 'h-full flex flex-col relative w-full overflow-hidden' : 'hidden'}>
             {activeConversation?.isLocked && !unlockedConvoIds.has(activeConversation.id) ? (
               <LockedChatScreen
@@ -1186,7 +1190,13 @@ export const App: React.FC = () => {
             )}
           </div>
 
-          <div id="grokki-tab-content" className={activeTab === 'chat' ? 'hidden' : 'w-full flex flex-col'}>
+          <div id="grokki-tab-content" className={
+            activeTab === 'chat'
+              ? 'hidden'
+              : activeTab === 'companion'
+                ? 'w-full h-full flex-1 min-h-0 flex flex-col'
+                : 'w-full flex flex-col'
+          }>
             <ErrorBoundary fallbackTabName={activeTab} onReset={() => setActiveTab('chat')}>
             {activeTab === 'overview' && (
               <OverviewTab
