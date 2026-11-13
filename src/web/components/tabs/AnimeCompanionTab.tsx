@@ -311,9 +311,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // Camera: Positioned to frame character centered with headroom
+    // Camera: Positioned zoomed-in with generous headroom below the top message bubble
     const camera = new THREE.PerspectiveCamera(28.0, width / height, 0.1, 20.0);
-    camera.position.set(0.0, 1.0, 1.6);
+    camera.position.set(0.0, 0.88, 1.32);
     cameraRef.current = camera;
 
     // WebGL Renderer with transparency
@@ -335,15 +335,15 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableRotate = false;
     controls.enableZoom = true; // Zoom enabled so user can freely adjust framing
-    controls.minDistance = 0.7;
+    controls.minDistance = 0.5;
     controls.maxDistance = 3.5;
     controls.enablePan = false;
-    controls.target.set(0.0, 0.95, 0.0);
+    controls.target.set(0.0, 0.84, 0.0);
     controls.update();
 
-    // LookAt Target
+    // LookAt Target aligned with lowered head
     const lookAtTarget = new THREE.Object3D();
-    lookAtTarget.position.set(0.0, 1.3, 1.2);
+    lookAtTarget.position.set(0.0, 0.95, 1.1);
     scene.add(lookAtTarget);
     lookAtTargetRef.current = lookAtTarget;
 
@@ -369,7 +369,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
       if (lookAtTargetRef.current) {
-        lookAtTargetRef.current.position.set(x * 0.65, 1.25 + y * 0.3, 1.1);
+        lookAtTargetRef.current.position.set(x * 0.65, 0.95 + y * 0.25, 1.1);
       }
     };
     window.addEventListener('pointermove', handlePointerMove);
@@ -510,8 +510,8 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           vrm.lookAt.target = lookAtTargetRef.current;
         }
 
-        // Lower character down by 0.28m to ensure generous headroom
-        vrm.scene.position.set(0, -0.28, 0);
+        // Lower character down by 0.36m to ensure generous headroom below the message box
+        vrm.scene.position.set(0, -0.36, 0);
 
         // Immediately set resting arm pose so model never flashes in T-pose
         const leftUpperArm = vrm.humanoid?.getNormalizedBoneNode('leftUpperArm');
@@ -872,7 +872,7 @@ Ani:`;
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.2 }}
-            className="absolute top-6 left-1/2 -translate-x-1/2 z-20 max-w-lg w-[90%] px-5 py-3 rounded-2xl bg-black/75 backdrop-blur-2xl border border-white/20 text-white shadow-2xl pointer-events-auto"
+            className="absolute top-4 left-1/2 -translate-x-1/2 z-20 max-w-lg w-[90%] px-5 py-2.5 rounded-2xl bg-black/75 backdrop-blur-2xl border border-white/20 text-white shadow-2xl pointer-events-auto"
           >
             <p className="text-xs sm:text-sm font-normal leading-relaxed text-gray-100 m-0 text-center">
               {currentSpeech}
