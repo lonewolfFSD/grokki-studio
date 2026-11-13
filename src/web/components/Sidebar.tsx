@@ -1048,7 +1048,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                 />
                 <SidebarRow
                   icon={User02Icon}
-                  label="Live Avatar"
+                  label="Ani"
                   isActive={activeTab === 'companion'}
                   isCollapsed={isCollapsed}
                   onClick={() => onSelectTab('companion')}
