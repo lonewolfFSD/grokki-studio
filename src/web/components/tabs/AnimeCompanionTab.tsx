@@ -14,7 +14,6 @@ import {
   Send,
   Upload,
   FolderOpen,
-  Sparkles,
   X,
   Check,
   Loader2,
@@ -40,19 +39,19 @@ const BACKGROUND_OPTIONS: BackgroundOption[] = [
   {
     id: 'obsidian',
     name: 'Obsidian Studio',
-    classNames: 'bg-[radial-gradient(circle_at_50%_35%,rgba(30,41,59,0.35)_0%,rgba(7,8,11,0.98)_75%)] bg-[#07080b]',
+    classNames: 'bg-[radial-gradient(circle_at_50%_40%,rgba(30,41,59,0.3)_0%,rgba(7,8,11,0.98)_80%)] bg-[#07080b]',
     preview: '#0f172a',
   },
   {
     id: 'tokyo',
     name: 'Tokyo Neon',
-    classNames: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-950/50 via-[#090514] to-[#030107] bg-[#030107]',
+    classNames: 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-950/40 via-[#090514] to-[#030107] bg-[#030107]',
     preview: '#3b0764',
   },
   {
     id: 'cyber',
     name: 'Cyberpunk Grid',
-    classNames: 'bg-[radial-gradient(circle_at_50%_30%,rgba(6,182,212,0.18)_0%,rgba(3,7,18,0.98)_70%)] bg-[#030712]',
+    classNames: 'bg-[radial-gradient(circle_at_50%_35%,rgba(6,182,212,0.15)_0%,rgba(3,7,18,0.98)_75%)] bg-[#030712]',
     preview: '#083344',
   },
   {
@@ -128,12 +127,12 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   const [showSpeechBubble, setShowSpeechBubble] = useState<boolean>(false);
   const [modelUrl, setModelUrl] = useState<string>('/assets/avatars/alicia.vrm');
 
-  // Lerp utility
-  const lerp = (start: number, end: number, factor: number) => {
-    return start + (end - start) * factor;
+  // Smooth lerp utility
+  const smoothLerp = (current: number, target: number, speed: number, delta: number) => {
+    return THREE.MathUtils.lerp(current, target, Math.min(1.0, delta * speed));
   };
 
-  // Humanoid Gesture & Arm Posture System
+  // Ultra-Smooth Humanoid Gesture & Arm Posture System (No Snapping, No Jerks)
   const applyHumanoidGestures = (vrm: VRM, elapsed: number, delta: number) => {
     if (!vrm.humanoid) return;
 
@@ -141,102 +140,102 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     const rightUpperArm = vrm.humanoid.getNormalizedBoneNode('rightUpperArm');
     const leftLowerArm = vrm.humanoid.getNormalizedBoneNode('leftLowerArm');
     const rightLowerArm = vrm.humanoid.getNormalizedBoneNode('rightLowerArm');
+    const leftHand = vrm.humanoid.getNormalizedBoneNode('leftHand');
+    const rightHand = vrm.humanoid.getNormalizedBoneNode('rightHand');
     const chest = vrm.humanoid.getNormalizedBoneNode('chest');
     const spine = vrm.humanoid.getNormalizedBoneNode('spine');
     const head = vrm.humanoid.getNormalizedBoneNode('head');
 
-    // Subtle natural breathing
-    const breath = Math.sin(elapsed * 1.5) * 0.016;
-    const sway = Math.sin(elapsed * 1.2) * 0.01;
+    // Calm, slow, natural breathing rhythm (1.1 rad/s ~ 10 breaths/min)
+    const breath = Math.sin(elapsed * 1.1) * 0.015;
+    const bodySway = Math.sin(elapsed * 0.7) * 0.008;
 
-    if (chest) chest.rotation.x = breath;
+    if (chest) {
+      chest.rotation.x = smoothLerp(chest.rotation.x, breath, 3.0, delta);
+    }
     if (spine) {
-      spine.rotation.x = breath * 0.5;
-      spine.rotation.y = sway * 0.3;
+      spine.rotation.x = smoothLerp(spine.rotation.x, breath * 0.5, 3.0, delta);
+      spine.rotation.y = smoothLerp(spine.rotation.y, bodySway, 2.0, delta);
     }
 
     const isSpeaking = isSpeakingRef.current;
     const isHappy = targetEmotionRef.current === 'happy';
 
+    // Target bone rotations (Euler)
+    let targetLUArm = { x: 0.06, y: 0.04, z: 1.25 + breath };
+    let targetRUArm = { x: 0.06, y: -0.04, z: -1.25 - breath };
+    let targetLLArm = { x: 0.08, y: 0.16, z: 0.0 };
+    let targetRLArm = { x: 0.08, y: -0.16, z: 0.0 };
+    let targetLHand = { x: 0.0, y: 0.0, z: 0.0 };
+    let targetRHand = { x: 0.0, y: 0.0, z: 0.0 };
+    let targetHead = { x: breath * 0.6, y: 0.0, z: 0.0 };
+
     if (isHappy && isSpeaking) {
-      // Cute Happy Excitement Gesture: both hands lightly gesturing
-      const wave = Math.sin(elapsed * 4.5) * 0.08;
-      if (leftUpperArm) {
-        leftUpperArm.rotation.set(0.15, 0.1, 0.75 + wave);
-      }
-      if (rightUpperArm) {
-        rightUpperArm.rotation.set(0.15, -0.1, -0.75 - wave);
-      }
-      if (leftLowerArm) {
-        leftLowerArm.rotation.set(0.2, 0.4, 0.0);
-      }
-      if (rightLowerArm) {
-        rightLowerArm.rotation.set(0.2, -0.4, 0.0);
-      }
-      if (head) {
-        head.rotation.z = Math.sin(elapsed * 3.0) * 0.05;
-      }
+      // Gentle Happy Expression: subtle cute lift of hands, soft bounce
+      const cheerWave = Math.sin(elapsed * 2.5) * 0.05;
+      targetLUArm = { x: 0.18, y: 0.12, z: 0.85 + cheerWave };
+      targetRUArm = { x: 0.18, y: -0.12, z: -0.85 - cheerWave };
+      targetLLArm = { x: 0.15, y: 0.35, z: 0.0 };
+      targetRLArm = { x: 0.15, y: -0.35, z: 0.0 };
+      targetHead.z = Math.sin(elapsed * 2.0) * 0.04;
     } else if (isSpeaking) {
-      // Natural Conversational Hand Gesture: right arm articulates softly while talking
-      const speakGesture = Math.sin(elapsed * 3.2) * 0.08;
-      const speakElbow = Math.cos(elapsed * 3.2) * 0.1;
+      // Natural Conversational Hand Gesture: right arm articulates smoothly
+      const gestureSway = Math.sin(elapsed * 1.8) * 0.06;
+      const elbowSway = Math.cos(elapsed * 1.8) * 0.08;
 
-      // Right arm raises gently toward chest in an expressive speaking posture
-      if (rightUpperArm) {
-        rightUpperArm.rotation.set(0.3, -0.2, -0.65 + speakGesture);
-      }
-      if (rightLowerArm) {
-        rightLowerArm.rotation.set(0.2, -0.75 + speakElbow, 0.1);
-      }
+      // Right arm gestures gently toward chest/torso
+      targetRUArm = { x: 0.28, y: -0.18, z: -0.72 + gestureSway };
+      targetRLArm = { x: 0.18, y: -0.7 + elbowSway, z: 0.05 };
+      targetRHand = { x: 0.05, y: -0.1, z: 0.05 };
 
-      // Left arm stays naturally relaxed at side with subtle breathing
-      if (leftUpperArm) {
-        leftUpperArm.rotation.set(0.08, 0.05, 1.25 + breath);
-      }
-      if (leftLowerArm) {
-        leftLowerArm.rotation.set(0.12, 0.15, 0.0);
-      }
-      if (head) {
-        head.rotation.x = breath * 1.2;
-      }
+      // Left arm rests gently at side with subtle breathing
+      targetLUArm = { x: 0.06, y: 0.04, z: 1.25 + breath };
+      targetLLArm = { x: 0.1, y: 0.14, z: 0.0 };
+      targetHead.x = breath * 1.2 + Math.sin(elapsed * 1.8) * 0.02;
     } else if (isThinking) {
       // Thoughtful gesture: one hand raised toward chin, curious head tilt
-      if (rightUpperArm) {
-        rightUpperArm.rotation.set(0.45, -0.2, -0.5);
-      }
-      if (rightLowerArm) {
-        rightLowerArm.rotation.set(0.25, -1.1, 0.15);
-      }
-      if (leftUpperArm) {
-        leftUpperArm.rotation.set(0.08, 0.05, 1.25);
-      }
-      if (leftLowerArm) {
-        leftLowerArm.rotation.set(0.12, 0.15, 0.0);
-      }
-      if (head) {
-        head.rotation.z = 0.1;
-      }
-    } else {
-      // Rest Idle Pose: Arms naturally resting DOWN by sides (NEVER T-POSE or straight up)
-      if (leftUpperArm) {
-        leftUpperArm.rotation.set(0.06, 0.05, 1.26 + breath);
-      }
-      if (rightUpperArm) {
-        rightUpperArm.rotation.set(0.06, -0.05, -1.26 - breath);
-      }
-      if (leftLowerArm) {
-        leftLowerArm.rotation.set(0.1, 0.18, 0.0);
-      }
-      if (rightLowerArm) {
-        rightLowerArm.rotation.set(0.1, -0.18, 0.0);
-      }
-      if (head) {
-        head.rotation.z = THREE.MathUtils.lerp(head.rotation.z, 0.0, delta * 3.0);
-      }
+      targetRUArm = { x: 0.42, y: -0.22, z: -0.55 };
+      targetRLArm = { x: 0.22, y: -1.05, z: 0.12 };
+      targetHead.z = 0.08;
+      targetHead.x = -0.04;
+    }
+
+    // Apply smoothly via lerp (damping factor 4.0 ensures 0 snapping, buttery transitions)
+    const smoothSpeed = 3.8;
+    if (leftUpperArm) {
+      leftUpperArm.rotation.x = smoothLerp(leftUpperArm.rotation.x, targetLUArm.x, smoothSpeed, delta);
+      leftUpperArm.rotation.y = smoothLerp(leftUpperArm.rotation.y, targetLUArm.y, smoothSpeed, delta);
+      leftUpperArm.rotation.z = smoothLerp(leftUpperArm.rotation.z, targetLUArm.z, smoothSpeed, delta);
+    }
+    if (rightUpperArm) {
+      rightUpperArm.rotation.x = smoothLerp(rightUpperArm.rotation.x, targetRUArm.x, smoothSpeed, delta);
+      rightUpperArm.rotation.y = smoothLerp(rightUpperArm.rotation.y, targetRUArm.y, smoothSpeed, delta);
+      rightUpperArm.rotation.z = smoothLerp(rightUpperArm.rotation.z, targetRUArm.z, smoothSpeed, delta);
+    }
+    if (leftLowerArm) {
+      leftLowerArm.rotation.x = smoothLerp(leftLowerArm.rotation.x, targetLLArm.x, smoothSpeed, delta);
+      leftLowerArm.rotation.y = smoothLerp(leftLowerArm.rotation.y, targetLLArm.y, smoothSpeed, delta);
+      leftLowerArm.rotation.z = smoothLerp(leftLowerArm.rotation.z, targetLLArm.z, smoothSpeed, delta);
+    }
+    if (rightLowerArm) {
+      rightLowerArm.rotation.x = smoothLerp(rightLowerArm.rotation.x, targetRLArm.x, smoothSpeed, delta);
+      rightLowerArm.rotation.y = smoothLerp(rightLowerArm.rotation.y, targetRLArm.y, smoothSpeed, delta);
+      rightLowerArm.rotation.z = smoothLerp(rightLowerArm.rotation.z, targetRLArm.z, smoothSpeed, delta);
+    }
+    if (leftHand) {
+      leftHand.rotation.z = smoothLerp(leftHand.rotation.z, targetLHand.z, smoothSpeed, delta);
+    }
+    if (rightHand) {
+      rightHand.rotation.z = smoothLerp(rightHand.rotation.z, targetRHand.z, smoothSpeed, delta);
+    }
+    if (head) {
+      head.rotation.x = smoothLerp(head.rotation.x, targetHead.x, smoothSpeed, delta);
+      head.rotation.y = smoothLerp(head.rotation.y, targetHead.y, smoothSpeed, delta);
+      head.rotation.z = smoothLerp(head.rotation.z, targetHead.z, smoothSpeed, delta);
     }
   };
 
-  // 1. Initialize Scene & Locked Camera (No Rotation / No Zoom)
+  // 1. Initialize Scene & Locked Camera (Positioned to bring avatar down with generous headroom)
   useEffect(() => {
     const container = mountRef.current;
     if (!container) return;
@@ -248,9 +247,10 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // Camera: Full Zoom Out Portrait framing the whole character
-    const camera = new THREE.PerspectiveCamera(30.0, width / height, 0.1, 20.0);
-    camera.position.set(0.0, 0.95, 2.35);
+    // Camera: Positioned perfectly to bring avatar down into view with clean headroom
+    const camera = new THREE.PerspectiveCamera(28.0, width / height, 0.1, 20.0);
+    // Target is chest/collarbone level (1.08m), camera positioned at (0, 1.08, 2.65)
+    camera.position.set(0.0, 1.08, 2.65);
     cameraRef.current = camera;
 
     // WebGL Renderer
@@ -273,12 +273,12 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     controls.enableRotate = false; // Rotation disabled per user requirement
     controls.enableZoom = false; // Zoom disabled per user requirement
     controls.enablePan = false; // Pan disabled
-    controls.target.set(0.0, 0.85, 0.0);
+    controls.target.set(0.0, 1.02, 0.0);
     controls.update();
 
     // LookAt Target
     const lookAtTarget = new THREE.Object3D();
-    lookAtTarget.position.set(0.0, 1.3, 1.0);
+    lookAtTarget.position.set(0.0, 1.3, 1.2);
     scene.add(lookAtTarget);
     lookAtTargetRef.current = lookAtTarget;
 
@@ -336,7 +336,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
 
       const currentVrm = vrmRef.current;
       if (currentVrm) {
-        // 1. Procedural Natural Gestures & Arms Down Posture
+        // 1. Fluid, non-jerky gesture and breathing system
         applyHumanoidGestures(currentVrm, elapsed, delta);
 
         // 2. Procedural Eyelid Blinking
@@ -363,7 +363,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
         emotions.forEach((emo) => {
           const targetWeight = emo === activeTarget ? 1.0 : 0.0;
           const currentWeight = currentEmotionWeightsRef.current[emo] || 0.0;
-          const nextWeight = lerp(currentWeight, targetWeight, Math.min(1.0, delta * 3.8));
+          const nextWeight = smoothLerp(currentWeight, targetWeight, 3.5, delta);
           currentEmotionWeightsRef.current[emo] = nextWeight;
           currentVrm.expressionManager?.setValue(emo, nextWeight);
         });
@@ -389,9 +389,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           const currentAa = currentVrm.expressionManager?.getValue('aa') || 0;
           const currentOh = currentVrm.expressionManager?.getValue('oh') || 0;
           const currentEe = currentVrm.expressionManager?.getValue('ee') || 0;
-          currentVrm.expressionManager?.setValue('aa', lerp(currentAa, 0.0, delta * 8.0));
-          currentVrm.expressionManager?.setValue('oh', lerp(currentOh, 0.0, delta * 8.0));
-          currentVrm.expressionManager?.setValue('ee', lerp(currentEe, 0.0, delta * 8.0));
+          currentVrm.expressionManager?.setValue('aa', smoothLerp(currentAa, 0.0, 7.0, delta));
+          currentVrm.expressionManager?.setValue('oh', smoothLerp(currentOh, 0.0, 7.0, delta));
+          currentVrm.expressionManager?.setValue('ee', smoothLerp(currentEe, 0.0, 7.0, delta));
         }
 
         // 5. Update VRM Physics & LookAt
@@ -448,7 +448,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           vrm.lookAt.target = lookAtTargetRef.current;
         }
 
-        // Position model centered on floor
+        // Position avatar centered on floor
         vrm.scene.position.set(0, 0, 0);
 
         vrmRef.current = vrm;
@@ -722,7 +722,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
         </div>
       </div>
 
-      {/* Clean Subtitle / Speech Display */}
+      {/* Clean Subtitle / Speech Display Floating with clear headroom */}
       <AnimatePresence>
         {showSpeechBubble && currentSpeech && (
           <motion.div
@@ -730,7 +730,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.2 }}
-            className="absolute top-16 left-1/2 -translate-x-1/2 z-20 max-w-lg w-[90%] px-4 py-3 rounded-2xl bg-black/70 backdrop-blur-2xl border border-white/15 text-white shadow-2xl pointer-events-auto"
+            className="absolute top-12 left-1/2 -translate-x-1/2 z-20 max-w-lg w-[90%] px-5 py-3 rounded-2xl bg-black/75 backdrop-blur-2xl border border-white/15 text-white shadow-2xl pointer-events-auto"
           >
             <p className="text-xs sm:text-sm font-normal leading-relaxed text-gray-200 m-0 text-center">
               {currentSpeech}
@@ -753,7 +753,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="relative flex items-center w-full rounded-2xl bg-black/75 backdrop-blur-2xl border border-white/20 focus-within:border-white/40 shadow-2xl p-1.5 transition-all"
+              className="relative flex items-center w-full rounded-2xl bg-black/80 backdrop-blur-2xl border border-white/20 focus-within:border-white/40 shadow-2xl p-1.5 transition-all"
             >
               <input
                 type="text"
