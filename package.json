@@ -52,6 +52,7 @@
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@picovoice/pvrecorder-node": "^1.2.9",
     "@pixiv/three-vrm": "^3.5.5",
+    "@pixiv/three-vrm-animation": "^3.5.5",
     "@rmyndharis/openwa": "^0.10.0",
     "@types/prismjs": "^1.26.6",
     "@types/three": "^0.187.0",

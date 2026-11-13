@@ -3200,7 +3200,9 @@ STRICT OPERATIONAL DIRECTIVES:
       }
     }
 
-    memory.addTurn('user', prompt, null, context);
+    if (!context || !context.isCompanion) {
+      memory.addTurn('user', prompt, null, context);
+    }
 
     codingAgentHarness.syncContext(context);
 
@@ -3229,13 +3231,16 @@ STRICT OPERATIONAL DIRECTIVES:
     }
 
     const rawHistory = memory.getConvoHistory(convoId);
-    let systemContent = isAgent
-      ? this.buildAgentSystemPrompt(context, config, fullPrompt, conversationHistory)
-      : memory.buildSystemPrompt(config, fullPrompt, context);
-    let historyToUse = rawHistory.slice(-18);
+    const isCustomSystemPrompt = Boolean(context && context.systemPrompt);
+    let systemContent = isCustomSystemPrompt
+      ? context.systemPrompt
+      : (isAgent
+          ? this.buildAgentSystemPrompt(context, config, fullPrompt, conversationHistory)
+          : memory.buildSystemPrompt(config, fullPrompt, context));
+    let historyToUse = isCustomSystemPrompt ? [] : rawHistory.slice(-18);
 
     // Groq Free Tier optimization: keep prompt lean (<3500 tokens) to guarantee zero 413 ITPM errors (non-agent only)
-    if (!isAgent && provider === 'groq') {
+    if (!isAgent && !isCustomSystemPrompt && provider === 'groq') {
       const groqMem = (!isConversationalPrompt && isExplicitMemoryQuery && memory.persistentMemory)
         ? memory.persistentMemory.retrieveContext(fullPrompt, { mode: 'chat', isAgent: false }).formattedPromptSection
         : '';
@@ -3251,7 +3256,7 @@ Deliver articulate, comprehensive, and engaging answers. When live web search gr
     }
 
     // Ollama Local Model Optimization: keep prompt lean & concise to eliminate 30s prompt-eval delays (non-agent only)
-    if (!isAgent && provider === 'ollama') {
+    if (!isAgent && !isCustomSystemPrompt && provider === 'ollama') {
       if (isConversationalPrompt) {
         systemContent = `You are Grokki, a fast, friendly AI assistant for Windows. Reply naturally in 1-2 conversational sentences. User: ${config.userNickname || config.userName || 'Friend'}.`;
         historyToUse = rawHistory.slice(-2);
@@ -4453,10 +4458,12 @@ Rules:
           }
         }
 
-        memory.addTurn('model', replyText);
-        try {
-          mem0Manager.extractMemoriesFromTurn(prompt, replyText, (s, u, tok) => this.generateAcademicLLM(s, u, tok), context).catch(() => {});
-        } catch (_) {}
+        if (!context || !context.isCompanion) {
+          memory.addTurn('model', replyText);
+          try {
+            mem0Manager.extractMemoriesFromTurn(prompt, replyText, (s, u, tok) => this.generateAcademicLLM(s, u, tok), context).catch(() => {});
+          } catch (_) {}
+        }
         this.abortController = null;
         this.emitAgentStep(context, { conversationId: convoId, status: 'idle' });
 

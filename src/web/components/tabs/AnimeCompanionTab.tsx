@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { VRM, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Mic,
@@ -94,14 +95,8 @@ function detectEmotionFromText(text: string): EmotionPreset {
   if (/\b(haha|lol|yay|awesome|great|love|happy|glad|cool|perfect|amazing|wonderful|super|cheers|hehe|cute|pog)\b/i.test(t)) {
     return 'happy';
   }
-  if (/\b(what|really|wow|whoa|huh|wait|seriously|omg|incredible|unbelievable)\b/i.test(t) || t.includes('?!') || t.includes('!')) {
-    return 'surprised';
-  }
   if (/\b(no|never|stop|hate|angry|mad|annoying|grr|pout|bad|worst|wrong|baka)\b/i.test(t)) {
     return 'angry';
-  }
-  if (/\b(peace|calm|relax|sleep|rest|chill|sure|okay|alright|fine|gentle|soft)\b/i.test(t)) {
-    return 'relaxed';
   }
   return 'relaxed';
 }
@@ -113,6 +108,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const lookAtTargetRef = useRef<THREE.Object3D | null>(null);
+  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+  const currentAnimActionRef = useRef<THREE.AnimationAction | null>(null);
+  const hasActiveVrmaRef = useRef<boolean>(false);
 
   // Audio Analyser for Lip Sync
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -178,6 +176,36 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     } catch {}
   };
 
+  // UnrealSpeech API State
+  const [unrealSpeechApiKey, setUnrealSpeechApiKey] = useState<string>(() => {
+    try {
+      return localStorage.getItem('ani_unrealspeech_api_key') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [unrealSpeechVoice, setUnrealSpeechVoice] = useState<string>(() => {
+    try {
+      return localStorage.getItem('ani_unrealspeech_voice') || 'Scarlett';
+    } catch {
+      return 'Scarlett';
+    }
+  });
+
+  const handleSaveUnrealKey = (key: string) => {
+    setUnrealSpeechApiKey(key);
+    try {
+      localStorage.setItem('ani_unrealspeech_api_key', key);
+    } catch {}
+  };
+
+  const handleSaveUnrealVoice = (v: string) => {
+    setUnrealSpeechVoice(v);
+    try {
+      localStorage.setItem('ani_unrealspeech_voice', v);
+    } catch {}
+  };
+
   // Save memory changes to localStorage
   useEffect(() => {
     try {
@@ -204,10 +232,18 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     const chest = vrm.humanoid.getNormalizedBoneNode('chest');
     const spine = vrm.humanoid.getNormalizedBoneNode('spine');
     const head = vrm.humanoid.getNormalizedBoneNode('head');
+    const breath = Math.sin(elapsed * 1.1) * 0.015;
+
+    // If authentic VRMA animation is playing, it controls the humanoid body
+    if (hasActiveVrmaRef.current) {
+      if (head) {
+        head.rotation.x = smoothLerp(head.rotation.x, breath * 0.4, 2.5, delta);
+      }
+      return;
+    }
 
     // 1. Grok Ani-style subtle weight shifting (shifting between left/right foot gently)
     const weightShiftCycle = Math.sin(elapsed * 0.6);
-    const breath = Math.sin(elapsed * 1.1) * 0.015;
 
     if (hips) {
       hips.rotation.z = smoothLerp(hips.rotation.z, weightShiftCycle * 0.018, 2.5, delta);
@@ -402,6 +438,10 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
 
       const currentVrm = vrmRef.current;
       if (currentVrm) {
+        if (mixerRef.current) {
+          mixerRef.current.update(delta);
+        }
+
         applyHumanoidGestures(currentVrm, elapsed, delta);
 
         // Blinking
@@ -422,18 +462,22 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           }
         }
 
-        // Dynamic Emotion Lerping
+        // Dynamic Emotion Lerping (strictly capped so mouth never distorts)
         const activeTarget = targetEmotionRef.current;
         const emotions: EmotionPreset[] = ['happy', 'angry', 'surprised', 'relaxed'];
         emotions.forEach((emo) => {
-          const targetWeight = emo === activeTarget ? 1.0 : 0.0;
+          let targetWeight = emo === activeTarget ? 1.0 : 0.0;
+          if (emo === 'surprised') targetWeight *= 0.15; // Eyes widen slightly, jaw never drops
+          if (emo === 'happy') targetWeight *= 0.55;
+          if (emo === 'angry') targetWeight *= 0.35;
+          if (emo === 'relaxed') targetWeight *= 0.6;
           const currentWeight = currentEmotionWeightsRef.current[emo] || 0.0;
           const nextWeight = smoothLerp(currentWeight, targetWeight, 3.5, delta);
           currentEmotionWeightsRef.current[emo] = nextWeight;
           currentVrm.expressionManager?.setValue(emo, nextWeight);
         });
 
-        // Lip-Sync Visemes
+        // Lip-Sync Visemes (gentle anime mouth movement, no horror gaping)
         if (analyserRef.current && isSpeakingRef.current) {
           const freqData = new Uint8Array(analyserRef.current.frequencyBinCount);
           analyserRef.current.getByteFrequencyData(freqData);
@@ -442,9 +486,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           const midEnergy = (freqData[8] + freqData[10] + freqData[12]) / 3 / 255;
           const highEnergy = (freqData[20] + freqData[24] + freqData[28]) / 3 / 255;
 
-          const aaVal = Math.min(1.0, lowEnergy * 1.7);
-          const ohVal = Math.min(1.0, midEnergy * 1.4);
-          const eeVal = Math.min(1.0, highEnergy * 1.3);
+          const aaVal = Math.min(0.32, lowEnergy * 0.8);
+          const ohVal = Math.min(0.26, midEnergy * 0.7);
+          const eeVal = Math.min(0.22, highEnergy * 0.6);
 
           currentVrm.expressionManager?.setValue('aa', aaVal);
           currentVrm.expressionManager?.setValue('oh', ohVal);
@@ -453,9 +497,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           const currentAa = currentVrm.expressionManager?.getValue('aa') || 0;
           const currentOh = currentVrm.expressionManager?.getValue('oh') || 0;
           const currentEe = currentVrm.expressionManager?.getValue('ee') || 0;
-          currentVrm.expressionManager?.setValue('aa', smoothLerp(currentAa, 0.0, 7.0, delta));
-          currentVrm.expressionManager?.setValue('oh', smoothLerp(currentOh, 0.0, 7.0, delta));
-          currentVrm.expressionManager?.setValue('ee', smoothLerp(currentEe, 0.0, 7.0, delta));
+          currentVrm.expressionManager?.setValue('aa', smoothLerp(currentAa, 0.0, 10.0, delta));
+          currentVrm.expressionManager?.setValue('oh', smoothLerp(currentOh, 0.0, 10.0, delta));
+          currentVrm.expressionManager?.setValue('ee', smoothLerp(currentEe, 0.0, 10.0, delta));
         }
 
         currentVrm.update(delta);
@@ -525,6 +569,34 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           sceneRef.current.add(vrm.scene);
         }
 
+        // Initialize Animation Mixer & load authentic Pixiv VRMA motion
+        if (mixerRef.current) {
+          mixerRef.current.stopAllAction();
+        }
+        const mixer = new THREE.AnimationMixer(vrm.scene);
+        mixerRef.current = mixer;
+
+        const animLoader = new GLTFLoader();
+        animLoader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+        animLoader.load(
+          './assets/animations/idle_loop.vrma',
+          (animGltf) => {
+            const vrmAnimations = (animGltf.userData as any).vrmAnimations;
+            if (vrmAnimations && vrmAnimations.length > 0) {
+              const clip = createVRMAnimationClip(vrmAnimations[0], vrm);
+              const action = mixer.clipAction(clip);
+              action.play();
+              currentAnimActionRef.current = action;
+              hasActiveVrmaRef.current = true;
+            }
+          },
+          undefined,
+          (err) => {
+            console.warn('[Ani] Could not load idle_loop.vrma:', err);
+            hasActiveVrmaRef.current = false;
+          }
+        );
+
         setLoading(false);
       },
       undefined,
@@ -576,6 +648,58 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
 
       try {
         let hasSpoken = false;
+
+        // 1. UnrealSpeech High-Quality Voice (if user configured UnrealSpeech API Key)
+        if (unrealSpeechApiKey && unrealSpeechApiKey.trim()) {
+          try {
+            const res = await fetch('https://api.unrealspeech.com/stream', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${unrealSpeechApiKey.trim()}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                Text: text,
+                VoiceId: unrealSpeechVoice || 'Scarlett',
+                Bitrate: '192k',
+                Speed: '0',
+                Pitch: '1.0',
+                Codec: 'libmp3lame',
+              }),
+            });
+
+            if (res.ok) {
+              const blob = await res.blob();
+              const audioUrl = URL.createObjectURL(blob);
+              const audio = new Audio(audioUrl);
+              currentAudioElementRef.current = audio;
+              hasSpoken = true;
+              isSpeakingRef.current = true;
+
+              if (audioContextRef.current && analyserRef.current) {
+                const source = audioContextRef.current.createMediaElementSource(audio);
+                source.connect(analyserRef.current);
+                analyserRef.current.connect(audioContextRef.current.destination);
+              }
+
+              audio.onended = () => {
+                isSpeakingRef.current = false;
+                targetEmotionRef.current = 'relaxed';
+              };
+              audio.onerror = () => {
+                isSpeakingRef.current = false;
+                targetEmotionRef.current = 'relaxed';
+              };
+
+              await audio.play();
+              return;
+            } else {
+              console.warn('[Ani] UnrealSpeech API returned HTTP', res.status);
+            }
+          } catch (e) {
+            console.warn('[Ani] UnrealSpeech call error, falling back:', e);
+          }
+        }
 
         if (window.jarvisAPI?.speakText) {
           const res = await window.jarvisAPI.speakText(text, targetVoice);
@@ -637,7 +761,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
         isSpeakingRef.current = false;
       }
     },
-    [cuteVoicePreset, voiceEnabled]
+    [cuteVoicePreset, voiceEnabled, unrealSpeechApiKey, unrealSpeechVoice]
   );
 
   // 4. Send Message & Connect to Dedicated Ani Memory Brain
@@ -669,9 +793,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
 
       const systemPrompt = `You are Ani, a sweet, witty, playful anime girl companion living in this room.
 IMPORTANT IDENTITY RULES:
-- You are NOT Grokki, an AI assistant, or a bot. NEVER introduce yourself as Grokki or an AI.
+- You are ONLY Ani. You are NEVER Grokki, an assistant, a bot, or an AI. NEVER introduce yourself as Grokki or an AI under any circumstances.
 - You talk like a real anime friend: warm, caring, humorous, slightly teasing, and expressive.
-- Keep your answers natural, sweet, and concise (1 to 3 short sentences max) so they sound lively when spoken.
+- Keep your answers natural, sweet, and concise (1 to 2 short sentences max) so they sound lively when spoken.
 
 Our recent conversation memory:
 ${memoryTranscript}
@@ -682,6 +806,7 @@ Ani:`;
       if (window.jarvisAPI?.executeAI) {
         const res = await window.jarvisAPI.executeAI(promptToSend, {
           systemPrompt,
+          isCompanion: true,
         });
 
         if (res && res.reply) {
@@ -780,6 +905,37 @@ Ani:`;
       setModelUrl(objectUrl);
       setShowSettings(false);
     }
+  };
+
+  // Custom VRMA Animation File Upload
+  const handleVrmaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const currentVrm = vrmRef.current;
+    if (!file || !currentVrm || !mixerRef.current) return;
+
+    const fileUrl = URL.createObjectURL(file);
+    const animLoader = new GLTFLoader();
+    animLoader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+    animLoader.load(
+      fileUrl,
+      (animGltf) => {
+        const vrmAnimations = (animGltf.userData as any).vrmAnimations;
+        if (vrmAnimations && vrmAnimations.length > 0) {
+          if (currentAnimActionRef.current) {
+            currentAnimActionRef.current.stop();
+          }
+          const clip = createVRMAnimationClip(vrmAnimations[0], currentVrm);
+          const action = mixerRef.current!.clipAction(clip);
+          action.play();
+          currentAnimActionRef.current = action;
+          hasActiveVrmaRef.current = true;
+          setShowSettings(false);
+          console.log('[Ani] Custom VRMA animation loaded successfully');
+        }
+      },
+      undefined,
+      (err) => console.error('[Ani] Custom VRMA load error:', err)
+    );
   };
 
   // Custom Background Image Upload
@@ -1052,23 +1208,44 @@ Ani:`;
               </div>
             </div>
 
-            {/* Cute Voice Persona Selector */}
+            {/* UnrealSpeech AI Voice Integration */}
             <div className="mt-5 pt-4 border-t border-white/10">
-              <label className="text-xs font-medium text-gray-300 block mb-2">
-                Cute Voice Model
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-white tracking-wide">
+                  UnrealSpeech API Voice
+                </label>
+                <span className="text-[10px] text-sky-400 font-mono">
+                  {unrealSpeechApiKey ? 'Connected' : 'Optional'}
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
+                Connect your UnrealSpeech API key for ultra-lifelike expressive anime voices.
+              </p>
+              <input
+                type="password"
+                value={unrealSpeechApiKey}
+                onChange={(e) => handleSaveUnrealKey(e.target.value)}
+                placeholder="Paste UnrealSpeech API Key here..."
+                className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-xs text-white placeholder-gray-500 outline-none focus:border-sky-400 mb-2.5 font-mono"
+              />
+
+              <label className="text-[11px] font-medium text-gray-300 block mb-1.5">
+                Voice Selection
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5 mb-2">
                 {[
-                  { id: 'luna', label: 'Luna', desc: 'Soft & Sweet' },
-                  { id: 'stella', label: 'Stella', desc: 'Bright & Playful' },
-                  { id: 'bella', label: 'Bella', desc: 'Warm Anime' },
+                  { id: 'Scarlett', label: 'Scarlett', desc: 'Sweet' },
+                  { id: 'Liv', label: 'Liv', desc: 'Bright' },
+                  { id: 'Amy', label: 'Amy', desc: 'Warm' },
+                  { id: 'Dan', label: 'Dan', desc: 'Casual' },
+                  { id: 'Will', label: 'Will', desc: 'Deep' },
                 ].map((v) => (
                   <button
                     key={v.id}
                     type="button"
-                    onClick={() => setCuteVoicePreset(v.id as any)}
+                    onClick={() => handleSaveUnrealVoice(v.id)}
                     className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
-                      cuteVoicePreset === v.id
+                      unrealSpeechVoice === v.id
                         ? 'bg-sky-500/20 border-sky-400 text-sky-200'
                         : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
                     }`}
@@ -1078,6 +1255,32 @@ Ani:`;
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Authentic Humanoid Animation (.VRMA) */}
+            <div className="mt-5 pt-4 border-t border-white/10">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-white tracking-wide">
+                  Humanoid Motion (.VRMA)
+                </label>
+                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Mocap Active
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
+                Pixiv authentic human motion capture is active. You can also load any custom .vrma animation.
+              </p>
+              <label className="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium border border-white/10 transition-all cursor-pointer">
+                <Upload className="w-3.5 h-3.5" />
+                <span>Load Custom .VRMA Animation</span>
+                <input
+                  type="file"
+                  accept=".vrma,.glb,.gltf"
+                  onChange={handleVrmaUpload}
+                  className="hidden"
+                />
+              </label>
             </div>
 
             {/* Dedicated Memory Management */}
