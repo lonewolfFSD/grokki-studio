@@ -39,7 +39,7 @@ interface RoomBackground {
   url: string;
 }
 
-// Galaxy starfield canvas layer
+// Galaxy starfield canvas layer — parallax layers + pink/white mixed stars
 const StarField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -47,50 +47,115 @@ const StarField: React.FC = () => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d')!;
     let animId: number;
-    type Star = { x: number; y: number; r: number; alpha: number; speed: number; twinkleOffset: number };
+
+    type Star = {
+      x: number; y: number;        // base position (0–1 normalized)
+      r: number;                   // radius
+      alpha: number;               // base opacity
+      twinkleOffset: number;       // phase
+      twinkleSpeed: number;        // how fast it pulses
+      depth: number;               // 0=far(slow) … 1=close(fast) — parallax layer
+      pink: boolean;               // color variant
+    };
+
     let stars: Star[] = [];
+    // Mouse position for parallax offset (normalized -0.5 to 0.5)
+    let mx = 0, my = 0;
+    let targetMx = 0, targetMy = 0;
 
     const init = () => {
       canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
-      stars = Array.from({ length: 160 }, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        r: 0.3 + Math.random() * 1.1,
-        alpha: 0.3 + Math.random() * 0.7,
-        speed: 0.004 + Math.random() * 0.012,
-        twinkleOffset: Math.random() * Math.PI * 2,
-      }));
+      stars = Array.from({ length: 180 }, () => {
+        const depth = Math.random(); // 0 = far, 1 = near
+        return {
+          x: Math.random(),
+          y: Math.random(),
+          r: 0.25 + depth * 1.3,       // closer = bigger
+          alpha: 0.25 + depth * 0.65,  // closer = brighter
+          twinkleOffset: Math.random() * Math.PI * 2,
+          twinkleSpeed: 0.3 + Math.random() * 0.9,
+          depth,
+          pink: Math.random() < 0.4,   // 40% pink, 60% white/blue-white
+        };
+      });
     };
 
     init();
     const ro = new ResizeObserver(init);
     ro.observe(canvas);
 
+    const onMouseMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      targetMx = (e.clientX - rect.left) / Math.max(rect.width, 1) - 0.5;
+      targetMy = (e.clientY - rect.top) / Math.max(rect.height, 1) - 0.5;
+    };
+    window.addEventListener('mousemove', onMouseMove, { passive: true });
+
     let t = 0;
     const draw = () => {
       t += 0.016;
+      // Smooth mouse lerp
+      mx += (targetMx - mx) * 0.04;
+      my += (targetMy - my) * 0.04;
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
       stars.forEach((s) => {
-        const twinkle = s.alpha * (0.55 + 0.45 * Math.sin(t * s.speed * 60 + s.twinkleOffset));
-        // Tiny glow
-        const grd = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 2.8);
-        grd.addColorStop(0, `rgba(255,200,230,${twinkle})`);
-        grd.addColorStop(1, 'rgba(255,180,220,0)');
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r * 2.8, 0, Math.PI * 2);
-        ctx.fillStyle = grd;
-        ctx.fill();
-        // Core dot
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,220,240,${twinkle})`;
-        ctx.fill();
+        const twinkle = s.alpha * (0.5 + 0.5 * Math.sin(t * s.twinkleSpeed + s.twinkleOffset));
+
+        // Parallax offset: far stars move less, close stars move more
+        const parallaxStrength = 28; // max px shift
+        const px = (s.x * canvas.width)  + mx * s.depth * parallaxStrength;
+        const py = (s.y * canvas.height) + my * s.depth * parallaxStrength;
+
+        // Auto drift: very slow rightward+downward creep per depth layer
+        const driftX = (t * s.depth * 0.6) % canvas.width;
+        const sx = (px + driftX) % canvas.width;
+        const sy = py;
+
+        const glowR = s.r * 3.2;
+
+        if (s.pink) {
+          // Pink star
+          const grd = ctx.createRadialGradient(sx, sy, 0, sx, sy, glowR);
+          grd.addColorStop(0, `rgba(255,140,200,${twinkle})`);
+          grd.addColorStop(0.5, `rgba(255,100,180,${twinkle * 0.4})`);
+          grd.addColorStop(1, 'rgba(255,80,160,0)');
+          ctx.beginPath();
+          ctx.arc(sx, sy, glowR, 0, Math.PI * 2);
+          ctx.fillStyle = grd;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,200,230,${twinkle})`;
+          ctx.fill();
+        } else {
+          // White / blue-white star
+          const grd = ctx.createRadialGradient(sx, sy, 0, sx, sy, glowR);
+          grd.addColorStop(0, `rgba(220,230,255,${twinkle})`);
+          grd.addColorStop(0.5, `rgba(180,200,255,${twinkle * 0.35})`);
+          grd.addColorStop(1, 'rgba(160,180,255,0)');
+          ctx.beginPath();
+          ctx.arc(sx, sy, glowR, 0, Math.PI * 2);
+          ctx.fillStyle = grd;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(240,245,255,${twinkle})`;
+          ctx.fill();
+        }
       });
+
       animId = requestAnimationFrame(draw);
     };
     draw();
-    return () => { cancelAnimationFrame(animId); ro.disconnect(); };
+
+    return () => {
+      cancelAnimationFrame(animId);
+      ro.disconnect();
+      window.removeEventListener('mousemove', onMouseMove);
+    };
   }, []);
   return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />;
 };
