@@ -189,6 +189,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     "Hi there! I'm Ani. I'm so happy you came to hang out in my room!"
   );
   const [showSpeechBubble, setShowSpeechBubble] = useState<boolean>(true);
+  const [visibleWordCount, setVisibleWordCount] = useState<number>(0);
+  const captionTimeoutRef = useRef<any>(null);
+  const speechSyncTimerRef = useRef<any>(null);
   const [modelUrl, setModelUrl] = useState<string>(() => {
     try {
       return localStorage.getItem('ani_companion_avatar_url') || './assets/avatars/Aiko.vrm';
@@ -651,6 +654,13 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
+      if (captionTimeoutRef.current) {
+        clearTimeout(captionTimeoutRef.current);
+      }
+      if (speechSyncTimerRef.current) {
+        cancelAnimationFrame(speechSyncTimerRef.current);
+        clearInterval(speechSyncTimerRef.current);
+      }
     };
   }, []);
 
@@ -756,12 +766,89 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     loadVRM(modelUrl);
   }, [modelUrl, loadVRM]);
 
-  // 3. Cute Anime Voice Speech Synthesis
+  // Real-Time Word-by-Word Caption Synchronizer with Blur-Reveal Animation
+  const startCaptionSync = useCallback((text: string, audio?: HTMLAudioElement | null) => {
+    if (captionTimeoutRef.current) {
+      clearTimeout(captionTimeoutRef.current);
+      captionTimeoutRef.current = null;
+    }
+    if (speechSyncTimerRef.current) {
+      cancelAnimationFrame(speechSyncTimerRef.current);
+      clearInterval(speechSyncTimerRef.current);
+      speechSyncTimerRef.current = null;
+    }
+
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      setShowSpeechBubble(false);
+      return;
+    }
+
+    setCurrentSpeech(text);
+    setVisibleWordCount(1);
+    setShowSpeechBubble(true);
+
+    if (audio) {
+      // Calculate weighted cumulative time ratios based on word length for natural pacing
+      const totalWeights = words.map((w) => Math.max(2, w.length));
+      const sumWeights = totalWeights.reduce((a, b) => a + b, 0);
+      const cumulativeRatios: number[] = [];
+      let acc = 0;
+      for (let i = 0; i < totalWeights.length; i++) {
+        acc += totalWeights[i];
+        cumulativeRatios.push(acc / sumWeights);
+      }
+
+      const checkSync = () => {
+        if (!audio || audio.paused || audio.ended) return;
+
+        const duration = audio.duration;
+        if (duration && isFinite(duration) && duration > 0) {
+          const progress = Math.min(1.0, audio.currentTime / duration);
+          let count = 1;
+          for (let i = 0; i < cumulativeRatios.length; i++) {
+            if (progress >= cumulativeRatios[i]) {
+              count = i + 2;
+            } else {
+              break;
+            }
+          }
+          setVisibleWordCount(Math.min(words.length, count));
+        }
+
+        speechSyncTimerRef.current = requestAnimationFrame(checkSync);
+      };
+
+      speechSyncTimerRef.current = requestAnimationFrame(checkSync);
+    } else {
+      // Natural cadence fallback (~240ms per word)
+      let currentIdx = 1;
+      const interval = setInterval(() => {
+        currentIdx++;
+        setVisibleWordCount(currentIdx);
+        if (currentIdx >= words.length) {
+          clearInterval(interval);
+          speechSyncTimerRef.current = null;
+          // Auto-remove 2 seconds after finishing saying
+          captionTimeoutRef.current = setTimeout(() => {
+            setShowSpeechBubble(false);
+          }, 2000);
+        }
+      }, 240);
+      speechSyncTimerRef.current = interval;
+    }
+  }, []);
+
+  // 3. Cute Anime Voice Speech Synthesis with Real-Time Synced Blur Captions
   const speakSpeech = useCallback(
     async (text: string) => {
-      setCurrentSpeech(text);
-      setShowSpeechBubble(true);
-      if (!voiceEnabled || !text.trim()) return;
+      const cleanText = text.trim();
+      if (!cleanText) return;
+
+      if (!voiceEnabled) {
+        startCaptionSync(cleanText, null);
+        return;
+      }
 
       if (currentAudioElementRef.current) {
         currentAudioElementRef.current.pause();
@@ -790,6 +877,19 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
       };
       const targetVoice = voiceMap[cuteVoicePreset] || 'expr-voice-3-f';
 
+      const words = cleanText.split(/\s+/).filter(Boolean);
+      const scheduleCaptionRemoval = () => {
+        setVisibleWordCount(words.length);
+        if (speechSyncTimerRef.current) {
+          cancelAnimationFrame(speechSyncTimerRef.current);
+          speechSyncTimerRef.current = null;
+        }
+        if (captionTimeoutRef.current) clearTimeout(captionTimeoutRef.current);
+        captionTimeoutRef.current = setTimeout(() => {
+          setShowSpeechBubble(false);
+        }, 2000);
+      };
+
       try {
         let hasSpoken = false;
 
@@ -803,7 +903,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                Text: text,
+                Text: cleanText,
                 VoiceId: unrealSpeechVoice || 'Scarlett',
                 Bitrate: '192k',
                 Speed: '0',
@@ -826,13 +926,17 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
                 analyserRef.current.connect(audioContextRef.current.destination);
               }
 
+              startCaptionSync(cleanText, audio);
+
               audio.onended = () => {
                 isSpeakingRef.current = false;
                 targetEmotionRef.current = 'relaxed';
+                scheduleCaptionRemoval();
               };
               audio.onerror = () => {
                 isSpeakingRef.current = false;
                 targetEmotionRef.current = 'relaxed';
+                scheduleCaptionRemoval();
               };
 
               await audio.play();
@@ -846,7 +950,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
         }
 
         if (window.jarvisAPI?.speakText) {
-          const res = await window.jarvisAPI.speakText(text, targetVoice);
+          const res = await window.jarvisAPI.speakText(cleanText, targetVoice);
           if (res && res.success && res.base64Audio) {
             hasSpoken = true;
             isSpeakingRef.current = true;
@@ -859,23 +963,28 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
               analyserRef.current.connect(audioContextRef.current.destination);
             }
 
+            startCaptionSync(cleanText, audio);
+
             audio.onended = () => {
               isSpeakingRef.current = false;
               targetEmotionRef.current = 'neutral';
+              scheduleCaptionRemoval();
             };
             audio.onerror = () => {
               isSpeakingRef.current = false;
               targetEmotionRef.current = 'neutral';
+              scheduleCaptionRemoval();
             };
 
             await audio.play();
+            return;
           }
         }
 
         // High-Pitched Sweet Anime Voice Web Speech Fallback
         if (!hasSpoken && 'speechSynthesis' in window) {
           window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
+          const utterance = new SpeechSynthesisUtterance(cleanText);
           utterance.rate = 1.04;
           utterance.pitch = 1.36; // Cute anime girl pitch
 
@@ -886,26 +995,40 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
             voices[0];
           if (cuteVoice) utterance.voice = cuteVoice;
 
+          startCaptionSync(cleanText, null);
+
           utterance.onstart = () => {
             isSpeakingRef.current = true;
+          };
+          utterance.onboundary = (e: SpeechSynthesisEvent) => {
+            if (e.name === 'word') {
+              const textBefore = cleanText.slice(0, e.charIndex);
+              const wordIdx = textBefore.trim().split(/\s+/).filter(Boolean).length;
+              setVisibleWordCount(Math.min(words.length, wordIdx + 1));
+            }
           };
           utterance.onend = () => {
             isSpeakingRef.current = false;
             targetEmotionRef.current = 'neutral';
+            scheduleCaptionRemoval();
           };
           utterance.onerror = () => {
             isSpeakingRef.current = false;
             targetEmotionRef.current = 'neutral';
+            scheduleCaptionRemoval();
           };
 
           window.speechSynthesis.speak(utterance);
+        } else if (!hasSpoken) {
+          startCaptionSync(cleanText, null);
         }
       } catch (err) {
         console.warn('[Ani] Speech playback error:', err);
         isSpeakingRef.current = false;
+        scheduleCaptionRemoval();
       }
     },
-    [cuteVoicePreset, voiceEnabled, unrealSpeechApiKey, unrealSpeechVoice]
+    [cuteVoicePreset, voiceEnabled, unrealSpeechApiKey, unrealSpeechVoice, startCaptionSync]
   );
 
   // 4. Send Message & Connect to Dedicated Ani Memory Brain
@@ -1019,6 +1142,13 @@ Ani:`;
     if (isListening) {
       if (recognitionRef.current) {
         recognitionRef.current.stop();
+      }
+      if (captionTimeoutRef.current) {
+        clearTimeout(captionTimeoutRef.current);
+      }
+      if (speechSyncTimerRef.current) {
+        cancelAnimationFrame(speechSyncTimerRef.current);
+        clearInterval(speechSyncTimerRef.current);
       }
       setIsListening(false);
       return;
@@ -1187,19 +1317,38 @@ Ani:`;
         </div>
       </div>
 
-      {/* Clean Subtitle / Speech Display Floating with clear headroom */}
+      {/* Real-Time Kinetic Subtitle / Caption (Positioned below above buttons with real-time word blur-reveal) */}
       <AnimatePresence>
         {showSpeechBubble && currentSpeech && (
           <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            initial={{ opacity: 0, y: 16, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.98 }}
-            transition={{ duration: 0.2 }}
-            className="absolute top-4 left-1/2 -translate-x-1/2 z-20 max-w-lg w-[90%] px-5 py-2.5 rounded-2xl bg-black/75 backdrop-blur-2xl border border-white/20 text-white shadow-2xl pointer-events-auto"
+            exit={{ opacity: 0, y: 12, scale: 0.96, filter: 'blur(6px)' }}
+            transition={{ duration: 0.28, ease: 'easeOut' }}
+            className={`absolute left-1/2 -translate-x-1/2 z-20 max-w-xl w-[92%] pointer-events-none transition-all duration-300 ${
+              showInput ? 'bottom-36' : 'bottom-22'
+            }`}
           >
-            <p className="text-xs sm:text-sm font-normal leading-relaxed text-gray-100 m-0 text-center">
-              {currentSpeech}
-            </p>
+            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 px-6 py-3 rounded-2xl bg-black/70 backdrop-blur-2xl border border-white/15 shadow-2xl text-center">
+              {currentSpeech
+                .trim()
+                .split(/\s+/)
+                .filter(Boolean)
+                .map((word, idx) => {
+                  if (idx >= visibleWordCount) return null;
+                  return (
+                    <motion.span
+                      key={`caption-${idx}-${word}`}
+                      initial={{ opacity: 0, filter: 'blur(10px)', y: 4, scale: 0.92 }}
+                      animate={{ opacity: 1, filter: 'blur(0px)', y: 0, scale: 1 }}
+                      transition={{ duration: 0.22, ease: 'easeOut' }}
+                      className="inline-block text-sm sm:text-base font-medium tracking-wide text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
+                    >
+                      {word}
+                    </motion.span>
+                  );
+                })}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
