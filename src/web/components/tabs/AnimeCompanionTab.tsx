@@ -38,6 +38,11 @@ interface RoomBackground {
 
 const PRESET_ROOMS: RoomBackground[] = [
   {
+    id: 'sunset_room',
+    name: 'Sunset Balcony',
+    url: './assets/backgrounds/sunset_room.png',
+  },
+  {
     id: 'anime_room',
     name: 'Cozy Bedroom',
     url: './assets/backgrounds/anime_room.png',
@@ -46,11 +51,6 @@ const PRESET_ROOMS: RoomBackground[] = [
     id: 'chill_room',
     name: 'Lofi Chill Room',
     url: './assets/backgrounds/chill_room.png',
-  },
-  {
-    id: 'sunset_room',
-    name: 'Sunset Balcony',
-    url: './assets/backgrounds/sunset_room.png',
   },
   {
     id: 'tokyo_cafe',
@@ -68,10 +68,16 @@ interface PresetAvatar {
 
 const PRESET_AVATARS: PresetAvatar[] = [
   {
-    id: 'aiko',
-    name: 'Aiko (Kizuna)',
-    desc: 'Sweet & Expressive',
+    id: 'aiko_v1',
+    name: 'Aiko v1 (Classic)',
+    desc: 'Sweet Kizuna AI Original',
     url: './assets/avatars/Aiko.vrm',
+  },
+  {
+    id: 'aiko_v2',
+    name: 'Aiko v2 (Halloween)',
+    desc: 'Gothic Halloween Kizuna AI',
+    url: './assets/avatars/Aiko_v2.vrm',
   },
   {
     id: 'alicia',
@@ -1374,12 +1380,8 @@ ${avatarName}:`;
       {/* Top Header Status Pill */}
       <div className="absolute top-4 left-4 z-20 flex items-center pointer-events-none">
         <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-xl border border-white/15 shadow-xl pointer-events-auto">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-xs font-semibold text-white tracking-tight">
-            {avatarName}
-          </span>
-          <span className="text-[10px] text-gray-300 font-mono pl-1 border-l border-white/15">
-            60 FPS Live
+          <span className="text-[10px] text-gray-300 font-mono pl-1 border-white/15">
+            60 FPS
           </span>
         </div>
       </div>
@@ -1393,7 +1395,7 @@ ${avatarName}:`;
             exit={{ opacity: 0, y: 12, scale: 0.96, filter: 'blur(6px)' }}
             transition={{ duration: 0.28, ease: 'easeOut' }}
             className={`absolute left-1/2 -translate-x-1/2 z-20 max-w-xl w-[92%] pointer-events-none transition-all duration-300 ${
-              showInput ? 'bottom-36' : 'bottom-26'
+              showInput ? 'bottom-50' : 'bottom-26'
             }`}
           >
             <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 px-6 py-3 rounded-2xl bg-black/70 backdrop-blur-2xl border border-white/15 shadow-2xl text-center">
@@ -1434,7 +1436,7 @@ ${avatarName}:`;
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="relative flex items-center w-full rounded-2xl bg-black/80 backdrop-blur-2xl border border-white/20 focus-within:border-white/45 shadow-2xl p-2 transition-all"
+              className="relative flex items-center w-full rounded-2xl bg-black/80 backdrop-blur-2xl mb-6 border border-white/20 focus-within:border-white/45 shadow-2xl p-2 transition-all"
             >
               <input
                 type="text"
@@ -1443,7 +1445,7 @@ ${avatarName}:`;
                 onChange={(e) => setInputMessage(e.target.value)}
                 placeholder={`Talk to ${avatarName}...`}
                 disabled={isThinking}
-                className="flex-1 bg-transparent border-none outline-none px-4 py-2 text-xs sm:text-sm text-white placeholder-gray-400 font-sans"
+                className="flex-1 bg-transparent border-none outline-none px-4 py-3 text-xs sm:text-sm text-white placeholder-gray-400 font-sans"
               />
 
               <button
@@ -1528,31 +1530,17 @@ ${avatarName}:`;
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="absolute bottom-28 right-6 z-30 max-w-sm w-[92%] max-h-[80vh] overflow-y-auto p-5 rounded-2xl bg-black/90 backdrop-blur-2xl border border-white/20 shadow-2xl text-white pointer-events-auto"
+            className="absolute bottom-4 right-6 z-30 max-w-sm w-[92%] max-h-[80vh] overflow-y-auto p-5 rounded-2xl bg-black/90 backdrop-blur-2xl border border-white/20 shadow-2xl text-white pointer-events-auto"
           >
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <span className="text-sm font-semibold tracking-wide">{avatarName}&apos;s Room &amp; Persona</span>
+              <span className="text-base font-semibold tracking-wide">{avatarName}&apos;s Room &amp; Persona</span>
               <button
                 type="button"
                 onClick={() => setShowSettings(false)}
                 className="p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white cursor-pointer border-none bg-transparent"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
-            </div>
-
-            {/* Companion Custom Name */}
-            <div className="mt-4">
-              <label className="text-xs font-semibold text-white tracking-wide block mb-1.5">
-                Companion Name
-              </label>
-              <input
-                type="text"
-                value={avatarName}
-                onChange={(e) => handleNameChange(e.target.value)}
-                placeholder="Name your companion (e.g. Aiko, Kira, Luna)..."
-                className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-xs text-white placeholder-gray-400 outline-none focus:border-sky-400 transition-all font-medium"
-              />
             </div>
 
             {/* Room Background Selection */}
@@ -1561,7 +1549,7 @@ ${avatarName}:`;
                 <label className="text-xs font-medium text-gray-300">
                   Illustrated Room Background
                 </label>
-                <label className="text-[11px] text-sky-400 hover:text-sky-300 cursor-pointer flex items-center gap-1">
+                <label className="text-[11px] text-white hover:text-gray-300 cursor-pointer flex items-center gap-1">
                   <ImageIcon className="w-3 h-3" />
                   <span>Custom Image</span>
                   <input
@@ -1579,9 +1567,9 @@ ${avatarName}:`;
                     key={room.id}
                     type="button"
                     onClick={() => setCurrentBgUrl(room.url)}
-                    className={`relative h-16 rounded-xl overflow-hidden border transition-all cursor-pointer text-left p-2 flex flex-col justify-end ${
+                    className={`relative h-16 rounded-lg overflow-hidden border-2 transition-all cursor-pointer text-left p-2 flex flex-col justify-end ${
                       currentBgUrl === room.url
-                        ? 'border-sky-400 ring-2 ring-sky-400/50'
+                        ? 'border-white'
                         : 'border-white/15 hover:border-white/35 opacity-70 hover:opacity-100'
                     }`}
                   >
@@ -1594,11 +1582,7 @@ ${avatarName}:`;
                     <span className="text-[11px] font-semibold text-white drop-shadow">
                       {room.name}
                     </span>
-                    {currentBgUrl === room.url && (
-                      <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-sky-500 flex items-center justify-center">
-                        <Check className="w-2.5 h-2.5 text-white" />
-                      </span>
-                    )}
+                    
                   </button>
                 ))}
               </div>
@@ -1610,8 +1594,8 @@ ${avatarName}:`;
                 <label className="text-xs font-semibold text-white tracking-wide">
                   UnrealSpeech API Voice
                 </label>
-                <span className="text-[10px] text-sky-400 font-mono">
-                  {unrealSpeechApiKey ? 'Connected' : 'Optional'}
+                <span className="text-[10px] text-white font-mono">
+                  {unrealSpeechApiKey ? 'Connected' : 'Missing'}
                 </span>
               </div>
               <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
@@ -1625,10 +1609,8 @@ ${avatarName}:`;
                 className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-xs text-white placeholder-gray-500 outline-none focus:border-sky-400 mb-2.5 font-mono"
               />
 
-              <label className="text-[11px] font-medium text-gray-300 block mb-1.5">
-                Voice Selection
-              </label>
-              <div className="grid grid-cols-3 gap-1.5 mb-2">
+              
+              <div className="grid grid-cols-3 gap-1.5 mb-2 hidden">
                 {[
                   { id: 'Scarlett', label: 'Scarlett', desc: 'Sweet' },
                   { id: 'Liv', label: 'Liv', desc: 'Bright' },
@@ -1725,30 +1707,45 @@ ${avatarName}:`;
 
             {/* 3D Avatar Selection */}
             <div className="mt-5 pt-4 border-t border-white/10">
-              <label className="text-xs font-medium text-gray-300 block mb-2">
-                Choose 3D Character
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-white tracking-wide">
+                  Aiko Outfit &amp; Model Version
+                </label>
+                <span className="text-[10px] text-sky-400 font-mono">
+                  {modelUrl.includes('Aiko_v2') ? 'Aiko v2 (Halloween)' : modelUrl.includes('Aiko') ? 'Aiko v1 (Classic)' : 'Custom'}
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-400 mb-2.5 leading-relaxed">
+                Switch instantly between Aiko&apos;s original look and the Halloween gothic outfit.
+              </p>
+
+              {/* Aiko v1 vs v2 Quick Switcher Grid */}
               <div className="grid grid-cols-2 gap-2 mb-3">
-                {PRESET_AVATARS.map((av) => (
-                  <button
-                    key={av.id}
-                    type="button"
-                    onClick={() => handleSelectAvatar(av.url)}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer relative ${
-                      modelUrl === av.url
-                        ? 'bg-sky-500/20 border-sky-400 text-sky-200'
-                        : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <div className="text-xs font-semibold">{av.name}</div>
-                    <div className="text-[10px] opacity-70 mt-0.5">{av.desc}</div>
-                    {modelUrl === av.url && (
-                      <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-sky-500 flex items-center justify-center">
-                        <Check className="w-2.5 h-2.5 text-white" />
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {PRESET_AVATARS.map((av) => {
+                  const isSelected = modelUrl === av.url;
+                  return (
+                    <button
+                      key={av.id}
+                      type="button"
+                      onClick={() => handleSelectAvatar(av.url)}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer relative ${
+                        isSelected
+                          ? 'bg-sky-500/25 border-sky-400 text-sky-200 ring-1 ring-sky-400/40'
+                          : 'bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold">{av.name}</span>
+                        {isSelected && (
+                          <span className="w-4 h-4 rounded-full bg-sky-500 flex items-center justify-center shrink-0">
+                            <Check className="w-2.5 h-2.5 text-white" />
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] opacity-75 mt-0.5">{av.desc}</div>
+                    </button>
+                  );
+                })}
               </div>
 
               <label className="text-xs font-medium text-gray-300 block mb-1">
@@ -1777,13 +1774,12 @@ ${avatarName}:`;
                   title="Open avatar folder or copy path"
                 >
                   <FolderOpen className="w-3.5 h-3.5" />
-                  <span>Avatars Path</span>
                 </button>
               </div>
 
-              <div className="mt-2 p-2 rounded-lg bg-white/5 border border-white/10 text-[10px] font-mono text-gray-400 truncate">
+              {/* <div className="mt-2 p-2 rounded-lg bg-white/5 border border-white/10 text-[10px] font-mono text-gray-400 truncate">
                 E:\Assistant AI\public\assets\avatars\
-              </div>
+              </div> */}
             </div>
           </motion.div>
         )}
