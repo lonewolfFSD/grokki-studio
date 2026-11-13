@@ -168,6 +168,7 @@ export interface JarvisConfig {
   autoCheckUpdates?: boolean;
   hardwareAcceleration?: boolean;
   chatBackgroundGradient?: boolean;
+  companionEnabled?: boolean;
   chatBackgroundEffect?: string;
   grainientSettings?: GrainientCustomSettings;
   chatBackgroundNoise?: boolean;

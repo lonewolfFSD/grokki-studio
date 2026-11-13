@@ -47,6 +47,7 @@ import {
   X,
   MapPin,
   LocateFixed,
+  Bot,
 } from 'lucide-react';
 import { JarvisConfig, StudioHotkeys, LeftHandGestureItem, InstalledAppItem } from '../../types/jarvis';
 import grokkiLogo from '../../assets/grokki_icon.svg';
@@ -1443,6 +1444,38 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
               />
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Grokki 3D Companion Section */}
+      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-pink-500/10 text-pink-500 flex items-center justify-center">
+              <Bot className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                Grokki Companion
+              </h3>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                Enable interactive 3D anime VRM companion tab in the sidebar with voice and animations.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onChangeConfig({ companionEnabled: !config.companionEnabled })}
+            className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out border-none ${
+              config.companionEnabled ? 'bg-pink-500' : 'bg-gray-300 dark:bg-[#252836]'
+            }`}
+          >
+            <div
+              className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-200 ease-in-out ${
+                config.companionEnabled ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
         </div>
       </div>
 

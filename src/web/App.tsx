@@ -113,6 +113,7 @@ const DEFAULT_CONFIG: JarvisConfig = {
   autoCheckUpdates: true,
   hardwareAcceleration: true,
   chatBackgroundGradient: false,
+  companionEnabled: false,
   chatBackgroundEffect: 'grokki-threads',
   chatBackgroundNoise: false,
   glowCursorEnabled: false,
@@ -1135,6 +1136,7 @@ export const App: React.FC = () => {
         onSwitchGoogle={handleSwitchGoogle}
         onDisconnectGoogle={handleDisconnectGoogle}
         hotkeys={effectiveHotkeys}
+        companionEnabled={config.companionEnabled ?? false}
       />
 
       {/* Main Content Column */}

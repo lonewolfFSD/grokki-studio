@@ -93,7 +93,7 @@ const SidebarRow: React.FC<{
             icon={icon}
             size={isCollapsed ? 20 : 16}
             strokeWidth={1.8}
-            className="flex-shrink-0 transition-transform duration-150 group-hover:scale-105"
+            className="flex-shrink-0 transition-transform -mt-0.5 duration-150 group-hover:scale-105"
           />
           {!isCollapsed && <span className="truncate">{label}</span>}
         </div>
@@ -177,6 +177,7 @@ interface SidebarProps {
   onDisconnectGoogle?: () => Promise<void> | void;
   onOpenSettings?: (section?: SettingsSection) => void;
   thinkingConvoIds?: Set<string>;
+  companionEnabled?: boolean;
 }
 
 export const Sidebar = React.memo<SidebarProps>(({
@@ -206,6 +207,7 @@ export const Sidebar = React.memo<SidebarProps>(({
   onDisconnectGoogle,
   onOpenSettings,
   thinkingConvoIds,
+  companionEnabled = false,
 }) => {
   const effectiveHotkeys: StudioHotkeys = { ...DEFAULT_HOTKEYS, ...(hotkeys || {}) };
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -1046,13 +1048,15 @@ export const Sidebar = React.memo<SidebarProps>(({
                   isCollapsed={isCollapsed}
                   onClick={() => onSelectTab('overview')}
                 />
-                <SidebarRow
-                  icon={User02Icon}
-                  label="Aiko"
-                  isActive={activeTab === 'companion'}
-                  isCollapsed={isCollapsed}
-                  onClick={() => onSelectTab('companion')}
-                />
+                {companionEnabled && (
+                  <SidebarRow
+                    icon={User02Icon}
+                    label="Companion"
+                    isActive={activeTab === 'companion'}
+                    isCollapsed={isCollapsed}
+                    onClick={() => onSelectTab('companion')}
+                  />
+                )}
               </>
             )}
 
