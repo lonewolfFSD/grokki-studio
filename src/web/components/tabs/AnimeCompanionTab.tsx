@@ -81,6 +81,23 @@ const PRESET_AVATARS: PresetAvatar[] = [
   },
 ];
 
+interface AnimPreset {
+  id: string;
+  name: string;
+  icon: string;
+  file: string;
+  loop: boolean;
+}
+
+const ANIM_PRESETS: AnimPreset[] = [
+  { id: 'idle', name: 'Idle', icon: '✨', file: './assets/animations/idle.vrma', loop: true },
+  { id: 'greeting', name: 'Wave', icon: '👋', file: './assets/animations/greeting.vrma', loop: false },
+  { id: 'cheering', name: 'Dance', icon: '💃', file: './assets/animations/cheering.vrma', loop: false },
+  { id: 'talking', name: 'Talk', icon: '💬', file: './assets/animations/talking.vrma', loop: false },
+  { id: 'victory', name: 'Peace', icon: '✌️', file: './assets/animations/victory.vrma', loop: false },
+  { id: 'thankful', name: 'Bow', icon: '🙇', file: './assets/animations/thankful.vrma', loop: false },
+];
+
 interface ChatMemoryMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -110,7 +127,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   const lookAtTargetRef = useRef<THREE.Object3D | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const currentAnimActionRef = useRef<THREE.AnimationAction | null>(null);
+  const animationClipsRef = useRef<Record<string, THREE.AnimationClip>>({});
   const hasActiveVrmaRef = useRef<boolean>(false);
+  const [activeAnim, setActiveAnim] = useState<string>('idle');
 
   // Audio Analyser for Lip Sync
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -217,6 +236,48 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   const smoothLerp = (current: number, target: number, speed: number, delta: number) => {
     return THREE.MathUtils.lerp(current, target, Math.min(1.0, delta * speed));
   };
+
+  // Play Authentic Humanoid VRMA Animation Clip with Seamless Cross-Fading
+  const playAnimation = useCallback(
+    (animId: string, loop: boolean = false, crossFadeDuration: number = 0.45) => {
+      const mixer = mixerRef.current;
+      const clip = animationClipsRef.current[animId];
+      if (!mixer || !clip) return;
+
+      const newAction = mixer.clipAction(clip);
+      if (!loop) {
+        newAction.setLoop(THREE.LoopOnce, 1);
+        newAction.clampWhenFinished = true;
+      } else {
+        newAction.setLoop(THREE.LoopRepeat, Infinity);
+        newAction.clampWhenFinished = false;
+      }
+
+      const prevAction = currentAnimActionRef.current;
+      if (prevAction && prevAction !== newAction) {
+        newAction.reset();
+        newAction.play();
+        prevAction.crossFadeTo(newAction, crossFadeDuration, true);
+      } else {
+        newAction.reset().play();
+      }
+      currentAnimActionRef.current = newAction;
+      hasActiveVrmaRef.current = true;
+      setActiveAnim(animId);
+
+      if (!loop) {
+        const onFinished = (e: any) => {
+          if (e.action === newAction) {
+            mixer.removeEventListener('finished', onFinished);
+            // Cross-fade back into the natural idle breathing loop
+            playAnimation('idle', true, 0.6);
+          }
+        };
+        mixer.addEventListener('finished', onFinished);
+      }
+    },
+    []
+  );
 
   // Ultra-Smooth Grok-Ani Style Procedural Animation System (Natural Weight Shift + Expressive Gestures)
   const applyHumanoidGestures = (vrm: VRM, elapsed: number, delta: number) => {
@@ -347,9 +408,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // Camera: Zoomed-in portrait framing with avatar lowered comfortably below the message box
+    // Camera: Zoomed-in portrait framing with avatar centered and lowered below the message box
     const camera = new THREE.PerspectiveCamera(28.0, width / height, 0.1, 20.0);
-    camera.position.set(0.0, 0.72, 1.35);
+    camera.position.set(0.04, 0.65, 1.18);
     cameraRef.current = camera;
 
     // WebGL Renderer with transparency
@@ -375,12 +436,12 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     controls.maxDistance = 3.5;
     controls.enablePan = true; // Right-click or middle-click drag to pan vertically/horizontally
     controls.screenSpacePanning = true;
-    controls.target.set(0.0, 0.72, 0.0);
+    controls.target.set(0.04, 0.65, 0.0);
     controls.update();
 
     // LookAt Target aligned with lowered head
     const lookAtTarget = new THREE.Object3D();
-    lookAtTarget.position.set(0.0, 0.72, 1.1);
+    lookAtTarget.position.set(0.04, 0.68, 1.1);
     scene.add(lookAtTarget);
     lookAtTargetRef.current = lookAtTarget;
 
@@ -406,7 +467,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
       if (lookAtTargetRef.current) {
-        lookAtTargetRef.current.position.set(x * 0.65, 0.72 + y * 0.25, 1.1);
+        lookAtTargetRef.current.position.set(0.04 + x * 0.65, 0.68 + y * 0.25, 1.1);
       }
     };
     window.addEventListener('pointermove', handlePointerMove);
@@ -555,8 +616,8 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           vrm.lookAt.target = lookAtTargetRef.current;
         }
 
-        // Lower character down by 0.60m so top of hair is clearly below the message box
-        vrm.scene.position.set(0, -0.60, 0);
+        // Center-align avatar and lower down so hair bow is clearly below the message box
+        vrm.scene.position.set(0.04, -0.68, 0);
 
         // Immediately set resting arm pose so model never flashes in T-pose
         const leftUpperArm = vrm.humanoid?.getNormalizedBoneNode('leftUpperArm');
@@ -569,33 +630,47 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           sceneRef.current.add(vrm.scene);
         }
 
-        // Initialize Animation Mixer & load authentic Pixiv VRMA motion
+        // Initialize Animation Mixer & preload authentic Pixiv VRMA motions (wave, idle, dance, etc.)
         if (mixerRef.current) {
           mixerRef.current.stopAllAction();
         }
         const mixer = new THREE.AnimationMixer(vrm.scene);
         mixerRef.current = mixer;
+        animationClipsRef.current = {};
 
         const animLoader = new GLTFLoader();
         animLoader.register((parser) => new VRMAnimationLoaderPlugin(parser));
-        animLoader.load(
-          './assets/animations/idle_loop.vrma',
-          (animGltf) => {
-            const vrmAnimations = (animGltf.userData as any).vrmAnimations;
-            if (vrmAnimations && vrmAnimations.length > 0) {
-              const clip = createVRMAnimationClip(vrmAnimations[0], vrm);
-              const action = mixer.clipAction(clip);
-              action.play();
-              currentAnimActionRef.current = action;
-              hasActiveVrmaRef.current = true;
-            }
-          },
-          undefined,
-          (err) => {
-            console.warn('[Ani] Could not load idle_loop.vrma:', err);
-            hasActiveVrmaRef.current = false;
-          }
-        );
+
+        ANIM_PRESETS.forEach((preset) => {
+          animLoader.load(
+            preset.file,
+            (animGltf) => {
+              const vrmAnimations = (animGltf.userData as any).vrmAnimations;
+              if (vrmAnimations && vrmAnimations.length > 0) {
+                const clip = createVRMAnimationClip(vrmAnimations[0], vrm);
+                clip.name = preset.id;
+                animationClipsRef.current[preset.id] = clip;
+
+                // Start idle loop immediately once loaded
+                if (preset.id === 'idle') {
+                  const action = mixer.clipAction(clip);
+                  action.setLoop(THREE.LoopRepeat, Infinity);
+                  action.play();
+                  currentAnimActionRef.current = action;
+                  hasActiveVrmaRef.current = true;
+                  setActiveAnim('idle');
+
+                  // Cute greeting wave on tab entrance!
+                  setTimeout(() => {
+                    playAnimation('greeting', false, 0.4);
+                  }, 1200);
+                }
+              }
+            },
+            undefined,
+            (err) => console.warn(`[Ani] Notice: ${preset.id}.vrma load:`, err)
+          );
+        });
 
         setLoading(false);
       },
@@ -837,6 +912,22 @@ Ani:`;
       const dynamicEmotion = detectEmotionFromText(replyText);
       targetEmotionRef.current = dynamicEmotion;
 
+      // Contextual authentic VRMA animation trigger based on tone & keywords
+      const promptLower = promptToSend.toLowerCase();
+      const replyLower = replyText.toLowerCase();
+
+      if (/\b(hi|hello|hey|greetings|howdy|sup)\b/i.test(promptLower) || /\b(hi|hello|hey)\b/i.test(replyLower)) {
+        playAnimation('greeting', false);
+      } else if (/\b(dance|cheer|cute|yay|love|like|awesome|happy|smile|shy)\b/i.test(promptLower) || /\b(dance|yay|happy|love|like|shy)\b/i.test(replyLower)) {
+        playAnimation('cheering', false);
+      } else if (/\b(thanks|thank you|arigato)\b/i.test(promptLower) || /\b(welcome|thank)\b/i.test(replyLower)) {
+        playAnimation('thankful', false);
+      } else if (/\b(win|victory|peace|cool|pog|great)\b/i.test(promptLower)) {
+        playAnimation('victory', false);
+      } else {
+        playAnimation('talking', false);
+      }
+
       // Speak in cute voice and lip-sync
       await speakSpeech(replyText);
     } catch (err: any) {
@@ -1045,7 +1136,7 @@ Ani:`;
             initial={{ opacity: 0, y: 20, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 15, scale: 0.96 }}
-            className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 max-w-xl w-[92%] pointer-events-auto"
+            className="absolute bottom-32 left-1/2 -translate-x-1/2 z-20 max-w-xl w-[92%] pointer-events-auto"
           >
             <form
               onSubmit={(e) => {
@@ -1079,6 +1170,32 @@ Ani:`;
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Quick Reaction Motions Bar (Wave, Dance, Peace, Bow, Idle) */}
+      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 p-1 rounded-full bg-black/55 backdrop-blur-2xl border border-white/15 shadow-xl pointer-events-auto">
+        {[
+          { id: 'greeting', label: 'Wave', icon: '👋' },
+          { id: 'cheering', label: 'Dance', icon: '💃' },
+          { id: 'victory', label: 'Peace', icon: '✌️' },
+          { id: 'thankful', label: 'Bow', icon: '🙇' },
+          { id: 'idle', label: 'Idle', icon: '✨' },
+        ].map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => playAnimation(item.id, item.id === 'idle')}
+            className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
+              activeAnim === item.id
+                ? 'bg-sky-500/35 text-sky-200 border border-sky-400/60 shadow'
+                : 'text-gray-300 hover:text-white hover:bg-white/10 border border-transparent'
+            }`}
+            title={`Perform ${item.label}`}
+          >
+            <span className="text-sm">{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
 
       {/* Four Circle Floating Action Buttons */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3.5 p-2 rounded-full bg-black/55 backdrop-blur-2xl border border-white/20 shadow-2xl pointer-events-auto">

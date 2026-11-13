@@ -407,5 +407,12 @@
     "category": "agent",
     "mode": "agent",
     "created_at": 1794504648469
+  },
+  {
+    "id": "mem_1794584960956_ikgs",
+    "memory": "User name is doing good",
+    "category": "fact",
+    "mode": "chat",
+    "created_at": 1794584960956
   }
 ]
