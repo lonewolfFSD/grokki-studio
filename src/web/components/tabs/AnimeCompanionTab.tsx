@@ -91,14 +91,16 @@ interface AnimPreset {
 
 const ANIM_PRESETS: AnimPreset[] = [
   { id: 'idle', name: 'Idle', icon: '✨', file: './assets/animations/idle.vrma', loop: true },
+  { id: 'jump', name: 'Cute Hop', icon: '🐰', file: '', loop: false },
   { id: 'greeting', name: 'Wave', icon: '👋', file: './assets/animations/greeting.vrma', loop: false },
   { id: 'look_away', name: 'Shy Blush', icon: '🙈', file: './assets/animations/look_away.vrma', loop: false },
-  { id: 'reaching_out', name: 'Sweet Reach', icon: '🌸', file: './assets/animations/reaching_out.vrma', loop: false },
+  { id: 'reaching_out', name: 'Tender Reach', icon: '🌸', file: './assets/animations/reaching_out.vrma', loop: false },
+  { id: 'salute', name: 'Salute', icon: '🫡', file: './assets/animations/salute.vrma', loop: false },
   { id: 'hand_raising', name: 'Hesitant', icon: '🙋', file: './assets/animations/hand_raising.vrma', loop: false },
   { id: 'dismissing', name: 'Flustered', icon: '🫣', file: './assets/animations/dismissing.vrma', loop: false },
-  { id: 'talking', name: 'Talk', icon: '💬', file: './assets/animations/talking.vrma', loop: false },
   { id: 'victory', name: 'Peace', icon: '✌️', file: './assets/animations/victory.vrma', loop: false },
   { id: 'thankful', name: 'Bow', icon: '🙇', file: './assets/animations/thankful.vrma', loop: false },
+  { id: 'talking', name: 'Talk', icon: '💬', file: './assets/animations/talking.vrma', loop: false },
 ];
 
 interface ChatMemoryMessage {
@@ -176,7 +178,21 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   // UI State
   const [loading, setLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [avatarName] = useState<string>('Ani');
+  const [avatarName, setAvatarName] = useState<string>(() => {
+    try {
+      return localStorage.getItem('ani_companion_name') || 'Aiko';
+    } catch {
+      return 'Aiko';
+    }
+  });
+
+  const handleNameChange = (newName: string) => {
+    setAvatarName(newName);
+    try {
+      localStorage.setItem('ani_companion_name', newName);
+    } catch {}
+  };
+
   const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
   const [showInput, setShowInput] = useState<boolean>(false);
   const [isListening, setIsListening] = useState<boolean>(false);
@@ -185,13 +201,21 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   const [cuteVoicePreset, setCuteVoicePreset] = useState<'luna' | 'stella' | 'bella'>('luna');
   const [inputMessage, setInputMessage] = useState<string>('');
   const [isThinking, setIsThinking] = useState<boolean>(false);
-  const [currentSpeech, setCurrentSpeech] = useState<string>(
-    "Hi there! I'm Ani. I'm so happy you came to hang out in my room!"
-  );
-  const [showSpeechBubble, setShowSpeechBubble] = useState<boolean>(true);
+  const [currentSpeech, setCurrentSpeech] = useState<string>('');
+  const [showSpeechBubble, setShowSpeechBubble] = useState<boolean>(false);
   const [visibleWordCount, setVisibleWordCount] = useState<number>(0);
   const captionTimeoutRef = useRef<any>(null);
   const speechSyncTimerRef = useRef<any>(null);
+
+  // Procedural Cute Joyful Hop / Jump Physics State
+  const isJumpingRef = useRef<boolean>(false);
+  const jumpTimerRef = useRef<number>(0);
+
+  const playJump = useCallback(() => {
+    isJumpingRef.current = true;
+    jumpTimerRef.current = 0;
+    targetEmotionRef.current = 'happy';
+  }, []);
   const [modelUrl, setModelUrl] = useState<string>(() => {
     try {
       return localStorage.getItem('ani_companion_avatar_url') || './assets/avatars/Aiko.vrm';
@@ -252,6 +276,12 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   // Play Authentic Humanoid VRMA Animation Clip with Seamless Cross-Fading
   const playAnimation = useCallback(
     (animId: string, loop: boolean = false, crossFadeDuration: number = 0.45) => {
+      if (animId === 'jump') {
+        playJump();
+        setActiveAnim('jump');
+        return;
+      }
+
       const mixer = mixerRef.current;
       const clip = animationClipsRef.current[animId];
       if (!mixer || !clip) return;
@@ -528,6 +558,36 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
 
         applyHumanoidGestures(currentVrm, elapsed, delta);
 
+        // Procedural Cute Joyful Hop / Jump Animation Physics
+        if (isJumpingRef.current && currentVrm.scene) {
+          jumpTimerRef.current += delta;
+          const t = jumpTimerRef.current;
+          const DURATION = 0.95; // seconds
+          if (t < DURATION) {
+            const p = t / DURATION;
+            let yOffset = 0;
+            if (p < 0.18) {
+              // 1. Crouch preparation
+              const crouch = Math.sin((p / 0.18) * Math.PI);
+              yOffset = -0.05 * crouch;
+            } else if (p < 0.68) {
+              // 2. Airborne parabolic arc
+              const airP = (p - 0.18) / 0.50;
+              yOffset = Math.sin(airP * Math.PI) * 0.17;
+              currentVrm.expressionManager?.setValue('happy', 0.85);
+            } else {
+              // 3. Soft bounce landing
+              const landP = (p - 0.68) / 0.27;
+              const bounce = Math.sin(landP * Math.PI * 2) * Math.exp(-landP * 4.0) * 0.04;
+              yOffset = bounce;
+            }
+            currentVrm.scene.position.y = -0.68 + yOffset;
+          } else {
+            isJumpingRef.current = false;
+            currentVrm.scene.position.y = -0.68;
+          }
+        }
+
         // Blinking
         blinkTimer += delta;
         if (blinkTimer > 3.4 && !isBlinking) {
@@ -721,6 +781,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
         animLoader.register((parser) => new VRMAnimationLoaderPlugin(parser));
 
         ANIM_PRESETS.forEach((preset) => {
+          if (!preset.file) return;
           animLoader.load(
             preset.file,
             (animGltf) => {
@@ -832,6 +893,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           // Auto-remove 2 seconds after finishing saying
           captionTimeoutRef.current = setTimeout(() => {
             setShowSpeechBubble(false);
+            setVisibleWordCount(0);
           }, 2000);
         }
       }, 240);
@@ -887,6 +949,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
         if (captionTimeoutRef.current) clearTimeout(captionTimeoutRef.current);
         captionTimeoutRef.current = setTimeout(() => {
           setShowSpeechBubble(false);
+          setVisibleWordCount(0);
         }, 2000);
       };
 
@@ -1058,9 +1121,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
         .map((m) => `${m.role === 'user' ? 'Friend' : 'Ani'}: "${m.content}"`)
         .join('\n');
 
-      const systemPrompt = `You are Ani, a sweet, witty, playful anime girl companion living in this room.
+      const systemPrompt = `You are ${avatarName}, a sweet, witty, playful anime girl companion living in this room.
 IMPORTANT IDENTITY RULES:
-- You are ONLY Ani. You are NEVER Grokki, an assistant, a bot, or an AI. NEVER introduce yourself as Grokki or an AI under any circumstances.
+- You are ONLY ${avatarName}. You are NEVER Grokki, an assistant, a bot, or an AI. NEVER introduce yourself as Grokki or an AI under any circumstances.
 - You talk like a real anime friend: warm, caring, humorous, slightly teasing, and expressive.
 - Keep your answers natural, sweet, and concise (1 to 2 short sentences max) so they sound lively when spoken.
 
@@ -1068,7 +1131,7 @@ Our recent conversation memory:
 ${memoryTranscript}
 
 Friend: "${promptToSend}"
-Ani:`;
+${avatarName}:`;
 
       if (window.jarvisAPI?.executeAI) {
         const res = await window.jarvisAPI.executeAI(promptToSend, {
@@ -1089,10 +1152,10 @@ Ani:`;
         replyText = "Hehe, I'm right here! Tell me what's on your mind~";
       }
 
-      // Clean prefix if model outputs "Ani: ..."
-      replyText = replyText.replace(/^Ani:\s*/i, '');
+      // Clean prefix if model outputs "Aiko: ..." or "Ani: ..."
+      replyText = replyText.replace(new RegExp(`^${avatarName}:\\s*`, 'i'), '').replace(/^Ani:\s*/i, '');
 
-      // Append assistant reply to Ani's dedicated memory
+      // Append assistant reply to Aiko's dedicated memory
       const assistantMsg: ChatMemoryMessage = {
         role: 'assistant',
         content: replyText,
@@ -1104,11 +1167,15 @@ Ani:`;
       const dynamicEmotion = detectEmotionFromText(replyText);
       targetEmotionRef.current = dynamicEmotion;
 
-      // Contextual authentic VRMA animation trigger based on tone & keywords
+      // Contextual authentic motion trigger based on tone & keywords
       const promptLower = promptToSend.toLowerCase();
       const replyLower = replyText.toLowerCase();
 
-      if (/\b(hi|hello|hey|greetings|howdy|sup)\b/i.test(promptLower) || /\b(hi|hello|hey)\b/i.test(replyLower)) {
+      if (/\b(jump|hop|bounce|yay|woo|yippee|leapt|excited)\b/i.test(promptLower) || /\b(jump|hop|yay|bounce)\b/i.test(replyLower)) {
+        playAnimation('jump');
+      } else if (/\b(salute|yes sir|roger|captain|aye)\b/i.test(promptLower) || /\b(salute|roger|yes sir)\b/i.test(replyLower)) {
+        playAnimation('salute', false, 0.5);
+      } else if (/\b(hi|hello|hey|greetings|howdy|sup)\b/i.test(promptLower) || /\b(hi|hello|hey)\b/i.test(replyLower)) {
         playAnimation('greeting', false);
       } else if (/\b(shy|blush|blushing|embarrassed|flustered|crush|timid)\b/i.test(promptLower) || /\b(shy|blush|embarrassed|flustered|crush)\b/i.test(replyLower)) {
         playAnimation('look_away', false, 0.5);
@@ -1120,7 +1187,7 @@ Ani:`;
         playAnimation('hand_raising', false, 0.5);
       } else if (/\b(thanks|thank you|arigato)\b/i.test(promptLower) || /\b(welcome|thank)\b/i.test(replyLower)) {
         playAnimation('thankful', false);
-      } else if (/\b(win|victory|peace|cool|pog|great|yay)\b/i.test(promptLower)) {
+      } else if (/\b(win|victory|peace|cool|pog|great)\b/i.test(promptLower)) {
         playAnimation('victory', false);
       } else {
         playAnimation('talking', false);
@@ -1319,14 +1386,14 @@ Ani:`;
 
       {/* Real-Time Kinetic Subtitle / Caption (Positioned below above buttons with real-time word blur-reveal) */}
       <AnimatePresence>
-        {showSpeechBubble && currentSpeech && (
+        {showSpeechBubble && currentSpeech && visibleWordCount > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 16, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.96, filter: 'blur(6px)' }}
             transition={{ duration: 0.28, ease: 'easeOut' }}
             className={`absolute left-1/2 -translate-x-1/2 z-20 max-w-xl w-[92%] pointer-events-none transition-all duration-300 ${
-              showInput ? 'bottom-36' : 'bottom-22'
+              showInput ? 'bottom-36' : 'bottom-26'
             }`}
           >
             <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 px-6 py-3 rounded-2xl bg-black/70 backdrop-blur-2xl border border-white/15 shadow-2xl text-center">
@@ -1360,14 +1427,14 @@ Ani:`;
             initial={{ opacity: 0, y: 20, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 15, scale: 0.96 }}
-            className="absolute bottom-22 left-1/2 -translate-x-1/2 z-20 max-w-xl w-[92%] pointer-events-auto"
+            className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 max-w-xl w-[92%] pointer-events-auto"
           >
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="relative flex items-center w-full rounded-2xl bg-black/80 backdrop-blur-2xl border border-white/20 focus-within:border-white/45 shadow-2xl p-1.5 transition-all"
+              className="relative flex items-center w-full rounded-2xl bg-black/80 backdrop-blur-2xl border border-white/20 focus-within:border-white/45 shadow-2xl p-2 transition-all"
             >
               <input
                 type="text"
@@ -1382,12 +1449,12 @@ Ani:`;
               <button
                 type="submit"
                 disabled={!inputMessage.trim() || isThinking}
-                className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30 active:bg-white/35 text-white border border-white/10 cursor-pointer disabled:opacity-30 transition-all shrink-0 shadow-sm"
+                className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 active:bg-white/35 text-white border border-white/10 cursor-pointer disabled:opacity-30 transition-all shrink-0 shadow-sm"
               >
                 {isThinking ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-300" />
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-300" />
                 ) : (
-                  <Send className="w-3.5 h-3.5 ml-0.5" />
+                  <Send className="w-4 h-4 ml-0.5" />
                 )}
               </button>
             </form>
@@ -1395,62 +1462,62 @@ Ani:`;
         )}
       </AnimatePresence>
 
-      {/* Four Circle Floating Action Buttons */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3.5 p-2 rounded-full bg-black/55 backdrop-blur-2xl border border-white/20 shadow-2xl pointer-events-auto">
+      {/* Four Circle Floating Action Buttons (Large, Prominent & Premium Glass) */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 p-2.5 sm:p-3 rounded-full bg-black/60 backdrop-blur-2xl border border-white/20 shadow-2xl pointer-events-auto">
         {/* 1. Mic Button */}
         <button
           type="button"
           onClick={toggleListening}
-          className={`relative flex items-center justify-center w-11 h-11 rounded-full border transition-all cursor-pointer shadow-md ${
+          className={`relative flex items-center justify-center w-14 h-14 rounded-full border transition-all cursor-pointer shadow-lg hover:scale-105 active:scale-95 ${
             isListening
-              ? 'bg-rose-500 border-rose-400 text-white animate-pulse'
-              : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'
+              ? 'bg-rose-500 border-rose-400 text-white animate-pulse shadow-rose-500/40'
+              : 'bg-white/10 hover:bg-white/20 border-white/10 text-white hover:border-white/25'
           }`}
           title={isListening ? 'Stop Listening' : 'Voice Input (Mic)'}
         >
-          {isListening ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5 text-gray-300" />}
+          {isListening ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6 text-gray-300" />}
         </button>
 
         {/* 2. Keyboard Button (Toggle Input) */}
         <button
           type="button"
           onClick={() => setShowInput(!showInput)}
-          className={`flex items-center justify-center w-11 h-11 rounded-full border transition-all cursor-pointer shadow-md ${
+          className={`flex items-center justify-center w-14 h-14 rounded-full border transition-all cursor-pointer shadow-lg hover:scale-105 active:scale-95 ${
             showInput
-              ? 'bg-sky-500/30 border-sky-400/60 text-sky-200'
-              : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'
+              ? 'bg-sky-500/35 border-sky-400 text-sky-200 shadow-sky-500/30'
+              : 'bg-white/10 hover:bg-white/20 border-white/10 text-white hover:border-white/25'
           }`}
           title={showInput ? 'Hide Keyboard Input' : 'Show Keyboard Input'}
         >
-          <Keyboard className="w-5 h-5" />
+          <Keyboard className="w-6 h-6" />
         </button>
 
         {/* 3. Speaker Button (Mute / Unmute) */}
         <button
           type="button"
           onClick={() => setVoiceEnabled(!voiceEnabled)}
-          className={`flex items-center justify-center w-11 h-11 rounded-full border transition-all cursor-pointer shadow-md ${
+          className={`flex items-center justify-center w-14 h-14 rounded-full border transition-all cursor-pointer shadow-lg hover:scale-105 active:scale-95 ${
             voiceEnabled
-              ? 'bg-white/10 hover:bg-white/20 border-white/10 text-white'
+              ? 'bg-white/10 hover:bg-white/20 border-white/10 text-white hover:border-white/25'
               : 'bg-white/5 border-white/10 text-gray-500'
           }`}
-          title={voiceEnabled ? 'Mute Ani Voice' : 'Enable Ani Voice'}
+          title={voiceEnabled ? 'Mute Voice' : 'Enable Voice'}
         >
-          {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          {voiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
         </button>
 
         {/* 4. Settings Button */}
         <button
           type="button"
           onClick={() => setShowSettings(!showSettings)}
-          className={`flex items-center justify-center w-11 h-11 rounded-full border transition-all cursor-pointer shadow-md ${
+          className={`flex items-center justify-center w-14 h-14 rounded-full border transition-all cursor-pointer shadow-lg hover:scale-105 active:scale-95 ${
             showSettings
-              ? 'bg-white/30 border-white/40 text-white'
-              : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'
+              ? 'bg-white/30 border-white/40 text-white shadow-white/20'
+              : 'bg-white/10 hover:bg-white/20 border-white/10 text-white hover:border-white/25'
           }`}
-          title="Ani Room & Voice Settings"
+          title="Room & Voice Settings"
         >
-          <Settings2 className="w-5 h-5" />
+          <Settings2 className="w-6 h-6" />
         </button>
       </div>
 
@@ -1461,10 +1528,10 @@ Ani:`;
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="absolute bottom-24 right-6 z-30 max-w-sm w-[92%] max-h-[80vh] overflow-y-auto p-5 rounded-2xl bg-black/90 backdrop-blur-2xl border border-white/20 shadow-2xl text-white pointer-events-auto"
+            className="absolute bottom-28 right-6 z-30 max-w-sm w-[92%] max-h-[80vh] overflow-y-auto p-5 rounded-2xl bg-black/90 backdrop-blur-2xl border border-white/20 shadow-2xl text-white pointer-events-auto"
           >
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <span className="text-sm font-semibold tracking-wide">Ani&apos;s Room &amp; Persona</span>
+              <span className="text-sm font-semibold tracking-wide">{avatarName}&apos;s Room &amp; Persona</span>
               <button
                 type="button"
                 onClick={() => setShowSettings(false)}
@@ -1472,6 +1539,20 @@ Ani:`;
               >
                 <X className="w-4 h-4" />
               </button>
+            </div>
+
+            {/* Companion Custom Name */}
+            <div className="mt-4">
+              <label className="text-xs font-semibold text-white tracking-wide block mb-1.5">
+                Companion Name
+              </label>
+              <input
+                type="text"
+                value={avatarName}
+                onChange={(e) => handleNameChange(e.target.value)}
+                placeholder="Name your companion (e.g. Aiko, Kira, Luna)..."
+                className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-xs text-white placeholder-gray-400 outline-none focus:border-sky-400 transition-all font-medium"
+              />
             </div>
 
             {/* Room Background Selection */}
@@ -1573,7 +1654,7 @@ Ani:`;
             </div>
 
             {/* Authentic Humanoid Animation (.VRMA) */}
-            <div className="mt-5 pt-4 border-t border-white/10">
+            <div className="mt-5 pt-4 hidden border-t border-white/10">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-semibold text-white tracking-wide">
                   Humanoid Motion (.VRMA)
