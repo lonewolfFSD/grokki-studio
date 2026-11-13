@@ -414,5 +414,26 @@
     "category": "fact",
     "mode": "chat",
     "created_at": 1794584960956
+  },
+  {
+    "id": "mem_1794588417484_8qko",
+    "memory": "User name is baby girl",
+    "category": "fact",
+    "mode": "chat",
+    "created_at": 1794588417484
+  },
+  {
+    "id": "mem_1794588508834_hfwf",
+    "memory": "User preference: I like you btw",
+    "category": "fact",
+    "mode": "chat",
+    "created_at": 1794588508834
+  },
+  {
+    "id": "mem_1794590243030_peul",
+    "memory": "User has a crush on the assistant",
+    "category": "fact",
+    "mode": "chat",
+    "created_at": 1794590243030
   }
 ]
