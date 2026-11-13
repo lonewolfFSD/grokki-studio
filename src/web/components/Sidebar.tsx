@@ -59,7 +59,18 @@ const SidebarRow: React.FC<{
   isCollapsed?: boolean;
   onClick: (e: React.MouseEvent) => void;
   rightSlot?: React.ReactNode;
-}> = ({ icon, label, shortcut, isActive, isCollapsed = false, onClick, rightSlot }) => {
+  variant?: 'default' | 'pink';
+}> = ({ icon, label, shortcut, isActive, isCollapsed = false, onClick, rightSlot, variant = 'default' }) => {
+  const activeClass =
+    variant === 'pink'
+      ? 'bg-pink-500/15 dark:bg-pink-500/20 text-pink-600 dark:text-pink-300 border border-pink-500/30 dark:border-pink-500/35 font-semibold shadow-xs shadow-pink-500/10'
+      : 'bg-gray-100 dark:bg-[#1f1f24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs';
+
+  const hoverClass =
+    variant === 'pink'
+      ? 'hover:text-pink-600 dark:hover:text-pink-300 hover:bg-pink-500/10 dark:hover:bg-pink-500/15'
+      : 'hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#18181c]';
+
   return (
     <WarmTooltip
       content={label}
@@ -84,8 +95,8 @@ const SidebarRow: React.FC<{
           isCollapsed ? 'justify-center px-0 py-2.5' : 'justify-between px-3 py-2'
         } w-full rounded-xl text-[13px] font-medium transition-all cursor-pointer text-left ${
           isActive
-            ? 'bg-gray-100 dark:bg-[#1f1f24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs'
-            : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#18181c]'
+            ? activeClass
+            : `bg-transparent text-gray-600 dark:text-gray-400 ${hoverClass}`
         }`}
       >
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 min-w-0'}`}>
@@ -93,7 +104,9 @@ const SidebarRow: React.FC<{
             icon={icon}
             size={isCollapsed ? 20 : 16}
             strokeWidth={1.8}
-            className="flex-shrink-0 transition-transform -mt-0.5 duration-150 group-hover:scale-105"
+            className={`flex-shrink-0 transition-transform -mt-0.5 duration-150 group-hover:scale-105 ${
+              isActive && variant === 'pink' ? 'text-pink-500 dark:text-pink-400' : ''
+            }`}
           />
           {!isCollapsed && <span className="truncate">{label}</span>}
         </div>
@@ -1054,6 +1067,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                     label="Companion"
                     isActive={activeTab === 'companion'}
                     isCollapsed={isCollapsed}
+                    variant="pink"
                     onClick={() => onSelectTab('companion')}
                   />
                 )}
