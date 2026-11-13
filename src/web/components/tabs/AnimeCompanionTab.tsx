@@ -190,12 +190,11 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     const isSpeaking = isSpeakingRef.current;
     const isHappy = targetEmotionRef.current === 'happy';
 
-    // Target bone rotations (Euler in radians)
-    // In VRM normalized coordinates:
-    // Left arm down: z = -1.25 rad (towards -Y floor)
-    // Right arm down: z = +1.25 rad (towards -Y floor)
-    let targetLUArm = { x: 0.04, y: 0.02, z: -1.24 - breath };
-    let targetRUArm = { x: 0.04, y: -0.02, z: 1.24 + breath };
+    // In three-vrm normalized bone coordinate space:
+    // Left upper arm: positive Z (+1.25 rad) lowers arm down along body
+    // Right upper arm: negative Z (-1.25 rad) lowers arm down along body
+    let targetLUArm = { x: 0.04, y: 0.02, z: 1.25 + breath };
+    let targetRUArm = { x: 0.04, y: -0.02, z: -1.25 - breath };
     let targetLLArm = { x: 0.06, y: 0.14, z: 0.0 };
     let targetRLArm = { x: 0.06, y: -0.14, z: 0.0 };
     let targetLHand = { x: 0.0, y: 0.0, z: 0.0 };
@@ -205,8 +204,8 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     if (isHappy && isSpeaking) {
       // Gentle Happy Expression: cute cheer, soft bounce
       const cheerWave = Math.sin(elapsed * 2.5) * 0.05;
-      targetLUArm = { x: 0.15, y: 0.1, z: -0.85 - cheerWave };
-      targetRUArm = { x: 0.15, y: -0.1, z: 0.85 + cheerWave };
+      targetLUArm = { x: 0.15, y: 0.1, z: 0.85 + cheerWave };
+      targetRUArm = { x: 0.15, y: -0.1, z: -0.85 - cheerWave };
       targetLLArm = { x: 0.12, y: 0.3, z: 0.0 };
       targetRLArm = { x: 0.12, y: -0.3, z: 0.0 };
       targetHead.z = Math.sin(elapsed * 2.0) * 0.04;
@@ -215,16 +214,16 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
       const gestureSway = Math.sin(elapsed * 1.8) * 0.06;
       const elbowSway = Math.cos(elapsed * 1.8) * 0.08;
 
-      targetRUArm = { x: 0.25, y: -0.15, z: 0.7 - gestureSway };
+      targetRUArm = { x: 0.25, y: -0.15, z: -0.68 + gestureSway };
       targetRLArm = { x: 0.15, y: -0.65 + elbowSway, z: 0.04 };
       targetRHand = { x: 0.04, y: -0.08, z: 0.04 };
 
-      targetLUArm = { x: 0.04, y: 0.02, z: -1.24 - breath };
+      targetLUArm = { x: 0.04, y: 0.02, z: 1.25 + breath };
       targetLLArm = { x: 0.08, y: 0.12, z: 0.0 };
       targetHead.x = breath * 1.0 + Math.sin(elapsed * 1.8) * 0.02;
     } else if (isThinking) {
       // Thoughtful gesture: hand near chin, curious head tilt
-      targetRUArm = { x: 0.38, y: -0.2, z: 0.55 };
+      targetRUArm = { x: 0.38, y: -0.2, z: -0.52 };
       targetRLArm = { x: 0.2, y: -1.0, z: 0.1 };
       targetHead.z = 0.08;
       targetHead.x = -0.04;
@@ -478,6 +477,12 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
 
         // Lower character down by 0.22m to ensure generous headroom
         vrm.scene.position.set(0, -0.22, 0);
+
+        // Immediately set resting arm pose so model never flashes in T-pose
+        const leftUpperArm = vrm.humanoid?.getNormalizedBoneNode('leftUpperArm');
+        const rightUpperArm = vrm.humanoid?.getNormalizedBoneNode('rightUpperArm');
+        if (leftUpperArm) leftUpperArm.rotation.set(0.04, 0.02, 1.25);
+        if (rightUpperArm) rightUpperArm.rotation.set(0.04, -0.02, -1.25);
 
         vrmRef.current = vrm;
         if (sceneRef.current) {
