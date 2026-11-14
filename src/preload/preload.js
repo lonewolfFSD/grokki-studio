@@ -259,6 +259,7 @@ try {
     },
     restartAndInstallUpdate: (data) => ipcRenderer.send('app:restart-and-install', data),
     openConfigFolder: () => ipcRenderer.invoke('app:open-config-folder'),
+    saveImageFile: (data) => ipcRenderer.invoke('app:save-image-file', data),
     notifySplashFinished: () => ipcRenderer.send('splash:finished'),
     onAppReady: (callback) => {
       ipcRenderer.on('app:ready', () => callback());

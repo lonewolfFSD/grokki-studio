@@ -4039,6 +4039,53 @@ ipcMain.handle('jarvis:save-temp-file', async (event, payload = {}) => {
   }
 });
 
+ipcMain.handle('app:save-image-file', async (event, payload = {}) => {
+  try {
+    const { dialog } = require('electron');
+    const downloadsFolder = app.getPath('downloads') || os.homedir();
+    const defaultFileName = (payload.defaultName || `grokki_${Date.now()}.png`).replace(/[/\\?%*:|"<>]/g, '_');
+    const defaultPath = path.join(downloadsFolder, defaultFileName);
+
+    const res = await dialog.showSaveDialog({
+      title: 'Save Image',
+      defaultPath,
+      filters: [
+        { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    });
+
+    if (res.canceled || !res.filePath) {
+      return { canceled: true };
+    }
+
+    let buffer = null;
+    const url = payload.dataUrl || payload.url;
+
+    if (url && url.startsWith('data:')) {
+      const match = url.match(/^data:image\/\w+;base64,(.+)$/);
+      const b64 = match ? match[1] : url.split(',')[1];
+      buffer = Buffer.from(b64, 'base64');
+    } else if (payload.base64Data) {
+      buffer = Buffer.from(payload.base64Data, 'base64');
+    } else if (url && url.startsWith('http')) {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+      const arrayBuf = await response.arrayBuffer();
+      buffer = Buffer.from(arrayBuf);
+    }
+
+    if (buffer) {
+      fs.writeFileSync(res.filePath, buffer);
+      return { success: true, filePath: res.filePath };
+    }
+    return { success: false, error: 'Could not decode image data' };
+  } catch (err) {
+    console.error('[Main] app:save-image-file failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('jarvis:connect-google', async () => {
   const googleWorkspace = require('./google_workspace');
   return await googleWorkspace.startAuthFlow((profile) => {

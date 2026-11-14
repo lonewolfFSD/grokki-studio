@@ -604,13 +604,33 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
     setSelectedTextId(null);
     const blob = await generateExportBlob();
     if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `annotated_${fileName || 'image.png'}`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('Image downloaded');
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const dataUrl = reader.result as string;
+      const defaultName = `annotated_${fileName || 'image.png'}`;
+
+      if (typeof window.jarvisAPI?.saveImageFile === 'function') {
+        const res = await window.jarvisAPI.saveImageFile({
+          dataUrl,
+          defaultName,
+        });
+        if (res?.success) {
+          showToast('Image saved successfully');
+        }
+        return;
+      }
+
+      // Browser fallback using dataUrl (avoids blob protocol in desktop wrappers)
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = defaultName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast('Image downloaded');
+    };
+    reader.readAsDataURL(blob);
   };
 
   // Actions: Copy

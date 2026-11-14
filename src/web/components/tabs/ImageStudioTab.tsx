@@ -530,7 +530,21 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
     e?.stopPropagation();
     const filename = `grokki_${item.id}.png`;
 
-    // 1. Data URLs (e.g. Google Imagen, Cloudflare, OpenAI base64)
+    // 1. Native Electron Save Dialog (bypasses Windows blob interception completely)
+    if (typeof (window as any).jarvisAPI?.saveImageFile === 'function') {
+      try {
+        const res = await (window as any).jarvisAPI.saveImageFile({
+          url: item.url,
+          dataUrl: item.url,
+          defaultName: filename,
+        });
+        if (res?.success || res?.canceled) return;
+      } catch (err) {
+        console.warn('Native save failed, trying fallback:', err);
+      }
+    }
+
+    // 2. Data URLs (e.g. Google Imagen, Cloudflare, OpenAI base64)
     if (item.url.startsWith('data:')) {
       const a = document.createElement('a');
       a.href = item.url;
@@ -541,24 +555,27 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
       return;
     }
 
-    // 2. Fetch directly as Blob (pollinations or remote URL)
+    // 3. Remote URL -> convert to base64 DataURL (NEVER createObjectURL blob to prevent Windows blob handler)
     try {
       const res = await fetch(item.url, { mode: 'cors' });
       if (res.ok) {
         const blob = await res.blob();
-        const burl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = burl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(burl), 2000);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result as string;
+          const a = document.createElement('a');
+          a.href = dataUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        };
+        reader.readAsDataURL(blob);
         return;
       }
     } catch {}
 
-    // 3. Fallback: Draw via Canvas
+    // 4. Fallback: Draw via Canvas to DataURL
     try {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -584,7 +601,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
       }
     } catch {}
 
-    // 4. Fallback anchor
+    // 5. Final fallback
     const a = document.createElement('a');
     a.href = item.url;
     a.target = '_blank';

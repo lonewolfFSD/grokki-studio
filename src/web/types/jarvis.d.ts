@@ -652,6 +652,7 @@ export interface JarvisAPI {
     browserDownloadUrl?: string;
   }>;
   downloadUpdate?: (data: { assetId?: number; fileName?: string; assetSize?: number; downloadUrl?: string }) => Promise<{ success: boolean; downloadedPath?: string; error?: string }>;
+  saveImageFile?: (data: { dataUrl?: string; url?: string; base64Data?: string; defaultName?: string }) => Promise<{ success?: boolean; canceled?: boolean; filePath?: string; error?: string }>;
   onUpdateDownloadProgress?: (callback: (progress: { percent: number; downloaded: number; total: number }) => void) => () => void;
   restartAndInstallUpdate?: (data?: any) => void;
   openConfigFolder?: () => Promise<{ success: boolean; path?: string }>;
