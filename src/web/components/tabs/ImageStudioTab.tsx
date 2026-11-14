@@ -411,7 +411,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
               rawMsg.toLowerCase().includes('resource_exhausted')
             ) {
               throw new Error(
-                'Google AI Studio API reports this key is on the Free Tier (0 image requests/day quota). If you have a paid plan, ensure Cloud Billing is linked at aistudio.google.com/app/plan_information, or switch to FLUX.1 Clean below.'
+                'Google returned 429 (limit: 0 image quota). In Google AI Studio, click "Billing" on the left sidebar to attach a Cloud Billing account to your project and activate image generation, or use FLUX.1 Clean below.'
               );
             }
           }
