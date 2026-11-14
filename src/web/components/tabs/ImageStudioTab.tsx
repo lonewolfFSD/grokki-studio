@@ -10,12 +10,14 @@ import {
   Trash2,
   AlertCircle,
   Square,
+  Key,
+  X,
 } from 'lucide-react';
 import { JarvisConfig } from '../../types/jarvis';
 import SpecularButton from '../../../effects/SpecularButton';
 import DriftWall from '../../../effects/DriftWall';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
-import { GeminiLogo, OpenAILogo } from './AiBrainTab';
+import { GeminiLogo, OpenAILogo, OllamaLogo } from './AiBrainTab';
 import WarmTooltip from '../WarmTooltip';
 import grokkiIcon from '../../assets/grokki_icon.svg';
 
@@ -41,6 +43,9 @@ interface GeneratedImage {
 const STORAGE_KEY = 'grokki_image_studio_feed_v2';
 const GEMINI_IMAGE_KEY = 'grokki_gemini_image_key';
 const ACTIVE_ENGINE_KEY = 'grokki_image_active_engine';
+const CF_ACCOUNT_KEY = 'grokki_cf_account_id';
+const CF_TOKEN_KEY = 'grokki_cf_api_token';
+const OPENAI_IMAGE_KEY = 'grokki_openai_image_key';
 
 const ASPECT_DIMS: Record<AspectRatio, { width: number; height: number; label: string }> = {
   '1:1':  { width: 1024, height: 1024, label: '1:1 Square'     },
@@ -68,6 +73,27 @@ const DRIFT_ITEMS = [
   { image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80', title: 'Esports Cyber' },
   { image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=600&q=80', title: 'Arcade Glow' },
 ];
+
+const CloudflareLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="currentColor">
+    <path fill="#F38020" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
+  </svg>
+);
+
+const FluxLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
+    <path d="M12 2.5L21 19H3L12 2.5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M12 8.5L17.2 19H6.8L12 8.5Z" fill="currentColor" fillOpacity="0.28" />
+    <circle cx="12" cy="14.5" r="1.8" fill="currentColor" />
+  </svg>
+);
+
+const StabilityLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
+    <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="#A855F7" strokeWidth="2" />
+    <path d="M13 6.5L8.5 13H12.5L11 17.5L15.5 11H11.5L13 6.5Z" fill="#C084FC" />
+  </svg>
+);
 
 const RatioBoxIcon: React.FC<{ ratio: AspectRatio; className?: string }> = ({ ratio, className = 'w-3.5 h-3.5' }) => {
   const frames: Record<AspectRatio, { x: number; y: number; w: number; h: number }> = {
@@ -108,10 +134,20 @@ const ratioLabel = (ratio: AspectRatio, text: string) => (
 );
 
 const ENGINE_OPTIONS: GlideSelectOption[] = [
-  { value: 'google:imagen-3.0-generate-002',      label: modelLabel(GeminiLogo, 'Imagen 3 Ultra'), tag: 'Google' },
-  { value: 'google:imagen-3.0-fast-generate-001', label: modelLabel(GeminiLogo, 'Imagen 3 Fast'),  tag: 'Google' },
-  { value: 'openai:dall-e-3',                     label: modelLabel(OpenAILogo, 'DALL·E 3'),       tag: 'OpenAI' },
-  { value: 'openai:dall-e-2',                     label: modelLabel(OpenAILogo, 'DALL·E 2'),       tag: 'OpenAI' },
+  // Google Imagen (Official Free Tier via Gemini Key)
+  { value: 'google:imagen-3.0-generate-002',                  label: modelLabel(GeminiLogo,     'Imagen 3 Ultra'), tag: 'Google'     },
+  { value: 'google:imagen-3.0-fast-generate-001',             label: modelLabel(GeminiLogo,     'Imagen 3 Fast'),  tag: 'Google'     },
+  // Cloudflare Workers AI (Free FLUX.1 Schnell)
+  { value: 'cloudflare:@cf/black-forest-labs/flux-1-schnell', label: modelLabel(CloudflareLogo, 'FLUX.1 Schnell'), tag: 'Cloudflare' },
+  // Free Community / Pollinations (Instant, No Key Needed)
+  { value: 'pollinations:turbo',                              label: modelLabel(StabilityLogo,  'SDXL Turbo'),     tag: 'Free'       },
+  { value: 'pollinations:flux',                               label: modelLabel(FluxLogo,       'FLUX.1 Dev'),     tag: 'Free'       },
+  { value: 'pollinations:flux-anime',                         label: modelLabel(FluxLogo,       'FLUX Anime'),     tag: 'Free'       },
+  { value: 'pollinations:flux-realism',                       label: modelLabel(FluxLogo,       'FLUX Realism'),   tag: 'Free'       },
+  // Local Ollama (Offline / Native)
+  { value: 'ollama:x/z-image-turbo',                          label: modelLabel(OllamaLogo,     'Z-Image Turbo'),  tag: 'Local'      },
+  // OpenAI DALL·E 3
+  { value: 'openai:dall-e-3',                                 label: modelLabel(OpenAILogo,     'DALL·E 3'),       tag: 'OpenAI'     },
 ];
 
 const ASPECT_OPTIONS: GlideSelectOption[] = [
@@ -145,19 +181,34 @@ const PROMPT_PRESETS: { tag: string; ratio: AspectRatio; prompt: string }[] = [
   },
 ];
 
-export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
+export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChangeConfig }) => {
   const [inputValue, setInputValue] = useState('');
   const [activeEngine, setActiveEngine] = useState<string>(() => {
     try {
       const s = localStorage.getItem(ACTIVE_ENGINE_KEY);
       if (s && ENGINE_OPTIONS.some(o => o.value === s)) return s;
     } catch {}
-    return 'google:imagen-3.0-generate-002';
+    return config.geminiApiKey?.trim() ? 'google:imagen-3.0-generate-002' : 'pollinations:turbo';
   });
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
   const [enhance, setEnhance] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Key configuration modal state
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [geminiKeyInput, setGeminiKeyInput] = useState(() => {
+    try { return localStorage.getItem(GEMINI_IMAGE_KEY) || config.geminiApiKey || ''; } catch { return config.geminiApiKey || ''; }
+  });
+  const [cfAccountInput, setCfAccountInput] = useState(() => {
+    try { return localStorage.getItem(CF_ACCOUNT_KEY) || ''; } catch { return ''; }
+  });
+  const [cfTokenInput, setCfTokenInput] = useState(() => {
+    try { return localStorage.getItem(CF_TOKEN_KEY) || ''; } catch { return ''; }
+  });
+  const [openaiKeyInput, setOpenaiKeyInput] = useState(() => {
+    try { return localStorage.getItem(OPENAI_IMAGE_KEY) || config.openaiApiKey || ''; } catch { return config.openaiApiKey || ''; }
+  });
 
   const [generations, setGenerations] = useState<GeneratedImage[]>(() => {
     try {
@@ -197,6 +248,22 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
     } catch {}
   };
 
+  const handleSaveKeys = () => {
+    try {
+      localStorage.setItem(GEMINI_IMAGE_KEY, geminiKeyInput.trim());
+      localStorage.setItem(CF_ACCOUNT_KEY, cfAccountInput.trim());
+      localStorage.setItem(CF_TOKEN_KEY, cfTokenInput.trim());
+      localStorage.setItem(OPENAI_IMAGE_KEY, openaiKeyInput.trim());
+    } catch {}
+    if (geminiKeyInput.trim() && onChangeConfig) {
+      onChangeConfig({ geminiApiKey: geminiKeyInput.trim() });
+    }
+    if (openaiKeyInput.trim() && onChangeConfig) {
+      onChangeConfig({ openaiApiKey: openaiKeyInput.trim() });
+    }
+    setShowKeyModal(false);
+  };
+
   const executeGeneration = async (
     promptText: string,
     engineKey: string,
@@ -204,17 +271,21 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
     enh: boolean,
   ) => {
     const [provider, modelName] = engineKey.split(':');
+    const { width, height } = ASPECT_DIMS[ar];
     const seed = Math.floor(Math.random() * 9_000_000) + 1_000_000;
 
+    // 1. Google Imagen 3 (Official API)
     if (provider === 'google') {
       const key = (
+        geminiKeyInput ||
         config.geminiApiKey ||
         (typeof localStorage !== 'undefined' ? localStorage.getItem(GEMINI_IMAGE_KEY) : '') ||
         ''
       ).trim();
 
       if (!key) {
-        throw new Error('Gemini API key is missing. Please configure your key in Settings.');
+        setShowKeyModal(true);
+        throw new Error('Please configure your Gemini API Key to use Google Imagen 3.');
       }
 
       const finalPrompt = enh
@@ -244,10 +315,111 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
       return { finalImageUrl: `data:image/jpeg;base64,${b64}`, seed };
     }
 
+    // 2. Cloudflare Workers AI (FLUX.1 Schnell)
+    if (provider === 'cloudflare') {
+      const accountId = (cfAccountInput || localStorage.getItem(CF_ACCOUNT_KEY) || '').trim();
+      const apiToken = (cfTokenInput || localStorage.getItem(CF_TOKEN_KEY) || '').trim();
+
+      if (!accountId || !apiToken) {
+        setShowKeyModal(true);
+        throw new Error('Please enter your Cloudflare Account ID and API Token in settings.');
+      }
+
+      const finalPrompt = enh
+        ? `${promptText}, ultra-detailed, sharp focus, 8k resolution`
+        : promptText;
+
+      const res = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${modelName}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt: finalPrompt,
+            num_steps: 6,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.errors?.[0]?.message || `Cloudflare AI error (${res.status}).`);
+      }
+
+      const blob = await res.blob();
+      const reader = new FileReader();
+      const b64Promise = new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(blob);
+      const dataUrl = await b64Promise;
+      return { finalImageUrl: dataUrl, seed };
+    }
+
+    // 3. Pollinations Free Provider (Instant, No Key Needed)
+    if (provider === 'pollinations') {
+      const enc = encodeURIComponent(promptText.trim());
+      const cb = `${Date.now()}`;
+      const imgUrl = `https://image.pollinations.ai/prompt/${enc}?model=${modelName}&width=${width}&height=${height}&seed=${seed}&nologo=true&private=true&enhance=${enh}&cb=${cb}`;
+
+      await new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        img.src = imgUrl;
+        img.onload = () => resolve();
+        img.onerror = () =>
+          reject(new Error('Image failed to load from Pollinations. Service may be temporarily rate-limited.'));
+      });
+
+      return { finalImageUrl: imgUrl, seed };
+    }
+
+    // 4. Local Ollama (Native text-to-image)
+    if (provider === 'ollama') {
+      const endpoint = (config.ollamaEndpoint || 'http://localhost:11434').replace(/\/+$/, '');
+      const finalPrompt = enh ? `masterpiece, ultra-detailed: ${promptText}` : promptText;
+
+      let res: Response;
+      try {
+        res = await fetch(`${endpoint}/v1/images/generations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: modelName,
+            prompt: finalPrompt,
+            response_format: 'b64_json',
+          }),
+        });
+      } catch {
+        throw new Error(`Could not connect to Ollama at ${endpoint}. Run "ollama run ${modelName}" in terminal.`);
+      }
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `Ollama returned status ${res.status}.`);
+      }
+
+      const data = await res.json();
+      const b64 = data.data?.[0]?.b64_json;
+      if (!b64) throw new Error('Ollama returned no image data.');
+      return { finalImageUrl: `data:image/png;base64,${b64}`, seed };
+    }
+
+    // 5. OpenAI DALL·E 3
     if (provider === 'openai') {
-      const key = (config.openaiApiKey || '').trim();
+      const key = (
+        openaiKeyInput ||
+        config.openaiApiKey ||
+        (typeof localStorage !== 'undefined' ? localStorage.getItem(OPENAI_IMAGE_KEY) : '') ||
+        ''
+      ).trim();
+
       if (!key) {
-        throw new Error('OpenAI API key is missing. Please configure your key in Settings.');
+        setShowKeyModal(true);
+        throw new Error('Please configure your OpenAI API Key to use DALL·E 3.');
       }
 
       const finalPrompt = enh
@@ -263,7 +435,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${key}`,
+          Authorization: `Bearer ${key}`,
         },
         body: JSON.stringify({
           model: modelName,
@@ -365,7 +537,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
     accentColor: isDark ? '#e5e7eb' : '#111827',
     placement: 'top' as const,
     align: 'left' as const,
-    menuWidth: 220,
+    menuWidth: 230,
   };
 
   return (
@@ -556,6 +728,18 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
                             >
                               <RefreshCw className="w-3 h-3" /> Retry
                             </button>
+                            {item.engine.startsWith('google') && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleEngineChange('pollinations:turbo');
+                                  handleGenerate(item.prompt, 'pollinations:turbo');
+                                }}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
+                              >
+                                Try free SDXL Turbo
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -710,8 +894,18 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
                 </WarmTooltip>
               </div>
 
-              {/* Right: clear history + generate button */}
+              {/* Right: API Keys + Clear history + Generate button */}
               <div className="flex items-center gap-1.5 shrink-0">
+                <WarmTooltip content="API Keys" side="top">
+                  <button
+                    type="button"
+                    onClick={() => setShowKeyModal(true)}
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                  </button>
+                </WarmTooltip>
+
                 {generations.length > 0 && (
                   <WarmTooltip content="Clear history" side="top">
                     <button
@@ -753,6 +947,106 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
           </SpecularButton>
         </div>
       </motion.div>
+
+      {/* Minimal API Keys Modal */}
+      {showKeyModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowKeyModal(false)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="w-full max-w-sm bg-white dark:bg-[#15151b] border border-gray-200 dark:border-white/[0.09] rounded-xl shadow-2xl p-5 flex flex-col gap-4"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-white/[0.06]">
+              <div className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-gray-500" />
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">API Credentials</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowKeyModal(false)}
+                className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {/* Google Gemini Key */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Google Gemini API Key <span className="text-[10px] text-gray-400">(for Imagen 3)</span>
+                </label>
+                <input
+                  type="password"
+                  value={geminiKeyInput}
+                  onChange={e => setGeminiKeyInput(e.target.value)}
+                  placeholder="AIzaSy…"
+                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 dark:border-white/10 bg-transparent text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400"
+                />
+              </div>
+
+              {/* Cloudflare Account ID & Token */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Cloudflare Account ID <span className="text-[10px] text-gray-400">(for FLUX.1 Schnell)</span>
+                </label>
+                <input
+                  type="text"
+                  value={cfAccountInput}
+                  onChange={e => setCfAccountInput(e.target.value)}
+                  placeholder="Cloudflare Account ID"
+                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 dark:border-white/10 bg-transparent text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Cloudflare API Token
+                </label>
+                <input
+                  type="password"
+                  value={cfTokenInput}
+                  onChange={e => setCfTokenInput(e.target.value)}
+                  placeholder="Cloudflare API Token"
+                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 dark:border-white/10 bg-transparent text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400"
+                />
+              </div>
+
+              {/* OpenAI Key */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  OpenAI API Key <span className="text-[10px] text-gray-400">(optional, for DALL·E 3)</span>
+                </label>
+                <input
+                  type="password"
+                  value={openaiKeyInput}
+                  onChange={e => setOpenaiKeyInput(e.target.value)}
+                  placeholder="sk-…"
+                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 dark:border-white/10 bg-transparent text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 dark:border-white/[0.06]">
+              <button
+                type="button"
+                onClick={() => setShowKeyModal(false)}
+                className="h-7 px-3 rounded text-xs font-medium text-gray-500 hover:bg-gray-100 dark:hover:bg-white/[0.06]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveKeys}
+                className="h-7 px-3.5 rounded text-xs font-medium bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-90"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
