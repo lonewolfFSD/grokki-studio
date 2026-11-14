@@ -398,6 +398,9 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
           >
             Grokki Image Studio
           </h1>
+          <p className="mt-3 text-sm sm:text-base text-gray-500 dark:text-gray-400 font-normal max-w-md mx-auto leading-relaxed">
+            Describe what you want to create. Powered by Seedance, Imagen 3 &amp; FLUX.
+          </p>
         </div>
       )}
 
@@ -527,7 +530,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
           <SpecularButton
             as="div"
             size="lg"
-            radius={18}
+            radius={20}
             tint={isDark ? '#ffffff' : '#000000'}
             tintOpacity={0.04}
             textColor={isDark ? '#f5f5f5' : '#18181b'}
@@ -542,7 +545,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
             followMouse={false}
             autoAnimate
             proximity={250}
-            className="w-full bg-white dark:bg-[#131317] shadow-sm hover:shadow-md p-3 transition-shadow flex flex-col gap-2.5 text-left relative z-20"
+            className="w-full bg-white dark:bg-[#131317] shadow-sm hover:shadow-md p-3.5 sm:p-4 transition-shadow flex flex-col gap-3 text-left relative z-20"
           >
             {/* Textarea */}
             <textarea
@@ -552,10 +555,10 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
               onKeyDown={e => {
                 if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); }
               }}
-              rows={Math.min(5, Math.max(1, inputValue.split('\n').length))}
+              rows={Math.min(7, Math.max(3, inputValue.split('\n').length))}
               placeholder="Describe the image you want to generate in detail…"
               autoFocus
-              className="w-full bg-transparent resize-none border-none outline-none text-[13px] leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 p-0"
+              className="w-full min-h-[80px] sm:min-h-[92px] bg-transparent resize-none border-none outline-none text-[13.5px] sm:text-[14px] leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 p-0"
             />
 
             {/* Controls */}
