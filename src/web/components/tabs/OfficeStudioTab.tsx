@@ -17,6 +17,7 @@ import { JarvisConfig } from '../../types/jarvis';
 import SpecularButton from '../../../effects/SpecularButton';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
 import WarmTooltip from '../WarmTooltip';
+import Threads from './Threads';
 import grokkiIcon from '../../assets/grokki_icon.svg';
 import grokkiLogo from '../../assets/grokki_logo.png';
 
@@ -29,11 +30,9 @@ export type DocFormat =
   | 'docx'
   | 'xlsx'
   | 'pdf'
-  | 'html'
   | 'csv'
   | 'md'
-  | 'tex'
-  | 'json';
+  | 'tex';
 
 interface GeneratedOfficeItem {
   id: string;
@@ -53,194 +52,154 @@ interface GeneratedOfficeItem {
 
 const STORAGE_KEY = 'grokki_office_studio_history_v2';
 
-// Canva-style circular format items shown below the middle input
-const CANVA_FORMAT_ITEMS: Array<{
+// Clean monochrome SVG icons for each format
+const FormatIconSvg: React.FC<{ format: DocFormat; className?: string }> = ({
+  format,
+  className = 'w-5 h-5',
+}) => {
+  switch (format) {
+    case 'pptx':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="12" rx="2" />
+          <path d="M8 20h8" />
+          <path d="M12 16v4" />
+          <path d="m7 11 3-3 2 2 4-4" />
+        </svg>
+      );
+    case 'docx':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="8" y1="13" x2="16" y2="13" />
+          <line x1="8" y1="17" x2="13" y2="17" />
+        </svg>
+      );
+    case 'xlsx':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <path d="M3 10h18" />
+          <path d="M3 15h18" />
+          <path d="M9 4v16" />
+          <path d="M15 4v16" />
+        </svg>
+      );
+    case 'pdf':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <path d="M14 2v6h6" />
+          <path d="M9 15h6" />
+          <path d="M9 11h3" />
+        </svg>
+      );
+    case 'csv':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <ellipse cx="12" cy="5" rx="8" ry="3" />
+          <path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5" />
+          <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
+        </svg>
+      );
+    case 'md':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="M7 15V9l2.5 3L12 9v6" />
+          <path d="M16 9v6" />
+          <path d="m14 13 2 2 2-2" />
+        </svg>
+      );
+    case 'tex':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 4H6l6 8-6 8h12" />
+        </svg>
+      );
+  }
+};
+
+const FORMAT_ITEMS: Array<{
   id: DocFormat;
   label: string;
   ext: string;
-  bg: string;
   placeholder: string;
-  icon: React.ReactNode;
 }> = [
   {
     id: 'pptx',
     label: 'Presentation',
     ext: '.pptx',
-    bg: '#ff641a',
     placeholder: 'Describe a presentation deck (e.g. Series A AI pitch deck with metrics & roadmap)...',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="12" rx="2" fill="currentColor" fillOpacity="0.18" />
-        <path d="M8 20h8" />
-        <path d="M12 16v4" />
-        <path d="m7 11 3-3 2 2 4-4" />
-      </svg>
-    ),
   },
   {
     id: 'docx',
-    label: 'Doc',
+    label: 'Document',
     ext: '.docx',
-    bg: '#0099a8',
     placeholder: 'Describe a Word document (e.g. Enterprise Master Services Agreement or Strategy Brief)...',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="4" y="3" width="16" height="18" rx="2.5" fill="currentColor" fillOpacity="0.18" />
-        <path d="M8 8h8" />
-        <path d="M8 12h8" />
-        <path d="M8 16h5" />
-      </svg>
-    ),
   },
   {
     id: 'xlsx',
-    label: 'Sheet',
+    label: 'Spreadsheet',
     ext: '.xlsx',
-    bg: '#1083ff',
     placeholder: 'Describe an Excel spreadsheet model (e.g. 4-Quarter SaaS P&L forecast with variance)...',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="16" rx="2.5" fill="currentColor" fillOpacity="0.18" />
-        <path d="M3 10h18" />
-        <path d="M3 15h18" />
-        <path d="M9 4v16" />
-        <path d="M15 4v16" />
-      </svg>
-    ),
   },
   {
     id: 'pdf',
     label: 'PDF Report',
     ext: '.pdf',
-    bg: '#8b3dff',
     placeholder: 'Describe a print-ready PDF report (e.g. Executive security & architecture audit)...',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M6 9V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v5" />
-        <rect x="4" y="9" width="16" height="8" rx="2" fill="currentColor" fillOpacity="0.18" />
-        <path d="M6 14h12v6a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-6Z" />
-      </svg>
-    ),
-  },
-  {
-    id: 'html',
-    label: 'Website',
-    ext: '.html',
-    bg: '#4b42f5',
-    placeholder: 'Describe an interactive HTML report or web page...',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="16" rx="2.5" fill="currentColor" fillOpacity="0.18" />
-        <path d="M3 9h18" />
-        <circle cx="6.5" cy="6.5" r="0.8" fill="currentColor" />
-        <circle cx="9.5" cy="6.5" r="0.8" fill="currentColor" />
-        <circle cx="12.5" cy="6.5" r="0.8" fill="currentColor" />
-      </svg>
-    ),
   },
   {
     id: 'csv',
-    label: 'CSV Data',
+    label: 'CSV Sheet',
     ext: '.csv',
-    bg: '#0ca654',
     placeholder: 'Describe a structured CSV dataset (e.g. Enterprise cohort retention & revenue table)...',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <ellipse cx="12" cy="6" rx="8" ry="3" fill="currentColor" fillOpacity="0.18" />
-        <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6" />
-        <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" />
-      </svg>
-    ),
   },
   {
     id: 'md',
     label: 'Markdown',
     ext: '.md',
-    bg: '#e64980',
     placeholder: 'Describe a technical Markdown spec or documentation...',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="5" width="18" height="14" rx="2.5" fill="currentColor" fillOpacity="0.18" />
-        <path d="M7 15V9l2.5 3L12 9v6" />
-        <path d="M16 9v6" />
-        <path d="m14 13 2 2 2-2" />
-      </svg>
-    ),
   },
   {
     id: 'tex',
     label: 'LaTeX Paper',
     ext: '.tex',
-    bg: '#f59f00',
     placeholder: 'Describe an academic research paper in LaTeX format...',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 4H6l6 8-6 8h12" />
-      </svg>
-    ),
-  },
-  {
-    id: 'json',
-    label: 'JSON Schema',
-    ext: '.json',
-    bg: '#15aabf',
-    placeholder: 'Describe a structured JSON document or schema...',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M8 4H6a2 2 0 0 0-2 2v3a2 2 0 0 1-2 2 2 2 0 0 1 2 2v3a2 2 0 0 0 2 2h2" />
-        <path d="M16 4h2a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2 2 2 0 0 0-2 2v3a2 2 0 0 1-2 2h-2" />
-      </svg>
-    ),
   },
 ];
 
-// Small badge icon used inside GlideSelect and cards
-const FormatBadgeIcon: React.FC<{ format: DocFormat }> = ({ format }) => {
-  const item = CANVA_FORMAT_ITEMS.find((i) => i.id === format) || CANVA_FORMAT_ITEMS[0];
-  return (
-    <span
-      className="inline-flex items-center justify-center rounded-full font-bold tracking-tight select-none shrink-0 text-white"
-      style={{
-        width: 16,
-        height: 16,
-        backgroundColor: item.bg,
-        fontSize: '8px',
-      }}
-    >
-      {item.label.slice(0, 1)}
-    </span>
-  );
-};
-
 const ThemeSwatchIcon: React.FC<{ color: string }> = ({ color }) => (
   <span
-    className="inline-block w-3 h-3 rounded-full border border-white/20 shrink-0"
+    className="inline-block w-2.5 h-2.5 rounded-full border border-white/20 shrink-0"
     style={{ backgroundColor: color }}
   />
 );
 
-const BlueprintDotIcon: React.FC<{ color?: string }> = ({ color = '#10b981' }) => (
-  <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 shrink-0">
-    <rect x="2" y="2" width="5" height="5" rx="1" stroke={color} strokeWidth="1.5" />
-    <rect x="9" y="2" width="5" height="5" rx="1" stroke={color} strokeWidth="1.5" opacity="0.6" />
-    <rect x="2" y="9" width="5" height="5" rx="1" stroke={color} strokeWidth="1.5" opacity="0.6" />
-    <rect x="9" y="9" width="5" height="5" rx="1" stroke={color} strokeWidth="1.5" />
+const BlueprintDotIcon: React.FC = () => (
+  <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 shrink-0 text-gray-500 dark:text-gray-400">
+    <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+    <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" opacity="0.6" />
+    <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" opacity="0.6" />
+    <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
   </svg>
 );
 
-const FORMAT_OPTIONS: GlideSelectOption[] = CANVA_FORMAT_ITEMS.map((item) => ({
+const FORMAT_OPTIONS: GlideSelectOption[] = FORMAT_ITEMS.map((item) => ({
   value: item.id,
   label: `${item.label} (${item.ext})`,
-  icon: <FormatBadgeIcon format={item.id} />,
+  icon: <FormatIconSvg format={item.id} className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />,
 }));
 
 const THEME_OPTIONS: Array<GlideSelectOption & { accent: string; bg: string }> = [
   {
     value: 'midnight',
     label: 'Midnight Dark',
-    accent: '#6366f1',
+    accent: '#10b981',
     bg: '#0f172a',
-    icon: <ThemeSwatchIcon color="#6366f1" />,
+    icon: <ThemeSwatchIcon color="#334155" />,
   },
   {
     value: 'emerald',
@@ -252,23 +211,23 @@ const THEME_OPTIONS: Array<GlideSelectOption & { accent: string; bg: string }> =
   {
     value: 'slate',
     label: 'Tech Slate',
-    accent: '#2563eb',
+    accent: '#3b82f6',
     bg: '#1e293b',
-    icon: <ThemeSwatchIcon color="#2563eb" />,
+    icon: <ThemeSwatchIcon color="#64748b" />,
   },
   {
     value: 'editorial',
     label: 'Warm Editorial',
     accent: '#e11d48',
     bg: '#881337',
-    icon: <ThemeSwatchIcon color="#e11d48" />,
+    icon: <ThemeSwatchIcon color="#a1a1aa" />,
   },
   {
     value: 'navy',
     label: 'Executive Navy',
     accent: '#0ea5e9',
     bg: '#0c4a6e',
-    icon: <ThemeSwatchIcon color="#0ea5e9" />,
+    icon: <ThemeSwatchIcon color="#475569" />,
   },
   {
     value: 'mono',
@@ -280,14 +239,14 @@ const THEME_OPTIONS: Array<GlideSelectOption & { accent: string; bg: string }> =
 ];
 
 const BLUEPRINT_OPTIONS: GlideSelectOption[] = [
-  { value: 'auto', label: 'Auto Blueprint', icon: <BlueprintDotIcon color="#10b981" /> },
-  { value: 'pitch', label: 'Startup Pitch Deck', icon: <BlueprintDotIcon color="#f97316" /> },
-  { value: 'financial', label: 'Financial Model & P&L', icon: <BlueprintDotIcon color="#14b8a6" /> },
-  { value: 'contract', label: 'Master Legal Contract', icon: <BlueprintDotIcon color="#3b82f6" /> },
-  { value: 'invoice', label: 'Commercial Invoice', icon: <BlueprintDotIcon color="#eab308" /> },
-  { value: 'resume', label: 'Executive Resume / CV', icon: <BlueprintDotIcon color="#ec4899" /> },
-  { value: 'whitepaper', label: 'Technical Whitepaper', icon: <BlueprintDotIcon color="#8b5cf6" /> },
-  { value: 'research', label: 'Academic Research Paper', icon: <BlueprintDotIcon color="#06b6d4" /> },
+  { value: 'auto', label: 'Auto Blueprint', icon: <BlueprintDotIcon /> },
+  { value: 'pitch', label: 'Startup Pitch Deck', icon: <BlueprintDotIcon /> },
+  { value: 'financial', label: 'Financial Model & P&L', icon: <BlueprintDotIcon /> },
+  { value: 'contract', label: 'Master Legal Contract', icon: <BlueprintDotIcon /> },
+  { value: 'invoice', label: 'Commercial Invoice', icon: <BlueprintDotIcon /> },
+  { value: 'resume', label: 'Executive Resume / CV', icon: <BlueprintDotIcon /> },
+  { value: 'whitepaper', label: 'Technical Whitepaper', icon: <BlueprintDotIcon /> },
+  { value: 'research', label: 'Academic Research Paper', icon: <BlueprintDotIcon /> },
 ];
 
 export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
@@ -447,7 +406,7 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
   };
 
   const activeFormatMeta =
-    CANVA_FORMAT_ITEMS.find((f) => f.id === docType) || CANVA_FORMAT_ITEMS[0];
+    FORMAT_ITEMS.find((f) => f.id === docType) || FORMAT_ITEMS[0];
 
   const getGlideProps = (placement: 'top' | 'bottom' = 'bottom') => ({
     size: 'sm' as const,
@@ -708,7 +667,7 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
                 {data.sheetName || 'Sheet1'} • {rows.length} rows × {headers.length} columns
               </div>
             </div>
-            <FormatBadgeIcon format={item.docType} />
+            <FormatIconSvg format={item.docType} className="w-4 h-4 text-gray-400" />
           </div>
 
           <div className="overflow-x-auto max-h-[260px]">
@@ -771,8 +730,8 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
       );
     }
 
-    // 3. LaTeX / JSON Source Code Preview
-    if (item.docType === 'tex' || item.docType === 'json') {
+    // 3. LaTeX Source Preview
+    if (item.docType === 'tex') {
       const codeText =
         item.textPreview || JSON.stringify(item.structuredData || {}, null, 2);
       return (
@@ -781,7 +740,7 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
             <span className="text-[12px] font-semibold text-gray-800 dark:text-gray-200 truncate">
               {item.fileName || `${data.title || 'document'}.${item.docType}`}
             </span>
-            <FormatBadgeIcon format={item.docType} />
+            <FormatIconSvg format={item.docType} className="w-4 h-4 text-gray-400" />
           </div>
           <pre className="p-4 text-[11px] font-mono leading-relaxed text-gray-700 dark:text-gray-300 bg-gray-50/40 dark:bg-[#0b0c10] max-h-[240px] overflow-y-auto whitespace-pre-wrap">
             {codeText.slice(0, 1800)}
@@ -792,7 +751,7 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
       );
     }
 
-    // 4. Document Paper Preview (.docx, .pdf, .html, .md)
+    // 4. Document Paper Preview (.docx, .pdf, .md)
     const sections = Array.isArray(data.sections) ? data.sections : [];
     return (
       <div className="w-full max-w-[560px] rounded-xl overflow-hidden border border-gray-200 dark:border-white/[0.09] bg-white dark:bg-[#111217] shadow-lg">
@@ -816,7 +775,7 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
                 </p>
               )}
             </div>
-            <FormatBadgeIcon format={item.docType} />
+            <FormatIconSvg format={item.docType} className="w-4 h-4 text-gray-400 shrink-0" />
           </div>
 
           {data.summary && (
@@ -992,8 +951,36 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
 
   return (
     <div className="relative w-full h-full flex flex-col bg-[#f7f7fa] dark:bg-[#070709] text-gray-900 dark:text-gray-100 overflow-hidden select-none">
+      {/* Green Threads Background */}
+      <div
+        className="absolute inset-0 pointer-events-none overflow-hidden z-0"
+        style={{ width: '100%', height: '100%', position: 'absolute' }}
+      >
+        <Threads
+          color="#10b981"
+          lineCount={90}
+          thickness={0.6}
+          softness={1.3}
+          amplitude={1.7}
+          distance={0.4}
+          waves={1.05}
+          speed={0.6}
+          split={0.04}
+          fray={0.5}
+          angle={25}
+          taper={0.85}
+          brightness={1.4}
+          parting={0}
+          enableMouseInteraction={false}
+          fade={0}
+          opacity={isDark ? 0.85 : 0.45}
+          seed={0}
+          className="w-full h-full"
+        />
+      </div>
+
       {generations.length === 0 ? (
-        /* EMPTY STATE: Centered Hero + Middle Input + Canva-Style Circular Options Row Below */
+        /* EMPTY STATE: Centered Hero + Middle Input + Clean Monochrome Circular Options Row Below */
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 overflow-y-auto relative z-20">
           {/* Big Grokki Studio Logo behind text */}
           <motion.div
@@ -1061,7 +1048,7 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
                   <linearGradient id="grokki-office-crayon-grad" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="#10b981" />
                     <stop offset="50%" stopColor="#14b8a6" />
-                    <stop offset="100%" stopColor="#0ea5e9" />
+                    <stop offset="100%" stopColor="#059669" />
                   </linearGradient>
                 </defs>
                 <motion.path
@@ -1107,19 +1094,19 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full max-w-[720px] mx-auto relative z-30"
+            className="w-full max-w-[700px] mx-auto relative z-30"
           >
             {renderComposerBox('bottom')}
           </motion.div>
 
-          {/* CANVA-STYLE CIRCULAR FORMAT OPTIONS ROW BELOW INPUT */}
+          {/* CLEAN MONOCHROME CIRCULAR OPTIONS ROW BELOW INPUT */}
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-8 w-full max-w-[820px] flex items-start justify-center gap-4 sm:gap-6 flex-wrap z-10"
+            className="mt-8 w-full max-w-[720px] flex items-start justify-center gap-5 sm:gap-7 flex-wrap z-10"
           >
-            {CANVA_FORMAT_ITEMS.map((item) => {
+            {FORMAT_ITEMS.map((item) => {
               const isSelected = docType === item.id;
               return (
                 <button
@@ -1132,33 +1119,26 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
                   className="group flex flex-col items-center gap-2 min-w-[68px] cursor-pointer focus:outline-none"
                 >
                   <div
-                    className={`w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center transition-all duration-200 shadow-md group-hover:-translate-y-1 group-hover:shadow-lg ${
+                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-md border ${
                       isSelected
-                        ? 'ring-2 ring-offset-2 ring-offset-[#f7f7fa] dark:ring-offset-[#070709] ring-gray-900 dark:ring-white scale-105'
-                        : 'opacity-90 group-hover:opacity-100'
+                        ? 'bg-gray-900 dark:bg-white text-white dark:text-black border-gray-900 dark:border-white shadow-md scale-105'
+                        : 'bg-white/80 dark:bg-[#13141a]/90 text-gray-600 dark:text-gray-300 border-gray-200/80 dark:border-white/[0.09] group-hover:border-gray-400 dark:group-hover:border-white/25 group-hover:text-gray-900 dark:group-hover:text-white group-hover:-translate-y-0.5'
                     }`}
-                    style={{ backgroundColor: item.bg }}
                   >
-                    {item.icon}
+                    <FormatIconSvg format={item.id} className="w-5 h-5" />
                   </div>
                   <div className="flex flex-col items-center leading-tight">
                     <span
-                      className={`text-[12px] font-medium transition-colors ${
+                      className={`text-[12px] transition-colors ${
                         isSelected
                           ? 'text-gray-900 dark:text-white font-semibold'
-                          : 'text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white'
+                          : 'text-gray-600 dark:text-gray-400 font-medium group-hover:text-gray-900 dark:group-hover:text-white'
                       }`}
                     >
                       {item.label}
                     </span>
-                    <span
-                      className={`text-[10.5px] transition-opacity mt-0.5 ${
-                        isSelected
-                          ? 'text-gray-500 dark:text-gray-400 opacity-100'
-                          : 'text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100'
-                      }`}
-                    >
-                      Create new
+                    <span className="text-[10.5px] font-mono text-gray-400 dark:text-gray-500 mt-0.5">
+                      {item.ext}
                     </span>
                   </div>
                 </button>

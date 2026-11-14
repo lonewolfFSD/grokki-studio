@@ -1007,7 +1007,11 @@ STRICT OPERATIONAL DIRECTIVES:
       }
 
       if (isUni) {
-        ['create_study_revision_document', 'viva_voice_quiz', 'snap_and_solve_screen', 'search_research_papers', 'access_university_portal'].forEach(n => selectedNames.add(n));
+        ['create_study_revision_document', 'create_office_document', 'viva_voice_quiz', 'snap_and_solve_screen', 'search_research_papers', 'access_university_portal'].forEach(n => selectedNames.add(n));
+      }
+
+      if (/\b(pptx|powerpoint|presentation|slide\s*deck|slides|docx|word\s*doc|xlsx|excel|spreadsheet|pdf\s*report|csv|latex|whitepaper|pitch\s*deck)\b/i.test(p)) {
+        selectedNames.add('create_office_document');
       }
 
       if (isMedia) {
@@ -1798,6 +1802,20 @@ STRICT OPERATIONAL DIRECTIVES:
                 raw_text_or_html: { type: 'STRING', description: 'Optional pasted portal text or HTML for offline report generation' },
                 action: { type: 'STRING', description: 'Action: "get_report", "get_attendance", "clear_credentials"' },
               },
+            },
+          },
+          {
+            name: 'create_office_document',
+            description: 'Creates a real local Office or publication file (.pptx PowerPoint presentation deck, .docx Word document, .xlsx Excel spreadsheet with formulas, .pdf executive report, .csv dataset, .md Markdown spec, or .tex LaTeX academic paper) saved directly to the user Downloads folder and opens it automatically.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                prompt: { type: 'STRING', description: 'Detailed description of the presentation, document, or spreadsheet to generate.' },
+                doc_type: { type: 'STRING', description: 'Format to generate: "pptx", "docx", "xlsx", "pdf", "csv", "md", or "tex".' },
+                theme: { type: 'STRING', description: 'Visual palette: "midnight", "emerald", "slate", "editorial", "navy", or "mono". Default "midnight".' },
+                blueprint: { type: 'STRING', description: 'Optional archetype: "auto", "pitch", "financial", "contract", "invoice", "resume", "whitepaper", or "research".' },
+              },
+              required: ['prompt', 'doc_type'],
             },
           },
           {
@@ -6083,6 +6101,30 @@ Rules:
       case 'get_university_profile': {
         const universityPortal = require('./university_portal');
         return await universityPortal.handlePortalTool(args, (sys, user) => this.generateAcademicLLM(sys, user, 1500));
+      }
+
+      case 'create_office_document': {
+        const { generateOfficeDocument } = require('./office_service');
+        const res = await generateOfficeDocument({
+          prompt: args.prompt || this.activePrompt || 'Executive Overview',
+          docType: args.doc_type || 'pptx',
+          theme: args.theme || 'midnight',
+          blueprint: args.blueprint || 'auto',
+          config: this.activeConfig || {},
+          agentBrain: this,
+        });
+        if (res && res.filePath) {
+          try {
+            const { shell } = require('electron');
+            await shell.openPath(res.filePath);
+          } catch (_) {}
+        }
+        return {
+          success: true,
+          filePath: res.filePath,
+          fileName: res.fileName,
+          message: `Created **${res.fileName}** and saved to \`${res.filePath}\`.`,
+        };
       }
 
       case 'create_study_revision_document': {

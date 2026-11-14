@@ -19,7 +19,7 @@ const {
  */
 function getFallbackData(type, userPrompt, themeKey, blueprint = 'auto') {
   const cleanTitle =
-    userPrompt && userPrompt.length > 8
+    userPrompt && userPrompt.length > 4
       ? userPrompt.slice(0, 56).replace(/\n/g, ' ')
       : 'Executive Strategic Overview';
 
@@ -33,39 +33,39 @@ function getFallbackData(type, userPrompt, themeKey, blueprint = 'auto') {
           type: 'title',
           tag: 'Confidential Strategy',
           title: cleanTitle,
-          subtitle: 'A high-impact presentation outlining market positioning, unit economics, and operational milestones.',
+          subtitle: `A comprehensive presentation covering key pillars, metrics, and execution roadmap for ${cleanTitle}.`,
         },
         {
           type: 'metrics',
           tag: 'Key Performance Indicators',
-          title: 'Growth & Core Metrics',
-          subtitle: 'Historical performance and forward-looking operational projections.',
+          title: 'Core Metrics & Benchmarks',
+          subtitle: 'Quantitative indicators and target operational outcomes.',
           metrics: [
-            { value: '$4.2M', label: 'Annual Run-Rate', description: '240% YoY ARR expansion across enterprise accounts.' },
-            { value: '88.4%', label: 'Gross Margin', description: 'Highly scalable architecture with lean marginal compute cost.' },
-            { value: '142%', label: 'Net Retention', description: 'Best-in-class product stickiness and organic contract expansions.' },
+            { value: '3.4x', label: 'Efficiency Gain', description: 'Measured improvement across primary operational workflows.' },
+            { value: '99.4%', label: 'Reliability Target', description: 'High-availability execution standard with fault tolerance.' },
+            { value: '42%', label: 'Cost Reduction', description: 'Optimized resource allocation and unit economics.' },
           ],
         },
         {
           type: 'cards',
           tag: 'Core Pillars',
           title: 'Strategic Focus Areas',
-          subtitle: 'Three high-conviction initiatives driving product velocity and market capture.',
+          subtitle: 'Three foundational pillars driving execution and long-term impact.',
           cards: [
             {
-              title: 'Autonomous Architecture',
-              description: 'Next-generation intelligent pipelines with self-healing fault tolerance and zero downtime.',
-              bullets: ['Sub-millisecond inference routing', 'Cross-region automated failover', 'Continuous compliance audit logging'],
+              title: 'Architecture & Foundation',
+              description: 'Scalable, modular design built for reliability and rapid iteration.',
+              bullets: ['Modular component design', 'Automated quality verification', 'Zero-bottleneck scaling'],
             },
             {
-              title: 'Distribution Moat',
-              description: 'Direct-to-enterprise channel partnerships accelerating acquisition flywheel velocity.',
-              bullets: ['Pre-integrated partner ecosystems', 'Frictionless single-click onboarding', 'Zero-touch billing automation'],
+              title: 'Operational Velocity',
+              description: 'Streamlined workflows accelerating delivery from concept to production.',
+              bullets: ['Continuous feedback loops', 'Clear milestone ownership', 'Frictionless deployment'],
             },
             {
-              title: 'Capital Efficiency',
-              description: 'Disciplined resource allocation targeting cashflow breakeven with maximal agility.',
-              bullets: ['Sustained 18+ months runway', 'Target payback period < 6 months', 'High-density engineering yield'],
+              title: 'Measurable Impact',
+              description: 'Data-driven telemetry ensuring every milestone delivers concrete results.',
+              bullets: ['Real-time KPI tracking', 'Proactive risk mitigation', 'Sustained ROI growth'],
             },
           ],
         },
@@ -73,14 +73,14 @@ function getFallbackData(type, userPrompt, themeKey, blueprint = 'auto') {
           type: 'bullets',
           tag: 'Action Plan',
           title: 'Execution Roadmap & Next Steps',
-          subtitle: 'Immediate priorities for upcoming quarterly milestones.',
+          subtitle: 'Immediate priorities and upcoming delivery milestones.',
           bullets: [
-            'Finalize production rollout and telemetry monitoring across all tier-1 clusters.',
-            'Expand enterprise integration library with turnkey customer migration tooling.',
-            'Initiate SOC2 Type II audit readiness review with third-party security assessors.',
-            'Scale dedicated developer advocacy and partner community evangelism programs.',
+            'Finalize core requirements, architecture specifications, and stakeholder alignment.',
+            'Execute phase-1 rollout with real-time telemetry and quality benchmarks.',
+            'Conduct comprehensive review and optimize high-leverage bottlenecks.',
+            'Scale deployment across all target workflows and document best practices.',
           ],
-          takeaway: 'Focus remains on uncompromising product quality, customer retention, and aggressive margin expansion throughout Q1-Q2.',
+          takeaway: `Disciplined execution on ${cleanTitle} will deliver measurable impact and long-term strategic advantage.`,
         },
       ],
     };
@@ -89,60 +89,55 @@ function getFallbackData(type, userPrompt, themeKey, blueprint = 'auto') {
   if (type === 'xlsx' || type === 'csv') {
     return {
       title: cleanTitle,
-      subtitle: 'Q1-Q4 Financial Performance, Variance Analysis & Growth Forecast',
-      sheetName: 'Financial Forecast',
-      headers: ['Department / Line Item', 'Q1 Target', 'Q1 Actual', 'Variance', 'Growth %', 'FY Projected'],
+      subtitle: 'Quantitative Breakdown, Variance Analysis & Projections',
+      sheetName: 'Model Data',
+      headers: ['Category / Line Item', 'Q1 Baseline', 'Q2 Actual', 'Variance', 'Growth %', 'Annual Projected'],
       rows: [
-        ['Enterprise Platform Revenue', 1250000, 1380000, 130000, 0.28, 5900000],
-        ['Pro Subscription ARR', 450000, 495000, 45000, 0.22, 2100000],
-        ['Professional Services', 180000, 165000, -15000, -0.05, 680000],
-        ['Cloud & GPU Compute Infrastructure', 280000, 260000, -20000, -0.08, 1100000],
-        ['Engineering & Product R&D', 520000, 510000, -10000, 0.15, 2150000],
-        ['Sales & Growth Marketing', 310000, 325000, 15000, 0.18, 1350000],
-        ['Operations & General Admin', 140000, 135000, -5000, 0.05, 560000],
+        ['Core Platform Operations', 125000, 148000, 23000, 0.184, 592000],
+        ['Product & Engineering R&D', 85000, 92000, 7000, 0.082, 368000],
+        ['Infrastructure & Compute', 42000, 39000, -3000, -0.071, 156000],
+        ['Growth & Distribution', 64000, 78000, 14000, 0.218, 312000],
+        ['Customer Success & Support', 31000, 34500, 3500, 0.112, 138000],
+        ['General & Administrative', 24000, 23500, -500, -0.021, 94000],
       ],
     };
   }
 
-  // Document-style formats (docx, pdf, html, md, tex, json)
   return {
     title: cleanTitle,
-    subtitle: 'Confidential Advisory & Strategic Documentation',
-    category: blueprint !== 'auto' ? blueprint.toUpperCase() : 'EXECUTIVE BRIEF',
-    summary:
-      'This document synthesizes strategic priorities, unit economics, and operational action items. Findings underscore strong competitive advantages and disciplined resource allocation across high-leverage deliverables.',
+    subtitle: 'Comprehensive Analysis, Structured Findings & Action Plan',
+    category: blueprint !== 'auto' ? blueprint.toUpperCase() : 'EXECUTIVE DOCUMENT',
+    summary: `This document provides a structured analysis and actionable framework for ${cleanTitle}, covering key findings, comparative benchmarks, and strategic recommendations.`,
     sections: [
       {
-        title: '1. Executive Overview & Context',
-        content:
-          'In evaluating current ecosystem dynamics, strategic agility and execution speed remain paramount. This briefing synthesizes operational milestones, resource requirements, and risk mitigation protocols established to guarantee predictable execution.',
+        title: '1. Executive Overview & Scope',
+        content: `A thorough evaluation of ${cleanTitle} highlights critical opportunities for optimization, structural clarity, and measurable execution. The sections below establish the foundational principles and operational requirements.`,
         bullets: [
-          'High alignment between product roadmap velocity and customer demand drivers.',
-          'Sustainable margin structure supported by streamlined automation architectures.',
-          'Proactive compliance and security governance integrated across all delivery stages.',
+          'Clear alignment between core objectives and measurable deliverables.',
+          'Structured methodology designed for scalability and long-term maintainability.',
+          'Proactive risk identification and quality assurance built into each stage.',
         ],
       },
       {
-        title: '2. Comparative Milestone Analysis',
-        content: 'The following structured benchmark highlights critical delivery metrics against baseline expectations:',
+        title: '2. Structured Benchmark & Milestone Breakdown',
+        content: 'The table below summarizes the primary workstreams, ownership, timelines, and status indicators:',
         table: {
-          headers: ['Workstream', 'Lead', 'Target Date', 'Status', 'Risk Level'],
+          headers: ['Phase / Workstream', 'Owner', 'Timeline', 'Priority', 'Status'],
           rows: [
-            ['Core Infrastructure Modernization', 'Engineering', 'Q1 End', 'On Track', 'Low'],
-            ['Enterprise Data Security Audit', 'SecOps', 'Q2 Mid', 'In Review', 'Low'],
-            ['Revenue Automation Pipeline', 'Growth', 'Q1 Mid', 'Completed', 'Minimal'],
-            ['Partner API Gateway Integration', 'Product', 'Q2 End', 'Planning', 'Medium'],
+            ['Phase 1: Research & Architecture', 'Core Team', 'Weeks 1-2', 'High', 'Completed'],
+            ['Phase 2: Core Implementation', 'Engineering', 'Weeks 3-6', 'Critical', 'In Progress'],
+            ['Phase 3: Validation & QA Testing', 'Quality Assurance', 'Weeks 7-8', 'High', 'Scheduled'],
+            ['Phase 4: Production Rollout', 'Operations', 'Week 9+', 'High', 'Planned'],
           ],
         },
       },
       {
-        title: '3. Strategic Conclusions & Directives',
-        content:
-          'Sustained execution across these initiatives will cement platform leadership. Leadership mandates rigorous weekly telemetry checkpoints, proactive risk triage, and uncompromised focus on core client outcomes.',
+        title: '3. Strategic Recommendations & Next Steps',
+        content: 'To maximize impact and maintain momentum, stakeholders should prioritize the following immediate actions:',
         bullets: [
-          'Maintain bi-weekly sprint velocity telemetry reviews.',
-          'Enforce strict code audit and automated regression testing standards.',
-          'Consolidate operational vendor contracts to optimize unit economics.',
+          'Review and ratify the milestone schedule and resource allocations.',
+          'Establish weekly progress checkpoints against the quantitative benchmarks.',
+          'Document key learnings and iterate based on real-world performance data.',
         ],
       },
     ],
@@ -155,83 +150,100 @@ function getFallbackData(type, userPrompt, themeKey, blueprint = 'auto') {
 function buildSystemPrompt(docType, blueprint = 'auto') {
   const blueprintGuidance =
     blueprint && blueprint !== 'auto'
-      ? `\nBlueprint / Document Archetype: "${blueprint}". Tailor all terminology, metrics, headings, and structure specifically to an authentic ${blueprint} document.`
+      ? `\nDocument Archetype: "${blueprint}". Tailor all content, terminology, metrics, and structure specifically to an authentic ${blueprint}.`
       : '';
 
   if (docType === 'pptx') {
-    return `You are an elite Silicon Valley presentation designer creating an executive-grade PowerPoint deck structure (JSON format).${blueprintGuidance}
-Design 5 to 6 slides with modern, punchy narrative flow:
+    return `You are an elite presentation designer creating an executive-grade PowerPoint deck structure in JSON format.${blueprintGuidance}
+Write rich, specific, real-world content directly tailored to the user's topic (never use generic placeholders).
+Design 5 to 6 slides:
 - Slide 1: Hero title slide (type: "title", tag, title, subtitle)
-- Slide 2: 3 Big bold KPIs / Metrics (type: "metrics", tag, title, subtitle, metrics: [{ value, label, description }])
-- Slide 3: 3 structured feature/pillar cards (type: "cards", tag, title, subtitle, cards: [{ title, description, bullets: [] }])
-- Slide 4+: Process flow, detailed takeaways, or conclusions (type: "bullets", tag, title, subtitle, bullets: [], takeaway)
+- Slide 2: 3 Key Metrics / KPIs (type: "metrics", tag, title, subtitle, metrics: [{ value, label, description }])
+- Slide 3: 3 Core Pillars / Feature Cards (type: "cards", tag, title, subtitle, cards: [{ title, description, bullets: ["point 1", "point 2"] }])
+- Slide 4: Deep-dive analysis or architecture (type: "cards" or "bullets", tag, title, subtitle, bullets: [], takeaway)
+- Slide 5: Roadmap / Conclusions / Next Steps (type: "bullets", tag, title, subtitle, bullets: [], takeaway)
 
-CRITICAL INSTRUCTIONS:
-- Return ONLY valid raw JSON with no markdown formatting, no \`\`\`json wrappers.
-- The JSON must follow this exact structure:
+CRITICAL: Return ONLY valid raw JSON with no markdown fences:
 {
-  "title": "Main Presentation Title",
-  "subtitle": "Clear Executive Subtitle",
-  "category": "Deck Category",
+  "title": "Specific Presentation Title",
+  "subtitle": "Specific Executive Subtitle",
+  "category": "Category Tag",
   "slides": [
-    { "type": "title", "tag": "Tag", "title": "Title", "subtitle": "Subtitle" },
-    { "type": "metrics", "tag": "KPIs", "title": "Market Impact", "subtitle": "Sub", "metrics": [{ "value": "$10M+", "label": "Revenue", "description": "Details" }] },
-    { "type": "cards", "tag": "Pillars", "title": "Key Features", "subtitle": "Sub", "cards": [{ "title": "Card 1", "description": "Text", "bullets": ["A", "B"] }] },
-    { "type": "bullets", "tag": "Roadmap", "title": "Action Plan", "subtitle": "Sub", "bullets": ["Action 1", "Action 2"], "takeaway": "Key Conclusion" }
+    { "type": "title", "tag": "Tag", "title": "Slide Title", "subtitle": "Detailed subtitle" },
+    { "type": "metrics", "tag": "KPIs", "title": "Key Metrics", "subtitle": "Context", "metrics": [{ "value": "99.9%", "label": "Metric Name", "description": "Specific explanation" }] },
+    { "type": "cards", "tag": "Pillars", "title": "Core Pillars", "subtitle": "Context", "cards": [{ "title": "Pillar 1", "description": "Explanation", "bullets": ["Point A", "Point B"] }] },
+    { "type": "bullets", "tag": "Roadmap", "title": "Execution Plan", "subtitle": "Context", "bullets": ["Detailed step 1", "Detailed step 2", "Detailed step 3", "Detailed step 4"], "takeaway": "Key bottom-line takeaway" }
   ]
 }`;
   }
 
   if (docType === 'xlsx' || docType === 'csv') {
-    return `You are an elite financial modeling and data engineering expert creating a structured spreadsheet dataset (JSON format).${blueprintGuidance}
-Create clean, realistic quantitative data with professional column headers and numeric values:
-- Use raw numbers (e.g. 150000, not text "$150k") for quantitative columns so Excel formulas can calculate sums.
-- Provide 6 to 12 detailed rows.
-- Return ONLY valid raw JSON with no markdown formatting, no \`\`\`json wrappers.
-
-The JSON must follow this exact structure:
+    return `You are an elite financial modeling and data analysis expert creating a realistic spreadsheet in JSON format.${blueprintGuidance}
+Write specific, realistic line items and numbers directly tailored to the user's request:
+- Use raw numbers (e.g. 150000, not "$150k") for numeric columns so Excel =SUM() formulas work automatically.
+- Provide 7 to 12 detailed rows.
+- Return ONLY valid raw JSON with no markdown fences:
 {
-  "title": "Model Title",
-  "subtitle": "Model Purpose and Scope",
-  "sheetName": "Financial Model",
-  "headers": ["Line Item", "Q1 Actual", "Q2 Budget", "Variance", "Growth Rate", "FY Projected"],
+  "title": "Specific Model Title",
+  "subtitle": "Model Scope and Description",
+  "sheetName": "Data Sheet",
+  "headers": ["Line Item", "Q1", "Q2", "Q3", "Q4", "Total / Projected"],
   "rows": [
-    ["Enterprise Subscription Revenue", 1200000, 1350000, 150000, 0.25, 5400000],
-    ["Cloud Infrastructure Cost", 320000, 290000, -30000, -0.09, 1180000]
+    ["Specific Row 1", 120000, 135000, 150000, 175000, 580000]
   ]
 }`;
   }
 
-  // docx, pdf, html, md, tex, json
-  return `You are an elite strategy consultant, technical writer, and legal documentation specialist writing a comprehensive publication-grade document (JSON format).${blueprintGuidance}
-Structure the document with an executive summary, 3 to 5 thorough sections, actionable bullet points, and at least one structured data table.
-- Return ONLY valid raw JSON with no markdown formatting, no \`\`\`json wrappers.
-
-The JSON must follow this exact structure:
+  return `You are an elite strategy consultant, researcher, and technical author writing a comprehensive, publication-grade document in JSON format.${blueprintGuidance}
+Write thorough, specific, well-researched content directly addressing the user's topic with an executive summary, 4 detailed sections, bullet points, and a structured data table.
+- Return ONLY valid raw JSON with no markdown fences:
 {
-  "title": "Document Title",
-  "subtitle": "Document Subtitle and Purpose",
-  "category": "Category / Tag",
-  "summary": "High-impact 2-3 sentence executive summary.",
+  "title": "Specific Document Title",
+  "subtitle": "Clear Subtitle and Scope",
+  "category": "Document Category",
+  "summary": "Thorough 3-sentence executive summary of the topic.",
   "sections": [
     {
       "title": "1. Section Heading",
-      "content": "Detailed explanatory paragraph.",
-      "bullets": ["Key finding 1", "Key finding 2"]
+      "content": "Detailed, substantive multi-sentence paragraph explaining this section in depth.",
+      "bullets": ["Specific point 1", "Specific point 2", "Specific point 3"]
     },
     {
-      "title": "2. Benchmark Data",
-      "content": "Table analysis overview.",
+      "title": "2. Comparative Breakdown",
+      "content": "Analysis introducing the structured table below.",
       "table": {
-        "headers": ["Milestone", "Owner", "Target Date", "Status"],
+        "headers": ["Column 1", "Column 2", "Column 3", "Column 4"],
         "rows": [
-          ["Alpha Release", "Engineering", "Oct 15", "Completed"],
-          ["SOC2 Certification", "Security", "Nov 30", "On Track"]
+          ["Row 1A", "Row 1B", "Row 1C", "Row 1D"],
+          ["Row 2A", "Row 2B", "Row 2C", "Row 2D"]
         ]
       }
     }
   ]
 }`;
+}
+
+/**
+ * Extracts a JSON object from raw LLM output even if wrapped in markdown or conversational text
+ */
+function parseStructuredJSON(rawText) {
+  if (!rawText || typeof rawText !== 'string') return null;
+  let cleaned = rawText.trim();
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.replace(/^```json\s*/i, '').replace(/\s*```$/, '');
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```\w*\s*/, '').replace(/\s*```$/, '');
+  }
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+    }
+  }
+  return null;
 }
 
 /**
@@ -253,39 +265,35 @@ async function generateOfficeDocument({
   const normalizedType = String(docType || 'pptx').toLowerCase();
   let structuredData = null;
 
-  // 1. Try LLM synthesis
+  // 1. Synthesize real topic-specific structure via active LLM provider
   if (agentBrain && typeof agentBrain.generateAcademicLLM === 'function') {
     try {
-      const systemPrompt = buildSystemPrompt(normalizedType, blueprint);
-      const userPrompt = `User Document Request:\n"${cleanPrompt}"\n\nReturn strictly valid JSON:`;
+      // Ensure agentBrain has the latest loaded config (API keys & active provider)
+      if (config && Object.keys(config).length > 0) {
+        agentBrain.activeConfig = { ...(agentBrain.activeConfig || {}), ...config };
+      }
 
-      const llmPromise = agentBrain.generateAcademicLLM(systemPrompt, userPrompt, 2200);
+      const systemPrompt = buildSystemPrompt(normalizedType, blueprint);
+      const userPrompt = `Create a complete, detailed ${normalizedType.toUpperCase()} document for:\n"${cleanPrompt}"\n\nReturn strictly valid JSON:`;
+
+      const llmPromise = agentBrain.generateAcademicLLM(systemPrompt, userPrompt, 3200);
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('LLM synthesis timed out')), 24000)
+        setTimeout(() => reject(new Error('LLM synthesis timed out')), 30000)
       );
 
       const rawText = await Promise.race([llmPromise, timeoutPromise]);
-      if (rawText && typeof rawText === 'string') {
-        let cleaned = rawText.trim();
-        if (cleaned.startsWith('```json')) {
-          cleaned = cleaned.replace(/^```json\s*/i, '').replace(/\s*```$/, '');
-        } else if (cleaned.startsWith('```')) {
-          cleaned = cleaned.replace(/^```\w*\s*/, '').replace(/\s*```$/, '');
-        }
-
-        structuredData = JSON.parse(cleaned);
-      }
+      structuredData = parseStructuredJSON(rawText);
     } catch (err) {
-      console.warn('[OfficeService] LLM JSON generation failed, using intelligent fallback:', err.message);
+      console.warn('[OfficeService] LLM JSON synthesis warning, using fallback:', err.message);
     }
   }
 
-  // 2. Fallback to rich default data if LLM was unavailable or returned non-JSON
+  // 2. Fallback if no LLM key is configured or JSON failed
   if (!structuredData || typeof structuredData !== 'object') {
     structuredData = getFallbackData(normalizedType, cleanPrompt, theme, blueprint);
   }
 
-  // 3. Compile binary/text file using open-source generator
+  // 3. Compile real binary/text file using open-source generators
   let buffer = null;
   let fileExt = normalizedType;
   let textPreview = null;
@@ -306,10 +314,6 @@ async function generateOfficeDocument({
     buffer = generateCSV(structuredData);
     fileExt = 'csv';
     textPreview = buffer.toString('utf8');
-  } else if (normalizedType === 'html') {
-    buffer = generateHTML(structuredData, theme);
-    fileExt = 'html';
-    textPreview = buffer.toString('utf8');
   } else if (normalizedType === 'md') {
     buffer = generateMarkdown(structuredData);
     fileExt = 'md';
@@ -317,6 +321,10 @@ async function generateOfficeDocument({
   } else if (normalizedType === 'tex') {
     buffer = generateLaTeX(structuredData);
     fileExt = 'tex';
+    textPreview = buffer.toString('utf8');
+  } else if (normalizedType === 'html') {
+    buffer = generateHTML(structuredData, theme);
+    fileExt = 'html';
     textPreview = buffer.toString('utf8');
   } else if (normalizedType === 'json') {
     const jsonString = JSON.stringify(structuredData, null, 2);
