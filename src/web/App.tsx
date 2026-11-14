@@ -1158,7 +1158,7 @@ export const App: React.FC = () => {
 
         {/* Tab Panels */}
         <main id="grokki-main-scroll" className={`flex-1 min-h-0 ${
-          activeTab === 'chat' || activeTab === 'companion' || activeTab === 'images'
+          activeTab === 'chat' || activeTab === 'companion' || activeTab === 'images' || activeTab === 'office'
             ? 'h-full flex flex-col relative bg-[#f7f7fa] dark:bg-[#070709] overflow-hidden p-0'
             : 'overflow-y-auto px-8 py-6'
         }`}>
@@ -1198,7 +1198,7 @@ export const App: React.FC = () => {
           <div id="grokki-tab-content" className={
             activeTab === 'chat'
               ? 'hidden'
-              : activeTab === 'companion' || activeTab === 'images'
+              : activeTab === 'companion' || activeTab === 'images' || activeTab === 'office'
                 ? 'w-full h-full flex-1 min-h-0 flex flex-col'
                 : 'w-full flex flex-col'
           }>
