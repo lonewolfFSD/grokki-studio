@@ -4046,14 +4046,24 @@ ipcMain.handle('app:save-image-file', async (event, payload = {}) => {
     const defaultFileName = (payload.defaultName || `grokki_${Date.now()}.png`).replace(/[/\\?%*:|"<>]/g, '_');
     const defaultPath = path.join(downloadsFolder, defaultFileName);
 
-    const res = await dialog.showSaveDialog({
-      title: 'Save Image',
-      defaultPath,
-      filters: [
-        { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] },
-        { name: 'All Files', extensions: ['*'] },
-      ],
-    });
+    const parentWin = BrowserWindow.getFocusedWindow() || mainWindow;
+    const res = await (parentWin && !parentWin.isDestroyed()
+      ? dialog.showSaveDialog(parentWin, {
+          title: 'Save Image',
+          defaultPath,
+          filters: [
+            { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        })
+      : dialog.showSaveDialog({
+          title: 'Save Image',
+          defaultPath,
+          filters: [
+            { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        }));
 
     if (res.canceled || !res.filePath) {
       return { canceled: true };
@@ -4063,11 +4073,11 @@ ipcMain.handle('app:save-image-file', async (event, payload = {}) => {
     const url = payload.dataUrl || payload.url;
 
     if (url && url.startsWith('data:')) {
-      const match = url.match(/^data:image\/\w+;base64,(.+)$/);
-      const b64 = match ? match[1] : url.split(',')[1];
+      const commaIdx = url.indexOf(',');
+      const b64 = (commaIdx >= 0 ? url.slice(commaIdx + 1) : url).trim();
       buffer = Buffer.from(b64, 'base64');
     } else if (payload.base64Data) {
-      buffer = Buffer.from(payload.base64Data, 'base64');
+      buffer = Buffer.from(payload.base64Data.trim(), 'base64');
     } else if (url && url.startsWith('http')) {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`HTTP error ${response.status}`);

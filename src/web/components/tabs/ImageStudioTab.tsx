@@ -153,20 +153,20 @@ const ratioLabel = (ratio: AspectRatio, text: string) => (
 );
 
 const ENGINE_OPTIONS: GlideSelectOption[] = [
-  // Nano Banana & Imagen 3 (Official Google Gemini API - Pure Studio Quality, Zero Watermarks)
+  // Nano Banana Models (Official Google Gemini Image API - 100% Studio Quality, Zero Watermark)
   { value: 'google:nano-banana-pro',                          label: modelLabel(BananaLogo,     'Nano Banana Pro'), tag: 'Google'     },
-  { value: 'google:nano-banana-fast',                         label: modelLabel(BananaLogo,     'Nano Banana Fast'), tag: 'Google'     },
-  { value: 'google:imagen-3.0-generate-002',                  label: modelLabel(GeminiLogo,     'Imagen 3 Ultra'),  tag: 'Google'     },
+  { value: 'google:nano-banana-2',                            label: modelLabel(BananaLogo,     'Nano Banana 2'),   tag: 'Google'     },
+  { value: 'google:nano-banana',                              label: modelLabel(BananaLogo,     'Nano Banana'),     tag: 'Google'     },
+  // Free Community (Clean Zero Watermark FLUX & SDXL)
+  { value: 'pollinations:flux',                               label: modelLabel(FluxLogo,       'FLUX.1 Clean'),    tag: 'Free'       },
+  { value: 'pollinations:turbo',                              label: modelLabel(StabilityLogo,  'SDXL Turbo'),      tag: 'Free'       },
+  { value: 'pollinations:flux-anime',                         label: modelLabel(FluxLogo,       'FLUX Anime'),      tag: 'Free'       },
   // Cloudflare Workers AI (Free FLUX.1 Schnell)
-  { value: 'cloudflare:@cf/black-forest-labs/flux-1-schnell', label: modelLabel(CloudflareLogo, 'FLUX.1 Schnell'),  tag: 'Cloudflare' },
+  { value: 'cloudflare:@cf/black-forest-labs/flux-1-schnell', label: modelLabel(CloudflareLogo, 'FLUX Schnell'),    tag: 'Cloudflare' },
   // Local Ollama (Offline / Native)
   { value: 'ollama:x/z-image-turbo',                          label: modelLabel(OllamaLogo,     'Z-Image Turbo'),   tag: 'Local'      },
   // OpenAI DALL·E 3
   { value: 'openai:dall-e-3',                                 label: modelLabel(OpenAILogo,     'DALL·E 3'),        tag: 'OpenAI'     },
-  // Free Community (SDXL / FLUX)
-  { value: 'pollinations:turbo',                              label: modelLabel(StabilityLogo,  'SDXL Turbo'),      tag: 'Free'       },
-  { value: 'pollinations:flux',                               label: modelLabel(FluxLogo,       'FLUX.1 Dev'),      tag: 'Free'       },
-  { value: 'pollinations:flux-anime',                         label: modelLabel(FluxLogo,       'FLUX Anime'),      tag: 'Free'       },
 ];
 
 const ASPECT_OPTIONS: GlideSelectOption[] = [
@@ -317,7 +317,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
     const { width, height } = ASPECT_DIMS[ar];
     const seed = Math.floor(Math.random() * 9_000_000) + 1_000_000;
 
-    // 1. Google Imagen 3 (Official API)
+    // 1. Google Nano Banana (Official Gemini Image Generation API - Pure Studio Quality, Zero Watermarks)
     if (provider === 'google') {
       const key = (
         geminiKeyInput ||
@@ -331,35 +331,72 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
         throw new Error('Please configure your Gemini API Key in Settings to use Nano Banana.');
       }
 
-      const googleModel = modelName.includes('fast')
-        ? 'imagen-3.0-fast-generate-001'
-        : 'imagen-3.0-generate-002';
+      // Map to official Gemini image generation models
+      let targetModel = 'gemini-2.5-flash-image';
+      if (modelName === 'nano-banana-pro') {
+        targetModel = 'gemini-3-pro-image-preview';
+      } else if (modelName === 'nano-banana-2') {
+        targetModel = 'gemini-3.1-flash-image-preview';
+      } else {
+        targetModel = 'gemini-2.5-flash-image';
+      }
 
       const finalPrompt = enh
-        ? `masterpiece, ultra-detailed, 8k, professional lighting, photorealistic: ${promptText}`
+        ? `masterpiece, ultra-detailed, 8k, professional cinematic lighting: ${promptText}`
         : promptText;
 
+      const payload = {
+        contents: [
+          {
+            parts: [{ text: finalPrompt }],
+          },
+        ],
+        generationConfig: {
+          responseModalities: ['TEXT', 'IMAGE'],
+          imageConfig: {
+            aspectRatio: ar,
+          },
+        },
+      };
+
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${googleModel}:predict?key=${key}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${key}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            instances: [{ prompt: finalPrompt }],
-            parameters: { sampleCount: 1, aspectRatio: ar, outputMimeType: 'image/jpeg' },
-          }),
+          body: JSON.stringify(payload),
         }
       );
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || `Google Imagen error (${res.status}).`);
+        const rawMsg = err.error?.message || `Google API status ${res.status}`;
+        if (
+          res.status === 429 ||
+          rawMsg.toLowerCase().includes('quota') ||
+          rawMsg.toLowerCase().includes('resource_exhausted')
+        ) {
+          throw new Error(
+            'Google Nano Banana quota exceeded on this Gemini API key (Free Tier keys currently have 0 image quota). Switch to FLUX.1 Clean or Free SDXL below.'
+          );
+        }
+        throw new Error(rawMsg);
       }
 
       const data = await res.json();
-      const b64 = data.predictions?.[0]?.bytesBase64Encoded;
-      if (!b64) throw new Error('Nano Banana returned no image. Try adjusting your prompt.');
-      return { finalImageUrl: `data:image/jpeg;base64,${b64}`, seed };
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      const imgPart = parts.find((p: any) => p.inlineData?.data);
+
+      if (!imgPart?.inlineData?.data) {
+        const textPart = parts.find((p: any) => p.text);
+        if (textPart?.text) {
+          throw new Error(`Nano Banana: ${textPart.text.slice(0, 150)}`);
+        }
+        throw new Error('Nano Banana returned no image data. Try adjusting your prompt.');
+      }
+
+      const mime = imgPart.inlineData.mimeType || 'image/png';
+      return { finalImageUrl: `data:${mime};base64,${imgPart.inlineData.data}`, seed };
     }
 
     // 2. Cloudflare Workers AI (FLUX.1 Schnell)
@@ -407,18 +444,35 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
       return { finalImageUrl: dataUrl, seed };
     }
 
-    // 3. Pollinations Free Provider (Instant, No Key Needed)
+    // 3. Pollinations Free Provider (Clean, No Watermark, Instant)
     if (provider === 'pollinations') {
       const enc = encodeURIComponent(promptText.trim());
       const cb = `${Date.now()}`;
-      const imgUrl = `https://image.pollinations.ai/prompt/${enc}?model=${modelName}&width=${width}&height=${height}&seed=${seed}&nologo=true&private=true&enhance=${enh}&cb=${cb}`;
+      const validModel = modelName === 'turbo' ? 'turbo' : modelName === 'flux-anime' ? 'flux-anime' : 'flux';
+      const imgUrl = `https://image.pollinations.ai/prompt/${enc}?model=${validModel}&width=${width}&height=${height}&seed=${seed}&nologo=true&nofeed=true&private=true&enhance=${enh}&cb=${cb}`;
+
+      // Convert to Data URL so it is stored permanently in memory/disk and downloads natively with zero network issues
+      try {
+        const fetchRes = await fetch(imgUrl);
+        if (fetchRes.ok) {
+          const blob = await fetchRes.blob();
+          const reader = new FileReader();
+          const b64Promise = new Promise<string>((resolve, reject) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+          });
+          reader.readAsDataURL(blob);
+          const dataUrl = await b64Promise;
+          return { finalImageUrl: dataUrl, seed };
+        }
+      } catch {}
 
       await new Promise<void>((resolve, reject) => {
         const img = new Image();
         img.src = imgUrl;
         img.onload = () => resolve();
         img.onerror = () =>
-          reject(new Error('Image failed to load from Pollinations. Service may be temporarily rate-limited.'));
+          reject(new Error('Image failed to load. The free generation service may be briefly rate-limited; retry in a few seconds.'));
       });
 
       return { finalImageUrl: imgUrl, seed };
@@ -856,12 +910,13 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                               <button
                                 type="button"
                                 onClick={() => {
-                                  handleEngineChange('pollinations:turbo');
-                                  handleGenerate(item.prompt, 'pollinations:turbo');
+                                  handleEngineChange('pollinations:flux');
+                                  handleGenerate(item.prompt, 'pollinations:flux');
                                 }}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700/50 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors cursor-pointer"
                               >
-                                Try free SDXL Turbo
+                                <Sparkles className="w-3 h-3" />
+                                Try Free FLUX.1 Clean
                               </button>
                             )}
                           </div>
