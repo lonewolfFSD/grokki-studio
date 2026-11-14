@@ -1143,7 +1143,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                     }`}
                   >
                     <Sparkles className="w-3 h-3" />
-                    <span className="hidden sm:inline">Enhance</span>
+                    
                   </button>
                 </WarmTooltip>
               </div>

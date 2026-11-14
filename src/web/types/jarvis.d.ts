@@ -653,7 +653,7 @@ export interface JarvisAPI {
   }>;
   downloadUpdate?: (data: { assetId?: number; fileName?: string; assetSize?: number; downloadUrl?: string }) => Promise<{ success: boolean; downloadedPath?: string; error?: string }>;
   saveImageFile?: (data: { dataUrl?: string; url?: string; base64Data?: string; defaultName?: string }) => Promise<{ success?: boolean; canceled?: boolean; filePath?: string; error?: string }>;
-  generateOfficeDoc?: (payload: { prompt: string; docType: 'pptx' | 'docx' | 'xlsx'; theme?: string }) => Promise<{ success: boolean; fileName?: string; filePath?: string; fileType?: string; theme?: string; base64Data?: string; structuredData?: any; error?: string }>;
+  generateOfficeDoc?: (payload: { prompt: string; docType: 'pptx' | 'docx' | 'xlsx' | 'pdf' | 'csv' | 'html' | 'md' | 'tex' | 'json' | string; theme?: string; blueprint?: string }) => Promise<{ success: boolean; fileName?: string; filePath?: string; fileType?: string; theme?: string; blueprint?: string; base64Data?: string; textPreview?: string; structuredData?: any; error?: string }>;
   openOfficeFile?: (filePath: string) => Promise<{ success: boolean; error?: string }>;
   saveOfficeFile?: (payload: { base64Data?: string; filePath?: string; defaultName?: string }) => Promise<{ success?: boolean; canceled?: boolean; filePath?: string; error?: string }>;
   onUpdateDownloadProgress?: (callback: (progress: { percent: number; downloaded: number; total: number }) => void) => () => void;

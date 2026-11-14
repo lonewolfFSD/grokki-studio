@@ -7,24 +7,32 @@ const {
   generatePresentation,
   generateDocument,
   generateSpreadsheet,
+  generateCSV,
+  generateMarkdown,
+  generateLaTeX,
+  generateHTML,
+  generatePDF,
 } = require('./office_generator');
 
 /**
  * Creates high-quality fallback data if LLM call times out or returns malformed JSON
  */
-function getFallbackData(type, userPrompt, themeKey) {
-  const p = (userPrompt || '').toLowerCase();
+function getFallbackData(type, userPrompt, themeKey, blueprint = 'auto') {
+  const cleanTitle =
+    userPrompt && userPrompt.length > 8
+      ? userPrompt.slice(0, 56).replace(/\n/g, ' ')
+      : 'Executive Strategic Overview';
 
   if (type === 'pptx') {
     return {
-      title: userPrompt.length > 8 ? userPrompt.slice(0, 50) : 'Executive Strategic Overview',
+      title: cleanTitle,
       subtitle: 'Comprehensive Strategy, Key Metrics & Tactical Roadmap',
-      category: 'Strategic Deck',
+      category: blueprint !== 'auto' ? blueprint.toUpperCase() : 'STRATEGIC DECK',
       slides: [
         {
           type: 'title',
           tag: 'Confidential Strategy',
-          title: userPrompt.length > 8 ? userPrompt.slice(0, 60) : 'Executive Strategic Overview',
+          title: cleanTitle,
           subtitle: 'A high-impact presentation outlining market positioning, unit economics, and operational milestones.',
         },
         {
@@ -78,9 +86,9 @@ function getFallbackData(type, userPrompt, themeKey) {
     };
   }
 
-  if (type === 'xlsx') {
+  if (type === 'xlsx' || type === 'csv') {
     return {
-      title: userPrompt.length > 8 ? userPrompt.slice(0, 45) : 'Financial & Operational Model',
+      title: cleanTitle,
       subtitle: 'Q1-Q4 Financial Performance, Variance Analysis & Growth Forecast',
       sheetName: 'Financial Forecast',
       headers: ['Department / Line Item', 'Q1 Target', 'Q1 Actual', 'Variance', 'Growth %', 'FY Projected'],
@@ -96,11 +104,11 @@ function getFallbackData(type, userPrompt, themeKey) {
     };
   }
 
-  // DOCX Fallback
+  // Document-style formats (docx, pdf, html, md, tex, json)
   return {
-    title: userPrompt.length > 8 ? userPrompt.slice(0, 50) : 'Executive Briefing & Strategic Report',
-    subtitle: 'Confidential Advisory Documentation',
-    category: 'Strategic Brief',
+    title: cleanTitle,
+    subtitle: 'Confidential Advisory & Strategic Documentation',
+    category: blueprint !== 'auto' ? blueprint.toUpperCase() : 'EXECUTIVE BRIEF',
     summary:
       'This document synthesizes strategic priorities, unit economics, and operational action items. Findings underscore strong competitive advantages and disciplined resource allocation across high-leverage deliverables.',
     sections: [
@@ -142,15 +150,20 @@ function getFallbackData(type, userPrompt, themeKey) {
 }
 
 /**
- * Builds the LLM system prompt based on document type
+ * Builds the LLM system prompt based on document type and blueprint
  */
-function buildSystemPrompt(docType) {
+function buildSystemPrompt(docType, blueprint = 'auto') {
+  const blueprintGuidance =
+    blueprint && blueprint !== 'auto'
+      ? `\nBlueprint / Document Archetype: "${blueprint}". Tailor all terminology, metrics, headings, and structure specifically to an authentic ${blueprint} document.`
+      : '';
+
   if (docType === 'pptx') {
-    return `You are an elite Silicon Valley presentation designer creating an executive-grade PowerPoint deck structure (JSON format).
-Design slides with modern, punchy narrative flow:
+    return `You are an elite Silicon Valley presentation designer creating an executive-grade PowerPoint deck structure (JSON format).${blueprintGuidance}
+Design 5 to 6 slides with modern, punchy narrative flow:
 - Slide 1: Hero title slide (type: "title", tag, title, subtitle)
 - Slide 2: 3 Big bold KPIs / Metrics (type: "metrics", tag, title, subtitle, metrics: [{ value, label, description }])
-- Slide 3: 2 or 3 structured feature cards (type: "cards", tag, title, subtitle, cards: [{ title, description, bullets: [] }])
+- Slide 3: 3 structured feature/pillar cards (type: "cards", tag, title, subtitle, cards: [{ title, description, bullets: [] }])
 - Slide 4+: Process flow, detailed takeaways, or conclusions (type: "bullets", tag, title, subtitle, bullets: [], takeaway)
 
 CRITICAL INSTRUCTIONS:
@@ -169,11 +182,11 @@ CRITICAL INSTRUCTIONS:
 }`;
   }
 
-  if (docType === 'xlsx') {
-    return `You are an elite financial modeling and Excel expert creating a structured spreadsheet (JSON format).
-Create clean, realistic financial/operational data with professional column headers and numeric values:
-- Use realistic numbers (e.g. 150000, not text "$150k") for quantitative columns so formulas can calculate sums.
-- Provide 5 to 10 detailed rows.
+  if (docType === 'xlsx' || docType === 'csv') {
+    return `You are an elite financial modeling and data engineering expert creating a structured spreadsheet dataset (JSON format).${blueprintGuidance}
+Create clean, realistic quantitative data with professional column headers and numeric values:
+- Use raw numbers (e.g. 150000, not text "$150k") for quantitative columns so Excel formulas can calculate sums.
+- Provide 6 to 12 detailed rows.
 - Return ONLY valid raw JSON with no markdown formatting, no \`\`\`json wrappers.
 
 The JSON must follow this exact structure:
@@ -189,9 +202,9 @@ The JSON must follow this exact structure:
 }`;
   }
 
-  // docx
-  return `You are an elite corporate strategy consultant and legal documentation specialist writing an executive Word Document (JSON format).
-Structure the document with executive summary, clear sections, bullet points, and at least one structured table.
+  // docx, pdf, html, md, tex, json
+  return `You are an elite strategy consultant, technical writer, and legal documentation specialist writing a comprehensive publication-grade document (JSON format).${blueprintGuidance}
+Structure the document with an executive summary, 3 to 5 thorough sections, actionable bullet points, and at least one structured data table.
 - Return ONLY valid raw JSON with no markdown formatting, no \`\`\`json wrappers.
 
 The JSON must follow this exact structure:
@@ -224,24 +237,31 @@ The JSON must follow this exact structure:
 /**
  * Main orchestrator for Office Document generation
  */
-async function generateOfficeDocument({ prompt, docType = 'pptx', theme = 'midnight', config = {}, agentBrain = null }) {
+async function generateOfficeDocument({
+  prompt,
+  docType = 'pptx',
+  theme = 'midnight',
+  blueprint = 'auto',
+  config = {},
+  agentBrain = null,
+}) {
   const cleanPrompt = (prompt || '').trim();
   if (!cleanPrompt) {
     throw new Error('Please enter a description for the document you want to create.');
   }
 
+  const normalizedType = String(docType || 'pptx').toLowerCase();
   let structuredData = null;
 
   // 1. Try LLM synthesis
   if (agentBrain && typeof agentBrain.generateAcademicLLM === 'function') {
     try {
-      const systemPrompt = buildSystemPrompt(docType);
+      const systemPrompt = buildSystemPrompt(normalizedType, blueprint);
       const userPrompt = `User Document Request:\n"${cleanPrompt}"\n\nReturn strictly valid JSON:`;
 
-      // 20-second timeout so user is never frozen
-      const llmPromise = agentBrain.generateAcademicLLM(systemPrompt, userPrompt, 1800);
+      const llmPromise = agentBrain.generateAcademicLLM(systemPrompt, userPrompt, 2200);
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('LLM synthesis timed out')), 22000)
+        setTimeout(() => reject(new Error('LLM synthesis timed out')), 24000)
       );
 
       const rawText = await Promise.race([llmPromise, timeoutPromise]);
@@ -253,7 +273,6 @@ async function generateOfficeDocument({ prompt, docType = 'pptx', theme = 'midni
           cleaned = cleaned.replace(/^```\w*\s*/, '').replace(/\s*```$/, '');
         }
 
-        // Parse JSON
         structuredData = JSON.parse(cleaned);
       }
     } catch (err) {
@@ -263,30 +282,55 @@ async function generateOfficeDocument({ prompt, docType = 'pptx', theme = 'midni
 
   // 2. Fallback to rich default data if LLM was unavailable or returned non-JSON
   if (!structuredData || typeof structuredData !== 'object') {
-    structuredData = getFallbackData(docType, cleanPrompt, theme);
+    structuredData = getFallbackData(normalizedType, cleanPrompt, theme, blueprint);
   }
 
-  // 3. Compile binary file using open-source generator
+  // 3. Compile binary/text file using open-source generator
   let buffer = null;
-  let fileExt = 'pptx';
+  let fileExt = normalizedType;
+  let textPreview = null;
 
-  if (docType === 'pptx') {
+  if (normalizedType === 'pptx') {
     buffer = await generatePresentation(structuredData, theme);
     fileExt = 'pptx';
-  } else if (docType === 'docx') {
+  } else if (normalizedType === 'docx') {
     buffer = await generateDocument(structuredData, theme);
     fileExt = 'docx';
-  } else if (docType === 'xlsx') {
+  } else if (normalizedType === 'xlsx') {
     buffer = await generateSpreadsheet(structuredData, theme);
     fileExt = 'xlsx';
+  } else if (normalizedType === 'pdf') {
+    buffer = await generatePDF(structuredData, theme);
+    fileExt = 'pdf';
+  } else if (normalizedType === 'csv') {
+    buffer = generateCSV(structuredData);
+    fileExt = 'csv';
+    textPreview = buffer.toString('utf8');
+  } else if (normalizedType === 'html') {
+    buffer = generateHTML(structuredData, theme);
+    fileExt = 'html';
+    textPreview = buffer.toString('utf8');
+  } else if (normalizedType === 'md') {
+    buffer = generateMarkdown(structuredData);
+    fileExt = 'md';
+    textPreview = buffer.toString('utf8');
+  } else if (normalizedType === 'tex') {
+    buffer = generateLaTeX(structuredData);
+    fileExt = 'tex';
+    textPreview = buffer.toString('utf8');
+  } else if (normalizedType === 'json') {
+    const jsonString = JSON.stringify(structuredData, null, 2);
+    buffer = Buffer.from(jsonString, 'utf8');
+    fileExt = 'json';
+    textPreview = jsonString;
   } else {
-    throw new Error(`Unsupported document type: ${docType}`);
+    throw new Error(`Unsupported document type: ${normalizedType}`);
   }
 
-  // 4. Save to cache/downloads directory
+  // 4. Save to Downloads directory
   const safeTitle = (structuredData.title || cleanPrompt || 'grokki_doc')
     .replace(/[/\\?%*:|"<>]/g, '_')
-    .slice(0, 35)
+    .slice(0, 38)
     .trim();
   const fileName = `${safeTitle}_${Date.now()}.${fileExt}`;
 
@@ -308,7 +352,9 @@ async function generateOfficeDocument({ prompt, docType = 'pptx', theme = 'midni
     filePath,
     fileType: fileExt,
     theme,
+    blueprint,
     base64Data,
+    textPreview,
     structuredData,
   };
 }

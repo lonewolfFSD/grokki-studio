@@ -358,7 +358,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   const [currentBgUrl, setCurrentBgUrl] = useState<string>(() => {
     try { return localStorage.getItem('ani_companion_bg_url') || 'threads'; } catch { return 'threads'; }
   });
-  const [cuteVoicePreset, setCuteVoicePreset] = useState<'luna' | 'stella' | 'bella'>('luna');
+  const [cuteVoicePreset, setCuteVoicePreset] = useState<'sakura' | 'stella' | 'bella'>('sakura');
   const [inputMessage, setInputMessage] = useState<string>('');
   const [isThinking, setIsThinking] = useState<boolean>(false);
   const [currentSpeech, setCurrentSpeech] = useState<string>('');
@@ -401,9 +401,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   });
   const [unrealSpeechVoice, setUnrealSpeechVoice] = useState<string>(() => {
     try {
-      return localStorage.getItem('ani_unrealspeech_voice') || 'Scarlett';
+      return localStorage.getItem('ani_unrealspeech_voice') || 'Sakura';
     } catch {
-      return 'Scarlett';
+      return 'Sakura';
     }
   });
 

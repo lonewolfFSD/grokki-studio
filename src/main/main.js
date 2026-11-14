@@ -4105,6 +4105,7 @@ ipcMain.handle('office:generate-document', async (event, payload = {}) => {
       prompt: payload.prompt,
       docType: payload.docType || 'pptx',
       theme: payload.theme || 'midnight',
+      blueprint: payload.blueprint || 'auto',
       config,
       agentBrain,
     });
