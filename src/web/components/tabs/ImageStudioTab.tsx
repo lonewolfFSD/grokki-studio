@@ -739,16 +739,159 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
   };
 
   // Shared GlideSelect styling
-  const glideProps = {
+  const getGlideProps = (placement: 'top' | 'bottom' = 'top') => ({
     size: 'sm' as const,
     radius: 8,
     surfaceColor: isDark ? '#1a1c24' : '#f3f4f6',
     highlightColor: isDark ? '#272a38' : '#e5e7eb',
     textColor: isDark ? '#f3f4f6' : '#111827',
     accentColor: isDark ? '#e5e7eb' : '#111827',
-    placement: 'top' as const,
+    placement,
     align: 'left' as const,
     menuWidth: 230,
+  });
+
+  const renderComposerBox = (dropdownPlacement: 'top' | 'bottom') => {
+    const glideProps = getGlideProps(dropdownPlacement);
+    return (
+      <SpecularButton
+        as="div"
+        size="lg"
+        radius={14}
+        tint={isDark ? '#ffffff' : '#000000'}
+        tintOpacity={0.03}
+        textColor={isDark ? '#f5f5f5' : '#18181b'}
+        lineColor={isDark ? '#ffffff' : '#18181b'}
+        baseColor={isDark ? '#525252' : '#d4d4d8'}
+        intensity={0.6}
+        idleIntensity={0.15}
+        shineSize={8}
+        shineFade={34}
+        thickness={1}
+        glow={0}
+        followMouse={false}
+        autoAnimate={false}
+        proximity={200}
+        className="w-full bg-white dark:bg-[#121217] p-3 flex flex-col gap-2 text-left relative z-20 shadow-lg"
+      >
+        {/* Textarea */}
+        <div className="relative">
+          <textarea
+            ref={inputRef}
+            value={inputValue}
+            onChange={e => setInputValue(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleGenerate();
+              }
+            }}
+            rows={Math.min(6, Math.max(2, inputValue.split('\n').length))}
+            placeholder="Describe an image"
+            autoFocus
+            className="w-full min-h-[48px] bg-transparent resize-none border-none outline-none text-[13.5px] leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 p-0 pr-6"
+          />
+          {inputValue && (
+            <button
+              type="button"
+              onClick={() => { setInputValue(''); inputRef.current?.focus(); }}
+              title="Clear prompt"
+              className="absolute top-0 right-0 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] text-xs transition-colors cursor-pointer"
+            >
+              ×
+            </button>
+          )}
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200/70 dark:border-white/[0.07]">
+          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+            {/* Model dropdown */}
+            <GlideSelect
+              options={ENGINE_OPTIONS}
+              value={activeEngine}
+              onChange={handleEngineChange}
+              {...glideProps}
+              menuWidth={230}
+            />
+
+            {/* Aspect ratio */}
+            <GlideSelect
+              options={ASPECT_OPTIONS}
+              value={aspectRatio}
+              onChange={v => setAspectRatio(v as AspectRatio)}
+              {...glideProps}
+              menuWidth={210}
+            />
+
+            {/* Enhance toggle */}
+            <WarmTooltip content={enhance ? 'Prompt enhancer: on' : 'Prompt enhancer: off'} side="top">
+              <button
+                type="button"
+                onClick={() => setEnhance(e => !e)}
+                className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium transition-colors cursor-pointer border ${
+                  enhance
+                    ? 'bg-gray-900/[0.06] dark:bg-white/10 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-white/20'
+                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border-transparent hover:border-gray-200 dark:hover:border-white/10'
+                }`}
+              >
+                <Sparkles className="w-3 h-3" />
+              </button>
+            </WarmTooltip>
+          </div>
+
+          {/* Right: API Keys + Clear history + Generate button */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <WarmTooltip content="API Keys" side="top">
+              <button
+                type="button"
+                onClick={() => setShowKeyModal(true)}
+                className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
+              >
+                <Key className="w-3.5 h-3.5" />
+              </button>
+            </WarmTooltip>
+
+            {generations.length > 0 && (
+              <WarmTooltip content="Clear history" side="top">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Clear image history?')) saveGenerations([]);
+                  }}
+                  className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </WarmTooltip>
+            )}
+
+            <button
+              type="button"
+              disabled={!inputValue.trim() || isGenerating}
+              onClick={() => handleGenerate()}
+              className={`h-7 px-3 flex items-center justify-center gap-1.5 rounded-md text-[12px] font-semibold transition-colors ${
+                inputValue.trim() && !isGenerating
+                  ? 'bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-90 cursor-pointer'
+                  : 'bg-gray-100 dark:bg-white/[0.07] text-gray-400 dark:text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              {isGenerating ? (
+                <>
+                  <Square className="w-3 h-3 fill-current" />
+                  <span>Generating</span>
+                </>
+              ) : (
+                <>
+                  <span>Generate</span>
+                  <ArrowUp className="w-3.5 h-3.5" strokeWidth={2.5} />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </SpecularButton>
+    );
   };
 
   return (
@@ -880,11 +1023,22 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
               </span>
             </motion.h1>
 
+            {/* MIDDLE INPUT COMPOSER */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.14, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full max-w-2xl relative z-30"
+            >
+              {renderComposerBox('bottom')}
+            </motion.div>
+
+            {/* EXAMPLES BELOW THE INPUT */}
             <motion.div
               initial={{ opacity: 0, y: 20, filter: 'blur(4px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ duration: 0.65, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
-              className="w-full max-w-2xl rounded-xl border border-gray-200 dark:border-white/10 bg-white/90 dark:bg-[#0c0c10]/90 backdrop-blur-md px-5 py-4 text-left shadow-lg"
+              transition={{ duration: 0.65, delay: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="mt-5 w-full max-w-2xl rounded-xl border border-gray-200 dark:border-white/10 bg-white/90 dark:bg-[#0c0c10]/90 backdrop-blur-md px-5 py-4 text-left shadow-lg relative z-10"
             >
               <div className="text-[11.5px] font-medium text-gray-400 dark:text-gray-500 pb-2">
                 Start from an example
@@ -1053,154 +1207,14 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
         )}
       </div>
 
-      {/* Composer */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.26, ease: [0.22, 1, 0.36, 1] }}
-        className={`flex-shrink-0 px-5 sm:px-8 pt-2 relative z-30 ${generations.length === 0 ? 'pb-6 sm:pb-8' : 'pb-4'}`}
-      >
-        <div className="max-w-[680px] mx-auto">
-          <SpecularButton
-            as="div"
-            size="lg"
-            radius={14}
-            tint={isDark ? '#ffffff' : '#000000'}
-            tintOpacity={0.03}
-            textColor={isDark ? '#f5f5f5' : '#18181b'}
-            lineColor={isDark ? '#ffffff' : '#18181b'}
-            baseColor={isDark ? '#525252' : '#d4d4d8'}
-            intensity={0.6}
-            idleIntensity={0.15}
-            shineSize={8}
-            shineFade={34}
-            thickness={1}
-            glow={0}
-            followMouse={false}
-            autoAnimate={false}
-            proximity={200}
-            className="w-full bg-white dark:bg-[#121217] p-3 flex flex-col gap-2 text-left relative z-20"
-          >
-            {/* Textarea */}
-            <div className="relative">
-              <textarea
-                ref={inputRef}
-                value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleGenerate();
-                  }
-                }}
-                rows={Math.min(6, Math.max(2, inputValue.split('\n').length))}
-                placeholder="Describe an image"
-                autoFocus
-                className="w-full min-h-[48px] bg-transparent resize-none border-none outline-none text-[13.5px] leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 p-0 pr-6"
-              />
-              {inputValue && (
-                <button
-                  type="button"
-                  onClick={() => { setInputValue(''); inputRef.current?.focus(); }}
-                  title="Clear prompt"
-                  className="absolute top-0 right-0 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] text-xs transition-colors cursor-pointer"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-
-            {/* Controls */}
-            <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200/70 dark:border-white/[0.07]">
-              <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-                {/* Model dropdown */}
-                <GlideSelect
-                  options={ENGINE_OPTIONS}
-                  value={activeEngine}
-                  onChange={handleEngineChange}
-                  {...glideProps}
-                  menuWidth={230}
-                />
-
-                {/* Aspect ratio */}
-                <GlideSelect
-                  options={ASPECT_OPTIONS}
-                  value={aspectRatio}
-                  onChange={v => setAspectRatio(v as AspectRatio)}
-                  {...glideProps}
-                  menuWidth={210}
-                />
-
-                {/* Enhance toggle */}
-                <WarmTooltip content={enhance ? 'Prompt enhancer: on' : 'Prompt enhancer: off'} side="top">
-                  <button
-                    type="button"
-                    onClick={() => setEnhance(e => !e)}
-                    className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium transition-colors cursor-pointer border ${
-                      enhance
-                        ? 'bg-gray-900/[0.06] dark:bg-white/10 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-white/20'
-                        : 'text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border-transparent hover:border-gray-200 dark:hover:border-white/10'
-                    }`}
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    
-                  </button>
-                </WarmTooltip>
-              </div>
-
-              {/* Right: API Keys + Clear history + Generate button */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <WarmTooltip content="API Keys" side="top">
-                  <button
-                    type="button"
-                    onClick={() => setShowKeyModal(true)}
-                    className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
-                  >
-                    <Key className="w-3.5 h-3.5" />
-                  </button>
-                </WarmTooltip>
-
-                {generations.length > 0 && (
-                  <WarmTooltip content="Clear history" side="top">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm('Clear image history?')) saveGenerations([]);
-                      }}
-                      className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </WarmTooltip>
-                )}
-
-                <button
-                  type="button"
-                  disabled={!inputValue.trim() || isGenerating}
-                  onClick={() => handleGenerate()}
-                  className={`h-7 px-3 flex items-center justify-center gap-1.5 rounded-md text-[12px] font-semibold transition-colors ${
-                    inputValue.trim() && !isGenerating
-                      ? 'bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-90 cursor-pointer'
-                      : 'bg-gray-100 dark:bg-white/[0.07] text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Square className="w-3 h-3 fill-current" />
-                      <span>Generating</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Generate</span>
-                      <ArrowUp className="w-3.5 h-3.5" strokeWidth={2.5} />
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </SpecularButton>
+      {/* Bottom Composer (only when feed has items) */}
+      {generations.length > 0 && (
+        <div className="flex-shrink-0 px-5 sm:px-8 pt-2 pb-4 relative z-30">
+          <div className="max-w-[680px] mx-auto">
+            {renderComposerBox('top')}
+          </div>
         </div>
-      </motion.div>
+      )}
 
       {/* Minimal API Keys Modal */}
       {showKeyModal && (

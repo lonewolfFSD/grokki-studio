@@ -993,7 +993,7 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
               src={grokkiLogo}
               alt="Grokki"
               draggable={false}
-              className="w-44 h-44 sm:w-60 sm:h-60 md:w-84 md:h-84 object-contain filter brightness-0 dark:invert"
+              className="w-44 h-44 sm:w-60 sm:h-60 md:w-84 md:h-84 -mt-10 object-contain filter brightness-0 dark:invert"
               style={{
                 maskImage:
                   'linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.02) 70%)',
