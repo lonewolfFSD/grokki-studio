@@ -1,21 +1,19 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles,
   ArrowUp,
   Download,
   Copy,
   RefreshCw,
-  Sliders,
   Check,
-  Maximize2,
   Trash2,
   AlertCircle,
   Square,
   Key,
+  ExternalLink,
 } from 'lucide-react';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { AiImageIcon, Layers01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
+import { AiImageIcon } from '@hugeicons/core-free-icons';
 import { JarvisConfig } from '../../types/jarvis';
 import SpecularButton from '../../../effects/SpecularButton';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
@@ -28,7 +26,7 @@ interface ImageStudioTabProps {
 }
 
 export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
-export type EngineProvider = 'pollinations' | 'huggingface' | 'together';
+export type EngineProvider = 'google' | 'together' | 'pollinations' | 'huggingface';
 
 interface GeneratedImage {
   id: string;
@@ -44,8 +42,10 @@ interface GeneratedImage {
 }
 
 const STORAGE_KEY = 'grokki_image_studio_feed_v2';
+const GEMINI_IMAGE_KEY = 'grokki_gemini_image_key';
 const HF_TOKEN_KEY = 'grokki_hf_image_token';
 const TOGETHER_KEY = 'grokki_together_image_key';
+const ACTIVE_ENGINE_KEY = 'grokki_image_active_engine';
 
 const ASPECT_DIMS: Record<AspectRatio, { width: number; height: number; label: string }> = {
   '1:1': { width: 1024, height: 1024, label: '1:1 Square' },
@@ -56,11 +56,22 @@ const ASPECT_DIMS: Record<AspectRatio, { width: number; height: number; label: s
 };
 
 const ENGINE_OPTIONS: GlideSelectOption[] = [
-  { value: 'pollinations:flux', label: 'Pollinations • FLUX.1 (Free)', group: 'Free Cloud' },
-  { value: 'pollinations:turbo', label: 'Pollinations • Turbo (Fast)', group: 'Free Cloud' },
-  { value: 'huggingface:black-forest-labs/FLUX.1-schnell', label: 'Hugging Face • FLUX.1 Schnell', group: 'Hugging Face (Pro)' },
-  { value: 'huggingface:stabilityai/stable-diffusion-xl-base-1.0', label: 'Hugging Face • SDXL Base', group: 'Hugging Face (Pro)' },
-  { value: 'together:black-forest-labs/FLUX.1-schnell-Free', label: 'Together AI • FLUX.1 Free', group: 'Together AI' },
+  // Google Imagen 3 (Default & Recommended - State of the art, ultra high quality, powered by Gemini API)
+  { value: 'google:imagen-3.0-generate-002', label: 'Google Imagen 3 (Ultra Quality)', group: 'Google AI' },
+  { value: 'google:imagen-3.0-fast-generate-001', label: 'Google Imagen 3 Fast', group: 'Google AI' },
+
+  // Together AI (FLUX.1 Schnell - Free Tier, Fast & crisp)
+  { value: 'together:black-forest-labs/FLUX.1-schnell-Free', label: 'Together AI • FLUX.1 Schnell', group: 'Together AI (FLUX)' },
+
+  // Free Cloud (No keys required)
+  { value: 'pollinations:turbo', label: 'Pollinations • Turbo (Instant, No Wait)', group: 'Free Cloud' },
+  { value: 'pollinations:flux', label: 'Pollinations • FLUX.1 (Free Cloud)', group: 'Free Cloud' },
+  { value: 'pollinations:flux-realism', label: 'Pollinations • FLUX Realism', group: 'Free Cloud' },
+  { value: 'pollinations:flux-anime', label: 'Pollinations • FLUX Anime', group: 'Free Cloud' },
+
+  // Hugging Face Active Models
+  { value: 'huggingface:stabilityai/stable-diffusion-2-1', label: 'Hugging Face • SD 2.1', group: 'Hugging Face' },
+  { value: 'huggingface:runwayml/stable-diffusion-v1-5', label: 'Hugging Face • SD 1.5', group: 'Hugging Face' },
 ];
 
 const ASPECT_OPTIONS: GlideSelectOption[] = [
@@ -71,15 +82,28 @@ const ASPECT_OPTIONS: GlideSelectOption[] = [
   { value: '3:4', label: '3:4 Portrait' },
 ];
 
-export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
+export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChangeConfig }) => {
   const [inputValue, setInputValue] = useState('');
-  const [activeEngine, setActiveEngine] = useState<string>('pollinations:flux');
+
+  // Default to Google Imagen 3 if Gemini key is available, or saved preference, or Pollinations Turbo
+  const [activeEngine, setActiveEngine] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(ACTIVE_ENGINE_KEY);
+      if (saved) return saved;
+    } catch {}
+    if (config.geminiApiKey?.trim()) return 'google:imagen-3.0-generate-002';
+    return 'pollinations:turbo';
+  });
+
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
   const [enhance, setEnhance] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // API Tokens
+  const [geminiKey, setGeminiKey] = useState<string>(() => {
+    try { return localStorage.getItem(GEMINI_IMAGE_KEY) || config.geminiApiKey || ''; } catch { return config.geminiApiKey || ''; }
+  });
   const [hfToken, setHfToken] = useState<string>(() => {
     try { return localStorage.getItem(HF_TOKEN_KEY) || ''; } catch { return ''; }
   });
@@ -87,6 +111,13 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
     try { return localStorage.getItem(TOGETHER_KEY) || ''; } catch { return ''; }
   });
   const [showKeyModal, setShowKeyModal] = useState(false);
+
+  // Keep geminiKey in sync if config changes externally
+  useEffect(() => {
+    if (config.geminiApiKey && !geminiKey) {
+      setGeminiKey(config.geminiApiKey);
+    }
+  }, [config.geminiApiKey]);
 
   // Chat-style feed of image generations
   const [generations, setGenerations] = useState<GeneratedImage[]>(() => {
@@ -124,49 +155,88 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
     } catch {}
   };
 
-  const handleSaveTokens = (hf: string, tog: string) => {
+  const handleEngineChange = (val: string) => {
+    setActiveEngine(val);
+    try {
+      localStorage.setItem(ACTIVE_ENGINE_KEY, val);
+    } catch {}
+  };
+
+  const handleSaveTokens = (gemKey: string, hf: string, tog: string) => {
+    setGeminiKey(gemKey);
     setHfToken(hf);
     setTogetherKey(tog);
     try {
+      localStorage.setItem(GEMINI_IMAGE_KEY, gemKey.trim());
       localStorage.setItem(HF_TOKEN_KEY, hf.trim());
       localStorage.setItem(TOGETHER_KEY, tog.trim());
     } catch {}
+    if (gemKey.trim() && onChangeConfig) {
+      onChangeConfig({ geminiApiKey: gemKey.trim() });
+    }
     setShowKeyModal(false);
   };
 
   // Helper to generate image via chosen engine
-  const executeGeneration = async (promptText: string, engineKey: string, ar: AspectRatio, enh: boolean) => {
+  const executeGeneration = async (
+    promptText: string,
+    engineKey: string,
+    ar: AspectRatio,
+    enh: boolean
+  ) => {
     const [provider, modelName] = engineKey.split(':');
     const { width, height } = ASPECT_DIMS[ar];
     const seed = Math.floor(Math.random() * 9000000) + 1000000;
 
     let finalImageUrl = '';
 
-    if (provider === 'huggingface') {
-      if (!hfToken.trim()) {
+    if (provider === 'google') {
+      const activeKey = (geminiKey || config.geminiApiKey || '').trim();
+      if (!activeKey) {
         setShowKeyModal(true);
-        throw new Error('Please add your free Hugging Face User Access Token (hf_...) to use this model.');
+        throw new Error('Please configure your Gemini API Key in the Key Settings to use Google Imagen 3.');
       }
-      const response = await fetch(`https://router.huggingface.co/hf-inference/models/${modelName}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${hfToken.trim()}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ inputs: promptText }),
-      });
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict?key=${activeKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            instances: [
+              {
+                prompt: enh
+                  ? `masterpiece, ultra-detailed, 8k resolution, professional lighting, photorealistic: ${promptText}`
+                  : promptText,
+              },
+            ],
+            parameters: {
+              sampleCount: 1,
+              aspectRatio: ar,
+              outputMimeType: 'image/jpeg',
+            },
+          }),
+        }
+      );
 
       if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Hugging Face error (${response.status}): ${errText.slice(0, 160)}`);
+        const errJson = await response.json().catch(() => ({}));
+        const rawMsg = errJson.error?.message || `Google Imagen error (${response.status})`;
+        throw new Error(rawMsg);
       }
 
-      const blob = await response.blob();
-      finalImageUrl = URL.createObjectURL(blob);
+      const data = await response.json();
+      const b64 = data.predictions?.[0]?.bytesBase64Encoded;
+      if (!b64) {
+        throw new Error('Google Imagen returned no image. Check prompt safety or try another prompt.');
+      }
+      finalImageUrl = `data:image/jpeg;base64,${b64}`;
     } else if (provider === 'together') {
       if (!togetherKey.trim()) {
         setShowKeyModal(true);
-        throw new Error('Please add your Together AI API Key to use this model.');
+        throw new Error('Please add your Together AI API Key in Key Settings to use FLUX.1 Schnell.');
       }
       const response = await fetch('https://api.together.xyz/v1/images/generations', {
         method: 'POST',
@@ -176,7 +246,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
         },
         body: JSON.stringify({
           model: modelName,
-          prompt: promptText,
+          prompt: enh ? `${promptText}, 8k resolution, highly detailed, photorealistic masterpiece` : promptText,
           width,
           height,
           steps: 4,
@@ -191,28 +261,64 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
 
       const data = await response.json();
       finalImageUrl = data.data?.[0]?.url || '';
+    } else if (provider === 'huggingface') {
+      if (!hfToken.trim()) {
+        setShowKeyModal(true);
+        throw new Error("Please add your Hugging Face Token (created with 'Inference' preset) in Key Settings.");
+      }
+      const response = await fetch(`https://router.huggingface.co/hf-inference/models/${modelName}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${hfToken.trim()}`,
+          'Content-Type': 'application/json',
+          Accept: 'image/png',
+        },
+        body: JSON.stringify({
+          inputs: enh ? `masterpiece, ultra-detailed, 8k: ${promptText}` : promptText,
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        if (response.status === 410 || errText.includes('deprecated')) {
+          throw new Error(
+            'Hugging Face deprecated serverless inference for this model. Switch to Google Imagen 3 or Together AI FLUX for instant high-quality generation.'
+          );
+        }
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(
+            `Hugging Face auth error (${response.status}): Your token requires 'Inference' permissions. When creating a fine-grained token at huggingface.co/settings/tokens, select the 'Inference' preset.`
+          );
+        }
+        throw new Error(`Hugging Face error (${response.status}): ${errText.slice(0, 160)}`);
+      }
+
+      const blob = await response.blob();
+      finalImageUrl = URL.createObjectURL(blob);
     } else {
-      // Default: Pollinations Free
+      // Pollinations Free
       const encPrompt = encodeURIComponent(promptText.trim());
-      // Append seed & timestamp cachebuster
       const cacheBust = `${Date.now()}`;
       finalImageUrl = `https://image.pollinations.ai/prompt/${encPrompt}?model=${modelName}&width=${width}&height=${height}&seed=${seed}&nologo=true&enhance=${enh}&cb=${cacheBust}`;
 
-      // Pre-load to verify it returns a valid image and not the 45s cooldown banner
+      // Pre-load to verify it returns a valid image
       await new Promise<void>((resolve, reject) => {
         const testImg = new Image();
         testImg.src = finalImageUrl;
         testImg.onload = () => resolve();
-        testImg.onerror = () => reject(new Error('Failed to load image. If rate limited, please wait a moment or switch models.'));
+        testImg.onerror = () =>
+          reject(new Error('Failed to load image from Pollinations. Switch to Google Imagen 3 or Turbo.'));
       });
     }
 
     return { finalImageUrl, seed };
   };
 
-  const handleGenerate = async (customPrompt?: string) => {
+  const handleGenerate = async (customPrompt?: string, overrideEngine?: string) => {
     const promptText = (customPrompt || inputValue).trim();
     if (!promptText || isGenerating) return;
+
+    const engineToUse = overrideEngine || activeEngine;
 
     setInputValue('');
     setIsGenerating(true);
@@ -220,7 +326,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    const [provider, modelName] = activeEngine.split(':');
+    const [provider, modelName] = engineToUse.split(':');
     const newEntry: GeneratedImage = {
       id: `${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       prompt: promptText,
@@ -238,7 +344,12 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
     setGenerations(updatedWithPlaceholder);
 
     try {
-      const { finalImageUrl, seed } = await executeGeneration(promptText, activeEngine, aspectRatio, enhance);
+      const { finalImageUrl, seed } = await executeGeneration(
+        promptText,
+        engineToUse,
+        aspectRatio,
+        enhance
+      );
       const finished: GeneratedImage = {
         ...newEntry,
         url: finalImageUrl,
@@ -265,6 +376,15 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
 
   const handleDownload = async (item: GeneratedImage) => {
     try {
+      if (item.url.startsWith('data:')) {
+        const a = document.createElement('a');
+        a.href = item.url;
+        a.download = `grokki_gen_${item.id}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
+      }
       const res = await fetch(item.url);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -301,7 +421,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
                 Grokki Image Studio
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mt-1 leading-relaxed">
-                Describe any scene, character, or wallpaper below to generate studio-quality FLUX illustrations.
+                Generate studio-quality illustrations using Google Imagen 3, FLUX.1 Schnell, or SDXL.
               </p>
             </div>
           )}
@@ -325,7 +445,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
                 />
 
                 <div className="flex-1 min-w-0 flex flex-col">
-                  <div className="flex items-center gap-2 mb-1.5">
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                     <span className="text-xs font-bold text-gray-900 dark:text-gray-100 tracking-tight">
                       Grokki
                     </span>
@@ -343,13 +463,39 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold mb-0.5">Generation Failed</p>
                         <p className="text-[11px] leading-relaxed opacity-90">{item.error}</p>
-                        <button
-                          type="button"
-                          onClick={() => handleGenerate(item.prompt)}
-                          className="mt-2 text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <RefreshCw className="w-3 h-3" /> Retry
-                        </button>
+                        <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => handleGenerate(item.prompt)}
+                            className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                          >
+                            <RefreshCw className="w-3 h-3" /> Retry
+                          </button>
+                          {item.provider !== 'google' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleEngineChange('google:imagen-3.0-generate-002');
+                                handleGenerate(item.prompt, 'google:imagen-3.0-generate-002');
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <Sparkles className="w-3 h-3" /> Try Google Imagen 3
+                            </button>
+                          )}
+                          {item.provider !== 'together' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleEngineChange('together:black-forest-labs/FLUX.1-schnell-Free');
+                                handleGenerate(item.prompt, 'together:black-forest-labs/FLUX.1-schnell-Free');
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              Try Together FLUX
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ) : item.url ? (
@@ -371,7 +517,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
                             {copiedId === item.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                           </button>
                         </WarmTooltip>
-                        <WarmTooltip content="Download PNG" side="top">
+                        <WarmTooltip content="Download Image" side="top">
                           <button
                             type="button"
                             onClick={() => handleDownload(item)}
@@ -449,17 +595,17 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
               className="w-full bg-transparent resize-none border-none outline-none text-[13px] font-medium leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 p-0"
             />
 
-            {/* Bottom Controls Row: Engine Selector on Left, Aspect Ratio, Keys & Submit on Right */}
+            {/* Bottom Controls Row */}
             <div className="flex items-center justify-between gap-2 pt-0.5">
               <div className="flex items-center gap-1.5 min-w-0">
                 {/* Engine Selector Dropdown */}
                 <GlideSelect
                   options={ENGINE_OPTIONS}
                   value={activeEngine}
-                  onChange={(val) => setActiveEngine(val)}
+                  onChange={handleEngineChange}
                   size="sm"
                   radius={8}
-                  menuWidth={280}
+                  menuWidth={290}
                   surfaceColor={isDarkTheme ? '#1a1c24' : '#f3f4f6'}
                   highlightColor={isDarkTheme ? '#272a38' : '#e5e7eb'}
                   textColor={isDarkTheme ? '#f3f4f6' : '#111827'}
@@ -503,7 +649,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
 
               {/* Right Side: Key config & Submit */}
               <div className="flex items-center gap-1.5 shrink-0">
-                <WarmTooltip content="Configure API Keys (Hugging Face / Together)" side="top">
+                <WarmTooltip content="Configure API Keys (Google Imagen / Together / HF)" side="top">
                   <button
                     type="button"
                     onClick={() => setShowKeyModal(true)}
@@ -547,7 +693,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
           </SpecularButton>
 
           <p className="text-[11px] text-center text-gray-400 dark:text-gray-500 mt-2 select-none tracking-normal">
-            FLUX Image Studio • Supports Free Cloud, Hugging Face, and Together AI models.
+            Grokki Image Studio • Supports Google Imagen 3, Together AI FLUX, and Free Cloud.
           </p>
         </div>
       </div>
@@ -563,37 +709,85 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
             className="w-full max-w-md bg-white dark:bg-[#15151a] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl p-5 flex flex-col gap-4 text-left animate-in fade-in zoom-in-95 duration-150"
           >
             <div>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Pro Image API Keys</h3>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Image Generation API Keys</h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Add optional free API tokens to unlock full Hugging Face ZeroGPU and Together AI models.
+                Connect your keys to unlock Google Imagen 3, FLUX.1 Schnell, and custom models.
               </p>
             </div>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3.5">
+              {/* Google Gemini Key */}
               <div>
-                <label className="block text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  Hugging Face Access Token (Free)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">
+                    Google Gemini API Key (Imagen 3)
+                  </label>
+                  <span className="text-[10px] text-blue-500 font-medium">Recommended</span>
+                </div>
                 <input
                   type="password"
-                  value={hfToken}
-                  onChange={(e) => setHfToken(e.target.value)}
-                  placeholder="hf_..."
+                  value={geminiKey}
+                  onChange={(e) => setGeminiKey(e.target.value)}
+                  placeholder="AIzaSy..."
                   className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#1c1c24] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
                 />
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  Powers Google Imagen 3. Pre-filled from your Grokki Gemini settings.
+                </p>
               </div>
 
+              {/* Together AI Key */}
               <div>
-                <label className="block text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  Together AI API Key
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">
+                    Together AI API Key (FLUX.1 Schnell)
+                  </label>
+                  <a
+                    href="https://api.together.ai"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] text-purple-500 hover:underline flex items-center gap-0.5"
+                  >
+                    Get Free Key <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                </div>
                 <input
                   type="password"
                   value={togetherKey}
                   onChange={(e) => setTogetherKey(e.target.value)}
                   placeholder="api-key..."
-                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#1c1c24] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#1c1c24] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-purple-500"
                 />
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  Fast FLUX.1 generation via Together AI's free tier.
+                </p>
+              </div>
+
+              {/* Hugging Face Token */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">
+                    Hugging Face Access Token
+                  </label>
+                  <a
+                    href="https://huggingface.co/settings/tokens"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] text-amber-500 hover:underline flex items-center gap-0.5"
+                  >
+                    HF Tokens <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                </div>
+                <input
+                  type="password"
+                  value={hfToken}
+                  onChange={(e) => setHfToken(e.target.value)}
+                  placeholder="hf_..."
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#1c1c24] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-amber-500"
+                />
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  ⚠️ Note: When creating a fine-grained token on HF, choose the <b>Inference</b> preset. Serverless FLUX.1 was deprecated by HF.
+                </p>
               </div>
             </div>
 
@@ -601,14 +795,14 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
               <button
                 type="button"
                 onClick={() => setShowKeyModal(false)}
-                className="px-3.5 py-1.5 rounded-xl text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+                className="px-3.5 py-1.5 rounded-xl text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={() => handleSaveTokens(hfToken, togetherKey)}
-                className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-90 shadow-xs"
+                onClick={() => handleSaveTokens(geminiKey, hfToken, togetherKey)}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-90 shadow-xs cursor-pointer"
               >
                 Save Keys
               </button>
