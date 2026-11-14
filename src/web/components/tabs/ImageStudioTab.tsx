@@ -15,6 +15,7 @@ import { JarvisConfig } from '../../types/jarvis';
 import SpecularButton from '../../../effects/SpecularButton';
 import DriftWall from '../../../effects/DriftWall';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
+import { GeminiLogo, OpenAILogo } from './AiBrainTab';
 import WarmTooltip from '../WarmTooltip';
 import grokkiIcon from '../../assets/grokki_icon.svg';
 
@@ -29,6 +30,7 @@ interface GeneratedImage {
   id: string;
   prompt: string;
   url: string;
+  engine: string;
   aspectRatio: AspectRatio;
   seed: number;
   enhance: boolean;
@@ -38,6 +40,7 @@ interface GeneratedImage {
 
 const STORAGE_KEY = 'grokki_image_studio_feed_v2';
 const GEMINI_IMAGE_KEY = 'grokki_gemini_image_key';
+const ACTIVE_ENGINE_KEY = 'grokki_image_active_engine';
 
 const ASPECT_DIMS: Record<AspectRatio, { width: number; height: number; label: string }> = {
   '1:1':  { width: 1024, height: 1024, label: '1:1 Square'     },
@@ -90,12 +93,26 @@ const RatioBoxIcon: React.FC<{ ratio: AspectRatio; className?: string }> = ({ ra
   );
 };
 
+const modelLabel = (Icon: React.FC<{ className?: string }>, text: string) => (
+  <span className="inline-flex items-center gap-2 truncate">
+    <Icon className="w-3.5 h-3.5 shrink-0" />
+    <span className="truncate">{text}</span>
+  </span>
+);
+
 const ratioLabel = (ratio: AspectRatio, text: string) => (
   <span className="inline-flex items-center gap-2 truncate">
     <RatioBoxIcon ratio={ratio} className="w-3.5 h-3.5 shrink-0" />
     <span className="truncate">{text}</span>
   </span>
 );
+
+const ENGINE_OPTIONS: GlideSelectOption[] = [
+  { value: 'google:imagen-3.0-generate-002',      label: modelLabel(GeminiLogo, 'Imagen 3 Ultra'), tag: 'Google' },
+  { value: 'google:imagen-3.0-fast-generate-001', label: modelLabel(GeminiLogo, 'Imagen 3 Fast'),  tag: 'Google' },
+  { value: 'openai:dall-e-3',                     label: modelLabel(OpenAILogo, 'DALL·E 3'),       tag: 'OpenAI' },
+  { value: 'openai:dall-e-2',                     label: modelLabel(OpenAILogo, 'DALL·E 2'),       tag: 'OpenAI' },
+];
 
 const ASPECT_OPTIONS: GlideSelectOption[] = [
   { value: '1:1',  label: ratioLabel('1:1',  '1:1 Square'),    tag: '1024×1024' },
@@ -130,6 +147,13 @@ const PROMPT_PRESETS: { tag: string; ratio: AspectRatio; prompt: string }[] = [
 
 export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
   const [inputValue, setInputValue] = useState('');
+  const [activeEngine, setActiveEngine] = useState<string>(() => {
+    try {
+      const s = localStorage.getItem(ACTIVE_ENGINE_KEY);
+      if (s && ENGINE_OPTIONS.some(o => o.value === s)) return s;
+    } catch {}
+    return 'google:imagen-3.0-generate-002';
+  });
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
   const [enhance, setEnhance] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -166,56 +190,109 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
     } catch {}
   };
 
+  const handleEngineChange = (val: string) => {
+    setActiveEngine(val);
+    try {
+      localStorage.setItem(ACTIVE_ENGINE_KEY, val);
+    } catch {}
+  };
+
   const executeGeneration = async (
     promptText: string,
+    engineKey: string,
     ar: AspectRatio,
     enh: boolean,
   ) => {
-    const key = (
-      config.geminiApiKey ||
-      (typeof localStorage !== 'undefined' ? localStorage.getItem(GEMINI_IMAGE_KEY) : '') ||
-      ''
-    ).trim();
-
-    if (!key) {
-      throw new Error('Gemini API key is missing. Please configure your key in Settings.');
-    }
-
-    const finalPrompt = enh
-      ? `masterpiece, ultra-detailed, 8k, professional lighting, photorealistic: ${promptText}`
-      : promptText;
-
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${key}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instances: [{ prompt: finalPrompt }],
-          parameters: { sampleCount: 1, aspectRatio: ar, outputMimeType: 'image/jpeg' },
-        }),
-      }
-    );
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || `Generation failed (${res.status}).`);
-    }
-
-    const data = await res.json();
-    const b64 = data.predictions?.[0]?.bytesBase64Encoded;
-    if (!b64) {
-      throw new Error('No image was returned. Try adjusting your prompt.');
-    }
-
+    const [provider, modelName] = engineKey.split(':');
     const seed = Math.floor(Math.random() * 9_000_000) + 1_000_000;
-    return { finalImageUrl: `data:image/jpeg;base64,${b64}`, seed };
+
+    if (provider === 'google') {
+      const key = (
+        config.geminiApiKey ||
+        (typeof localStorage !== 'undefined' ? localStorage.getItem(GEMINI_IMAGE_KEY) : '') ||
+        ''
+      ).trim();
+
+      if (!key) {
+        throw new Error('Gemini API key is missing. Please configure your key in Settings.');
+      }
+
+      const finalPrompt = enh
+        ? `masterpiece, ultra-detailed, 8k, professional lighting, photorealistic: ${promptText}`
+        : promptText;
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict?key=${key}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            instances: [{ prompt: finalPrompt }],
+            parameters: { sampleCount: 1, aspectRatio: ar, outputMimeType: 'image/jpeg' },
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `Google Imagen error (${res.status}).`);
+      }
+
+      const data = await res.json();
+      const b64 = data.predictions?.[0]?.bytesBase64Encoded;
+      if (!b64) throw new Error('Google Imagen returned no image. Try adjusting your prompt.');
+      return { finalImageUrl: `data:image/jpeg;base64,${b64}`, seed };
+    }
+
+    if (provider === 'openai') {
+      const key = (config.openaiApiKey || '').trim();
+      if (!key) {
+        throw new Error('OpenAI API key is missing. Please configure your key in Settings.');
+      }
+
+      const finalPrompt = enh
+        ? `${promptText}, ultra-detailed, photorealistic, 8k resolution`
+        : promptText;
+
+      const size =
+        ar === '16:9' ? '1792x1024' :
+        ar === '9:16' ? '1024x1792' :
+        '1024x1024';
+
+      const res = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model: modelName,
+          prompt: finalPrompt,
+          n: 1,
+          size,
+          response_format: 'b64_json',
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `OpenAI error (${res.status}).`);
+      }
+
+      const data = await res.json();
+      const b64 = data.data?.[0]?.b64_json;
+      if (!b64) throw new Error('OpenAI returned no image.');
+      return { finalImageUrl: `data:image/png;base64,${b64}`, seed };
+    }
+
+    throw new Error('Unsupported engine.');
   };
 
-  const handleGenerate = async (customPrompt?: string) => {
+  const handleGenerate = async (customPrompt?: string, overrideEngine?: string) => {
     const promptText = (customPrompt ?? inputValue).trim();
     if (!promptText || isGenerating) return;
 
+    const engineToUse = overrideEngine ?? activeEngine;
     setInputValue('');
     setIsGenerating(true);
 
@@ -225,6 +302,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       prompt: promptText,
       url: '',
+      engine: engineToUse,
       aspectRatio,
       seed: 0,
       enhance,
@@ -234,7 +312,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
     setGenerations(prev => [...prev, entry]);
 
     try {
-      const { finalImageUrl, seed } = await executeGeneration(promptText, aspectRatio, enhance);
+      const { finalImageUrl, seed } = await executeGeneration(promptText, engineToUse, aspectRatio, enhance);
       saveGenerations([...generations, { ...entry, url: finalImageUrl, seed }]);
     } catch (err: any) {
       saveGenerations([...generations, { ...entry, error: err.message || 'Generation failed.' }]);
@@ -287,7 +365,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
     accentColor: isDark ? '#e5e7eb' : '#111827',
     placement: 'top' as const,
     align: 'left' as const,
-    menuWidth: 210,
+    menuWidth: 220,
   };
 
   return (
@@ -457,6 +535,11 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
                     <div className="flex items-baseline gap-2 mb-1.5">
                       <span className="text-[12px] font-semibold text-gray-800 dark:text-gray-200">Grokki</span>
                       <span className="text-[11px] text-gray-400 dark:text-gray-500">{item.timestamp}</span>
+                      {item.engine && (
+                        <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                          {ENGINE_OPTIONS.find(o => o.value === item.engine)?.tag || item.engine}
+                        </span>
+                      )}
                     </div>
 
                     {item.error ? (
@@ -468,7 +551,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
                           <div className="flex gap-1.5 mt-2.5">
                             <button
                               type="button"
-                              onClick={() => handleGenerate(item.prompt)}
+                              onClick={() => handleGenerate(item.prompt, item.engine)}
                               className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
                             >
                               <RefreshCw className="w-3 h-3" /> Retry
@@ -507,7 +590,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
                           <WarmTooltip content="Regenerate" side="top">
                             <button
                               type="button"
-                              onClick={() => handleGenerate(item.prompt)}
+                              onClick={() => handleGenerate(item.prompt, item.engine)}
                               className="w-7 h-7 flex items-center justify-center rounded text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                             >
                               <RefreshCw className="w-3.5 h-3.5" />
@@ -592,12 +675,22 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
             {/* Controls */}
             <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200/70 dark:border-white/[0.07]">
               <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                {/* Model dropdown */}
+                <GlideSelect
+                  options={ENGINE_OPTIONS}
+                  value={activeEngine}
+                  onChange={handleEngineChange}
+                  {...glideProps}
+                  menuWidth={230}
+                />
+
                 {/* Aspect ratio */}
                 <GlideSelect
                   options={ASPECT_OPTIONS}
                   value={aspectRatio}
                   onChange={v => setAspectRatio(v as AspectRatio)}
                   {...glideProps}
+                  menuWidth={210}
                 />
 
                 {/* Enhance toggle */}
