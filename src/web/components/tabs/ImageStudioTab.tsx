@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'motion/react';
 import {
   Sparkles,
   ArrowUp,
@@ -166,11 +167,6 @@ const ASPECT_OPTIONS: GlideSelectOption[] = [
 ];
 
 const PROMPT_PRESETS: { tag: string; ratio: AspectRatio; prompt: string }[] = [
-  {
-    tag: 'Cyberpunk Noir',
-    ratio: '16:9',
-    prompt: 'Porcelain-armored ronin standing in a rain-slicked Neo-Tokyo alley at midnight, neon kanji reflections in puddles, anamorphic 35mm lens, shallow depth of field, cinematic teal and amber lighting',
-  },
   {
     tag: 'Ghibli Sky Isles',
     ratio: '16:9',
@@ -449,7 +445,12 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
 
       {/* ── DriftWall Background (disappears once there are generations) ── */}
       {generations.length === 0 && (
-        <div className="absolute -inset-x-36 -inset-y-16 z-0 overflow-hidden pointer-events-none transition-opacity duration-700 animate-in fade-in">
+        <motion.div
+          initial={{ opacity: 0, scale: 1.03 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute -inset-x-36 -inset-y-16 z-0 overflow-hidden pointer-events-none"
+        >
           <DriftWall
             items={DRIFT_ITEMS}
             columns={8}
@@ -474,22 +475,87 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
             grayscale={false}
             className="w-full h-full"
           />
-        </div>
+        </motion.div>
       )}
 
       {/* ── Main Content Stage ── */}
       <div className="flex-1 overflow-y-auto px-5 sm:px-8 py-6 min-h-0 relative z-20 flex flex-col">
         {generations.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center px-4 py-6">
-            <h1
-              className="text-6xl sm:text-[5em] mb-7 font-normal text-gray-900 dark:text-white tracking-wide"
+            <motion.h1
+              initial={{ opacity: 0, y: 18, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{ duration: 0.65, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+              className="text-6xl sm:text-[4em] mb-7 font-normal text-gray-900 dark:text-white tracking-wide"
               style={{
                 fontFamily: "'Caveat', 'Dancing Script', 'Great Vibes', 'Brush Script MT', 'Segoe Script', cursive",
               }}
             >
-              Grokki Image Studio
-            </h1>
-            <div className="w-full max-w-md rounded-xl border border-gray-200 dark:border-white/10 bg-white/90 dark:bg-[#0c0c10]/90 backdrop-blur-md px-5 py-4 text-left shadow-lg">
+              Grokki{' '}
+              <span className="relative inline-block">
+                <svg
+                  viewBox="0 0 320 96"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -inset-x-2 -bottom-2 top-1 w-[calc(100%+16px)] h-[calc(100%+10px)] overflow-visible z-0"
+                >
+                  <defs>
+                    <filter id="grokki-crayon-grain" x="-15%" y="-25%" width="130%" height="150%">
+                      <feTurbulence type="fractalNoise" baseFrequency="0.75 0.95" numOctaves="4" seed="19" result="noise" />
+                      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4.2" xChannelSelector="R" yChannelSelector="G" />
+                    </filter>
+                    <linearGradient id="grokki-crayon-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#f43f5e" />
+                      <stop offset="50%" stopColor="#ec4899" />
+                      <stop offset="100%" stopColor="#f97316" />
+                    </linearGradient>
+                  </defs>
+                  {/* Wax-pastel highlighter swipe behind "Image Studio" */}
+                  <motion.path
+                    d="M 6 54 Q 158 44 314 51"
+                    fill="none"
+                    stroke="url(#grokki-crayon-grad)"
+                    strokeWidth="36"
+                    strokeLinecap="round"
+                    filter="url(#grokki-crayon-grain)"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: isDark ? 0.24 : 0.18 }}
+                    transition={{ duration: 0.65, delay: 0.38, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                  {/* Primary hand-sketched crayon underline stroke */}
+                  <motion.path
+                    d="M 4 84 C 98 76, 214 75, 316 82"
+                    fill="none"
+                    stroke="url(#grokki-crayon-grad)"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    filter="url(#grokki-crayon-grain)"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 0.92 }}
+                    transition={{ duration: 0.6, delay: 0.52, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                  {/* Secondary crayon return scribble stroke */}
+                  <motion.path
+                    d="M 34 91 C 132 85, 226 86, 294 89"
+                    fill="none"
+                    stroke="url(#grokki-crayon-grad)"
+                    strokeWidth="3.2"
+                    strokeLinecap="round"
+                    filter="url(#grokki-crayon-grain)"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 0.7 }}
+                    transition={{ duration: 0.45, delay: 0.78, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                </svg>
+                <span className="relative z-10">Image Studio</span>
+              </span>
+            </motion.h1>
+            <motion.div
+              initial={{ opacity: 0, y: 20, filter: 'blur(4px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{ duration: 0.65, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full max-w-2xl rounded-xl border border-gray-200 dark:border-white/10 bg-white/90 dark:bg-[#0c0c10]/90 backdrop-blur-md px-5 py-4 text-left shadow-lg"
+            >
               <div className="text-[11.5px] font-medium text-gray-400 dark:text-gray-500 pb-2">
                 Start from an example
               </div>
@@ -503,15 +569,13 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                       setAspectRatio(preset.ratio);
                       inputRef.current?.focus();
                     }}
-                    className="group flex items-center justify-between gap-3 py-2.5 -mx-2 px-2 rounded-lg text-left hover:bg-gray-100/80 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
+                    className="group flex items-center justify-between gap-3 py-2.5 -mx-2 px-2 text-left hover:bg-gray-100/80 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="text-[13px] font-medium text-gray-800 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
                         {preset.tag}
                       </div>
-                      <div className="text-[11.5px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
-                        {preset.prompt}
-                      </div>
+                      
                     </div>
                     <span className="inline-flex items-center gap-1.5 text-[11.5px] text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300 tabular-nums shrink-0 transition-colors">
                       <RatioBoxIcon ratio={preset.ratio} className="w-3.5 h-3.5" />
@@ -520,7 +584,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                   </button>
                 ))}
               </div>
-            </div>
+            </motion.div>
           </div>
         ) : (
           <div className="max-w-2xl mx-auto w-full flex flex-col gap-6">
@@ -632,7 +696,12 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
       </div>
 
       {/* ── Composer ─────────────────────────────────────────────────────────── */}
-      <div className={`flex-shrink-0 px-5 sm:px-8 pt-2 relative z-30 ${generations.length === 0 ? 'pb-6 sm:pb-8' : 'pb-4'}`}>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.26, ease: [0.22, 1, 0.36, 1] }}
+        className={`flex-shrink-0 px-5 sm:px-8 pt-2 relative z-30 ${generations.length === 0 ? 'pb-6 sm:pb-8' : 'pb-4'}`}
+      >
         <div className="max-w-[680px] mx-auto">
           <SpecularButton
             as="div"
@@ -769,7 +838,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
             </div>
           </SpecularButton>
         </div>
-      </div>
+      </motion.div>
 
       {/* ── Modal ────────────────────────────────────────────────────────────── */}
       {showKeyModal && (
