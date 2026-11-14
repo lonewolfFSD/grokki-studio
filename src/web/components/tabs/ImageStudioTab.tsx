@@ -67,12 +67,12 @@ const DRIFT_ITEMS = [
   { image: 'https://animegenius-global.live3d.io/vtuber/ai_product/anime_genius/static/imgs/animegenius_27302e6bfddf4458f2d8ee59575ca72e.webp', title: 'Cyber Matrix' },
   { image: 'https://animegenius-global.live3d.io/vtuber/ai_product/anime_genius/static/imgs/animegenius_65346c209b5083274adbe14fe4f3de21.webp', title: 'Futuristic Grid' },
   { image: 'https://cdn.spaceprompts.com/images/2548/full/twilight-sakura-overlook-girl.webp', title: 'Color Wave' },
-  { image: 'https://aianime.io/assets/image/result/2.webp?x-oss-process=image/resize,p_50', title: 'Digital Canvas' },
-  { image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=600&q=80', title: 'Retro Hardware' },
+  { image: 'https://cdn.pixelbin.io/v2/still-base-cfe5b3/original/App_blogs/Best_Gemini_AI_photo_prompts/prompt_images/04-ethereal-fantasy-editorial-portrait.webp', title: 'Digital Canvas' },
+  { image: 'https://cdn.pixelbin.io/v2/still-base-cfe5b3/original/App_blogs/Best_Gemini_AI_photo_prompts/prompt_images/02-cyberpunk-techwear-editorial.webp', title: 'Retro Hardware' },
   { image: 'https://images-ng.pixai.art/images/orig/a3bdacd4-66e1-4d1c-aa6b-0398738f86f4', title: 'Cyberpunk Alley' },
-  { image: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80', title: 'Glow Neon' },
-  { image: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80', title: 'Anime Fantasy' },
-  { image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80', title: 'Esports Cyber' },
+  { image: 'https://cdn.openart.ai/cdn-cgi/image/format=auto,width=960,fit=scale-down,dpr=2,quality=80,metadata=none,sharpen=1/openart-ai/production/2026-10/create-image/SH0gUGTsMYHAc7CSlBIF/image_1791516397063_3de23890_1791516397887_b3255c55.png', title: 'Glow Neon' },
+  { image: 'https://cdn.openart.ai/cdn-cgi/image/format=auto,width=960,fit=scale-down,dpr=2,quality=80,metadata=none,sharpen=1/openart-ai/production/2026-10/create-image/iAbPaJMzLGCVIPFi1g0O/0217915190470139953a9193bc3926b190298875f636f3e2ed35a_1791519135951_4c886a66.png', title: 'Anime Fantasy' },
+  { image: 'https://storage.googleapis.com/gweb-uniblog-publish-prod/images/pixie.width-1600.format-webp.webp', title: 'Esports Cyber' },
   { image: 'https://images-ng.pixai.art/images/orig/1ee389de-9832-4a4d-8272-c08477095b4f', title: 'Arcade Glow' },
 ];
 
@@ -153,23 +153,20 @@ const ratioLabel = (ratio: AspectRatio, text: string) => (
 );
 
 const ENGINE_OPTIONS: GlideSelectOption[] = [
-  // Google Imagen (Official Free Tier via Gemini Key)
-  { value: 'google:imagen-3.0-generate-002',                  label: modelLabel(GeminiLogo,     'Imagen 3 Ultra'),    tag: 'Google'     },
-  { value: 'google:imagen-3.0-fast-generate-001',             label: modelLabel(GeminiLogo,     'Imagen 3 Fast'),     tag: 'Google'     },
-  // Nano Banana Models
-  { value: 'pollinations:nano-banana',                        label: modelLabel(BananaLogo,     'Nano Banana'),       tag: 'Free'       },
-  { value: 'pollinations:nano-banana-pro',                    label: modelLabel(BananaLogo,     'Nano Banana Pro'),   tag: 'Free'       },
+  // Nano Banana & Imagen 3 (Official Google Gemini API - Pure Studio Quality, Zero Watermarks)
+  { value: 'google:nano-banana-pro',                          label: modelLabel(BananaLogo,     'Nano Banana Pro'), tag: 'Google'     },
+  { value: 'google:nano-banana-fast',                         label: modelLabel(BananaLogo,     'Nano Banana Fast'), tag: 'Google'     },
+  { value: 'google:imagen-3.0-generate-002',                  label: modelLabel(GeminiLogo,     'Imagen 3 Ultra'),  tag: 'Google'     },
   // Cloudflare Workers AI (Free FLUX.1 Schnell)
-  { value: 'cloudflare:@cf/black-forest-labs/flux-1-schnell', label: modelLabel(CloudflareLogo, 'FLUX.1 Schnell'),   tag: 'Cloudflare' },
-  // Free Community / Pollinations (Instant, No Key Needed)
-  { value: 'pollinations:turbo',                              label: modelLabel(StabilityLogo,  'SDXL Turbo'),        tag: 'Free'       },
-  { value: 'pollinations:flux',                               label: modelLabel(FluxLogo,       'FLUX.1 Dev'),        tag: 'Free'       },
-  { value: 'pollinations:flux-anime',                         label: modelLabel(FluxLogo,       'FLUX Anime'),        tag: 'Free'       },
-  { value: 'pollinations:flux-realism',                       label: modelLabel(FluxLogo,       'FLUX Realism'),      tag: 'Free'       },
+  { value: 'cloudflare:@cf/black-forest-labs/flux-1-schnell', label: modelLabel(CloudflareLogo, 'FLUX.1 Schnell'),  tag: 'Cloudflare' },
   // Local Ollama (Offline / Native)
-  { value: 'ollama:x/z-image-turbo',                          label: modelLabel(OllamaLogo,     'Z-Image Turbo'),     tag: 'Local'      },
+  { value: 'ollama:x/z-image-turbo',                          label: modelLabel(OllamaLogo,     'Z-Image Turbo'),   tag: 'Local'      },
   // OpenAI DALL·E 3
-  { value: 'openai:dall-e-3',                                 label: modelLabel(OpenAILogo,     'DALL·E 3'),          tag: 'OpenAI'     },
+  { value: 'openai:dall-e-3',                                 label: modelLabel(OpenAILogo,     'DALL·E 3'),        tag: 'OpenAI'     },
+  // Free Community (SDXL / FLUX)
+  { value: 'pollinations:turbo',                              label: modelLabel(StabilityLogo,  'SDXL Turbo'),      tag: 'Free'       },
+  { value: 'pollinations:flux',                               label: modelLabel(FluxLogo,       'FLUX.1 Dev'),      tag: 'Free'       },
+  { value: 'pollinations:flux-anime',                         label: modelLabel(FluxLogo,       'FLUX Anime'),      tag: 'Free'       },
 ];
 
 const ASPECT_OPTIONS: GlideSelectOption[] = [
@@ -208,9 +205,9 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
   const [activeEngine, setActiveEngine] = useState<string>(() => {
     try {
       const s = localStorage.getItem(ACTIVE_ENGINE_KEY);
-      if (s && ENGINE_OPTIONS.some(o => o.value === s)) return s;
+      if (s && !s.includes('pollinations:nano-banana') && ENGINE_OPTIONS.some(o => o.value === s)) return s;
     } catch {}
-    return config.geminiApiKey?.trim() ? 'google:imagen-3.0-generate-002' : 'pollinations:turbo';
+    return config.geminiApiKey?.trim() ? 'google:nano-banana-pro' : 'google:nano-banana-pro';
   });
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
   const [enhance, setEnhance] = useState(true);
@@ -331,15 +328,19 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
 
       if (!key) {
         setShowKeyModal(true);
-        throw new Error('Please configure your Gemini API Key to use Google Imagen 3.');
+        throw new Error('Please configure your Gemini API Key in Settings to use Nano Banana.');
       }
+
+      const googleModel = modelName.includes('fast')
+        ? 'imagen-3.0-fast-generate-001'
+        : 'imagen-3.0-generate-002';
 
       const finalPrompt = enh
         ? `masterpiece, ultra-detailed, 8k, professional lighting, photorealistic: ${promptText}`
         : promptText;
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict?key=${key}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${googleModel}:predict?key=${key}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -357,7 +358,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
 
       const data = await res.json();
       const b64 = data.predictions?.[0]?.bytesBase64Encoded;
-      if (!b64) throw new Error('Google Imagen returned no image. Try adjusting your prompt.');
+      if (!b64) throw new Error('Nano Banana returned no image. Try adjusting your prompt.');
       return { finalImageUrl: `data:image/jpeg;base64,${b64}`, seed };
     }
 
