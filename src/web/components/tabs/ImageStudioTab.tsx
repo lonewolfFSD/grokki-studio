@@ -62,21 +62,22 @@ const ASPECT_DIMS: Record<AspectRatio, { width: number; height: number; label: s
 };
 
 const DRIFT_ITEMS = [
-  { image: 'https://image.pollinations.ai/prompt/cyberpunk%20samurai%20warrior%20neon%20city%20katana?width=600&height=400&seed=101&nologo=true', title: 'Cyberpunk Samurai' },
-  { image: 'https://image.pollinations.ai/prompt/floating%20celestial%20islands%20castle%20studio%20ghibli%20anime%20masterpiece?width=600&height=400&seed=202&nologo=true', title: 'Ghibli Castle' },
-  { image: 'https://image.pollinations.ai/prompt/bioluminescent%20cyber%20dragon%20electric%20lightning%20night%20sky?width=600&height=400&seed=303&nologo=true', title: 'Cyber Dragon' },
-  { image: 'https://image.pollinations.ai/prompt/astronaut%20floating%20deep%20space%20colorful%20nebula%20galaxy%20photorealistic?width=600&height=400&seed=404&nologo=true', title: 'Cosmic Nebula' },
-  { image: 'https://image.pollinations.ai/prompt/futuristic%20synthwave%20delorean%20neon%20highway%20retro%20sunset?width=600&height=400&seed=505&nologo=true', title: 'Synthwave Highway' },
-  { image: 'https://image.pollinations.ai/prompt/ethereal%20water%20spirit%20goddess%20glowing%20magic%20digital%20art?width=600&height=400&seed=606&nologo=true', title: 'Spirit Goddess' },
-  { image: 'https://image.pollinations.ai/prompt/giant%20futuristic%20mecha%20robot%20tokyo%20rain%20cinematic%20lighting?width=600&height=400&seed=707&nologo=true', title: 'Mecha Tokyo' },
-  { image: 'https://image.pollinations.ai/prompt/ancient%20mystical%20tree%20of%20life%20glowing%20roots%20enchanted%20forest?width=600&height=400&seed=808&nologo=true', title: 'Tree of Life' },
-  { image: 'https://image.pollinations.ai/prompt/3d%20isometric%20cyberpunk%20room%20miniature%20diorama%20hacker%20den?width=600&height=400&seed=909&nologo=true', title: 'Isometric Den' },
-  { image: 'https://image.pollinations.ai/prompt/majestic%20fiery%20phoenix%20bird%20glowing%20feathers%20fantasy%20masterpiece?width=600&height=400&seed=1010&nologo=true', title: 'Fiery Phoenix' },
-  { image: 'https://image.pollinations.ai/prompt/cyberpunk%20night%20market%20neon%20signs%20rainy%20puddle%20reflections?width=600&height=400&seed=1111&nologo=true', title: 'Night Market' },
-  { image: 'https://image.pollinations.ai/prompt/golden%20hour%20anime%20girl%20cherry%20blossom%20petals%20wind%20shrine?width=600&height=400&seed=1212&nologo=true', title: 'Cherry Blossoms' },
-  { image: 'https://image.pollinations.ai/prompt/gothic%20vampire%20castle%20cliff%20full%20moon%20dark%20fantasy%20oil%20painting?width=600&height=400&seed=1313&nologo=true', title: 'Gothic Castle' },
-  { image: 'https://image.pollinations.ai/prompt/retro%20futuristic%20space%20station%20orbiting%20saturn%20sci-fi%20art?width=600&height=400&seed=1414&nologo=true', title: 'Saturn Station' },
-  { image: 'https://image.pollinations.ai/prompt/surreal%20crystal%20palace%20aurora%20borealis%20frozen%20lake?width=600&height=400&seed=1515&nologo=true', title: 'Crystal Aurora' },
+  { image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80', title: 'Abstract Flow' },
+  { image: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&w=600&q=80', title: 'Cyber Orb' },
+  { image: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&w=600&q=80', title: 'Cosmic Nebula' },
+  { image: 'https://images.unsplash.com/photo-1633167606207-d840b5070fc2?auto=format&fit=crop&w=600&q=80', title: 'Geometric 3D' },
+  { image: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&w=600&q=80', title: 'Surreal Fluid' },
+  { image: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=600&q=80', title: 'Neon Night' },
+  { image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80', title: 'Cyber Matrix' },
+  { image: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=600&q=80', title: 'Futuristic Grid' },
+  { image: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&w=600&q=80', title: 'Color Wave' },
+  { image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80', title: 'Digital Canvas' },
+  { image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=600&q=80', title: 'Retro Hardware' },
+  { image: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=600&q=80', title: 'Cyberpunk Alley' },
+  { image: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80', title: 'Glow Neon' },
+  { image: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80', title: 'Anime Fantasy' },
+  { image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80', title: 'Esports Cyber' },
+  { image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=600&q=80', title: 'Arcade Glow' },
 ];
 
 const ENGINE_OPTIONS: GlideSelectOption[] = [
@@ -356,29 +357,29 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
   return (
     <div className="relative w-full h-full flex flex-col bg-[#f7f7fa] dark:bg-[#070709] text-gray-900 dark:text-gray-100 overflow-hidden select-none">
 
-      {/* ── DriftWall Background (Disappears once user sends a prompt) ──────── */}
+      {/* ── DriftWall Background (Full-bleed across sidebar, disappears on prompt) ── */}
       {generations.length === 0 && (
-        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none transition-opacity duration-700 animate-in fade-in">
+        <div className="absolute -inset-x-36 -inset-y-16 z-0 overflow-hidden pointer-events-none transition-opacity duration-700 animate-in fade-in">
           <DriftWall
             items={DRIFT_ITEMS}
-            columns={5}
-            tileWidth={280}
-            tileHeight={185}
-            gap={22}
-            tilt={24}
-            turn={-22}
-            perspective={1100}
+            columns={8}
+            tileWidth={300}
+            tileHeight={195}
+            gap={24}
+            tilt={22}
+            turn={-20}
+            perspective={1200}
             depth={160}
             speed={38}
             direction="up"
             variance={0.45}
             parallax={0.65}
             lift={68}
-            fade={0.65}
-            dim={0.42}
+            fade={0.15}
+            dim={0.4}
             overlayColor={isDark ? '#060010' : '#f7f7fa'}
             radius={18}
-            roll={-5}
+            roll={-4}
             pauseOnHover={false}
             grayscale={false}
             className="w-full h-full"
@@ -386,16 +387,13 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
         </div>
       )}
 
-      {/* ── Centered Intro Text in Cursive Font (No icons, in the center) ───── */}
+      {/* ── Centered Intro Text in Cursive Font (Clean, razor-sharp, NO shadow) ── */}
       {generations.length === 0 && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none pb-28 px-4 text-center select-none animate-in fade-in zoom-in-95 duration-500">
           <h1
             className="text-6xl sm:text-7xl md:text-8xl font-normal text-gray-900 dark:text-white tracking-wide"
             style={{
               fontFamily: "'Caveat', 'Dancing Script', 'Great Vibes', 'Brush Script MT', 'Segoe Script', cursive",
-              textShadow: isDark
-                ? '0 4px 35px rgba(0, 0, 0, 0.95), 0 2px 10px rgba(0, 0, 0, 0.9)'
-                : '0 2px 25px rgba(255, 255, 255, 0.95), 0 1px 4px rgba(0, 0, 0, 0.1)',
             }}
           >
             Grokki Image Studio
