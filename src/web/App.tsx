@@ -16,6 +16,7 @@ import { AppearanceTab } from './components/tabs/AppearanceTab';
 import { StudioSettingsTab } from './components/tabs/StudioSettingsTab';
 import { AboutTab } from './components/tabs/AboutTab';
 const AnimeCompanionTab = React.lazy(() => import('./components/tabs/AnimeCompanionTab'));
+const ImageStudioTab = React.lazy(() => import('./components/tabs/ImageStudioTab'));
 import { SettingsModal, SettingsSection } from './components/SettingsModal';
 import { ChatLockModal, LockedChatScreen } from './components/ChatLockModal';
 import { JarvisConfig, GoogleProfile, SystemInfo, Conversation, ChatLockMethod, ActiveModelPull } from './types/jarvis';
@@ -1075,6 +1076,7 @@ export const App: React.FC = () => {
     chat: appMode === 'agent' ? 'Grokki Agent' : 'Grokki Chat',
     overview: 'Home',
     companion: 'Aiko',
+    images: 'Image Studio',
     workspace: 'Plugins',
     plugins: 'Plugins',
     skills: 'Agent Skills',
@@ -1155,7 +1157,7 @@ export const App: React.FC = () => {
 
         {/* Tab Panels */}
         <main id="grokki-main-scroll" className={`flex-1 min-h-0 ${
-          activeTab === 'chat' || activeTab === 'companion'
+          activeTab === 'chat' || activeTab === 'companion' || activeTab === 'images'
             ? 'h-full flex flex-col relative bg-[#f7f7fa] dark:bg-[#070709] overflow-hidden p-0'
             : 'overflow-y-auto px-8 py-6'
         }`}>
@@ -1195,7 +1197,7 @@ export const App: React.FC = () => {
           <div id="grokki-tab-content" className={
             activeTab === 'chat'
               ? 'hidden'
-              : activeTab === 'companion'
+              : activeTab === 'companion' || activeTab === 'images'
                 ? 'w-full h-full flex-1 min-h-0 flex flex-col'
                 : 'w-full flex flex-col'
           }>
@@ -1219,6 +1221,22 @@ export const App: React.FC = () => {
                 }
               >
                 <AnimeCompanionTab
+                  config={config}
+                  onChangeConfig={handleConfigChange}
+                />
+              </React.Suspense>
+            )}
+
+            {activeTab === 'images' && (
+              <React.Suspense
+                fallback={
+                  <div className="w-full h-full bg-[#07070a] flex flex-col items-center justify-center gap-3 text-gray-400">
+                    <div className="w-8 h-8 rounded-full border-2 border-pink-500/30 border-t-pink-500 animate-spin" />
+                    <span className="text-xs tracking-wider uppercase font-mono text-pink-300">Loading Image Studio...</span>
+                  </div>
+                }
+              >
+                <ImageStudioTab
                   config={config}
                   onChangeConfig={handleConfigChange}
                 />
