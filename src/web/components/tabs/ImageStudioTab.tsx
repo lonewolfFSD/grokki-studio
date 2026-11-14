@@ -16,12 +16,11 @@ import {
   Server,
   Cloud,
 } from 'lucide-react';
-import { HugeiconsIcon } from '@hugeicons/react';
-import { AiImageIcon } from '@hugeicons/core-free-icons';
 import { JarvisConfig } from '../../types/jarvis';
 import SpecularButton from '../../../effects/SpecularButton';
 import DriftWall from '../../../effects/DriftWall';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
+import { GeminiLogo, OpenAILogo } from './AiBrainTab';
 import WarmTooltip from '../WarmTooltip';
 import grokkiIcon from '../../assets/grokki_icon.svg';
 
@@ -80,27 +79,90 @@ const DRIFT_ITEMS = [
   { image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=600&q=80', title: 'Arcade Glow' },
 ];
 
+// ── Provider & Model Icons ──────────────────────────────────────────────────
+const ByteDanceLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
+    <path d="M3.5 6.5L7.5 4.5V19.5L3.5 17.5V6.5Z" fill="#325AB4" />
+    <path d="M9.2 10.5L13.2 8.5V19.5L9.2 17.5V10.5Z" fill="#00C8D2" />
+    <path d="M14.8 4.5L18.8 6.5V17.5L14.8 19.5V4.5Z" fill="#2EE59D" />
+    <path d="M16.5 8.5L20.5 6.5V17.5L16.5 15.5V8.5Z" fill="#38BDF8" fillOpacity="0.85" />
+  </svg>
+);
+
+const FluxLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
+    <path d="M12 2.5L21 19H3L12 2.5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M12 8.5L17.2 19H6.8L12 8.5Z" fill="currentColor" fillOpacity="0.28" />
+    <circle cx="12" cy="14.5" r="1.8" fill="currentColor" />
+  </svg>
+);
+
+const StabilityLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
+    <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="#A855F7" strokeWidth="2" />
+    <path d="M13 6.5L8.5 13H12.5L11 17.5L15.5 11H11.5L13 6.5Z" fill="#C084FC" />
+  </svg>
+);
+
+const RatioBoxIcon: React.FC<{ ratio: AspectRatio; className?: string }> = ({ ratio, className = 'w-3.5 h-3.5' }) => {
+  const frames: Record<AspectRatio, { x: number; y: number; w: number; h: number }> = {
+    '1:1':  { x: 3,    y: 3,    w: 10,  h: 10  },
+    '16:9': { x: 1.5,  y: 4.25, w: 13,  h: 7.5 },
+    '9:16': { x: 4.25, y: 1.5,  w: 7.5, h: 13  },
+    '4:3':  { x: 2,    y: 3.5,  w: 12,  h: 9   },
+    '3:4':  { x: 3.5,  y: 2,    w: 9,   h: 12  },
+  };
+  const f = frames[ratio];
+  return (
+    <svg viewBox="0 0 16 16" className={`${className} shrink-0 opacity-75`} fill="none">
+      <rect
+        x={f.x}
+        y={f.y}
+        width={f.w}
+        height={f.h}
+        rx="1.6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+};
+
+const modelLabel = (Icon: React.FC<{ className?: string }>, text: string) => (
+  <span className="inline-flex items-center gap-2 truncate">
+    <Icon className="w-3.5 h-3.5 shrink-0" />
+    <span className="truncate">{text}</span>
+  </span>
+);
+
+const ratioLabel = (ratio: AspectRatio, text: string) => (
+  <span className="inline-flex items-center gap-2 truncate">
+    <RatioBoxIcon ratio={ratio} className="w-3.5 h-3.5 shrink-0" />
+    <span className="truncate">{text}</span>
+  </span>
+);
+
 const ENGINE_OPTIONS: GlideSelectOption[] = [
-  { value: 'bytedance:seedance-2.5',                           label: 'Seedance 2.5',              group: 'ByteDance' },
-  { value: 'bytedance:jimeng-v2',                              label: 'Jimeng / Dreamina',          group: 'ByteDance' },
-  { value: 'bytedance:doubao-image',                           label: 'Doubao AI',                  group: 'ByteDance' },
-  { value: 'proxy:dall-e-3',                                   label: 'DALL-E 3 (Coze proxy)',      group: 'Reverse proxies' },
-  { value: 'proxy:flux-pro',                                   label: 'FLUX Pro (custom proxy)',    group: 'Reverse proxies' },
-  { value: 'google:imagen-3.0-generate-002',                   label: 'Imagen 3 Ultra',             group: 'Google' },
-  { value: 'google:imagen-3.0-fast-generate-001',              label: 'Imagen 3 Fast',              group: 'Google' },
-  { value: 'together:black-forest-labs/FLUX.1-schnell-Free',   label: 'FLUX.1 Schnell',             group: 'Together AI' },
-  { value: 'pollinations:turbo',                               label: 'SDXL Turbo — instant',       group: 'Free cloud' },
-  { value: 'pollinations:flux',                                label: 'FLUX.1 Standard',            group: 'Free cloud' },
-  { value: 'pollinations:flux-anime',                          label: 'FLUX Anime',                 group: 'Free cloud' },
-  { value: 'pollinations:flux-realism',                        label: 'FLUX Realism',               group: 'Free cloud' },
+  { value: 'bytedance:seedance-2.5',                         label: modelLabel(ByteDanceLogo, 'Seedance 2.5'),   tag: 'ByteDance' },
+  { value: 'bytedance:jimeng-v2',                            label: modelLabel(ByteDanceLogo, 'Jimeng 2.0'),     tag: 'ByteDance' },
+  { value: 'bytedance:doubao-image',                         label: modelLabel(ByteDanceLogo, 'Doubao'),         tag: 'ByteDance' },
+  { value: 'google:imagen-3.0-generate-002',                 label: modelLabel(GeminiLogo,    'Imagen 3 Ultra'), tag: 'Google'    },
+  { value: 'google:imagen-3.0-fast-generate-001',            label: modelLabel(GeminiLogo,    'Imagen 3 Fast'),  tag: 'Google'    },
+  { value: 'proxy:dall-e-3',                                 label: modelLabel(OpenAILogo,    'DALL·E 3'),       tag: 'Coze'      },
+  { value: 'proxy:flux-pro',                                 label: modelLabel(FluxLogo,      'FLUX.1 Pro'),     tag: 'Proxy'     },
+  { value: 'together:black-forest-labs/FLUX.1-schnell-Free', label: modelLabel(FluxLogo,      'FLUX.1 Schnell'), tag: 'Together'  },
+  { value: 'pollinations:turbo',                             label: modelLabel(StabilityLogo, 'SDXL Turbo'),     tag: 'Fast'      },
+  { value: 'pollinations:flux',                              label: modelLabel(FluxLogo,      'FLUX.1 Dev'),     tag: 'Cloud'     },
+  { value: 'pollinations:flux-anime',                        label: modelLabel(FluxLogo,      'FLUX Anime'),     tag: 'Cloud'     },
+  { value: 'pollinations:flux-realism',                      label: modelLabel(FluxLogo,      'FLUX Realism'),   tag: 'Cloud'     },
 ];
 
 const ASPECT_OPTIONS: GlideSelectOption[] = [
-  { value: '1:1',  label: '1:1 Square'     },
-  { value: '16:9', label: '16:9 Landscape' },
-  { value: '9:16', label: '9:16 Portrait'  },
-  { value: '4:3',  label: '4:3 Standard'   },
-  { value: '3:4',  label: '3:4 Portrait'   },
+  { value: '1:1',  label: ratioLabel('1:1',  '1:1 Square'),    tag: '1024×1024' },
+  { value: '16:9', label: ratioLabel('16:9', '16:9 Wide'),     tag: '1280×720'  },
+  { value: '9:16', label: ratioLabel('9:16', '9:16 Tall'),     tag: '720×1280'  },
+  { value: '4:3',  label: ratioLabel('4:3',  '4:3 Standard'),  tag: '1152×864'  },
+  { value: '3:4',  label: ratioLabel('3:4',  '3:4 Portrait'),  tag: '864×1152'  },
 ];
 
 const PROMPT_PRESETS: { tag: string; ratio: AspectRatio; prompt: string }[] = [
@@ -133,7 +195,6 @@ const PROMPT_PRESETS: { tag: string; ratio: AspectRatio; prompt: string }[] = [
 
 export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChangeConfig }) => {
   const [inputValue, setInputValue] = useState('');
-  const [activePresetIdx, setActivePresetIdx] = useState(0);
 
   const [activeEngine, setActiveEngine] = useState<string>(() => {
     try { const s = localStorage.getItem(ACTIVE_ENGINE_KEY); if (s) return s; } catch {}
@@ -377,16 +438,16 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
     surfaceColor:  isDark ? '#1a1c24' : '#f3f4f6',
     highlightColor: isDark ? '#272a38' : '#e5e7eb',
     textColor:     isDark ? '#f3f4f6' : '#111827',
-    accentColor:   isDark ? '#38bdf8' : '#0284c7',
+    accentColor:   isDark ? '#e5e7eb' : '#111827',
     placement:     'top' as const,
     align:         'left' as const,
-    menuWidth:     295,
+    menuWidth:     260,
   };
 
   return (
     <div className="relative w-full h-full flex flex-col bg-[#f7f7fa] dark:bg-[#070709] text-gray-900 dark:text-gray-100 overflow-hidden select-none">
 
-      {/* ── DriftWall Background (Full-bleed across sidebar, disappears on prompt) ── */}
+      {/* ── DriftWall Background (disappears once there are generations) ── */}
       {generations.length === 0 && (
         <div className="absolute -inset-x-36 -inset-y-16 z-0 overflow-hidden pointer-events-none transition-opacity duration-700 animate-in fade-in">
           <DriftWall
@@ -405,9 +466,9 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
             parallax={0.65}
             lift={68}
             fade={0.15}
-            dim={0.48}
+            dim={0.55}
             overlayColor={isDark ? '#060010' : '#f7f7fa'}
-            radius={18}
+            radius={10}
             roll={-4}
             pauseOnHover={false}
             grayscale={false}
@@ -416,198 +477,154 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
         </div>
       )}
 
-      {/* ── Main Content Stage (Intro Hero when empty, Chat Feed when active) ── */}
+      {/* ── Main Content Stage ── */}
       <div className="flex-1 overflow-y-auto px-5 sm:px-8 py-6 min-h-0 relative z-20 flex flex-col">
         {generations.length === 0 ? (
-          <div
-            className="flex-1 flex flex-col items-center justify-center text-center px-4 py-6 animate-in fade-in zoom-in-95 duration-500"
-            style={{
-              background: isDark
-                ? 'radial-gradient(ellipse 56% 52% at 50% 50%, rgba(6, 0, 16, 0.72) 0%, rgba(6, 0, 16, 0.34) 58%, transparent 100%)'
-                : 'radial-gradient(ellipse 56% 52% at 50% 50%, rgba(247, 247, 250, 0.85) 0%, rgba(247, 247, 250, 0.42) 58%, transparent 100%)',
-            }}
-          >
-            {/* Cursive Display Title — zero textShadow */}
+          <div className="flex-1 flex flex-col items-center justify-center px-4 py-6">
             <h1
-              className="text-6xl sm:text-7xl md:text-[84px] font-semibold text-gray-900 dark:text-white tracking-tight leading-[1.08]"
+              className="text-6xl sm:text-[5em] mb-7 font-normal text-gray-900 dark:text-white tracking-wide"
               style={{
-                fontFamily: "'Dancing Script', 'Great Vibes', 'Caveat', cursive",
+                fontFamily: "'Caveat', 'Dancing Script', 'Great Vibes', 'Brush Script MT', 'Segoe Script', cursive",
               }}
             >
               Grokki Image Studio
             </h1>
-
-            {/* Editorial Subtitle */}
-            <p className="mt-3 text-[14px] sm:text-[15.5px] text-gray-600 dark:text-white/75 font-normal max-w-lg mx-auto leading-relaxed tracking-[-0.01em]">
-              Transform raw imagination into cinema-grade frames, concept art, and photorealistic renders.
-            </p>
-
-            {/* Interactive Example Prompt Showcase */}
-            <div className="mt-6 w-full max-w-xl mx-auto flex flex-col items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  const preset = PROMPT_PRESETS[activePresetIdx];
-                  setInputValue(preset.prompt);
-                  setAspectRatio(preset.ratio);
-                  inputRef.current?.focus();
-                }}
-                className="w-full group text-left px-4 py-3 rounded-2xl bg-white/75 dark:bg-[#111116]/80 hover:bg-white/95 dark:hover:bg-[#16161d]/90 backdrop-blur-md border border-gray-200/80 dark:border-white/[0.09] hover:border-gray-300 dark:hover:border-white/[0.18] transition-all duration-200 cursor-pointer shadow-sm"
-              >
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-[10.5px] uppercase tracking-[0.14em] font-semibold text-sky-600 dark:text-sky-400">
-                    Sample Prompt · {PROMPT_PRESETS[activePresetIdx].tag} ({PROMPT_PRESETS[activePresetIdx].ratio})
-                  </span>
-                  <span className="text-[11px] font-medium text-gray-400 dark:text-white/45 group-hover:text-gray-800 dark:group-hover:text-white/85 transition-colors">
-                    Use prompt ↗
-                  </span>
-                </div>
-                <p className="text-[12.5px] sm:text-[13px] text-gray-700 dark:text-white/80 italic leading-relaxed line-clamp-2">
-                  &ldquo;{PROMPT_PRESETS[activePresetIdx].prompt}&rdquo;
-                </p>
-              </button>
-
-              {/* Quick Style Preset Pills */}
-              <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                {PROMPT_PRESETS.map((preset, idx) => {
-                  const isSelected = idx === activePresetIdx;
-                  return (
-                    <button
-                      key={preset.tag}
-                      type="button"
-                      onMouseEnter={() => setActivePresetIdx(idx)}
-                      onClick={() => {
-                        setActivePresetIdx(idx);
-                        setInputValue(preset.prompt);
-                        setAspectRatio(preset.ratio);
-                        inputRef.current?.focus();
-                      }}
-                      className={`px-3 py-1 rounded-full text-[11.5px] font-medium backdrop-blur-md transition-all duration-150 cursor-pointer ${
-                        isSelected
-                          ? 'bg-gray-900/90 dark:bg-white/15 text-white border border-gray-900 dark:border-white/25'
-                          : 'bg-white/60 dark:bg-white/[0.05] text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white/90 border border-gray-200/70 dark:border-white/[0.08]'
-                      }`}
-                    >
-                      {preset.tag}
-                    </button>
-                  );
-                })}
+            <div className="w-full max-w-md rounded-xl border border-gray-200 dark:border-white/10 bg-white/90 dark:bg-[#0c0c10]/90 backdrop-blur-md px-5 py-4 text-left shadow-lg">
+              <div className="text-[11.5px] font-medium text-gray-400 dark:text-gray-500 pb-2">
+                Start from an example
+              </div>
+              <div className="flex flex-col divide-y divide-gray-200/80 dark:divide-white/[0.07]">
+                {PROMPT_PRESETS.map(preset => (
+                  <button
+                    key={preset.tag}
+                    type="button"
+                    onClick={() => {
+                      setInputValue(preset.prompt);
+                      setAspectRatio(preset.ratio);
+                      inputRef.current?.focus();
+                    }}
+                    className="group flex items-center justify-between gap-3 py-2.5 -mx-2 px-2 rounded-lg text-left hover:bg-gray-100/80 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-medium text-gray-800 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
+                        {preset.tag}
+                      </div>
+                      <div className="text-[11.5px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                        {preset.prompt}
+                      </div>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 text-[11.5px] text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300 tabular-nums shrink-0 transition-colors">
+                      <RatioBoxIcon ratio={preset.ratio} className="w-3.5 h-3.5" />
+                      <span>{preset.ratio}</span>
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         ) : (
           <div className="max-w-2xl mx-auto w-full flex flex-col gap-6">
-            {/* Messages */}
             {generations.map(item => (
-            <div key={item.id} className="flex flex-col gap-2.5 w-full animate-in fade-in duration-200">
+              <div key={item.id} className="flex flex-col gap-2.5 w-full">
 
-              {/* User bubble */}
-              <div className="flex justify-end">
-                <div className="max-w-[75%] bg-white dark:bg-[#1a1a20] border border-gray-200/80 dark:border-white/[0.07] text-gray-800 dark:text-gray-100 px-3.5 py-2.5 rounded-2xl rounded-tr-sm text-[13px] leading-relaxed shadow-sm">
-                  {item.prompt}
-                </div>
-              </div>
-
-              {/* Assistant row */}
-              <div className="flex items-start gap-2.5">
-                <img
-                  src={grokkiIcon}
-                  alt="Grokki"
-                  className="w-5 h-5 rounded-full flex-shrink-0 mt-0.5 select-none"
-                />
-                <div className="flex-1 min-w-0">
-                  {/* Meta */}
-                  <div className="flex items-baseline gap-2 mb-1.5">
-                    <span className="text-[12px] font-semibold text-gray-800 dark:text-gray-200">Grokki</span>
-                    <span className="text-[11px] text-gray-400 dark:text-gray-500">{item.timestamp}</span>
-                    <span className="text-[10px] font-mono px-1.5 py-px rounded-md bg-gray-100 dark:bg-white/[0.05] border border-gray-200 dark:border-white/[0.07] text-gray-400 dark:text-gray-500">
-                      {item.model}
-                    </span>
+                {/* User bubble */}
+                <div className="flex justify-end">
+                  <div className="max-w-[75%] bg-white dark:bg-[#1a1a20] border border-gray-200 dark:border-white/[0.07] text-gray-800 dark:text-gray-100 px-3 py-2 rounded-lg text-[13px] leading-relaxed">
+                    {item.prompt}
                   </div>
+                </div>
 
-                  {/* Error */}
-                  {item.error ? (
-                    <div className="flex gap-2.5 p-3 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 max-w-sm">
-                      <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                      <div className="min-w-0">
-                        <p className="text-[12px] font-semibold text-red-700 dark:text-red-400 mb-0.5">Generation failed</p>
-                        <p className="text-[11px] text-red-600/75 dark:text-red-400/60 leading-relaxed">{item.error}</p>
-                        <div className="flex gap-1.5 mt-2.5 flex-wrap">
-                          <button
-                            type="button"
-                            onClick={() => handleGenerate(item.prompt)}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
-                          >
-                            <RefreshCw className="w-3 h-3" /> Retry
-                          </button>
-                          {item.provider !== 'pollinations' && (
+                {/* Assistant row */}
+                <div className="flex items-start gap-2.5">
+                  <img
+                    src={grokkiIcon}
+                    alt="Grokki"
+                    className="w-5 h-5 rounded-full flex-shrink-0 mt-0.5 select-none"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 mb-1.5">
+                      <span className="text-[12px] font-semibold text-gray-800 dark:text-gray-200">Grokki</span>
+                      <span className="text-[11px] text-gray-400 dark:text-gray-500">{item.timestamp}</span>
+                      <span className="text-[11px] text-gray-400 dark:text-gray-500">{item.model}</span>
+                    </div>
+
+                    {item.error ? (
+                      <div className="flex gap-2.5 p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 max-w-sm">
+                        <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-semibold text-red-700 dark:text-red-400 mb-0.5">Generation failed</p>
+                          <p className="text-[11px] text-red-600/75 dark:text-red-400/60 leading-relaxed">{item.error}</p>
+                          <div className="flex gap-1.5 mt-2.5 flex-wrap">
                             <button
                               type="button"
-                              onClick={() => { handleEngineChange('pollinations:turbo'); handleGenerate(item.prompt, 'pollinations:turbo'); }}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
+                              onClick={() => handleGenerate(item.prompt)}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
                             >
-                              <Zap className="w-3 h-3" /> Try free cloud
+                              <RefreshCw className="w-3 h-3" /> Retry
                             </button>
-                          )}
+                            {item.provider !== 'pollinations' && (
+                              <button
+                                type="button"
+                                onClick={() => { handleEngineChange('pollinations:turbo'); handleGenerate(item.prompt, 'pollinations:turbo'); }}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
+                              >
+                                <Zap className="w-3 h-3" /> Try free cloud
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-
-                  /* Image */
-                  ) : item.url ? (
-                    <div className="relative inline-block rounded-xl overflow-hidden border border-gray-200 dark:border-white/[0.08] group max-w-[420px]">
-                      <img
-                        src={item.url}
-                        alt={item.prompt}
-                        className="w-full h-auto block transition-transform duration-300 group-hover:scale-[1.004]"
-                      />
-                      {/* Hover actions */}
-                      <div className="absolute bottom-2.5 right-2.5 flex items-center gap-0.5 bg-black/55 backdrop-blur-md border border-white/10 rounded-lg p-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                        <WarmTooltip content={copiedId === item.id ? 'Copied!' : 'Copy prompt'} side="top">
-                          <button
-                            type="button"
-                            onClick={() => handleCopyPrompt(item.prompt, item.id)}
-                            className="w-7 h-7 flex items-center justify-center rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                          >
-                            {copiedId === item.id
-                              ? <Check className="w-3.5 h-3.5 text-green-400" />
-                              : <Copy className="w-3.5 h-3.5" />}
-                          </button>
-                        </WarmTooltip>
-                        <WarmTooltip content="Download" side="top">
-                          <button
-                            type="button"
-                            onClick={() => handleDownload(item)}
-                            className="w-7 h-7 flex items-center justify-center rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </button>
-                        </WarmTooltip>
-                        <WarmTooltip content="Regenerate" side="top">
-                          <button
-                            type="button"
-                            onClick={() => handleGenerate(item.prompt)}
-                            className="w-7 h-7 flex items-center justify-center rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                          >
-                            <RefreshCw className="w-3.5 h-3.5" />
-                          </button>
-                        </WarmTooltip>
+                    ) : item.url ? (
+                      <div className="relative inline-block rounded-lg overflow-hidden border border-gray-200 dark:border-white/[0.08] group max-w-[420px]">
+                        <img
+                          src={item.url}
+                          alt={item.prompt}
+                          className="w-full h-auto block"
+                        />
+                        <div className="absolute bottom-2 right-2 flex items-center gap-0.5 bg-black/70 rounded-md p-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                          <WarmTooltip content={copiedId === item.id ? 'Copied' : 'Copy prompt'} side="top">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyPrompt(item.prompt, item.id)}
+                              className="w-7 h-7 flex items-center justify-center rounded text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            >
+                              {copiedId === item.id
+                                ? <Check className="w-3.5 h-3.5 text-green-400" />
+                                : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </WarmTooltip>
+                          <WarmTooltip content="Download" side="top">
+                            <button
+                              type="button"
+                              onClick={() => handleDownload(item)}
+                              className="w-7 h-7 flex items-center justify-center rounded text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          </WarmTooltip>
+                          <WarmTooltip content="Regenerate" side="top">
+                            <button
+                              type="button"
+                              onClick={() => handleGenerate(item.prompt)}
+                              className="w-7 h-7 flex items-center justify-center rounded text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                            </button>
+                          </WarmTooltip>
+                        </div>
                       </div>
-                    </div>
-
-                  /* Loading skeleton */
-                  ) : (
-                    <div className="w-56 h-56 rounded-xl bg-gray-100 dark:bg-[#131317] border border-gray-200 dark:border-white/[0.06] flex flex-col items-center justify-center gap-2">
-                      <div className="w-5 h-5 rounded-full border-[1.5px] border-gray-300 dark:border-white/20 border-t-gray-700 dark:border-t-white/60 animate-spin" />
-                      <span className="text-[11px] font-mono text-gray-400 dark:text-gray-500">
-                        {item.model}…
-                      </span>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="w-56 h-56 rounded-lg bg-gray-100 dark:bg-[#131317] border border-gray-200 dark:border-white/[0.06] flex flex-col items-center justify-center gap-2">
+                        <div className="w-5 h-5 rounded-full border-[1.5px] border-gray-300 dark:border-white/20 border-t-gray-700 dark:border-t-white/60 animate-spin" />
+                        <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                          {item.model}…
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
 
             <div ref={feedEndRef} />
           </div>
@@ -615,27 +632,27 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
       </div>
 
       {/* ── Composer ─────────────────────────────────────────────────────────── */}
-      <div className={`flex-shrink-0 px-5 sm:px-8 pt-2 relative z-30 transition-all duration-300 ${generations.length === 0 ? 'pb-8 sm:pb-10' : 'pb-5'}`}>
+      <div className={`flex-shrink-0 px-5 sm:px-8 pt-2 relative z-30 ${generations.length === 0 ? 'pb-6 sm:pb-8' : 'pb-4'}`}>
         <div className="max-w-[680px] mx-auto">
           <SpecularButton
             as="div"
             size="lg"
-            radius={22}
+            radius={14}
             tint={isDark ? '#ffffff' : '#000000'}
-            tintOpacity={0.04}
+            tintOpacity={0.03}
             textColor={isDark ? '#f5f5f5' : '#18181b'}
             lineColor={isDark ? '#ffffff' : '#18181b'}
             baseColor={isDark ? '#525252' : '#d4d4d8'}
-            intensity={1}
-            idleIntensity={0.35}
-            shineSize={10}
+            intensity={0.6}
+            idleIntensity={0.15}
+            shineSize={8}
             shineFade={34}
-            thickness={1.2}
-            glow={1}
+            thickness={1}
+            glow={0}
             followMouse={false}
-            autoAnimate
-            proximity={250}
-            className="w-full bg-white/95 dark:bg-[#121217]/95 backdrop-blur-xl shadow-lg hover:shadow-xl p-4 sm:p-4.5 transition-shadow flex flex-col gap-3 text-left relative z-20"
+            autoAnimate={false}
+            proximity={200}
+            className="w-full bg-white dark:bg-[#121217] p-3 flex flex-col gap-2 text-left relative z-20"
           >
             {/* Textarea */}
             <div className="relative">
@@ -646,17 +663,17 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); }
                 }}
-                rows={Math.min(7, Math.max(3, inputValue.split('\n').length))}
-                placeholder="Describe subject, lighting, camera lens & mood — or pick a sample prompt above to begin…"
+                rows={Math.min(6, Math.max(2, inputValue.split('\n').length))}
+                placeholder="Describe an image"
                 autoFocus
-                className="w-full min-h-[82px] sm:min-h-[94px] bg-transparent resize-none border-none outline-none text-[13.5px] sm:text-[14px] leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 p-0 pr-6"
+                className="w-full min-h-[48px] bg-transparent resize-none border-none outline-none text-[13.5px] leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 p-0 pr-6"
               />
               {inputValue && (
                 <button
                   type="button"
                   onClick={() => { setInputValue(''); inputRef.current?.focus(); }}
                   title="Clear prompt"
-                  className="absolute top-0 right-0 w-5 h-5 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] text-xs transition-colors cursor-pointer"
+                  className="absolute top-0 right-0 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] text-xs transition-colors cursor-pointer"
                 >
                   ×
                 </button>
@@ -664,7 +681,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
             </div>
 
             {/* Controls */}
-            <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-gray-200/70 dark:border-white/[0.07]">
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200/70 dark:border-white/[0.07]">
               <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
 
                 {/* Engine */}
@@ -681,22 +698,22 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                   value={aspectRatio}
                   onChange={v => setAspectRatio(v as AspectRatio)}
                   {...glideProps}
-                  menuWidth={180}
+                  menuWidth={210}
                 />
 
-                {/* Magic toggle */}
-                <WarmTooltip content={enhance ? 'Magic prompt enhancer: on' : 'Magic prompt enhancer: off'} side="top">
+                {/* Enhance toggle */}
+                <WarmTooltip content={enhance ? 'Prompt enhancer: on' : 'Prompt enhancer: off'} side="top">
                   <button
                     type="button"
                     onClick={() => setEnhance(e => !e)}
-                    className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11.5px] font-medium transition-colors cursor-pointer ${
+                    className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium transition-colors cursor-pointer border ${
                       enhance
-                        ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/25'
-                        : 'text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border border-transparent hover:border-gray-200 dark:hover:border-white/10'
+                        ? 'bg-gray-900/[0.06] dark:bg-white/10 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-white/20'
+                        : 'text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border-transparent hover:border-gray-200 dark:hover:border-white/10'
                     }`}
                   >
                     <Sparkles className="w-3 h-3" />
-                    <span className="hidden sm:inline">Magic</span>
+                    <span className="hidden sm:inline">Enhance</span>
                   </button>
                 </WarmTooltip>
               </div>
@@ -707,7 +724,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                   <button
                     type="button"
                     onClick={() => setShowKeyModal(true)}
-                    className="h-7 px-2.5 flex items-center gap-1.5 rounded-lg text-[11.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] border border-transparent hover:border-gray-200 dark:hover:border-white/10 transition-colors cursor-pointer"
+                    className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] border border-transparent hover:border-gray-200 dark:hover:border-white/10 transition-colors cursor-pointer"
                   >
                     <Key className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Engines</span>
@@ -719,7 +736,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                     <button
                       type="button"
                       onClick={() => { if (confirm('Clear image history?')) saveGenerations([]); }}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
+                      className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -730,16 +747,16 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                   type="button"
                   disabled={!inputValue.trim() || isGenerating}
                   onClick={() => handleGenerate()}
-                  className={`h-8 px-3.5 flex items-center justify-center gap-1.5 rounded-xl text-[12px] font-semibold transition-all ${
+                  className={`h-7 px-3 flex items-center justify-center gap-1.5 rounded-md text-[12px] font-semibold transition-colors ${
                     inputValue.trim() && !isGenerating
-                      ? 'bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-90 active:scale-95 cursor-pointer shadow-sm'
+                      ? 'bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-90 cursor-pointer'
                       : 'bg-gray-100 dark:bg-white/[0.07] text-gray-400 dark:text-gray-500 cursor-not-allowed'
                   }`}
                 >
                   {isGenerating ? (
                     <>
                       <Square className="w-3 h-3 fill-current" />
-                      <span>Rendering</span>
+                      <span>Generating</span>
                     </>
                   ) : (
                     <>
@@ -757,12 +774,12 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
       {/* ── Modal ────────────────────────────────────────────────────────────── */}
       {showKeyModal && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
           onClick={() => setShowKeyModal(false)}
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="w-full max-w-md bg-white dark:bg-[#15151b] border border-gray-200 dark:border-white/[0.09] rounded-2xl shadow-2xl flex flex-col max-h-[88vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            className="w-full max-w-md bg-white dark:bg-[#15151b] border border-gray-200 dark:border-white/[0.09] rounded-xl shadow-xl flex flex-col max-h-[88vh] overflow-hidden"
           >
             {/* Modal header */}
             <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-gray-100 dark:border-white/[0.06] flex-shrink-0">
@@ -778,7 +795,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
               <button
                 type="button"
                 onClick={() => setShowKeyModal(false)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer -mt-0.5 -mr-0.5"
+                className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer -mt-0.5 -mr-0.5"
               >
                 ×
               </button>
@@ -825,7 +842,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                         href={r.href}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-2.5 rounded-xl border border-gray-100 dark:border-white/[0.07] bg-gray-50 dark:bg-white/[0.03] hover:border-gray-200 dark:hover:border-white/[0.12] transition-colors"
+                        className="p-2.5 rounded-lg border border-gray-200 dark:border-white/[0.07] hover:border-gray-300 dark:hover:border-white/[0.14] transition-colors"
                       >
                         <div className="flex items-center justify-between mb-0.5">
                           <span className="text-[11.5px] font-medium text-gray-800 dark:text-gray-200">{r.name}</span>
@@ -854,7 +871,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                       value={proxyEndpoint}
                       onChange={e => setProxyEndpoint(e.target.value)}
                       placeholder="http://localhost:8000/v1"
-                      className="w-full h-8 px-3 rounded-lg border border-gray-200 dark:border-white/[0.09] bg-gray-50 dark:bg-white/[0.03] text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
+                      className="w-full h-8 px-3 rounded-md border border-gray-200 dark:border-white/[0.09] bg-transparent text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
                     />
                     {proxyStatus && (
                       <p className={`flex items-center gap-1.5 text-[11px] mt-1.5 ${proxyStatus.ok ? 'text-green-500' : 'text-amber-500'}`}>
@@ -878,7 +895,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                       value={proxyKey}
                       onChange={e => setProxyKey(e.target.value)}
                       placeholder="sk-… or leave empty for local"
-                      className="w-full h-8 px-3 rounded-lg border border-gray-200 dark:border-white/[0.09] bg-gray-50 dark:bg-white/[0.03] text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
+                      className="w-full h-8 px-3 rounded-md border border-gray-200 dark:border-white/[0.09] bg-transparent text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
                     />
                   </div>
                 </>
@@ -888,12 +905,9 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
               {modalTab === 'cloud' && (
                 <>
                   {/* Google Imagen */}
-                  <div className="p-4 rounded-xl border border-gray-100 dark:border-white/[0.07] bg-gray-50 dark:bg-white/[0.02] flex flex-col gap-2.5">
+                  <div className="p-4 rounded-lg border border-gray-200 dark:border-white/[0.07] flex flex-col gap-2.5">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[12.5px] font-medium text-gray-900 dark:text-gray-100">Google Imagen 3</span>
-                        <span className="text-[10px] px-1.5 py-px rounded-md bg-sky-50 dark:bg-sky-500/10 text-sky-500 border border-sky-100 dark:border-sky-500/20">Ultra quality</span>
-                      </div>
+                      <span className="text-[12.5px] font-medium text-gray-900 dark:text-gray-100">Google Imagen 3</span>
                       {config.geminiApiKey?.trim()
                         ? <span className="text-[11px] text-green-500 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Connected</span>
                         : <span className="text-[11px] text-amber-500">Key needed</span>}
@@ -903,17 +917,14 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                       value={geminiKey}
                       onChange={e => setGeminiKey(e.target.value)}
                       placeholder="AIzaSy… (pre-filled from Grokki settings)"
-                      className="w-full h-8 px-3 rounded-lg border border-gray-200 dark:border-white/[0.09] bg-white dark:bg-[#131318] text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
+                      className="w-full h-8 px-3 rounded-md border border-gray-200 dark:border-white/[0.09] bg-transparent text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
                     />
                   </div>
 
                   {/* Together AI */}
-                  <div className="p-4 rounded-xl border border-gray-100 dark:border-white/[0.07] bg-gray-50 dark:bg-white/[0.02] flex flex-col gap-2.5">
+                  <div className="p-4 rounded-lg border border-gray-200 dark:border-white/[0.07] flex flex-col gap-2.5">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[12.5px] font-medium text-gray-900 dark:text-gray-100">Together AI</span>
-                        <span className="text-[10px] px-1.5 py-px rounded-md bg-gray-100 dark:bg-white/[0.06] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-white/[0.08]">FLUX.1 Schnell</span>
-                      </div>
+                      <span className="text-[12.5px] font-medium text-gray-900 dark:text-gray-100">Together AI</span>
                       <a
                         href="https://api.together.ai"
                         target="_blank"
@@ -928,7 +939,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                       value={togetherKey}
                       onChange={e => setTogetherKey(e.target.value)}
                       placeholder="Together API key"
-                      className="w-full h-8 px-3 rounded-lg border border-gray-200 dark:border-white/[0.09] bg-white dark:bg-[#131318] text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
+                      className="w-full h-8 px-3 rounded-md border border-gray-200 dark:border-white/[0.09] bg-transparent text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
                     />
                   </div>
                 </>
@@ -940,14 +951,14 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
               <button
                 type="button"
                 onClick={() => setShowKeyModal(false)}
-                className="h-8 px-4 rounded-lg text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
+                className="h-8 px-4 rounded-md text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSaveTokens}
-                className="h-8 px-4 rounded-lg text-[12px] font-medium bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-85 transition-opacity cursor-pointer"
+                className="h-8 px-4 rounded-md text-[12px] font-medium bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-85 transition-opacity cursor-pointer"
               >
                 Save
               </button>
