@@ -103,8 +103,37 @@ const ASPECT_OPTIONS: GlideSelectOption[] = [
   { value: '3:4',  label: '3:4 Portrait'   },
 ];
 
+const PROMPT_PRESETS: { tag: string; ratio: AspectRatio; prompt: string }[] = [
+  {
+    tag: 'Cyberpunk Noir',
+    ratio: '16:9',
+    prompt: 'Porcelain-armored ronin standing in a rain-slicked Neo-Tokyo alley at midnight, neon kanji reflections in puddles, anamorphic 35mm lens, shallow depth of field, cinematic teal and amber lighting',
+  },
+  {
+    tag: 'Ghibli Sky Isles',
+    ratio: '16:9',
+    prompt: 'Sunlit floating clockwork sanctuary drifting through towering cumulus clouds at golden hour, lush overgrown moss and brass windmills, hand-painted Studio Ghibli cel animation aesthetic',
+  },
+  {
+    tag: '70mm Sci-Fi Monolith',
+    ratio: '16:9',
+    prompt: 'Lone astronaut standing before a colossal levitating obsidian monolith on a black sand volcanic plain, rolling atmospheric fog, IMAX 70mm film grain, Denis Villeneuve brutalist scale',
+  },
+  {
+    tag: 'Macro Glass Flora',
+    ratio: '1:1',
+    prompt: 'Translucent bioluminescent orchid sculpted from blown Venetian glass, glowing ultraviolet veins and morning dew droplets, dark velvet backdrop, 100mm macro lens, subsurface scattering',
+  },
+  {
+    tag: 'Dark Gothic Sanctuary',
+    ratio: '3:4',
+    prompt: 'Ancient sunken cathedral library illuminated by floating candelabras and silver moonlight pouring through shattered rose windows, dust motes in volumetric god rays, dark fantasy oil painting',
+  },
+];
+
 export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChangeConfig }) => {
   const [inputValue, setInputValue] = useState('');
+  const [activePresetIdx, setActivePresetIdx] = useState(0);
 
   const [activeEngine, setActiveEngine] = useState<string>(() => {
     try { const s = localStorage.getItem(ACTIVE_ENGINE_KEY); if (s) return s; } catch {}
@@ -376,7 +405,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
             parallax={0.65}
             lift={68}
             fade={0.15}
-            dim={0.4}
+            dim={0.48}
             overlayColor={isDark ? '#060010' : '#f7f7fa'}
             radius={18}
             roll={-4}
@@ -387,29 +416,89 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
         </div>
       )}
 
-      {/* ── Centered Intro Text in Cursive Font (Clean, razor-sharp, NO shadow) ── */}
-      {generations.length === 0 && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none pb-28 px-4 text-center select-none animate-in fade-in zoom-in-95 duration-500">
-          <h1
-            className="text-6xl sm:text-7xl md:text-8xl font-normal text-gray-900 dark:text-white tracking-wide"
+      {/* ── Main Content Stage (Intro Hero when empty, Chat Feed when active) ── */}
+      <div className="flex-1 overflow-y-auto px-5 sm:px-8 py-6 min-h-0 relative z-20 flex flex-col">
+        {generations.length === 0 ? (
+          <div
+            className="flex-1 flex flex-col items-center justify-center text-center px-4 py-6 animate-in fade-in zoom-in-95 duration-500"
             style={{
-              fontFamily: "'Caveat', 'Dancing Script', 'Great Vibes', 'Brush Script MT', 'Segoe Script', cursive",
+              background: isDark
+                ? 'radial-gradient(ellipse 56% 52% at 50% 50%, rgba(6, 0, 16, 0.72) 0%, rgba(6, 0, 16, 0.34) 58%, transparent 100%)'
+                : 'radial-gradient(ellipse 56% 52% at 50% 50%, rgba(247, 247, 250, 0.85) 0%, rgba(247, 247, 250, 0.42) 58%, transparent 100%)',
             }}
           >
-            Grokki Image Studio
-          </h1>
-          <p className="mt-3 text-sm sm:text-base text-gray-500 dark:text-gray-400 font-normal max-w-md mx-auto leading-relaxed">
-            Describe what you want to create. Powered by Seedance, Imagen 3 &amp; FLUX.
-          </p>
-        </div>
-      )}
+            {/* Cursive Display Title — zero textShadow */}
+            <h1
+              className="text-6xl sm:text-7xl md:text-[84px] font-semibold text-gray-900 dark:text-white tracking-tight leading-[1.08]"
+              style={{
+                fontFamily: "'Dancing Script', 'Great Vibes', 'Caveat', cursive",
+              }}
+            >
+              Grokki Image Studio
+            </h1>
 
-      {/* ── Feed ─────────────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-5 sm:px-8 py-6 min-h-0 relative z-20">
-        <div className="max-w-2xl mx-auto flex flex-col gap-6">
+            {/* Editorial Subtitle */}
+            <p className="mt-3 text-[14px] sm:text-[15.5px] text-gray-600 dark:text-white/75 font-normal max-w-lg mx-auto leading-relaxed tracking-[-0.01em]">
+              Transform raw imagination into cinema-grade frames, concept art, and photorealistic renders.
+            </p>
 
-          {/* Messages */}
-          {generations.map(item => (
+            {/* Interactive Example Prompt Showcase */}
+            <div className="mt-6 w-full max-w-xl mx-auto flex flex-col items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const preset = PROMPT_PRESETS[activePresetIdx];
+                  setInputValue(preset.prompt);
+                  setAspectRatio(preset.ratio);
+                  inputRef.current?.focus();
+                }}
+                className="w-full group text-left px-4 py-3 rounded-2xl bg-white/75 dark:bg-[#111116]/80 hover:bg-white/95 dark:hover:bg-[#16161d]/90 backdrop-blur-md border border-gray-200/80 dark:border-white/[0.09] hover:border-gray-300 dark:hover:border-white/[0.18] transition-all duration-200 cursor-pointer shadow-sm"
+              >
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-[10.5px] uppercase tracking-[0.14em] font-semibold text-sky-600 dark:text-sky-400">
+                    Sample Prompt · {PROMPT_PRESETS[activePresetIdx].tag} ({PROMPT_PRESETS[activePresetIdx].ratio})
+                  </span>
+                  <span className="text-[11px] font-medium text-gray-400 dark:text-white/45 group-hover:text-gray-800 dark:group-hover:text-white/85 transition-colors">
+                    Use prompt ↗
+                  </span>
+                </div>
+                <p className="text-[12.5px] sm:text-[13px] text-gray-700 dark:text-white/80 italic leading-relaxed line-clamp-2">
+                  &ldquo;{PROMPT_PRESETS[activePresetIdx].prompt}&rdquo;
+                </p>
+              </button>
+
+              {/* Quick Style Preset Pills */}
+              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                {PROMPT_PRESETS.map((preset, idx) => {
+                  const isSelected = idx === activePresetIdx;
+                  return (
+                    <button
+                      key={preset.tag}
+                      type="button"
+                      onMouseEnter={() => setActivePresetIdx(idx)}
+                      onClick={() => {
+                        setActivePresetIdx(idx);
+                        setInputValue(preset.prompt);
+                        setAspectRatio(preset.ratio);
+                        inputRef.current?.focus();
+                      }}
+                      className={`px-3 py-1 rounded-full text-[11.5px] font-medium backdrop-blur-md transition-all duration-150 cursor-pointer ${
+                        isSelected
+                          ? 'bg-gray-900/90 dark:bg-white/15 text-white border border-gray-900 dark:border-white/25'
+                          : 'bg-white/60 dark:bg-white/[0.05] text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white/90 border border-gray-200/70 dark:border-white/[0.08]'
+                      }`}
+                    >
+                      {preset.tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="max-w-2xl mx-auto w-full flex flex-col gap-6">
+            {/* Messages */}
+            {generations.map(item => (
             <div key={item.id} className="flex flex-col gap-2.5 w-full animate-in fade-in duration-200">
 
               {/* User bubble */}
@@ -520,17 +609,18 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
             </div>
           ))}
 
-          <div ref={feedEndRef} />
-        </div>
+            <div ref={feedEndRef} />
+          </div>
+        )}
       </div>
 
       {/* ── Composer ─────────────────────────────────────────────────────────── */}
-      <div className="flex-shrink-0 px-5 sm:px-8 pb-5 pt-2 relative z-30">
-        <div className="max-w-2xl mx-auto">
+      <div className={`flex-shrink-0 px-5 sm:px-8 pt-2 relative z-30 transition-all duration-300 ${generations.length === 0 ? 'pb-8 sm:pb-10' : 'pb-5'}`}>
+        <div className="max-w-[680px] mx-auto">
           <SpecularButton
             as="div"
             size="lg"
-            radius={20}
+            radius={22}
             tint={isDark ? '#ffffff' : '#000000'}
             tintOpacity={0.04}
             textColor={isDark ? '#f5f5f5' : '#18181b'}
@@ -545,24 +635,36 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
             followMouse={false}
             autoAnimate
             proximity={250}
-            className="w-full bg-white dark:bg-[#131317] shadow-sm hover:shadow-md p-3.5 sm:p-4 transition-shadow flex flex-col gap-3 text-left relative z-20"
+            className="w-full bg-white/95 dark:bg-[#121217]/95 backdrop-blur-xl shadow-lg hover:shadow-xl p-4 sm:p-4.5 transition-shadow flex flex-col gap-3 text-left relative z-20"
           >
             {/* Textarea */}
-            <textarea
-              ref={inputRef}
-              value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); }
-              }}
-              rows={Math.min(7, Math.max(3, inputValue.split('\n').length))}
-              placeholder="Describe the image you want to generate in detail…"
-              autoFocus
-              className="w-full min-h-[80px] sm:min-h-[92px] bg-transparent resize-none border-none outline-none text-[13.5px] sm:text-[14px] leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 p-0"
-            />
+            <div className="relative">
+              <textarea
+                ref={inputRef}
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); }
+                }}
+                rows={Math.min(7, Math.max(3, inputValue.split('\n').length))}
+                placeholder="Describe subject, lighting, camera lens & mood — or pick a sample prompt above to begin…"
+                autoFocus
+                className="w-full min-h-[82px] sm:min-h-[94px] bg-transparent resize-none border-none outline-none text-[13.5px] sm:text-[14px] leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 p-0 pr-6"
+              />
+              {inputValue && (
+                <button
+                  type="button"
+                  onClick={() => { setInputValue(''); inputRef.current?.focus(); }}
+                  title="Clear prompt"
+                  className="absolute top-0 right-0 w-5 h-5 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.08] text-xs transition-colors cursor-pointer"
+                >
+                  ×
+                </button>
+              )}
+            </div>
 
             {/* Controls */}
-            <div className="flex items-center justify-between gap-2 pt-0.5">
+            <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-gray-200/70 dark:border-white/[0.07]">
               <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
 
                 {/* Engine */}
@@ -583,7 +685,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                 />
 
                 {/* Magic toggle */}
-                <WarmTooltip content={enhance ? 'Magic prompt: on' : 'Magic prompt: off'} side="top">
+                <WarmTooltip content={enhance ? 'Magic prompt enhancer: on' : 'Magic prompt enhancer: off'} side="top">
                   <button
                     type="button"
                     onClick={() => setEnhance(e => !e)}
@@ -600,14 +702,15 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
               </div>
 
               {/* Right: settings + clear + send */}
-              <div className="flex items-center gap-1 shrink-0">
-                <WarmTooltip content="Engine setup" side="top">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <WarmTooltip content="Configure engines & keys" side="top">
                   <button
                     type="button"
                     onClick={() => setShowKeyModal(true)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
+                    className="h-7 px-2.5 flex items-center gap-1.5 rounded-lg text-[11.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] border border-transparent hover:border-gray-200 dark:hover:border-white/10 transition-colors cursor-pointer"
                   >
                     <Key className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Engines</span>
                   </button>
                 </WarmTooltip>
 
@@ -627,23 +730,27 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                   type="button"
                   disabled={!inputValue.trim() || isGenerating}
                   onClick={() => handleGenerate()}
-                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all ${
+                  className={`h-8 px-3.5 flex items-center justify-center gap-1.5 rounded-xl text-[12px] font-semibold transition-all ${
                     inputValue.trim() && !isGenerating
-                      ? 'bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-85 active:scale-95 cursor-pointer shadow-sm'
-                      : 'bg-gray-100 dark:bg-white/[0.07] text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                      ? 'bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-90 active:scale-95 cursor-pointer shadow-sm'
+                      : 'bg-gray-100 dark:bg-white/[0.07] text-gray-400 dark:text-gray-500 cursor-not-allowed'
                   }`}
                 >
-                  {isGenerating
-                    ? <Square className="w-3 h-3 fill-current" />
-                    : <ArrowUp className="w-3.5 h-3.5" strokeWidth={2.5} />}
+                  {isGenerating ? (
+                    <>
+                      <Square className="w-3 h-3 fill-current" />
+                      <span>Rendering</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Generate</span>
+                      <ArrowUp className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    </>
+                  )}
                 </button>
               </div>
             </div>
           </SpecularButton>
-
-          <p className="text-center text-[11px] text-gray-400 dark:text-gray-500 mt-2 select-none">
-            Seedance · Imagen 3 · FLUX — press Enter to generate
-          </p>
         </div>
       </div>
 
