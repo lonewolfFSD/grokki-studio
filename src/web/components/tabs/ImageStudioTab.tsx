@@ -58,22 +58,22 @@ const ASPECT_DIMS: Record<AspectRatio, { width: number; height: number; label: s
 };
 
 const DRIFT_ITEMS = [
-  { image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80', title: 'Abstract Flow' },
-  { image: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&w=600&q=80', title: 'Cyber Orb' },
-  { image: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&w=600&q=80', title: 'Cosmic Nebula' },
-  { image: 'https://images.unsplash.com/photo-1633167606207-d840b5070fc2?auto=format&fit=crop&w=600&q=80', title: 'Geometric 3D' },
-  { image: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&w=600&q=80', title: 'Surreal Fluid' },
-  { image: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=600&q=80', title: 'Neon Night' },
-  { image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80', title: 'Cyber Matrix' },
-  { image: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=600&q=80', title: 'Futuristic Grid' },
-  { image: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&w=600&q=80', title: 'Color Wave' },
-  { image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80', title: 'Digital Canvas' },
+  { image: 'https://imgs.search.brave.com/cKxzAG_LLCdguSwW4oI7i-nAXjjMuK5Q76pz_jhfrqI/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9jZG4z/LnBpeGVsY3V0LmFw/cC9jbXMvcHJvZC9n/ZW5lcmF0b3ItbW9k/ZS9haS1pbWFnZS1n/ZW5lcmF0b3ItbW9k/ZS1zdHlsZS9zdHls/ZS1yZXN1bHQtYmE5/NWI0ZTc1NS53ZWJw', title: 'Abstract Flow' },
+  { image: 'https://piktochart.com/wp-content/uploads/2023/11/elgin-viral-ai-images.png', title: 'Cyber Orb' },
+  { image: 'https://lumenor.ai/cdn-cgi/imagedelivery/F5KOmplEz0rStV2qDKhYag/6c96d6cb-00f0-40a8-a795-07119ee76400/tn', title: 'Cosmic Nebula' },
+  { image: 'https://lumenor.ai/cdn-cgi/imagedelivery/F5KOmplEz0rStV2qDKhYag/69fea199-ed62-4ecf-7677-6a7c2f056f00/tn', title: 'Geometric 3D' },
+  { image: 'https://lumenor.ai/cdn-cgi/imagedelivery/F5KOmplEz0rStV2qDKhYag/e9a7f053-4c6d-403a-c1f5-7ed7eeb4f400/tn', title: 'Surreal Fluid' },
+  { image: 'https://lumenor.ai/cdn-cgi/imagedelivery/F5KOmplEz0rStV2qDKhYag/74e87def-d52d-48b4-947b-9905ed327600/tn', title: 'Neon Night' },
+  { image: 'https://animegenius-global.live3d.io/vtuber/ai_product/anime_genius/static/imgs/animegenius_27302e6bfddf4458f2d8ee59575ca72e.webp', title: 'Cyber Matrix' },
+  { image: 'https://animegenius-global.live3d.io/vtuber/ai_product/anime_genius/static/imgs/animegenius_65346c209b5083274adbe14fe4f3de21.webp', title: 'Futuristic Grid' },
+  { image: 'https://cdn.spaceprompts.com/images/2548/full/twilight-sakura-overlook-girl.webp', title: 'Color Wave' },
+  { image: 'https://aianime.io/assets/image/result/2.webp?x-oss-process=image/resize,p_50', title: 'Digital Canvas' },
   { image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=600&q=80', title: 'Retro Hardware' },
-  { image: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=600&q=80', title: 'Cyberpunk Alley' },
+  { image: 'https://images-ng.pixai.art/images/orig/a3bdacd4-66e1-4d1c-aa6b-0398738f86f4', title: 'Cyberpunk Alley' },
   { image: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80', title: 'Glow Neon' },
   { image: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80', title: 'Anime Fantasy' },
   { image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80', title: 'Esports Cyber' },
-  { image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=600&q=80', title: 'Arcade Glow' },
+  { image: 'https://images-ng.pixai.art/images/orig/1ee389de-9832-4a4d-8272-c08477095b4f', title: 'Arcade Glow' },
 ];
 
 const CloudflareLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
@@ -94,6 +94,23 @@ const StabilityLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-
   <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
     <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="#A855F7" strokeWidth="2" />
     <path d="M13 6.5L8.5 13H12.5L11 17.5L15.5 11H11.5L13 6.5Z" fill="#C084FC" />
+  </svg>
+);
+
+const BananaLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
+    <path
+      d="M4.5 15.5C5.8 18.2 8.4 20.2 12.5 20.5C17.5 20.8 20.5 16.5 20.5 11.5C20.5 8.5 19.5 5.5 17.5 3.5C17.2 3.2 16.8 3.5 16.9 3.9C17.6 6.8 16.9 10.2 14.5 12.8C12.2 15.3 8.8 16.2 5.2 14.9C4.7 14.7 4.3 15.1 4.5 15.5Z"
+      fill="#FACC15"
+      stroke="#CA8A04"
+      strokeWidth="1.2"
+    />
+    <path
+      d="M17.5 3.5L18.8 2.2C19.1 1.9 19.6 2.1 19.5 2.5L19.2 4.2"
+      stroke="#713F12"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
   </svg>
 );
 
@@ -137,19 +154,22 @@ const ratioLabel = (ratio: AspectRatio, text: string) => (
 
 const ENGINE_OPTIONS: GlideSelectOption[] = [
   // Google Imagen (Official Free Tier via Gemini Key)
-  { value: 'google:imagen-3.0-generate-002',                  label: modelLabel(GeminiLogo,     'Imagen 3 Ultra'), tag: 'Google'     },
-  { value: 'google:imagen-3.0-fast-generate-001',             label: modelLabel(GeminiLogo,     'Imagen 3 Fast'),  tag: 'Google'     },
+  { value: 'google:imagen-3.0-generate-002',                  label: modelLabel(GeminiLogo,     'Imagen 3 Ultra'),    tag: 'Google'     },
+  { value: 'google:imagen-3.0-fast-generate-001',             label: modelLabel(GeminiLogo,     'Imagen 3 Fast'),     tag: 'Google'     },
+  // Nano Banana Models
+  { value: 'pollinations:nano-banana',                        label: modelLabel(BananaLogo,     'Nano Banana'),       tag: 'Free'       },
+  { value: 'pollinations:nano-banana-pro',                    label: modelLabel(BananaLogo,     'Nano Banana Pro'),   tag: 'Free'       },
   // Cloudflare Workers AI (Free FLUX.1 Schnell)
-  { value: 'cloudflare:@cf/black-forest-labs/flux-1-schnell', label: modelLabel(CloudflareLogo, 'FLUX.1 Schnell'), tag: 'Cloudflare' },
+  { value: 'cloudflare:@cf/black-forest-labs/flux-1-schnell', label: modelLabel(CloudflareLogo, 'FLUX.1 Schnell'),   tag: 'Cloudflare' },
   // Free Community / Pollinations (Instant, No Key Needed)
-  { value: 'pollinations:turbo',                              label: modelLabel(StabilityLogo,  'SDXL Turbo'),     tag: 'Free'       },
-  { value: 'pollinations:flux',                               label: modelLabel(FluxLogo,       'FLUX.1 Dev'),     tag: 'Free'       },
-  { value: 'pollinations:flux-anime',                         label: modelLabel(FluxLogo,       'FLUX Anime'),     tag: 'Free'       },
-  { value: 'pollinations:flux-realism',                       label: modelLabel(FluxLogo,       'FLUX Realism'),   tag: 'Free'       },
+  { value: 'pollinations:turbo',                              label: modelLabel(StabilityLogo,  'SDXL Turbo'),        tag: 'Free'       },
+  { value: 'pollinations:flux',                               label: modelLabel(FluxLogo,       'FLUX.1 Dev'),        tag: 'Free'       },
+  { value: 'pollinations:flux-anime',                         label: modelLabel(FluxLogo,       'FLUX Anime'),        tag: 'Free'       },
+  { value: 'pollinations:flux-realism',                       label: modelLabel(FluxLogo,       'FLUX Realism'),      tag: 'Free'       },
   // Local Ollama (Offline / Native)
-  { value: 'ollama:x/z-image-turbo',                          label: modelLabel(OllamaLogo,     'Z-Image Turbo'),  tag: 'Local'      },
+  { value: 'ollama:x/z-image-turbo',                          label: modelLabel(OllamaLogo,     'Z-Image Turbo'),     tag: 'Local'      },
   // OpenAI DALL·E 3
-  { value: 'openai:dall-e-3',                                 label: modelLabel(OpenAILogo,     'DALL·E 3'),       tag: 'OpenAI'     },
+  { value: 'openai:dall-e-3',                                 label: modelLabel(OpenAILogo,     'DALL·E 3'),          tag: 'OpenAI'     },
 ];
 
 const ASPECT_OPTIONS: GlideSelectOption[] = [
