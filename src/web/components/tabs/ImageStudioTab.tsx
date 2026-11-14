@@ -20,6 +20,7 @@ import GlideSelect, { GlideSelectOption } from './GlideSelect';
 import { GeminiLogo, OpenAILogo, OllamaLogo } from './AiBrainTab';
 import WarmTooltip from '../WarmTooltip';
 import grokkiIcon from '../../assets/grokki_icon.svg';
+import grokkiLogo from '../../assets/grokki_logo.png';
 
 interface ImageStudioTabProps {
   config: JarvisConfig;
@@ -581,11 +582,30 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
       <div className="flex-1 overflow-y-auto px-5 sm:px-8 py-6 min-h-0 relative z-20 flex flex-col">
         {generations.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center px-4 py-6">
+            {/* Big Grokki Studio Logo behind text (just like the agent chat tab) */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="flex items-center justify-center -mb-28 sm:-mb-36 md:-mb-40 select-none pointer-events-none z-0"
+            >
+              <img
+                src={grokkiLogo}
+                alt="Grokki"
+                draggable={false}
+                className="w-44 h-44 sm:w-60 sm:h-60 md:w-64 md:h-64 object-contain filter brightness-0 dark:invert"
+                style={{
+                  maskImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 1) 5%, rgba(0, 0, 0, 0.02) 100%)',
+                  WebkitMaskImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 1) 10%, rgba(0, 0, 0, 0.08) 100%)',
+                }}
+              />
+            </motion.div>
+
             <motion.h1
               initial={{ opacity: 0, y: 18, filter: 'blur(6px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
               transition={{ duration: 0.65, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
-              className="text-6xl sm:text-[4em] mb-7 font-normal text-gray-900 dark:text-white tracking-wide"
+              className="relative z-10 text-6xl sm:text-[4em] mb-7 font-normal text-gray-900 dark:text-white tracking-wide text-center"
               style={{
                 fontFamily: "'Caveat', 'Dancing Script', 'Great Vibes', 'Brush Script MT', 'Segoe Script', cursive",
               }}
