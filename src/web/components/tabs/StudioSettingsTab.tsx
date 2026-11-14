@@ -1447,16 +1447,16 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
         </div>
       </div>
 
-      {/* Grokki 3D Companion Section */}
+      {/* Grokki Experimentals Section */}
       <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div>
               <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-                Grokki Companion
+                Grokki Experimentals
               </h3>
               <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                Enable interactive 3D anime VRM companion tab in the sidebar with voice and animations.
+                It may have bugs or expected known issues. This toggle will hide or show the experimentals tab in the sidebar.
               </p>
             </div>
           </div>
@@ -1464,7 +1464,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
             type="button"
             onClick={() => onChangeConfig({ companionEnabled: !config.companionEnabled })}
             className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out border-none ${
-              config.companionEnabled ? 'bg-pink-500' : 'bg-gray-300 dark:bg-[#252836]'
+              config.companionEnabled ? 'bg-purple-600 dark:bg-purple-500' : 'bg-gray-300 dark:bg-[#252836]'
             }`}
           >
             <div

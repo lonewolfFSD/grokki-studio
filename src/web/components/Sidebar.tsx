@@ -32,6 +32,7 @@ import {
   AiSparklesIcon,
   AiImageIcon,
   User02Icon,
+  FlaskConicalIcon,
 } from '@hugeicons/core-free-icons';
 import { motion } from 'motion/react';
 import ChatSearchModal from './ChatSearchModal';
@@ -60,16 +61,20 @@ const SidebarRow: React.FC<{
   isCollapsed?: boolean;
   onClick: (e: React.MouseEvent) => void;
   rightSlot?: React.ReactNode;
-  variant?: 'default' | 'pink';
+  variant?: 'default' | 'pink' | 'purple';
 }> = ({ icon, label, shortcut, isActive, isCollapsed = false, onClick, rightSlot, variant = 'default' }) => {
   const activeClass =
     variant === 'pink'
       ? 'bg-pink-500/15 dark:bg-pink-500/20 text-pink-600 dark:text-pink-300 border border-pink-500/30 dark:border-pink-500/35 font-semibold shadow-xs shadow-pink-500/10'
+      : variant === 'purple'
+      ? 'bg-purple-500/15 dark:bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 dark:border-purple-500/35 font-semibold shadow-xs shadow-purple-500/10'
       : 'bg-gray-100 dark:bg-[#1f1f24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs';
 
   const hoverClass =
     variant === 'pink'
       ? 'hover:text-pink-600 dark:hover:text-pink-300 hover:bg-pink-500/10 dark:hover:bg-pink-500/15'
+      : variant === 'purple'
+      ? 'hover:text-purple-600 dark:hover:text-purple-300 hover:bg-purple-500/10 dark:hover:bg-purple-500/15'
       : 'hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#18181c]';
 
   return (
@@ -106,7 +111,11 @@ const SidebarRow: React.FC<{
             size={isCollapsed ? 20 : 16}
             strokeWidth={1.8}
             className={`flex-shrink-0 transition-transform -mt-0.5 duration-150 group-hover:scale-105 ${
-              isActive && variant === 'pink' ? 'text-pink-500 dark:text-pink-400' : ''
+              isActive && variant === 'pink'
+                ? 'text-pink-500 dark:text-pink-400'
+                : isActive && variant === 'purple'
+                ? 'text-purple-500 dark:text-purple-400'
+                : ''
             }`}
           />
           {!isCollapsed && <span className="truncate">{label}</span>}
@@ -1108,26 +1117,40 @@ export const Sidebar = React.memo<SidebarProps>(({
                   isCollapsed={isCollapsed}
                   onClick={() => onSelectTab('overview')}
                 />
-                <div ref={extrasBtnRef} className="w-full">
-                  <SidebarRow
-                    icon={AiSparklesIcon}
-                    label="Extras"
-                    isActive={activeTab === 'companion' || activeTab === 'images' || isExtrasOpen}
-                    isCollapsed={isCollapsed}
-                    variant={activeTab === 'companion' || activeTab === 'images' ? 'pink' : 'default'}
-                    onClick={handleToggleExtras}
-                    rightSlot={
-                      <HugeiconsIcon
-                        icon={ChevronRightIcon}
-                        size={13}
-                        strokeWidth={2}
-                        className={`text-gray-400 transition-all duration-150 ${
-                          isExtrasOpen ? 'text-gray-900 dark:text-gray-100 translate-x-0.5' : 'group-hover:text-gray-600 dark:group-hover:text-gray-300'
-                        }`}
-                      />
-                    }
-                  />
-                </div>
+                {companionEnabled && (
+                  <div ref={extrasBtnRef} className="w-full">
+                    <SidebarRow
+                      icon={FlaskConicalIcon}
+                      label="Experimentals"
+                      isActive={activeTab === 'companion' || activeTab === 'images' || isExtrasOpen}
+                      isCollapsed={isCollapsed}
+                      variant={
+                        activeTab === 'companion'
+                          ? 'pink'
+                          : activeTab === 'images'
+                          ? 'purple'
+                          : 'default'
+                      }
+                      onClick={handleToggleExtras}
+                      rightSlot={
+                        <HugeiconsIcon
+                          icon={ChevronRightIcon}
+                          size={13}
+                          strokeWidth={2}
+                          className={`transition-all duration-150 ${
+                            activeTab === 'companion'
+                              ? 'text-pink-500 dark:text-pink-400'
+                              : activeTab === 'images'
+                              ? 'text-purple-500 dark:text-purple-400'
+                              : isExtrasOpen
+                              ? 'text-gray-900 dark:text-gray-100 translate-x-0.5'
+                              : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'
+                          }`}
+                        />
+                      }
+                    />
+                  </div>
+                )}
               </>
             )}
 
@@ -1274,29 +1297,27 @@ export const Sidebar = React.memo<SidebarProps>(({
                 )}
               </div>
 
-              {/* 3D Companion (conditionally enabled via Settings) */}
-              {companionEnabled && (
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectTab('companion');
-                    setIsExtrasOpen(false);
-                  }}
-                  className={`h-[30px] px-2.5 rounded-lg text-[12.5px] cursor-pointer flex items-center justify-between transition-colors ${
-                    activeTab === 'companion'
-                      ? 'bg-pink-500/15 dark:bg-pink-500/20 text-pink-600 dark:text-pink-300 font-medium'
-                      : 'text-gray-700 dark:text-gray-200 hover:bg-pink-500/10 dark:hover:bg-pink-500/15 hover:text-pink-600 dark:hover:text-pink-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <HugeiconsIcon icon={User02Icon} size={15} strokeWidth={1.8} className={activeTab === 'companion' ? 'text-pink-500' : 'text-gray-500 dark:text-gray-400'} />
-                    <span>Companion</span>
-                  </div>
-                  {activeTab === 'companion' && (
-                    <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-pink-500" />
-                  )}
+              {/* 3D Companion */}
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectTab('companion');
+                  setIsExtrasOpen(false);
+                }}
+                className={`h-[30px] px-2.5 rounded-lg text-[12.5px] cursor-pointer flex items-center justify-between transition-colors ${
+                  activeTab === 'companion'
+                    ? 'bg-pink-500/15 dark:bg-pink-500/20 text-pink-600 dark:text-pink-300 font-medium'
+                    : 'text-gray-700 dark:text-gray-200 hover:bg-pink-500/10 dark:hover:bg-pink-500/15 hover:text-pink-600 dark:hover:text-pink-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <HugeiconsIcon icon={User02Icon} size={15} strokeWidth={1.8} className={activeTab === 'companion' ? 'text-pink-500' : 'text-gray-500 dark:text-gray-400'} />
+                  <span>Companion</span>
                 </div>
-              )}
+                {activeTab === 'companion' && (
+                  <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-pink-500" />
+                )}
+              </div>
             </div>
           )}
 
