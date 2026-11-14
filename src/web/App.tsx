@@ -17,6 +17,7 @@ import { StudioSettingsTab } from './components/tabs/StudioSettingsTab';
 import { AboutTab } from './components/tabs/AboutTab';
 const AnimeCompanionTab = React.lazy(() => import('./components/tabs/AnimeCompanionTab'));
 const ImageStudioTab = React.lazy(() => import('./components/tabs/ImageStudioTab'));
+const OfficeStudioTab = React.lazy(() => import('./components/tabs/OfficeStudioTab'));
 import { SettingsModal, SettingsSection } from './components/SettingsModal';
 import { ChatLockModal, LockedChatScreen } from './components/ChatLockModal';
 import { JarvisConfig, GoogleProfile, SystemInfo, Conversation, ChatLockMethod, ActiveModelPull } from './types/jarvis';
@@ -1237,6 +1238,22 @@ export const App: React.FC = () => {
                 }
               >
                 <ImageStudioTab
+                  config={config}
+                  onChangeConfig={handleConfigChange}
+                />
+              </React.Suspense>
+            )}
+
+            {activeTab === 'office' && (
+              <React.Suspense
+                fallback={
+                  <div className="w-full h-full bg-[#07070a] flex flex-col items-center justify-center gap-3 text-gray-400">
+                    <div className="w-8 h-8 rounded-full border-2 border-emerald-500/30 border-t-emerald-500 animate-spin" />
+                    <span className="text-xs tracking-wider uppercase font-mono text-emerald-300">Loading Office Studio...</span>
+                  </div>
+                }
+              >
+                <OfficeStudioTab
                   config={config}
                   onChangeConfig={handleConfigChange}
                 />

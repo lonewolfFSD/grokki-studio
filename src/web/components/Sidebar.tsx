@@ -33,6 +33,7 @@ import {
   AiImageIcon,
   User02Icon,
   FlaskConicalIcon,
+  Presentation01Icon,
 } from '@hugeicons/core-free-icons';
 import { motion } from 'motion/react';
 import ChatSearchModal from './ChatSearchModal';
@@ -46,7 +47,7 @@ import grokkiLogo from '../assets/grokki_logo.png';
 import grokkiWordmarkDark from '../assets/grokki_wordmark.png';
 import grokkiWordmarkLight from '../assets/grokki_wordmark_light.png';
 
-export type TabId = 'chat' | 'overview' | 'companion' | 'images' | 'plugins' | 'skills' | 'workspace' | 'memory' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
+export type TabId = 'chat' | 'overview' | 'companion' | 'images' | 'office' | 'plugins' | 'skills' | 'workspace' | 'memory' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
 
 const MIN_EXPANDED_WIDTH = 180;
 const DEFAULT_SIDEBAR_WIDTH = 240;
@@ -61,13 +62,15 @@ const SidebarRow: React.FC<{
   isCollapsed?: boolean;
   onClick: (e: React.MouseEvent) => void;
   rightSlot?: React.ReactNode;
-  variant?: 'default' | 'pink' | 'purple';
+  variant?: 'default' | 'pink' | 'purple' | 'emerald';
 }> = ({ icon, label, shortcut, isActive, isCollapsed = false, onClick, rightSlot, variant = 'default' }) => {
   const activeClass =
     variant === 'pink'
       ? 'bg-pink-500/15 dark:bg-pink-500/20 text-pink-600 dark:text-pink-300 border border-pink-500/30 dark:border-pink-500/35 font-semibold shadow-xs shadow-pink-500/10'
       : variant === 'purple'
       ? 'bg-purple-500/15 dark:bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 dark:border-purple-500/35 font-semibold shadow-xs shadow-purple-500/10'
+      : variant === 'emerald'
+      ? 'bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 dark:border-emerald-500/35 font-semibold shadow-xs shadow-emerald-500/10'
       : 'bg-gray-100 dark:bg-[#1f1f24] text-gray-900 dark:text-gray-100 font-semibold shadow-xs';
 
   const hoverClass =
@@ -75,6 +78,8 @@ const SidebarRow: React.FC<{
       ? 'hover:text-pink-600 dark:hover:text-pink-300 hover:bg-pink-500/10 dark:hover:bg-pink-500/15'
       : variant === 'purple'
       ? 'hover:text-purple-600 dark:hover:text-purple-300 hover:bg-purple-500/10 dark:hover:bg-purple-500/15'
+      : variant === 'emerald'
+      ? 'hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15'
       : 'hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#18181c]';
 
   return (
@@ -115,6 +120,8 @@ const SidebarRow: React.FC<{
                 ? 'text-pink-500 dark:text-pink-400'
                 : isActive && variant === 'purple'
                 ? 'text-purple-500 dark:text-purple-400'
+                : isActive && variant === 'emerald'
+                ? 'text-emerald-500 dark:text-emerald-400'
                 : ''
             }`}
           />
@@ -1122,13 +1129,15 @@ export const Sidebar = React.memo<SidebarProps>(({
                     <SidebarRow
                       icon={FlaskConicalIcon}
                       label="Experimentals"
-                      isActive={activeTab === 'companion' || activeTab === 'images' || isExtrasOpen}
+                      isActive={activeTab === 'companion' || activeTab === 'images' || activeTab === 'office' || isExtrasOpen}
                       isCollapsed={isCollapsed}
                       variant={
                         activeTab === 'companion'
                           ? 'pink'
                           : activeTab === 'images'
                           ? 'purple'
+                          : activeTab === 'office'
+                          ? 'emerald'
                           : 'default'
                       }
                       onClick={handleToggleExtras}
@@ -1142,6 +1151,8 @@ export const Sidebar = React.memo<SidebarProps>(({
                               ? 'text-pink-500 dark:text-pink-400'
                               : activeTab === 'images'
                               ? 'text-purple-500 dark:text-purple-400'
+                              : activeTab === 'office'
+                              ? 'text-emerald-500 dark:text-emerald-400'
                               : isExtrasOpen
                               ? 'text-gray-900 dark:text-gray-100 translate-x-0.5'
                               : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'
@@ -1275,6 +1286,28 @@ export const Sidebar = React.memo<SidebarProps>(({
               style={{ top: `${extrasMenuPos.top}px`, left: `${extrasMenuPos.left}px` }}
               className="fixed z-[9999] w-[184px] rounded-xl bg-white dark:bg-[#222225] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-white/[0.09] shadow-2xl p-1 flex flex-col gap-0.5 select-none animate-in fade-in zoom-in-95 duration-100"
             >
+              {/* Office Studio */}
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectTab('office');
+                  setIsExtrasOpen(false);
+                }}
+                className={`h-[30px] px-2.5 rounded-lg text-[12.5px] cursor-pointer flex items-center justify-between transition-colors ${
+                  activeTab === 'office'
+                    ? 'bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-medium'
+                    : 'text-gray-700 dark:text-gray-200 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15 hover:text-emerald-600 dark:hover:text-emerald-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <HugeiconsIcon icon={Presentation01Icon} size={15} strokeWidth={1.8} className={activeTab === 'office' ? 'text-emerald-500' : 'text-gray-500 dark:text-gray-400'} />
+                  <span>Office Studio</span>
+                </div>
+                {activeTab === 'office' && (
+                  <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-emerald-500" />
+                )}
+              </div>
+
               {/* Image Studio */}
               <div
                 onClick={(e) => {

@@ -4096,6 +4096,90 @@ ipcMain.handle('app:save-image-file', async (event, payload = {}) => {
   }
 });
 
+// Office Studio Handlers (Presentations, Documents, Spreadsheets)
+ipcMain.handle('office:generate-document', async (event, payload = {}) => {
+  try {
+    const { generateOfficeDocument } = require('./office_service');
+    const config = loadConfig();
+    const result = await generateOfficeDocument({
+      prompt: payload.prompt,
+      docType: payload.docType || 'pptx',
+      theme: payload.theme || 'midnight',
+      config,
+      agentBrain,
+    });
+    return result;
+  } catch (err) {
+    console.error('[Main] office:generate-document failed:', err);
+    return { success: false, error: err.message || 'Generation failed.' };
+  }
+});
+
+ipcMain.handle('office:open-file', async (event, filePath) => {
+  try {
+    const { shell } = require('electron');
+    if (!filePath || !fs.existsSync(filePath)) {
+      return { success: false, error: 'File does not exist on disk.' };
+    }
+    await shell.openPath(filePath);
+    return { success: true };
+  } catch (err) {
+    console.error('[Main] office:open-file failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('office:save-file-dialog', async (event, payload = {}) => {
+  try {
+    const { dialog } = require('electron');
+    const downloadsFolder = app.getPath('downloads') || os.homedir();
+    const defaultName = (payload.defaultName || `document_${Date.now()}.pptx`).replace(/[/\\?%*:|"<>]/g, '_');
+    const defaultPath = path.join(downloadsFolder, defaultName);
+
+    const ext = path.extname(defaultName).replace('.', '').toLowerCase();
+    const filterName = ext === 'pptx' ? 'PowerPoint Presentation' : ext === 'docx' ? 'Word Document' : ext === 'xlsx' ? 'Excel Spreadsheet' : 'Office Document';
+
+    const parentWin = BrowserWindow.getFocusedWindow() || mainWindow;
+    const res = await (parentWin && !parentWin.isDestroyed()
+      ? dialog.showSaveDialog(parentWin, {
+          title: 'Save Office Document',
+          defaultPath,
+          filters: [
+            { name: filterName, extensions: [ext || '*'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        })
+      : dialog.showSaveDialog({
+          title: 'Save Office Document',
+          defaultPath,
+          filters: [
+            { name: filterName, extensions: [ext || '*'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        }));
+
+    if (res.canceled || !res.filePath) {
+      return { canceled: true };
+    }
+
+    let buffer = null;
+    if (payload.base64Data) {
+      buffer = Buffer.from(payload.base64Data, 'base64');
+    } else if (payload.filePath && fs.existsSync(payload.filePath)) {
+      buffer = fs.readFileSync(payload.filePath);
+    }
+
+    if (buffer) {
+      fs.writeFileSync(res.filePath, buffer);
+      return { success: true, filePath: res.filePath };
+    }
+    return { success: false, error: 'No data to save.' };
+  } catch (err) {
+    console.error('[Main] office:save-file-dialog failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('jarvis:connect-google', async () => {
   const googleWorkspace = require('./google_workspace');
   return await googleWorkspace.startAuthFlow((profile) => {

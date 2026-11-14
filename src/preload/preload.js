@@ -260,6 +260,9 @@ try {
     restartAndInstallUpdate: (data) => ipcRenderer.send('app:restart-and-install', data),
     openConfigFolder: () => ipcRenderer.invoke('app:open-config-folder'),
     saveImageFile: (data) => ipcRenderer.invoke('app:save-image-file', data),
+    generateOfficeDoc: (payload) => ipcRenderer.invoke('office:generate-document', payload),
+    openOfficeFile: (filePath) => ipcRenderer.invoke('office:open-file', filePath),
+    saveOfficeFile: (payload) => ipcRenderer.invoke('office:save-file-dialog', payload),
     notifySplashFinished: () => ipcRenderer.send('splash:finished'),
     onAppReady: (callback) => {
       ipcRenderer.on('app:ready', () => callback());
