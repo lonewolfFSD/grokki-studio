@@ -211,6 +211,12 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
   const [modalTab, setModalTab]         = useState<'bytedance' | 'cloud'>('bytedance');
   const [testingProxy, setTestingProxy] = useState(false);
   const [launchingId, setLaunchingId]   = useState<string | null>(null);
+  const [installedRepos, setInstalledRepos] = useState<string[]>(() => {
+    try {
+      const s = localStorage.getItem('grokki_installed_image_repos_v1');
+      return s ? JSON.parse(s) : [];
+    } catch { return []; }
+  });
   const [proxyStatus, setProxyStatus]   = useState<{ ok: boolean; msg: string } | null>(null);
 
   const [generations, setGenerations] = useState<GeneratedImage[]>(() => {
@@ -262,37 +268,26 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
       const headers: Record<string, string> = {};
       if (proxyKey.trim()) headers['Authorization'] = `Bearer ${proxyKey.trim()}`;
       const res = await fetch(`${endpoint}/models`, { headers });
-      setProxyStatus(res.ok
-        ? { ok: true,  msg: 'Local proxy online and ready.' }
-        : { ok: false, msg: `Proxy responded with status ${res.status} — using Built-in 1-Click Cloud Bridge.` });
+      setProxyStatus(res.ok ? { ok: true, msg: 'Connected' } : { ok: false, msg: `Status ${res.status}` });
     } catch {
-      setProxyStatus({ ok: true, msg: 'Built-in 1-Click Cloud Bridge active (no local container needed).' });
+      setProxyStatus({ ok: false, msg: 'Offline' });
     } finally {
       setTestingProxy(false);
     }
   };
 
-  const handleLaunchContainer = async (id: string, image: string, portMap: string) => {
+  const handleInstallRepo = async (id: string, repo: string) => {
     setLaunchingId(id);
-    setProxyStatus({ ok: true, msg: `Starting ${id} container in background...` });
+    setProxyStatus(null);
     try {
-      const cmd = `docker rm -f grokki-${id} 2>$null; docker run -d --name grokki-${id} --restart unless-stopped -p ${portMap} ${image}`;
-      const res = await (window as any).jarvisAPI?.runCommand?.(cmd);
-      if (res && res.success !== false) {
-        setProxyEndpoint('http://localhost:8000/v1');
-        setProxyStatus({ ok: true, msg: `${id} container started on http://localhost:8000/v1.` });
-      } else {
-        setProxyStatus({
-          ok: true,
-          msg: 'Docker Desktop not running — Built-in 1-Click Cloud Bridge remains active for all models.',
-        });
-      }
-    } catch {
-      setProxyStatus({
-        ok: true,
-        msg: 'Built-in 1-Click Cloud Bridge active — all models ready with zero setup.',
-      });
-    } finally {
+      const dir = `.grokki-engines/${id}`;
+      const cmd = `if (!(Test-Path "${dir}")) { git clone https://github.com/${repo}.git "${dir}" }; cd "${dir}"; if (Test-Path "package.json") { npm install --silent; Start-Process -WindowStyle Hidden npm -ArgumentList "start" }`;
+      await (window as any).jarvisAPI?.runCommand?.(cmd);
+      const next = Array.from(new Set([...installedRepos, id]));
+      setInstalledRepos(next);
+      try { localStorage.setItem('grokki_installed_image_repos_v1', JSON.stringify(next)); } catch {}
+      setProxyEndpoint('http://localhost:8000/v1');
+    } catch {} finally {
       setLaunchingId(null);
     }
   };
@@ -942,51 +937,43 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
               {/* ── ByteDance tab ── */}
               {modalTab === 'bytedance' && (
                 <>
-                  <div className="p-3 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.06] flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-1.5 text-[12px] font-medium text-emerald-400">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        1-Click Cloud Bridge Active
-                      </div>
-                      <p className="text-[11px] text-gray-400 dark:text-gray-400 mt-1 leading-relaxed">
-                        Seedance 2.5, Jimeng 2.0, Doubao, DALL·E 3, and FLUX.1 Pro work out-of-the-box with zero setup. If a local proxy container is running below, requests automatically route through it first.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11.5px] font-medium text-gray-600 dark:text-gray-400 mb-2">
-                      1-Click Local Docker Containers <span className="font-normal text-gray-500">(optional)</span>
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { id: 'jimeng-api',   name: 'Jimeng / Seedance API', image: 'iptag/jimeng-api:latest',          port: '8000:8000', desc: 'Auto-pull & start on :8000' },
-                        { id: 'coze-proxy',   name: 'Coze DALL·E 3 Proxy',   image: 'deanxv/coze-discord-proxy:latest', port: '8000:7077', desc: 'Auto-pull & start on :8000' },
-                      ].map(c => (
-                        <button
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'jimeng-api',   name: 'iptag/jimeng-api',   repo: 'iptag/jimeng-api',                   desc: 'Jimeng & Dreamina API' },
+                      { id: 'doubao2api',   name: 'doubao2api',         repo: 'wangchuxiaoji-oss/doubao2api',       desc: 'Doubao proxy'          },
+                      { id: 'coze-proxy',   name: 'coze-discord-proxy', repo: 'deanxv/coze-discord-proxy',          desc: 'DALL·E 3 via Coze'     },
+                      { id: 'seedance-api', name: 'Seedance-2.5-API',   repo: 'SamurAIGPT/Seedance-2.5-API',        desc: 'Seedance 2.5 service'  },
+                    ].map(c => {
+                      const isInstalled = installedRepos.includes(c.id);
+                      const isBusy = launchingId === c.id;
+                      return (
+                        <div
                           key={c.id}
-                          type="button"
-                          disabled={launchingId === c.id}
-                          onClick={() => handleLaunchContainer(c.id, c.image, c.port)}
-                          className="p-2.5 text-left rounded-lg border border-gray-200 dark:border-white/[0.08] hover:border-gray-300 dark:hover:border-white/[0.18] bg-white/[0.02] transition-colors cursor-pointer disabled:opacity-50"
+                          className="p-3 rounded-lg border border-gray-200 dark:border-white/[0.08] flex flex-col justify-between gap-2.5"
                         >
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className="text-[11.5px] font-medium text-gray-800 dark:text-gray-200">{c.name}</span>
-                            {launchingId === c.id ? (
-                              <RefreshCw className="w-3 h-3 text-emerald-400 animate-spin flex-shrink-0" />
-                            ) : (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.07] text-gray-300 font-medium">1-Click Start</span>
-                            )}
+                          <div>
+                            <div className="text-[12px] font-medium text-gray-900 dark:text-gray-100">{c.name}</div>
+                            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{c.desc}</p>
                           </div>
-                          <p className="text-[10.5px] text-gray-400 dark:text-gray-500 leading-relaxed">{c.desc}</p>
-                        </button>
-                      ))}
-                    </div>
+                          <div className="flex items-center justify-end">
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleInstallRepo(c.id, c.repo)}
+                              className="h-7 px-3 rounded-md text-[11.5px] font-medium bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-85 transition-opacity cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                            >
+                              {isBusy && <RefreshCw className="w-3 h-3 animate-spin" />}
+                              {isBusy ? 'Installing…' : isInstalled ? 'Start' : 'Install'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[11.5px] font-medium text-gray-600 dark:text-gray-400">Local proxy endpoint</label>
+                      <label className="text-[11.5px] font-medium text-gray-600 dark:text-gray-400">Endpoint</label>
                       <button
                         type="button"
                         disabled={testingProxy}
@@ -994,7 +981,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                         className="text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
                       >
                         {testingProxy && <RefreshCw className="w-3 h-3 animate-spin" />}
-                        Verify connection
+                        {proxyStatus ? proxyStatus.msg : 'Test'}
                       </button>
                     </div>
                     <input
@@ -1004,25 +991,17 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                       placeholder="http://localhost:8000/v1"
                       className="w-full h-8 px-3 rounded-md border border-gray-200 dark:border-white/[0.09] bg-transparent text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
                     />
-                    {proxyStatus && (
-                      <p className={`flex items-center gap-1.5 text-[11px] mt-1.5 ${proxyStatus.ok ? 'text-emerald-400' : 'text-amber-500'}`}>
-                        {proxyStatus.ok
-                          ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
-                          : <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />}
-                        {proxyStatus.msg}
-                      </p>
-                    )}
                   </div>
 
                   <div>
                     <label className="block text-[11.5px] font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                      Session ID / Auth token <span className="font-normal text-gray-400">(optional, only for local Docker container)</span>
+                      Token
                     </label>
                     <input
                       type="password"
                       value={proxyKey}
                       onChange={e => setProxyKey(e.target.value)}
-                      placeholder="Leave empty for 1-Click Cloud Bridge"
+                      placeholder="sk-…"
                       className="w-full h-8 px-3 rounded-md border border-gray-200 dark:border-white/[0.09] bg-transparent text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
                     />
                   </div>
@@ -1032,41 +1011,24 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
               {/* ── Cloud keys tab ── */}
               {modalTab === 'cloud' && (
                 <>
-                  {/* Google Imagen */}
-                  <div className="p-4 rounded-lg border border-gray-200 dark:border-white/[0.07] flex flex-col gap-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[12.5px] font-medium text-gray-900 dark:text-gray-100">Google Imagen 3</span>
-                      {config.geminiApiKey?.trim()
-                        ? <span className="text-[11px] text-green-500 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Connected</span>
-                        : <span className="text-[11px] text-amber-500">Key needed</span>}
-                    </div>
+                  <div className="p-3.5 rounded-lg border border-gray-200 dark:border-white/[0.07] flex flex-col gap-2">
+                    <span className="text-[12px] font-medium text-gray-900 dark:text-gray-100">Google Imagen 3</span>
                     <input
                       type="password"
                       value={geminiKey}
                       onChange={e => setGeminiKey(e.target.value)}
-                      placeholder="AIzaSy… (pre-filled from Grokki settings)"
+                      placeholder="AIzaSy…"
                       className="w-full h-8 px-3 rounded-md border border-gray-200 dark:border-white/[0.09] bg-transparent text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
                     />
                   </div>
 
-                  {/* Together AI */}
-                  <div className="p-4 rounded-lg border border-gray-200 dark:border-white/[0.07] flex flex-col gap-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[12.5px] font-medium text-gray-900 dark:text-gray-100">Together AI</span>
-                      <a
-                        href="https://api.together.ai"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                      >
-                        Get free key <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
+                  <div className="p-3.5 rounded-lg border border-gray-200 dark:border-white/[0.07] flex flex-col gap-2">
+                    <span className="text-[12px] font-medium text-gray-900 dark:text-gray-100">Together AI</span>
                     <input
                       type="password"
                       value={togetherKey}
                       onChange={e => setTogetherKey(e.target.value)}
-                      placeholder="Together API key"
+                      placeholder="API key"
                       className="w-full h-8 px-3 rounded-md border border-gray-200 dark:border-white/[0.09] bg-transparent text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
                     />
                   </div>
