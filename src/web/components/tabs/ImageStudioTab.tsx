@@ -62,16 +62,21 @@ const ASPECT_DIMS: Record<AspectRatio, { width: number; height: number; label: s
 };
 
 const DRIFT_ITEMS = [
-  { image: 'https://picsum.photos/id/1015/600/400', title: 'Peaks', href: 'https://example.com/one' },
-  { image: 'https://picsum.photos/id/1025/600/400', title: 'Pup', href: 'https://example.com/two' },
-  { image: 'https://picsum.photos/id/1039/600/400', title: 'Falls', href: 'https://example.com/three' },
-  { image: 'https://picsum.photos/id/1044/600/400', title: 'City' },
-  { image: 'https://picsum.photos/id/1050/600/400', title: 'Ocean' },
-  { image: 'https://picsum.photos/id/1062/600/400', title: 'Forest' },
-  { image: 'https://picsum.photos/id/1069/600/400', title: 'Coast' },
-  { image: 'https://picsum.photos/id/1074/600/400', title: 'Wild' },
-  { image: 'https://picsum.photos/id/1080/600/400', title: 'Strawberries' },
-  { image: 'https://picsum.photos/id/1084/600/400', title: 'Walrus' },
+  { image: 'https://image.pollinations.ai/prompt/cyberpunk%20samurai%20warrior%20neon%20city%20katana?width=600&height=400&seed=101&nologo=true', title: 'Cyberpunk Samurai' },
+  { image: 'https://image.pollinations.ai/prompt/floating%20celestial%20islands%20castle%20studio%20ghibli%20anime%20masterpiece?width=600&height=400&seed=202&nologo=true', title: 'Ghibli Castle' },
+  { image: 'https://image.pollinations.ai/prompt/bioluminescent%20cyber%20dragon%20electric%20lightning%20night%20sky?width=600&height=400&seed=303&nologo=true', title: 'Cyber Dragon' },
+  { image: 'https://image.pollinations.ai/prompt/astronaut%20floating%20deep%20space%20colorful%20nebula%20galaxy%20photorealistic?width=600&height=400&seed=404&nologo=true', title: 'Cosmic Nebula' },
+  { image: 'https://image.pollinations.ai/prompt/futuristic%20synthwave%20delorean%20neon%20highway%20retro%20sunset?width=600&height=400&seed=505&nologo=true', title: 'Synthwave Highway' },
+  { image: 'https://image.pollinations.ai/prompt/ethereal%20water%20spirit%20goddess%20glowing%20magic%20digital%20art?width=600&height=400&seed=606&nologo=true', title: 'Spirit Goddess' },
+  { image: 'https://image.pollinations.ai/prompt/giant%20futuristic%20mecha%20robot%20tokyo%20rain%20cinematic%20lighting?width=600&height=400&seed=707&nologo=true', title: 'Mecha Tokyo' },
+  { image: 'https://image.pollinations.ai/prompt/ancient%20mystical%20tree%20of%20life%20glowing%20roots%20enchanted%20forest?width=600&height=400&seed=808&nologo=true', title: 'Tree of Life' },
+  { image: 'https://image.pollinations.ai/prompt/3d%20isometric%20cyberpunk%20room%20miniature%20diorama%20hacker%20den?width=600&height=400&seed=909&nologo=true', title: 'Isometric Den' },
+  { image: 'https://image.pollinations.ai/prompt/majestic%20fiery%20phoenix%20bird%20glowing%20feathers%20fantasy%20masterpiece?width=600&height=400&seed=1010&nologo=true', title: 'Fiery Phoenix' },
+  { image: 'https://image.pollinations.ai/prompt/cyberpunk%20night%20market%20neon%20signs%20rainy%20puddle%20reflections?width=600&height=400&seed=1111&nologo=true', title: 'Night Market' },
+  { image: 'https://image.pollinations.ai/prompt/golden%20hour%20anime%20girl%20cherry%20blossom%20petals%20wind%20shrine?width=600&height=400&seed=1212&nologo=true', title: 'Cherry Blossoms' },
+  { image: 'https://image.pollinations.ai/prompt/gothic%20vampire%20castle%20cliff%20full%20moon%20dark%20fantasy%20oil%20painting?width=600&height=400&seed=1313&nologo=true', title: 'Gothic Castle' },
+  { image: 'https://image.pollinations.ai/prompt/retro%20futuristic%20space%20station%20orbiting%20saturn%20sci-fi%20art?width=600&height=400&seed=1414&nologo=true', title: 'Saturn Station' },
+  { image: 'https://image.pollinations.ai/prompt/surreal%20crystal%20palace%20aurora%20borealis%20frozen%20lake?width=600&height=400&seed=1515&nologo=true', title: 'Crystal Aurora' },
 ];
 
 const ENGINE_OPTIONS: GlideSelectOption[] = [
@@ -357,23 +362,23 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
           <DriftWall
             items={DRIFT_ITEMS}
             columns={5}
-            tileWidth={200}
-            tileHeight={132}
-            gap={18}
-            tilt={16}
-            turn={-14}
-            perspective={1200}
-            depth={120}
-            speed={42}
+            tileWidth={280}
+            tileHeight={185}
+            gap={22}
+            tilt={24}
+            turn={-22}
+            perspective={1100}
+            depth={160}
+            speed={38}
             direction="up"
             variance={0.45}
-            parallax={0.6}
-            lift={64}
-            fade={0.6}
-            dim={0.55}
+            parallax={0.65}
+            lift={68}
+            fade={0.65}
+            dim={0.42}
             overlayColor={isDark ? '#060010' : '#f7f7fa'}
-            radius={14}
-            roll={0}
+            radius={18}
+            roll={-5}
             pauseOnHover={false}
             grayscale={false}
             className="w-full h-full"
