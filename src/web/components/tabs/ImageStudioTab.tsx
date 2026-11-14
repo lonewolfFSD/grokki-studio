@@ -10,18 +10,11 @@ import {
   Trash2,
   AlertCircle,
   Square,
-  Key,
-  ExternalLink,
-  CheckCircle2,
-  Zap,
-  Server,
-  Cloud,
 } from 'lucide-react';
 import { JarvisConfig } from '../../types/jarvis';
 import SpecularButton from '../../../effects/SpecularButton';
 import DriftWall from '../../../effects/DriftWall';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
-import { GeminiLogo, OpenAILogo } from './AiBrainTab';
 import WarmTooltip from '../WarmTooltip';
 import grokkiIcon from '../../assets/grokki_icon.svg';
 
@@ -31,14 +24,11 @@ interface ImageStudioTabProps {
 }
 
 export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
-export type EngineProvider = 'bytedance' | 'proxy' | 'google' | 'together' | 'pollinations';
 
 interface GeneratedImage {
   id: string;
   prompt: string;
   url: string;
-  provider: EngineProvider;
-  model: string;
   aspectRatio: AspectRatio;
   seed: number;
   enhance: boolean;
@@ -48,10 +38,6 @@ interface GeneratedImage {
 
 const STORAGE_KEY = 'grokki_image_studio_feed_v2';
 const GEMINI_IMAGE_KEY = 'grokki_gemini_image_key';
-const TOGETHER_KEY = 'grokki_together_image_key';
-const PROXY_ENDPOINT_KEY = 'grokki_image_proxy_endpoint';
-const PROXY_KEY_KEY = 'grokki_image_proxy_key';
-const ACTIVE_ENGINE_KEY = 'grokki_image_active_engine';
 
 const ASPECT_DIMS: Record<AspectRatio, { width: number; height: number; label: string }> = {
   '1:1':  { width: 1024, height: 1024, label: '1:1 Square'     },
@@ -80,31 +66,6 @@ const DRIFT_ITEMS = [
   { image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=600&q=80', title: 'Arcade Glow' },
 ];
 
-// ── Provider & Model Icons ──────────────────────────────────────────────────
-const ByteDanceLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
-  <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
-    <path d="M3.5 6.5L7.5 4.5V19.5L3.5 17.5V6.5Z" fill="#325AB4" />
-    <path d="M9.2 10.5L13.2 8.5V19.5L9.2 17.5V10.5Z" fill="#00C8D2" />
-    <path d="M14.8 4.5L18.8 6.5V17.5L14.8 19.5V4.5Z" fill="#2EE59D" />
-    <path d="M16.5 8.5L20.5 6.5V17.5L16.5 15.5V8.5Z" fill="#38BDF8" fillOpacity="0.85" />
-  </svg>
-);
-
-const FluxLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
-  <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
-    <path d="M12 2.5L21 19H3L12 2.5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M12 8.5L17.2 19H6.8L12 8.5Z" fill="currentColor" fillOpacity="0.28" />
-    <circle cx="12" cy="14.5" r="1.8" fill="currentColor" />
-  </svg>
-);
-
-const StabilityLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
-  <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
-    <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="#A855F7" strokeWidth="2" />
-    <path d="M13 6.5L8.5 13H12.5L11 17.5L15.5 11H11.5L13 6.5Z" fill="#C084FC" />
-  </svg>
-);
-
 const RatioBoxIcon: React.FC<{ ratio: AspectRatio; className?: string }> = ({ ratio, className = 'w-3.5 h-3.5' }) => {
   const frames: Record<AspectRatio, { x: number; y: number; w: number; h: number }> = {
     '1:1':  { x: 3,    y: 3,    w: 10,  h: 10  },
@@ -129,34 +90,12 @@ const RatioBoxIcon: React.FC<{ ratio: AspectRatio; className?: string }> = ({ ra
   );
 };
 
-const modelLabel = (Icon: React.FC<{ className?: string }>, text: string) => (
-  <span className="inline-flex items-center gap-2 truncate">
-    <Icon className="w-3.5 h-3.5 shrink-0" />
-    <span className="truncate">{text}</span>
-  </span>
-);
-
 const ratioLabel = (ratio: AspectRatio, text: string) => (
   <span className="inline-flex items-center gap-2 truncate">
     <RatioBoxIcon ratio={ratio} className="w-3.5 h-3.5 shrink-0" />
     <span className="truncate">{text}</span>
   </span>
 );
-
-const ENGINE_OPTIONS: GlideSelectOption[] = [
-  { value: 'bytedance:seedance-2.5',                         label: modelLabel(ByteDanceLogo, 'Seedance 2.5'),   tag: 'ByteDance' },
-  { value: 'bytedance:jimeng-v2',                            label: modelLabel(ByteDanceLogo, 'Jimeng 2.0'),     tag: 'ByteDance' },
-  { value: 'bytedance:doubao-image',                         label: modelLabel(ByteDanceLogo, 'Doubao'),         tag: 'ByteDance' },
-  { value: 'google:imagen-3.0-generate-002',                 label: modelLabel(GeminiLogo,    'Imagen 3 Ultra'), tag: 'Google'    },
-  { value: 'google:imagen-3.0-fast-generate-001',            label: modelLabel(GeminiLogo,    'Imagen 3 Fast'),  tag: 'Google'    },
-  { value: 'proxy:dall-e-3',                                 label: modelLabel(OpenAILogo,    'DALL·E 3'),       tag: 'Coze'      },
-  { value: 'proxy:flux-pro',                                 label: modelLabel(FluxLogo,      'FLUX.1 Pro'),     tag: 'Proxy'     },
-  { value: 'together:black-forest-labs/FLUX.1-schnell-Free', label: modelLabel(FluxLogo,      'FLUX.1 Schnell'), tag: 'Together'  },
-  { value: 'pollinations:turbo',                             label: modelLabel(StabilityLogo, 'SDXL Turbo'),     tag: 'Fast'      },
-  { value: 'pollinations:flux',                              label: modelLabel(FluxLogo,      'FLUX.1 Dev'),     tag: 'Cloud'     },
-  { value: 'pollinations:flux-anime',                        label: modelLabel(FluxLogo,      'FLUX Anime'),     tag: 'Cloud'     },
-  { value: 'pollinations:flux-realism',                      label: modelLabel(FluxLogo,      'FLUX Realism'),   tag: 'Cloud'     },
-];
 
 const ASPECT_OPTIONS: GlideSelectOption[] = [
   { value: '1:1',  label: ratioLabel('1:1',  '1:1 Square'),    tag: '1024×1024' },
@@ -189,40 +128,20 @@ const PROMPT_PRESETS: { tag: string; ratio: AspectRatio; prompt: string }[] = [
   },
 ];
 
-export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChangeConfig }) => {
+export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
   const [inputValue, setInputValue] = useState('');
-
-  const [activeEngine, setActiveEngine] = useState<string>(() => {
-    try { const s = localStorage.getItem(ACTIVE_ENGINE_KEY); if (s) return s; } catch {}
-    return config.geminiApiKey?.trim() ? 'google:imagen-3.0-generate-002' : 'pollinations:turbo';
-  });
-
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
-  const [enhance, setEnhance]         = useState(true);
+  const [enhance, setEnhance] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [copiedId, setCopiedId]       = useState<string | null>(null);
-
-  const [geminiKey, setGeminiKey]     = useState<string>(() => { try { return localStorage.getItem(GEMINI_IMAGE_KEY) || config.geminiApiKey || ''; } catch { return config.geminiApiKey || ''; } });
-  const [togetherKey, setTogetherKey] = useState<string>(() => { try { return localStorage.getItem(TOGETHER_KEY) || ''; } catch { return ''; } });
-  const [proxyEndpoint, setProxyEndpoint] = useState<string>(() => { try { return localStorage.getItem(PROXY_ENDPOINT_KEY) || 'http://localhost:8000/v1'; } catch { return 'http://localhost:8000/v1'; } });
-  const [proxyKey, setProxyKey]       = useState<string>(() => { try { return localStorage.getItem(PROXY_KEY_KEY) || ''; } catch { return ''; } });
-
-  const [showKeyModal, setShowKeyModal] = useState(false);
-  const [modalTab, setModalTab]         = useState<'bytedance' | 'cloud'>('bytedance');
-  const [testingProxy, setTestingProxy] = useState(false);
-  const [launchingId, setLaunchingId]   = useState<string | null>(null);
-  const [installedRepos, setInstalledRepos] = useState<string[]>(() => {
-    try {
-      const s = localStorage.getItem('grokki_installed_image_repos_v1');
-      return s ? JSON.parse(s) : [];
-    } catch { return []; }
-  });
-  const [proxyStatus, setProxyStatus]   = useState<{ ok: boolean; msg: string } | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [generations, setGenerations] = useState<GeneratedImage[]>(() => {
     try {
       const s = localStorage.getItem(STORAGE_KEY);
-      if (s) { const p = JSON.parse(s); if (Array.isArray(p)) return p; }
+      if (s) {
+        const p = JSON.parse(s);
+        if (Array.isArray(p)) return p;
+      }
     } catch {}
     return [];
   });
@@ -234,214 +153,91 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
         document.body.classList.contains('dark')));
 
   const feedEndRef = useRef<HTMLDivElement>(null);
-  const inputRef   = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => { if (config.geminiApiKey && !geminiKey) setGeminiKey(config.geminiApiKey); }, [config.geminiApiKey]);
-  useEffect(() => { feedEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [generations.length]);
+  useEffect(() => {
+    feedEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [generations.length]);
 
   const saveGenerations = (items: GeneratedImage[]) => {
     setGenerations(items);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, 40))); } catch {}
-  };
-
-  const handleEngineChange = (val: string) => {
-    setActiveEngine(val);
-    try { localStorage.setItem(ACTIVE_ENGINE_KEY, val); } catch {}
-  };
-
-  const handleSaveTokens = () => {
     try {
-      localStorage.setItem(GEMINI_IMAGE_KEY,   geminiKey.trim());
-      localStorage.setItem(TOGETHER_KEY,       togetherKey.trim());
-      localStorage.setItem(PROXY_ENDPOINT_KEY, proxyEndpoint.trim());
-      localStorage.setItem(PROXY_KEY_KEY,      proxyKey.trim());
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, 40)));
     } catch {}
-    if (geminiKey.trim() && onChangeConfig) onChangeConfig({ geminiApiKey: geminiKey.trim() });
-    setShowKeyModal(false);
-  };
-
-  const handleCheckProxy = async () => {
-    setTestingProxy(true);
-    setProxyStatus(null);
-    const endpoint = (proxyEndpoint.trim() || 'http://localhost:8000/v1').replace(/\/+$/, '');
-    try {
-      const headers: Record<string, string> = {};
-      if (proxyKey.trim()) headers['Authorization'] = `Bearer ${proxyKey.trim()}`;
-      const res = await fetch(`${endpoint}/models`, { headers });
-      setProxyStatus(res.ok ? { ok: true, msg: 'Connected' } : { ok: false, msg: `Status ${res.status}` });
-    } catch {
-      setProxyStatus({ ok: false, msg: 'Offline' });
-    } finally {
-      setTestingProxy(false);
-    }
-  };
-
-  const handleInstallRepo = async (id: string, repo: string) => {
-    setLaunchingId(id);
-    setProxyStatus(null);
-    try {
-      const dir = `.grokki-engines/${id}`;
-      const cmd = `if (!(Test-Path "${dir}")) { git clone https://github.com/${repo}.git "${dir}" }; cd "${dir}"; if (Test-Path "package.json") { npm install --silent; Start-Process -WindowStyle Hidden npm -ArgumentList "start" }`;
-      await (window as any).jarvisAPI?.runCommand?.(cmd);
-      const next = Array.from(new Set([...installedRepos, id]));
-      setInstalledRepos(next);
-      try { localStorage.setItem('grokki_installed_image_repos_v1', JSON.stringify(next)); } catch {}
-      setProxyEndpoint('http://localhost:8000/v1');
-    } catch {} finally {
-      setLaunchingId(null);
-    }
   };
 
   const executeGeneration = async (
     promptText: string,
-    engineKey: string,
     ar: AspectRatio,
     enh: boolean,
   ) => {
-    const [provider, modelName] = engineKey.split(':');
-    const { width, height }     = ASPECT_DIMS[ar];
-    const seed = Math.floor(Math.random() * 9_000_000) + 1_000_000;
+    const key = (
+      config.geminiApiKey ||
+      (typeof localStorage !== 'undefined' ? localStorage.getItem(GEMINI_IMAGE_KEY) : '') ||
+      ''
+    ).trim();
 
-    if (provider === 'bytedance' || provider === 'proxy') {
-      const endpoint = (proxyEndpoint.trim() || 'http://localhost:8000/v1').replace(/\/+$/, '');
-      const url = endpoint.endsWith('/images/generations') ? endpoint : `${endpoint}/images/generations`;
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (proxyKey.trim()) headers['Authorization'] = `Bearer ${proxyKey.trim()}`;
-      try {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 2200);
-        const response = await fetch(url, {
-          method: 'POST',
-          headers,
-          signal: ctrl.signal,
-          body: JSON.stringify({
-            model: modelName,
-            prompt: enh ? `${promptText}, 8k resolution, ultra-detailed masterpiece` : promptText,
-            n: 1,
-            size: `${width}x${height}`,
-          }),
-        });
-        clearTimeout(timer);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.data?.[0]?.b64_json) return { finalImageUrl: `data:image/jpeg;base64,${data.data[0].b64_json}`, seed };
-          if (data.data?.[0]?.url)      return { finalImageUrl: data.data[0].url, seed };
-          if (data.images?.[0]) {
-            const img = data.images[0];
-            return { finalImageUrl: img.startsWith('http') || img.startsWith('data:') ? img : `data:image/png;base64,${img}`, seed };
-          }
-        }
-      } catch {
-        // Local container not running — seamlessly route through Built-in 1-Click Cloud Bridge
-      }
-
-      const styleMap: Record<string, { model: string; suffix: string }> = {
-        'seedance-2.5': { model: 'flux-realism', suffix: 'cinematic lighting, Seedance 2.5 photorealistic film still, 8k ultra-detailed' },
-        'jimeng-v2':    { model: 'flux',         suffix: 'Dreamina Jimeng 2.0 aesthetic, vivid composition, ultra-detailed 8k' },
-        'doubao-image': { model: 'flux-realism', suffix: 'Doubao high-contrast natural lighting, crisp detail' },
-        'dall-e-3':     { model: 'flux',         suffix: 'DALL-E 3 rich conceptual illustration, ultra-crisp' },
-        'flux-pro':     { model: 'flux-pro',     suffix: 'FLUX.1 Pro studio grade photography, 8k sharp focus' },
-      };
-      const mapped = styleMap[modelName] || { model: 'flux', suffix: '8k ultra-detailed' };
-      const tunedPrompt = enh ? `${promptText.trim()}, ${mapped.suffix}` : promptText.trim();
-      const enc = encodeURIComponent(tunedPrompt);
-      const cb = `${Date.now()}`;
-      const imgUrl = `https://image.pollinations.ai/prompt/${enc}?model=${mapped.model}&width=${width}&height=${height}&seed=${seed}&nologo=true&private=true&enhance=${enh}&cb=${cb}`;
-      await new Promise<void>((res, rej) => {
-        const img = new Image();
-        img.src     = imgUrl;
-        img.onload  = () => res();
-        img.onerror = () => rej(new Error('Image failed to load. Try again or switch aspect ratio.'));
-      });
-      return { finalImageUrl: imgUrl, seed };
+    if (!key) {
+      throw new Error('Gemini API key is missing. Please configure your key in Settings.');
     }
 
-    if (provider === 'google') {
-      const key = (geminiKey || config.geminiApiKey || '').trim();
-      if (!key) { setShowKeyModal(true); setModalTab('cloud'); throw new Error('Add your Gemini API key in Engine setup to use Google Imagen 3.'); }
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict?key=${key}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            instances: [{ prompt: enh ? `masterpiece, ultra-detailed, 8k, professional lighting, photorealistic: ${promptText}` : promptText }],
-            parameters: { sampleCount: 1, aspectRatio: ar, outputMimeType: 'image/jpeg' },
-          }),
-        }
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || `Google Imagen error (${res.status}).`);
-      }
-      const data = await res.json();
-      const b64 = data.predictions?.[0]?.bytesBase64Encoded;
-      if (!b64) throw new Error('Google Imagen returned no image. Try a different prompt.');
-      return { finalImageUrl: `data:image/jpeg;base64,${b64}`, seed };
-    }
+    const finalPrompt = enh
+      ? `masterpiece, ultra-detailed, 8k, professional lighting, photorealistic: ${promptText}`
+      : promptText;
 
-    if (provider === 'together') {
-      if (!togetherKey.trim()) { setShowKeyModal(true); setModalTab('cloud'); throw new Error('Add your Together AI key in Engine setup.'); }
-      const res = await fetch('https://api.together.xyz/v1/images/generations', {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${key}`,
+      {
         method: 'POST',
-        headers: { Authorization: `Bearer ${togetherKey.trim()}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: modelName,
-          prompt: enh ? `${promptText}, 8k resolution, highly detailed, photorealistic masterpiece` : promptText,
-          width, height, steps: 4, n: 1,
+          instances: [{ prompt: finalPrompt }],
+          parameters: { sampleCount: 1, aspectRatio: ar, outputMimeType: 'image/jpeg' },
         }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || `Together AI error (${res.status}).`);
       }
-      const data = await res.json();
-      return { finalImageUrl: data.data?.[0]?.url || '', seed };
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Generation failed (${res.status}).`);
     }
 
-    // Pollinations free cloud
-    const enc    = encodeURIComponent(promptText.trim());
-    const cb     = `${Date.now()}`;
-    const imgUrl = `https://image.pollinations.ai/prompt/${enc}?model=${modelName}&width=${width}&height=${height}&seed=${seed}&nologo=true&private=true&enhance=${enh}&cb=${cb}`;
-    await new Promise<void>((res, rej) => {
-      const img = new Image();
-      img.src     = imgUrl;
-      img.onload  = () => res();
-      img.onerror = () => rej(new Error('Image failed to load. Try SDXL Turbo or another model.'));
-    });
-    return { finalImageUrl: imgUrl, seed };
+    const data = await res.json();
+    const b64 = data.predictions?.[0]?.bytesBase64Encoded;
+    if (!b64) {
+      throw new Error('No image was returned. Try adjusting your prompt.');
+    }
+
+    const seed = Math.floor(Math.random() * 9_000_000) + 1_000_000;
+    return { finalImageUrl: `data:image/jpeg;base64,${b64}`, seed };
   };
 
-  const handleGenerate = async (customPrompt?: string, overrideEngine?: string) => {
+  const handleGenerate = async (customPrompt?: string) => {
     const promptText = (customPrompt ?? inputValue).trim();
     if (!promptText || isGenerating) return;
 
-    const engineToUse = overrideEngine ?? activeEngine;
     setInputValue('');
     setIsGenerating(true);
 
-    const [provider, modelName] = engineToUse.split(':');
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const entry: GeneratedImage = {
-      id:          `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      prompt:      promptText,
-      url:         '',
-      provider:    provider as EngineProvider,
-      model:       modelName,
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      prompt: promptText,
+      url: '',
       aspectRatio,
-      seed:        0,
+      seed: 0,
       enhance,
-      timestamp:   timeStr,
+      timestamp: timeStr,
     };
 
     setGenerations(prev => [...prev, entry]);
 
     try {
-      const { finalImageUrl, seed } = await executeGeneration(promptText, engineToUse, aspectRatio, enhance);
+      const { finalImageUrl, seed } = await executeGeneration(promptText, aspectRatio, enhance);
       saveGenerations([...generations, { ...entry, url: finalImageUrl, seed }]);
     } catch (err: any) {
-      saveGenerations([...generations, { ...entry, error: err.message || 'Generation failed. Please try again.' }]);
+      saveGenerations([...generations, { ...entry, error: err.message || 'Generation failed.' }]);
     } finally {
       setIsGenerating(false);
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -456,36 +252,47 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
 
   const handleDownload = async (item: GeneratedImage) => {
     if (item.url.startsWith('data:')) {
-      const a = Object.assign(document.createElement('a'), { href: item.url, download: `grokki_${item.id}.jpg` });
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      const a = Object.assign(document.createElement('a'), {
+        href: item.url,
+        download: `grokki_${item.id}.jpg`,
+      });
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       return;
     }
     try {
       const blob = await (await fetch(item.url)).blob();
       const burl = URL.createObjectURL(blob);
-      const a = Object.assign(document.createElement('a'), { href: burl, download: `grokki_${item.id}.png` });
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      const a = Object.assign(document.createElement('a'), {
+        href: burl,
+        download: `grokki_${item.id}.png`,
+      });
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(burl);
-    } catch { window.open(item.url, '_blank'); }
+    } catch {
+      window.open(item.url, '_blank');
+    }
   };
 
-  // ── Shared GlideSelect theme ──────────────────────────────────────────────
+  // Shared GlideSelect styling
   const glideProps = {
-    size:          'sm'  as const,
-    radius:        8,
-    surfaceColor:  isDark ? '#1a1c24' : '#f3f4f6',
+    size: 'sm' as const,
+    radius: 8,
+    surfaceColor: isDark ? '#1a1c24' : '#f3f4f6',
     highlightColor: isDark ? '#272a38' : '#e5e7eb',
-    textColor:     isDark ? '#f3f4f6' : '#111827',
-    accentColor:   isDark ? '#e5e7eb' : '#111827',
-    placement:     'top' as const,
-    align:         'left' as const,
-    menuWidth:     260,
+    textColor: isDark ? '#f3f4f6' : '#111827',
+    accentColor: isDark ? '#e5e7eb' : '#111827',
+    placement: 'top' as const,
+    align: 'left' as const,
+    menuWidth: 210,
   };
 
   return (
     <div className="relative w-full h-full flex flex-col bg-[#f7f7fa] dark:bg-[#070709] text-gray-900 dark:text-gray-100 overflow-hidden select-none">
-
-      {/* ── DriftWall Background (disappears once there are generations) ── */}
+      {/* DriftWall Background (visible on empty state) */}
       {generations.length === 0 && (
         <motion.div
           initial={{ opacity: 0, scale: 1.03 }}
@@ -520,7 +327,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
         </motion.div>
       )}
 
-      {/* ── Main Content Stage ── */}
+      {/* Main Content Stage */}
       <div className="flex-1 overflow-y-auto px-5 sm:px-8 py-6 min-h-0 relative z-20 flex flex-col">
         {generations.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center px-4 py-6">
@@ -592,6 +399,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                 <span className="relative z-10">Image Studio</span>
               </span>
             </motion.h1>
+
             <motion.div
               initial={{ opacity: 0, y: 20, filter: 'blur(4px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -617,7 +425,6 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                       <div className="text-[13px] font-medium text-gray-800 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
                         {preset.tag}
                       </div>
-                      
                     </div>
                     <span className="inline-flex items-center gap-1.5 text-[11.5px] text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300 tabular-nums shrink-0 transition-colors">
                       <RatioBoxIcon ratio={preset.ratio} className="w-3.5 h-3.5" />
@@ -632,15 +439,14 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
           <div className="max-w-2xl mx-auto w-full flex flex-col gap-6">
             {generations.map(item => (
               <div key={item.id} className="flex flex-col gap-2.5 w-full">
-
-                {/* User bubble */}
+                {/* User message */}
                 <div className="flex justify-end">
                   <div className="max-w-[75%] bg-white dark:bg-[#1a1a20] border border-gray-200 dark:border-white/[0.07] text-gray-800 dark:text-gray-100 px-3 py-2 rounded-lg text-[13px] leading-relaxed">
                     {item.prompt}
                   </div>
                 </div>
 
-                {/* Assistant row */}
+                {/* Assistant response */}
                 <div className="flex items-start gap-2.5">
                   <img
                     src={grokkiIcon}
@@ -651,7 +457,6 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                     <div className="flex items-baseline gap-2 mb-1.5">
                       <span className="text-[12px] font-semibold text-gray-800 dark:text-gray-200">Grokki</span>
                       <span className="text-[11px] text-gray-400 dark:text-gray-500">{item.timestamp}</span>
-                      <span className="text-[11px] text-gray-400 dark:text-gray-500">{item.model}</span>
                     </div>
 
                     {item.error ? (
@@ -660,7 +465,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                         <div className="min-w-0">
                           <p className="text-[12px] font-semibold text-red-700 dark:text-red-400 mb-0.5">Generation failed</p>
                           <p className="text-[11px] text-red-600/75 dark:text-red-400/60 leading-relaxed">{item.error}</p>
-                          <div className="flex gap-1.5 mt-2.5 flex-wrap">
+                          <div className="flex gap-1.5 mt-2.5">
                             <button
                               type="button"
                               onClick={() => handleGenerate(item.prompt)}
@@ -668,15 +473,6 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                             >
                               <RefreshCw className="w-3 h-3" /> Retry
                             </button>
-                            {item.provider !== 'pollinations' && (
-                              <button
-                                type="button"
-                                onClick={() => { handleEngineChange('pollinations:turbo'); handleGenerate(item.prompt, 'pollinations:turbo'); }}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
-                              >
-                                <Zap className="w-3 h-3" /> Try free cloud
-                              </button>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -723,7 +519,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                       <div className="w-56 h-56 rounded-lg bg-gray-100 dark:bg-[#131317] border border-gray-200 dark:border-white/[0.06] flex flex-col items-center justify-center gap-2">
                         <div className="w-5 h-5 rounded-full border-[1.5px] border-gray-300 dark:border-white/20 border-t-gray-700 dark:border-t-white/60 animate-spin" />
                         <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                          {item.model}…
+                          Generating image…
                         </span>
                       </div>
                     )}
@@ -731,13 +527,12 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                 </div>
               </div>
             ))}
-
             <div ref={feedEndRef} />
           </div>
         )}
       </div>
 
-      {/* ── Composer ─────────────────────────────────────────────────────────── */}
+      {/* Composer */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -772,7 +567,10 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                 value={inputValue}
                 onChange={e => setInputValue(e.target.value)}
                 onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); }
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleGenerate();
+                  }
                 }}
                 rows={Math.min(6, Math.max(2, inputValue.split('\n').length))}
                 placeholder="Describe an image"
@@ -794,22 +592,12 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
             {/* Controls */}
             <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200/70 dark:border-white/[0.07]">
               <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-
-                {/* Engine */}
-                <GlideSelect
-                  options={ENGINE_OPTIONS}
-                  value={activeEngine}
-                  onChange={handleEngineChange}
-                  {...glideProps}
-                />
-
                 {/* Aspect ratio */}
                 <GlideSelect
                   options={ASPECT_OPTIONS}
                   value={aspectRatio}
                   onChange={v => setAspectRatio(v as AspectRatio)}
                   {...glideProps}
-                  menuWidth={210}
                 />
 
                 {/* Enhance toggle */}
@@ -829,24 +617,15 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                 </WarmTooltip>
               </div>
 
-              {/* Right: settings + clear + send */}
+              {/* Right: clear history + generate button */}
               <div className="flex items-center gap-1.5 shrink-0">
-                <WarmTooltip content="Configure engines & keys" side="top">
-                  <button
-                    type="button"
-                    onClick={() => setShowKeyModal(true)}
-                    className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] border border-transparent hover:border-gray-200 dark:hover:border-white/10 transition-colors cursor-pointer"
-                  >
-                    <Key className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Engines</span>
-                  </button>
-                </WarmTooltip>
-
                 {generations.length > 0 && (
                   <WarmTooltip content="Clear history" side="top">
                     <button
                       type="button"
-                      onClick={() => { if (confirm('Clear image history?')) saveGenerations([]); }}
+                      onClick={() => {
+                        if (confirm('Clear image history?')) saveGenerations([]);
+                      }}
                       className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -881,181 +660,6 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
           </SpecularButton>
         </div>
       </motion.div>
-
-      {/* ── Modal ────────────────────────────────────────────────────────────── */}
-      {showKeyModal && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-          onClick={() => setShowKeyModal(false)}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            className="w-full max-w-md bg-white dark:bg-[#15151b] border border-gray-200 dark:border-white/[0.09] rounded-xl shadow-xl flex flex-col max-h-[88vh] overflow-hidden"
-          >
-            {/* Modal header */}
-            <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-gray-100 dark:border-white/[0.06] flex-shrink-0">
-              <div>
-                <h3 className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <Key className="w-3.5 h-3.5 text-gray-400" />
-                  Engine setup
-                </h3>
-                <p className="text-[11.5px] text-gray-400 dark:text-gray-500 mt-0.5">
-                  Configure providers and API credentials.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowKeyModal(false)}
-                className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer -mt-0.5 -mr-0.5"
-              >
-                ×
-              </button>
-            </div>
-
-            {/* Modal tabs */}
-            <div className="flex border-b border-gray-100 dark:border-white/[0.06] px-5 flex-shrink-0">
-              {(['bytedance', 'cloud'] as const).map(tab => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setModalTab(tab)}
-                  className={`flex items-center gap-1.5 py-3 mr-5 text-[12px] font-medium border-b-2 transition-colors cursor-pointer -mb-px ${
-                    modalTab === tab
-                      ? 'border-gray-900 dark:border-white text-gray-900 dark:text-gray-100'
-                      : 'border-transparent text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400'
-                  }`}
-                >
-                  {tab === 'bytedance' ? <Server className="w-3.5 h-3.5" /> : <Cloud className="w-3.5 h-3.5" />}
-                  {tab === 'bytedance' ? 'ByteDance / Seedance' : 'Cloud keys'}
-                </button>
-              ))}
-            </div>
-
-            {/* Modal body */}
-            <div className="overflow-y-auto px-5 py-5 flex flex-col gap-4 flex-1">
-
-              {/* ── ByteDance tab ── */}
-              {modalTab === 'bytedance' && (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: 'jimeng-api',   name: 'iptag/jimeng-api',   repo: 'iptag/jimeng-api',                   desc: 'Jimeng & Dreamina API' },
-                      { id: 'doubao2api',   name: 'doubao2api',         repo: 'wangchuxiaoji-oss/doubao2api',       desc: 'Doubao proxy'          },
-                      { id: 'coze-proxy',   name: 'coze-discord-proxy', repo: 'deanxv/coze-discord-proxy',          desc: 'DALL·E 3 via Coze'     },
-                      { id: 'seedance-api', name: 'Seedance-2.5-API',   repo: 'SamurAIGPT/Seedance-2.5-API',        desc: 'Seedance 2.5 service'  },
-                    ].map(c => {
-                      const isInstalled = installedRepos.includes(c.id);
-                      const isBusy = launchingId === c.id;
-                      return (
-                        <div
-                          key={c.id}
-                          className="p-3 rounded-lg border border-gray-200 dark:border-white/[0.08] flex flex-col justify-between gap-2.5"
-                        >
-                          <div>
-                            <div className="text-[12px] font-medium text-gray-900 dark:text-gray-100">{c.name}</div>
-                            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{c.desc}</p>
-                          </div>
-                          <div className="flex items-center justify-end">
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              onClick={() => handleInstallRepo(c.id, c.repo)}
-                              className="h-7 px-3 rounded-md text-[11.5px] font-medium bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-85 transition-opacity cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                            >
-                              {isBusy && <RefreshCw className="w-3 h-3 animate-spin" />}
-                              {isBusy ? 'Installing…' : isInstalled ? 'Start' : 'Install'}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[11.5px] font-medium text-gray-600 dark:text-gray-400">Endpoint</label>
-                      <button
-                        type="button"
-                        disabled={testingProxy}
-                        onClick={handleCheckProxy}
-                        className="text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
-                      >
-                        {testingProxy && <RefreshCw className="w-3 h-3 animate-spin" />}
-                        {proxyStatus ? proxyStatus.msg : 'Test'}
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      value={proxyEndpoint}
-                      onChange={e => setProxyEndpoint(e.target.value)}
-                      placeholder="http://localhost:8000/v1"
-                      className="w-full h-8 px-3 rounded-md border border-gray-200 dark:border-white/[0.09] bg-transparent text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11.5px] font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                      Token
-                    </label>
-                    <input
-                      type="password"
-                      value={proxyKey}
-                      onChange={e => setProxyKey(e.target.value)}
-                      placeholder="sk-…"
-                      className="w-full h-8 px-3 rounded-md border border-gray-200 dark:border-white/[0.09] bg-transparent text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* ── Cloud keys tab ── */}
-              {modalTab === 'cloud' && (
-                <>
-                  <div className="p-3.5 rounded-lg border border-gray-200 dark:border-white/[0.07] flex flex-col gap-2">
-                    <span className="text-[12px] font-medium text-gray-900 dark:text-gray-100">Google Imagen 3</span>
-                    <input
-                      type="password"
-                      value={geminiKey}
-                      onChange={e => setGeminiKey(e.target.value)}
-                      placeholder="AIzaSy…"
-                      className="w-full h-8 px-3 rounded-md border border-gray-200 dark:border-white/[0.09] bg-transparent text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
-                    />
-                  </div>
-
-                  <div className="p-3.5 rounded-lg border border-gray-200 dark:border-white/[0.07] flex flex-col gap-2">
-                    <span className="text-[12px] font-medium text-gray-900 dark:text-gray-100">Together AI</span>
-                    <input
-                      type="password"
-                      value={togetherKey}
-                      onChange={e => setTogetherKey(e.target.value)}
-                      placeholder="API key"
-                      className="w-full h-8 px-3 rounded-md border border-gray-200 dark:border-white/[0.09] bg-transparent text-[12px] font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400 dark:focus:border-white/20 transition-colors"
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Modal footer */}
-            <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-gray-100 dark:border-white/[0.06] flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowKeyModal(false)}
-                className="h-8 px-4 rounded-md text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveTokens}
-                className="h-8 px-4 rounded-md text-[12px] font-medium bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-85 transition-opacity cursor-pointer"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
