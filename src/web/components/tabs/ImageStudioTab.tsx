@@ -1,23 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Sparkles,
-  Send,
+  ArrowUp,
   Download,
   Copy,
   RefreshCw,
   Sliders,
-  Image as ImageIcon,
   Check,
   Maximize2,
-  X,
   Trash2,
-  Wand2,
-  Palette,
-  ExternalLink,
-  Info,
+  AlertCircle,
+  Square,
+  Key,
 } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { AiImageIcon, Layers01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { JarvisConfig } from '../../types/jarvis';
+import SpecularButton from '../../../effects/SpecularButton';
+import GlideSelect, { GlideSelectOption } from './GlideSelect';
+import WarmTooltip from '../WarmTooltip';
+import grokkiIcon from '../../assets/grokki_icon.svg';
 
 interface ImageStudioTabProps {
   config: JarvisConfig;
@@ -25,145 +28,239 @@ interface ImageStudioTabProps {
 }
 
 export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
-export type FluxModel = 'flux' | 'flux-anime' | 'flux-realism' | 'flux-3d' | 'turbo';
+export type EngineProvider = 'pollinations' | 'huggingface' | 'together';
 
 interface GeneratedImage {
   id: string;
   prompt: string;
-  enhancedPrompt?: string;
   url: string;
-  model: FluxModel;
+  provider: EngineProvider;
+  model: string;
   aspectRatio: AspectRatio;
   seed: number;
   enhance: boolean;
-  timestamp: number;
+  timestamp: string;
+  error?: string;
 }
 
-const STORAGE_KEY = 'grokki_image_studio_history_v1';
+const STORAGE_KEY = 'grokki_image_studio_feed_v2';
+const HF_TOKEN_KEY = 'grokki_hf_image_token';
+const TOGETHER_KEY = 'grokki_together_image_key';
 
-const ASPECT_DIMS: Record<AspectRatio, { width: number; height: number; label: string; ratioClass: string }> = {
-  '1:1': { width: 1024, height: 1024, label: 'Square (1:1)', ratioClass: 'aspect-square' },
-  '16:9': { width: 1344, height: 768, label: 'Landscape (16:9)', ratioClass: 'aspect-video' },
-  '9:16': { width: 768, height: 1344, label: 'Portrait (9:16)', ratioClass: 'aspect-[9/16]' },
-  '4:3': { width: 1152, height: 864, label: 'Photo (4:3)', ratioClass: 'aspect-[4/3]' },
-  '3:4': { width: 864, height: 1152, label: 'Portrait (3:4)', ratioClass: 'aspect-[3/4]' },
+const ASPECT_DIMS: Record<AspectRatio, { width: number; height: number; label: string }> = {
+  '1:1': { width: 1024, height: 1024, label: '1:1 Square' },
+  '16:9': { width: 1280, height: 720, label: '16:9 Landscape' },
+  '9:16': { width: 720, height: 1280, label: '9:16 Portrait' },
+  '4:3': { width: 1152, height: 864, label: '4:3 Standard' },
+  '3:4': { width: 864, height: 1152, label: '3:4 Portrait' },
 };
 
-const MODEL_PRESETS: { id: FluxModel; name: string; tag: string; desc: string; icon: string }[] = [
-  { id: 'flux-anime', name: 'FLUX Anime', tag: 'High-End Anime', desc: 'Vibrant, detailed illustration & anime aesthetics', icon: '🌸' },
-  { id: 'flux', name: 'FLUX.1 Schnell', tag: 'Balanced', desc: 'Next-gen detail, accurate anatomy & sharp lighting', icon: '⚡' },
-  { id: 'flux-realism', name: 'FLUX Realism', tag: 'Photorealistic', desc: 'True-to-life skin tones, natural lighting & DSLR depth', icon: '📸' },
-  { id: 'flux-3d', name: 'FLUX 3D', tag: 'CGI / Pixar', desc: 'Octane render, 3D character design & cinematic CGI', icon: '🧊' },
-  { id: 'turbo', name: 'SD Turbo', tag: 'Ultra Fast', desc: 'Near-instant 1-second generation for quick concepts', icon: '🚀' },
+const ENGINE_OPTIONS: GlideSelectOption[] = [
+  { value: 'pollinations:flux', label: 'Pollinations • FLUX.1 (Free)', group: 'Free Cloud' },
+  { value: 'pollinations:turbo', label: 'Pollinations • Turbo (Fast)', group: 'Free Cloud' },
+  { value: 'huggingface:black-forest-labs/FLUX.1-schnell', label: 'Hugging Face • FLUX.1 Schnell', group: 'Hugging Face (Pro)' },
+  { value: 'huggingface:stabilityai/stable-diffusion-xl-base-1.0', label: 'Hugging Face • SDXL Base', group: 'Hugging Face (Pro)' },
+  { value: 'together:black-forest-labs/FLUX.1-schnell-Free', label: 'Together AI • FLUX.1 Free', group: 'Together AI' },
 ];
 
-const STYLE_PROMPTS: { label: string; prefix: string; suffix: string }[] = [
-  { label: 'Anime Masterpiece', prefix: 'masterpiece anime style of', suffix: 'highly detailed, vibrant colors, Makoto Shinkai lighting, 8k resolution' },
-  { label: 'Cinematic Movie', prefix: 'cinematic 35mm film still of', suffix: 'anamorphic lens flare, moody atmosphere, dynamic lighting, photorealistic' },
-  { label: 'Cyberpunk Neon', prefix: 'cyberpunk style', suffix: 'neon glow, rain-soaked streets, holographic billboards, volumetric mist, high detail' },
-  { label: 'Studio Ghibli', prefix: 'Studio Ghibli animated style of', suffix: 'hand-drawn aesthetic, lush nature, warm whimsical lighting, nostalgic feel' },
-  { label: 'Dark Fantasy', prefix: 'dark fantasy illustration of', suffix: 'ethereal glow, intricate armor, gothic architecture, dramatic shadows, Unreal Engine 5' },
-  { label: 'Digital Art', prefix: 'trending digital art of', suffix: 'ArtStation award-winning, sharp focus, intricate detailing, concept art' },
+const ASPECT_OPTIONS: GlideSelectOption[] = [
+  { value: '1:1', label: '1:1 Square' },
+  { value: '16:9', label: '16:9 Landscape' },
+  { value: '9:16', label: '9:16 Portrait' },
+  { value: '4:3', label: '4:3 Standard' },
+  { value: '3:4', label: '3:4 Portrait' },
 ];
 
-export const ImageStudioTab: React.FC<ImageStudioTabProps> = () => {
-  const [prompt, setPrompt] = useState('');
-  const [selectedModel, setSelectedModel] = useState<FluxModel>('flux-anime');
+export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config }) => {
+  const [inputValue, setInputValue] = useState('');
+  const [activeEngine, setActiveEngine] = useState<string>('pollinations:flux');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
   const [enhance, setEnhance] = useState(true);
-  const [seed, setSeed] = useState<number>(() => Math.floor(Math.random() * 10000000));
-  const [randomSeed, setRandomSeed] = useState(true);
-
   const [isGenerating, setIsGenerating] = useState(false);
-  const [currentGeneration, setCurrentGeneration] = useState<GeneratedImage | null>(null);
-  const [history, setHistory] = useState<GeneratedImage[]>([]);
-  const [previewImage, setPreviewImage] = useState<GeneratedImage | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
 
-  // Load history from localStorage
-  useEffect(() => {
+  // API Tokens
+  const [hfToken, setHfToken] = useState<string>(() => {
+    try { return localStorage.getItem(HF_TOKEN_KEY) || ''; } catch { return ''; }
+  });
+  const [togetherKey, setTogetherKey] = useState<string>(() => {
+    try { return localStorage.getItem(TOGETHER_KEY) || ''; } catch { return ''; }
+  });
+  const [showKeyModal, setShowKeyModal] = useState(false);
+
+  // Chat-style feed of image generations
+  const [generations, setGenerations] = useState<GeneratedImage[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setHistory(parsed);
-          if (parsed.length > 0) {
-            setCurrentGeneration(parsed[0]);
-          }
-        }
+        if (Array.isArray(parsed)) return parsed;
       }
-    } catch (err) {
-      console.warn('[ImageStudio] Failed to load history:', err);
-    }
-  }, []);
+    } catch {}
+    return [];
+  });
 
-  const saveHistory = (items: GeneratedImage[]) => {
-    setHistory(items);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, 50)));
-    } catch (err) {
-      console.warn('[ImageStudio] Failed to save history:', err);
-    }
+  const isDarkTheme =
+    config.dashboardTheme === 'dark' ||
+    (typeof document !== 'undefined' &&
+      (document.documentElement.classList.contains('dark') ||
+        document.body.classList.contains('dark')));
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const buildImageUrl = (p: string, m: FluxModel, ar: AspectRatio, enh: boolean, s: number) => {
+  useEffect(() => {
+    scrollToBottom();
+  }, [generations.length]);
+
+  const saveGenerations = (items: GeneratedImage[]) => {
+    setGenerations(items);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, 40)));
+    } catch {}
+  };
+
+  const handleSaveTokens = (hf: string, tog: string) => {
+    setHfToken(hf);
+    setTogetherKey(tog);
+    try {
+      localStorage.setItem(HF_TOKEN_KEY, hf.trim());
+      localStorage.setItem(TOGETHER_KEY, tog.trim());
+    } catch {}
+    setShowKeyModal(false);
+  };
+
+  // Helper to generate image via chosen engine
+  const executeGeneration = async (promptText: string, engineKey: string, ar: AspectRatio, enh: boolean) => {
+    const [provider, modelName] = engineKey.split(':');
     const { width, height } = ASPECT_DIMS[ar];
-    const encodedPrompt = encodeURIComponent(p.trim());
-    return `https://image.pollinations.ai/prompt/${encodedPrompt}?model=${m}&width=${width}&height=${height}&seed=${s}&nologo=true&enhance=${enh}`;
+    const seed = Math.floor(Math.random() * 9000000) + 1000000;
+
+    let finalImageUrl = '';
+
+    if (provider === 'huggingface') {
+      if (!hfToken.trim()) {
+        setShowKeyModal(true);
+        throw new Error('Please add your free Hugging Face User Access Token (hf_...) to use this model.');
+      }
+      const response = await fetch(`https://router.huggingface.co/hf-inference/models/${modelName}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${hfToken.trim()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ inputs: promptText }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Hugging Face error (${response.status}): ${errText.slice(0, 160)}`);
+      }
+
+      const blob = await response.blob();
+      finalImageUrl = URL.createObjectURL(blob);
+    } else if (provider === 'together') {
+      if (!togetherKey.trim()) {
+        setShowKeyModal(true);
+        throw new Error('Please add your Together AI API Key to use this model.');
+      }
+      const response = await fetch('https://api.together.xyz/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${togetherKey.trim()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: modelName,
+          prompt: promptText,
+          width,
+          height,
+          steps: 4,
+          n: 1,
+        }),
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error?.message || `Together AI error (${response.status})`);
+      }
+
+      const data = await response.json();
+      finalImageUrl = data.data?.[0]?.url || '';
+    } else {
+      // Default: Pollinations Free
+      const encPrompt = encodeURIComponent(promptText.trim());
+      // Append seed & timestamp cachebuster
+      const cacheBust = `${Date.now()}`;
+      finalImageUrl = `https://image.pollinations.ai/prompt/${encPrompt}?model=${modelName}&width=${width}&height=${height}&seed=${seed}&nologo=true&enhance=${enh}&cb=${cacheBust}`;
+
+      // Pre-load to verify it returns a valid image and not the 45s cooldown banner
+      await new Promise<void>((resolve, reject) => {
+        const testImg = new Image();
+        testImg.src = finalImageUrl;
+        testImg.onload = () => resolve();
+        testImg.onerror = () => reject(new Error('Failed to load image. If rate limited, please wait a moment or switch models.'));
+      });
+    }
+
+    return { finalImageUrl, seed };
   };
 
   const handleGenerate = async (customPrompt?: string) => {
-    const targetPrompt = (customPrompt || prompt).trim();
-    if (!targetPrompt || isGenerating) return;
+    const promptText = (customPrompt || inputValue).trim();
+    if (!promptText || isGenerating) return;
 
-    const currentSeed = randomSeed ? Math.floor(Math.random() * 10000000) : seed;
-    if (randomSeed) setSeed(currentSeed);
-
+    setInputValue('');
     setIsGenerating(true);
 
-    const imageUrl = buildImageUrl(targetPrompt, selectedModel, aspectRatio, enhance, currentSeed);
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    const newGen: GeneratedImage = {
-      id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      prompt: targetPrompt,
-      url: imageUrl,
-      model: selectedModel,
+    const [provider, modelName] = activeEngine.split(':');
+    const newEntry: GeneratedImage = {
+      id: `${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      prompt: promptText,
+      url: '',
+      provider: provider as EngineProvider,
+      model: modelName,
       aspectRatio,
-      seed: currentSeed,
+      seed: 0,
       enhance,
-      timestamp: Date.now(),
+      timestamp: timeStr,
     };
 
-    setCurrentGeneration(newGen);
+    // Add immediate placeholder in feed
+    const updatedWithPlaceholder = [...generations, newEntry];
+    setGenerations(updatedWithPlaceholder);
 
-    // Pre-cache image to detect completion
-    const img = new Image();
-    img.src = imageUrl;
-    img.onload = () => {
+    try {
+      const { finalImageUrl, seed } = await executeGeneration(promptText, activeEngine, aspectRatio, enhance);
+      const finished: GeneratedImage = {
+        ...newEntry,
+        url: finalImageUrl,
+        seed,
+      };
+      saveGenerations([...generations, finished]);
+    } catch (err: any) {
+      const failed: GeneratedImage = {
+        ...newEntry,
+        error: err.message || 'Generation failed. Please try again.',
+      };
+      saveGenerations([...generations, failed]);
+    } finally {
       setIsGenerating(false);
-      saveHistory([newGen, ...history.filter((h) => h.id !== newGen.id)]);
-    };
-    img.onerror = () => {
-      setIsGenerating(false);
-      // Still show in history with fallback
-      saveHistory([newGen, ...history.filter((h) => h.id !== newGen.id)]);
-    };
-  };
-
-  const handleApplyStyle = (style: typeof STYLE_PROMPTS[number]) => {
-    if (!prompt.trim()) {
-      setPrompt(`${style.prefix} a serene landscape, ${style.suffix}`);
-    } else {
-      setPrompt(`${style.prefix} ${prompt.trim()}, ${style.suffix}`);
+      setTimeout(() => inputRef.current?.focus(), 50);
     }
   };
 
   const handleCopyPrompt = (text: string, id: string) => {
     navigator.clipboard?.writeText(text);
     setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+    setTimeout(() => setCopiedId(null), 1800);
   };
 
   const handleDownload = async (item: GeneratedImage) => {
@@ -173,7 +270,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `grokki_${item.model}_${item.seed}.png`;
+      a.download = `grokki_gen_${item.id}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -183,464 +280,342 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = () => {
     }
   };
 
-  const handleDeleteItem = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const updated = history.filter((h) => h.id !== id);
-    saveHistory(updated);
-    if (currentGeneration?.id === id) {
-      setCurrentGeneration(updated[0] || null);
-    }
-  };
-
   const handleClearHistory = () => {
-    if (confirm('Clear all generated image history?')) {
-      saveHistory([]);
-      setCurrentGeneration(null);
+    if (confirm('Clear image generation history?')) {
+      saveGenerations([]);
     }
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-[#07070a] text-gray-100 overflow-hidden select-none">
-      {/* Top Header / Status Bar */}
-      <div className="h-14 border-b border-white/[0.08] bg-[#0c0c12]/80 backdrop-blur-md px-6 flex items-center justify-between z-20 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-pink-500/20 to-purple-600/30 border border-pink-500/30 flex items-center justify-center text-pink-400">
-            <Sparkles className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold tracking-tight text-white">Grokki Image Studio</h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                Unlimited Free
-              </span>
+    <div className="relative w-full h-full flex flex-col bg-[#f7f7fa] dark:bg-[#070709] text-gray-900 dark:text-gray-100 overflow-hidden select-none">
+      {/* Scrollable Conversation Stream of Generated Images */}
+      <div id="grokki-image-scroll" className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 min-h-0">
+        <div className="max-w-3xl mx-auto flex flex-col space-y-6">
+          {/* Header Description if empty */}
+          {generations.length === 0 && (
+            <div className="flex flex-col items-center justify-center text-center py-24 select-none">
+              <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#131317] border border-gray-200 dark:border-white/10 shadow-sm flex items-center justify-center mb-3">
+                <HugeiconsIcon icon={AiImageIcon} size={22} strokeWidth={1.8} className="text-gray-900 dark:text-white" />
+              </div>
+              <h2 className="text-base font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+                Grokki Image Studio
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mt-1 leading-relaxed">
+                Describe any scene, character, or wallpaper below to generate studio-quality FLUX illustrations.
+              </p>
             </div>
-            <p className="text-[11px] text-gray-400">Powered by Pollinations FLUX.1 Engine • Zero API Key Required</p>
-          </div>
-        </div>
+          )}
 
-        <div className="flex items-center gap-2">
-          {/* Quick Model Pill */}
-          <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.05] border border-white/10 text-xs text-gray-300">
-            <span>{MODEL_PRESETS.find((m) => m.id === selectedModel)?.icon}</span>
-            <span className="font-semibold text-white">{MODEL_PRESETS.find((m) => m.id === selectedModel)?.name}</span>
-          </div>
+          {/* Messages Flow */}
+          {generations.map((item) => (
+            <div key={item.id} className="flex flex-col space-y-3 w-full animate-in fade-in duration-200">
+              {/* User Prompt Bubble */}
+              <div className="flex justify-end w-full">
+                <div className="max-w-[80%] bg-gray-100 dark:bg-[#1a1a20] text-gray-900 dark:text-gray-100 px-4 py-2.5 rounded-2xl rounded-tr-xs text-[13px] font-medium leading-relaxed border border-gray-300/80 dark:border-[#26262e] shadow-2xs">
+                  {item.prompt}
+                </div>
+              </div>
 
-          <button
-            type="button"
-            onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
-            className={`p-2 rounded-xl transition-all cursor-pointer ${
-              showSettingsDrawer
-                ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
-                : 'bg-white/[0.05] hover:bg-white/[0.09] text-gray-400 hover:text-white border border-white/10'
-            }`}
-            title="Image Generation Settings"
-          >
-            <Sliders className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+              {/* Assistant Image Response Bubble */}
+              <div className="flex items-start gap-3 w-full">
+                <img
+                  src={grokkiIcon}
+                  alt="Grokki"
+                  className="w-6 h-6 rounded-full shadow-xs flex-shrink-0 mt-1 select-none"
+                />
 
-      {/* Main Studio Body: Left Gallery/Canvas + Right Settings Drawer */}
-      <div className="flex-1 min-h-0 flex overflow-hidden">
-        {/* Central Display & History */}
-        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-          {/* Top Stage Area */}
-          <div className="flex-1 min-h-0 relative flex items-center justify-center p-6 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#12121c] via-[#08080d] to-[#040407] overflow-auto">
-            {currentGeneration ? (
-              <div className="relative max-h-full max-w-full flex flex-col items-center justify-center group">
-                <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black/40">
-                  <img
-                    src={currentGeneration.url}
-                    alt={currentGeneration.prompt}
-                    className="max-h-[58vh] max-w-[70vw] object-contain rounded-2xl transition-all duration-300 group-hover:scale-[1.01]"
-                  />
+                <div className="flex-1 min-w-0 flex flex-col">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-xs font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                      Grokki
+                    </span>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
+                      {item.timestamp}
+                    </span>
+                    <span className="text-[9.5px] px-1.5 py-0.2 rounded-md bg-gray-200/80 dark:bg-white/[0.06] text-gray-600 dark:text-gray-400 font-mono border border-gray-300/60 dark:border-white/[0.08]">
+                      {item.model}
+                    </span>
+                  </div>
 
-                  {/* Loading overlay when regenerating */}
-                  {isGenerating && (
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
-                      <div className="w-10 h-10 rounded-full border-2 border-pink-500/30 border-t-pink-500 animate-spin" />
-                      <span className="text-xs font-mono text-pink-300 tracking-wider uppercase animate-pulse">
-                        Dreaming with {selectedModel}...
+                  {item.error ? (
+                    <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2.5 max-w-lg">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-rose-500" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold mb-0.5">Generation Failed</p>
+                        <p className="text-[11px] leading-relaxed opacity-90">{item.error}</p>
+                        <button
+                          type="button"
+                          onClick={() => handleGenerate(item.prompt)}
+                          className="mt-2 text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <RefreshCw className="w-3 h-3" /> Retry
+                        </button>
+                      </div>
+                    </div>
+                  ) : item.url ? (
+                    <div className="relative inline-block max-w-[560px] rounded-2xl overflow-hidden border border-gray-200 dark:border-white/10 shadow-sm bg-black/10 group">
+                      <img
+                        src={item.url}
+                        alt={item.prompt}
+                        className="w-full h-auto object-cover rounded-2xl transition-transform duration-200 group-hover:scale-[1.005]"
+                      />
+
+                      {/* Hover Action Bar */}
+                      <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 p-1 rounded-xl bg-black/60 backdrop-blur-md border border-white/15 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <WarmTooltip content={copiedId === item.id ? 'Copied prompt' : 'Copy prompt'} side="top">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPrompt(item.prompt, item.id)}
+                            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                          >
+                            {copiedId === item.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </WarmTooltip>
+                        <WarmTooltip content="Download PNG" side="top">
+                          <button
+                            type="button"
+                            onClick={() => handleDownload(item)}
+                            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        </WarmTooltip>
+                        <WarmTooltip content="Regenerate" side="top">
+                          <button
+                            type="button"
+                            onClick={() => handleGenerate(item.prompt)}
+                            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          </button>
+                        </WarmTooltip>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Loading State Skeleton */
+                    <div className="w-[380px] h-[380px] rounded-2xl bg-gray-100 dark:bg-[#131317] border border-gray-200 dark:border-white/10 flex flex-col items-center justify-center gap-2.5 text-gray-400 animate-pulse">
+                      <div className="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-white/20 border-t-gray-800 dark:border-t-white animate-spin" />
+                      <span className="text-[11px] font-mono tracking-wider text-gray-500 dark:text-gray-400">
+                        Synthesizing with {item.model}...
                       </span>
                     </div>
                   )}
-
-                  {/* Hover Floating Actions Bar */}
-                  <div className="absolute bottom-3 inset-x-3 flex items-center justify-between p-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-xs font-medium text-gray-200 truncate max-w-[60%] px-2">
-                      {currentGeneration.prompt}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleCopyPrompt(currentGeneration.prompt, currentGeneration.id)}
-                        className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition-colors"
-                        title="Copy Prompt"
-                      >
-                        {copiedId === currentGeneration.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDownload(currentGeneration)}
-                        className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition-colors"
-                        title="Download PNG"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewImage(currentGeneration)}
-                        className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition-colors"
-                        title="Full-screen View"
-                      >
-                        <Maximize2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Prompt Metadata pill under image */}
-                <div className="mt-3 flex items-center gap-2 text-[11px] text-gray-400">
-                  <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 font-mono text-gray-300">
-                    Seed: {currentGeneration.seed}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-pink-500/10 border border-pink-500/20 text-pink-300 font-semibold">
-                    {currentGeneration.model}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-gray-300">
-                    {currentGeneration.aspectRatio}
-                  </span>
                 </div>
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center text-center max-w-md p-8 rounded-3xl border border-white/[0.08] bg-white/[0.02]">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-pink-500/20 via-purple-500/20 to-sky-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400 mb-4 shadow-xl">
-                  <Wand2 className="w-8 h-8" />
-                </div>
-                <h3 className="text-base font-bold text-white mb-1">Create Anything in Seconds</h3>
-                <p className="text-xs text-gray-400 leading-relaxed mb-4">
-                  Type any prompt below to generate ultra high-res FLUX images with instant style tuning, automatic prompt expansion, and zero limits.
-                </p>
-                <div className="flex flex-wrap items-center justify-center gap-1.5">
-                  {STYLE_PROMPTS.slice(0, 3).map((st) => (
-                    <button
-                      key={st.label}
-                      type="button"
-                      onClick={() => handleApplyStyle(st)}
-                      className="px-2.5 py-1 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-[11px] text-gray-300 hover:text-white transition-all cursor-pointer"
-                    >
-                      ✦ {st.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Prompt Inspiration Row */}
-          <div className="px-6 py-2 bg-[#0c0c12]/60 border-t border-white/[0.06] flex items-center gap-2 overflow-x-auto no-scrollbar flex-shrink-0">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1 flex-shrink-0">
-              <Palette className="w-3 h-3 text-pink-400" /> Styles:
-            </span>
-            {STYLE_PROMPTS.map((style) => (
-              <button
-                key={style.label}
-                type="button"
-                onClick={() => handleApplyStyle(style)}
-                className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-pink-500/15 border border-white/10 hover:border-pink-500/30 text-[11px] text-gray-300 hover:text-pink-200 transition-all cursor-pointer whitespace-nowrap flex-shrink-0"
-              >
-                {style.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Bottom Chat Prompt Bar */}
-          <div className="p-4 bg-[#09090f] border-t border-white/[0.08] flex-shrink-0">
-            <div className="max-w-4xl mx-auto flex items-center gap-2 bg-[#12121a] border border-white/15 focus-within:border-pink-500/60 rounded-2xl p-1.5 pl-4 shadow-xl transition-all">
-              <input
-                type="text"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleGenerate();
-                  }
-                }}
-                placeholder="Describe the image you want to create... (e.g. cybernetic anime priestess in neon rain)"
-                className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none"
-              />
-
-              {/* Magic Enhance Pill */}
-              <button
-                type="button"
-                onClick={() => setEnhance(!enhance)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  enhance
-                    ? 'bg-pink-500/20 text-pink-300 border border-pink-500/40 shadow-xs'
-                    : 'bg-white/[0.05] text-gray-400 border border-white/10 hover:text-white'
-                }`}
-                title="Automatically expand your prompt with an LLM for ultra-detailed outputs"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Magic</span>
-              </button>
-
-              {/* Generate Button */}
-              <button
-                type="button"
-                disabled={!prompt.trim() || isGenerating}
-                onClick={() => handleGenerate()}
-                className={`px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                  !prompt.trim() || isGenerating
-                    ? 'bg-white/10 text-gray-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white shadow-lg shadow-pink-500/25 active:scale-95'
-                }`}
-              >
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Dreaming...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Generate</span>
-                  </>
-                )}
-              </button>
             </div>
-          </div>
+          ))}
 
-          {/* Recent Generations Strip */}
-          {history.length > 0 && (
-            <div className="h-28 bg-[#07070b] border-t border-white/[0.06] p-3 px-6 flex items-center gap-3 overflow-x-auto no-scrollbar flex-shrink-0">
-              <div className="flex items-center justify-between gap-2 flex-shrink-0 pr-2 border-r border-white/10">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">History</span>
-                  <span className="text-[10px] text-gray-500">{history.length} items</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleClearHistory}
-                  className="p-1 rounded-lg text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                  title="Clear history"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {history.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => setCurrentGeneration(item)}
-                  className={`relative h-20 w-20 flex-shrink-0 rounded-xl overflow-hidden border-2 cursor-pointer transition-all group ${
-                    currentGeneration?.id === item.id
-                      ? 'border-pink-500 scale-105 shadow-md shadow-pink-500/20'
-                      : 'border-white/10 hover:border-white/30 opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <img src={item.url} alt={item.prompt} className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={(e) => handleDeleteItem(item.id, e)}
-                    className="absolute top-1 right-1 p-1 rounded-md bg-black/70 text-gray-400 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Delete item"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          <div ref={messagesEndRef} />
         </div>
-
-        {/* Right Settings Drawer */}
-        <AnimatePresence>
-          {showSettingsDrawer && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="h-full border-l border-white/[0.08] bg-[#0c0c14] flex flex-col overflow-y-auto flex-shrink-0 select-none z-10"
-            >
-              <div className="p-4 border-b border-white/[0.08] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-pink-400" />
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">Engine Settings</h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowSettingsDrawer(false)}
-                  className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="p-4 flex flex-col gap-5 text-xs">
-                {/* Model Selector */}
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2">
-                    AI Model Engine
-                  </label>
-                  <div className="flex flex-col gap-1.5">
-                    {MODEL_PRESETS.map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => setSelectedModel(m.id)}
-                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
-                          selectedModel === m.id
-                            ? 'bg-pink-500/15 border-pink-500/40 text-white shadow-xs'
-                            : 'bg-white/[0.03] border-white/[0.08] text-gray-400 hover:text-gray-200 hover:bg-white/[0.06]'
-                        }`}
-                      >
-                        <span className="text-base">{m.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className="font-bold text-xs text-white">{m.name}</span>
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/10 text-gray-300 font-mono">
-                              {m.tag}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-gray-400 leading-tight">{m.desc}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Aspect Ratio */}
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2">
-                    Aspect Ratio
-                  </label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {(Object.keys(ASPECT_DIMS) as AspectRatio[]).map((ar) => (
-                      <button
-                        key={ar}
-                        type="button"
-                        onClick={() => setAspectRatio(ar)}
-                        className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
-                          aspectRatio === ar
-                            ? 'bg-pink-500/15 border-pink-500/40 text-white font-bold'
-                            : 'bg-white/[0.03] border-white/[0.08] text-gray-400 hover:text-white'
-                        }`}
-                      >
-                        <div className="text-xs">{ar}</div>
-                        <div className="text-[9px] text-gray-500 font-mono">
-                          {ASPECT_DIMS[ar].width}×{ASPECT_DIMS[ar].height}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Seed Controls */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                      Seed
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setRandomSeed(!randomSeed)}
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded cursor-pointer ${
-                        randomSeed ? 'bg-pink-500/20 text-pink-300' : 'bg-white/10 text-gray-400'
-                      }`}
-                    >
-                      {randomSeed ? 'Randomized' : 'Fixed'}
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      disabled={randomSeed}
-                      value={seed}
-                      onChange={(e) => setSeed(Number(e.target.value))}
-                      className="flex-1 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-white font-mono outline-none disabled:opacity-40"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setSeed(Math.floor(Math.random() * 10000000))}
-                      className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300"
-                      title="Roll new seed"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Magic Enhance Info Box */}
-                <div className="p-3 rounded-xl bg-pink-500/10 border border-pink-500/20 flex flex-col gap-1.5">
-                  <div className="flex items-center gap-1.5 text-pink-300 font-bold text-xs">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>LLM Prompt Enhancer</span>
-                  </div>
-                  <p className="text-[11px] text-gray-300 leading-relaxed">
-                    Automatically enriches short prompts with cinematic lighting, material details, and artist style cues before sending to FLUX.
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
-      {/* Fullscreen Preview Lightbox */}
-      <AnimatePresence>
-        {previewImage && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-6"
-            onClick={() => setPreviewImage(null)}
+      {/* Bottom Floating Specular Chat Input Box — IDENTICAL TO GROKKI CHATTAB */}
+      <div className="w-full flex-shrink-0 px-4 sm:px-8 pb-5 pt-2 relative z-30">
+        <div className="max-w-3xl mx-auto w-full">
+          <SpecularButton
+            as="div"
+            size="lg"
+            radius={18}
+            tint={isDarkTheme ? '#ffffff' : '#000000'}
+            tintOpacity={0.04}
+            textColor={isDarkTheme ? '#f5f5f5' : '#18181b'}
+            lineColor={isDarkTheme ? '#ffffff' : '#18181b'}
+            baseColor={isDarkTheme ? '#525252' : '#d4d4d8'}
+            intensity={1}
+            idleIntensity={0.35}
+            shineSize={10}
+            shineFade={34}
+            thickness={1.2}
+            glow={1}
+            followMouse={false}
+            autoAnimate
+            proximity={250}
+            className="w-full bg-white dark:bg-[#131317] shadow-sm hover:shadow-md p-3 transition-all flex flex-col gap-2.5 text-left relative z-20"
           >
-            <button
-              type="button"
-              onClick={() => setPreviewImage(null)}
-              className="absolute top-5 right-5 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <img
-              src={previewImage.url}
-              alt={previewImage.prompt}
-              className="max-h-[85vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
+            {/* Textarea Input */}
+            <textarea
+              ref={inputRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleGenerate();
+                }
+              }}
+              rows={Math.min(5, Math.max(1, inputValue.split('\n').length))}
+              placeholder="Describe the image you want to generate in detail..."
+              autoFocus
+              className="w-full bg-transparent resize-none border-none outline-none text-[13px] font-medium leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 p-0"
             />
 
-            <div
-              className="mt-4 max-w-2xl text-center bg-black/60 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 flex items-center justify-between gap-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <p className="text-xs text-gray-200 truncate">{previewImage.prompt}</p>
-              <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Bottom Controls Row: Engine Selector on Left, Aspect Ratio, Keys & Submit on Right */}
+            <div className="flex items-center justify-between gap-2 pt-0.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                {/* Engine Selector Dropdown */}
+                <GlideSelect
+                  options={ENGINE_OPTIONS}
+                  value={activeEngine}
+                  onChange={(val) => setActiveEngine(val)}
+                  size="sm"
+                  radius={8}
+                  menuWidth={280}
+                  surfaceColor={isDarkTheme ? '#1a1c24' : '#f3f4f6'}
+                  highlightColor={isDarkTheme ? '#272a38' : '#e5e7eb'}
+                  textColor={isDarkTheme ? '#f3f4f6' : '#111827'}
+                  accentColor={isDarkTheme ? '#38bdf8' : '#0284c7'}
+                  placement="top"
+                  align="left"
+                />
+
+                {/* Aspect Ratio Selector */}
+                <GlideSelect
+                  options={ASPECT_OPTIONS}
+                  value={aspectRatio}
+                  onChange={(val) => setAspectRatio(val as AspectRatio)}
+                  size="sm"
+                  radius={8}
+                  menuWidth={180}
+                  surfaceColor={isDarkTheme ? '#1a1c24' : '#f3f4f6'}
+                  highlightColor={isDarkTheme ? '#272a38' : '#e5e7eb'}
+                  textColor={isDarkTheme ? '#f3f4f6' : '#111827'}
+                  accentColor={isDarkTheme ? '#38bdf8' : '#0284c7'}
+                  placement="top"
+                  align="left"
+                />
+
+                {/* Magic Prompt Enhancer Toggle */}
+                <WarmTooltip content={enhance ? 'Magic Prompt: ON' : 'Magic Prompt: OFF'} side="top">
+                  <button
+                    type="button"
+                    onClick={() => setEnhance(!enhance)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
+                      enhance
+                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/25'
+                        : 'text-gray-400 hover:text-gray-900 dark:hover:text-white bg-transparent'
+                    }`}
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span className="hidden sm:inline">Magic</span>
+                  </button>
+                </WarmTooltip>
+              </div>
+
+              {/* Right Side: Key config & Submit */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <WarmTooltip content="Configure API Keys (Hugging Face / Together)" side="top">
+                  <button
+                    type="button"
+                    onClick={() => setShowKeyModal(true)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                  </button>
+                </WarmTooltip>
+
+                {generations.length > 0 && (
+                  <WarmTooltip content="Clear History" side="top">
+                    <button
+                      type="button"
+                      onClick={handleClearHistory}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </WarmTooltip>
+                )}
+
+                {/* Submit Button (Identical to ChatTab arrow-up) */}
                 <button
                   type="button"
-                  onClick={() => handleCopyPrompt(previewImage.prompt, previewImage.id)}
-                  className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs text-white font-medium flex items-center gap-1.5"
+                  disabled={!inputValue.trim() || isGenerating}
+                  onClick={() => handleGenerate()}
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                    inputValue.trim() && !isGenerating
+                      ? 'bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-90 active:scale-95 cursor-pointer shadow-xs'
+                      : 'bg-gray-200 dark:bg-[#1e2029] text-gray-400 cursor-not-allowed'
+                  }`}
                 >
-                  {copiedId === previewImage.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>Copy</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDownload(previewImage)}
-                  className="px-3 py-1.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-xs text-white font-bold flex items-center gap-1.5 shadow-md shadow-pink-500/30"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download</span>
+                  {isGenerating ? (
+                    <Square className="w-3 h-3 fill-current" />
+                  ) : (
+                    <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
+                  )}
                 </button>
               </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </SpecularButton>
+
+          <p className="text-[11px] text-center text-gray-400 dark:text-gray-500 mt-2 select-none tracking-normal">
+            FLUX Image Studio • Supports Free Cloud, Hugging Face, and Together AI models.
+          </p>
+        </div>
+      </div>
+
+      {/* Pro Keys Modal */}
+      {showKeyModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowKeyModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-[#15151a] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl p-5 flex flex-col gap-4 text-left animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Pro Image API Keys</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Add optional free API tokens to unlock full Hugging Face ZeroGPU and Together AI models.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Hugging Face Access Token (Free)
+                </label>
+                <input
+                  type="password"
+                  value={hfToken}
+                  onChange={(e) => setHfToken(e.target.value)}
+                  placeholder="hf_..."
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#1c1c24] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Together AI API Key
+                </label>
+                <input
+                  type="password"
+                  value={togetherKey}
+                  onChange={(e) => setTogetherKey(e.target.value)}
+                  placeholder="api-key..."
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#1c1c24] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-white/5">
+              <button
+                type="button"
+                onClick={() => setShowKeyModal(false)}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveTokens(hfToken, togetherKey)}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-90 shadow-xs"
+              >
+                Save Keys
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
