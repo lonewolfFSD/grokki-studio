@@ -18,6 +18,7 @@ import SpecularButton from '../../../effects/SpecularButton';
 import DriftWall from '../../../effects/DriftWall';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
 import { GeminiLogo, OpenAILogo, OllamaLogo } from './AiBrainTab';
+import ImageLightboxModal from '../ImageLightboxModal';
 import WarmTooltip from '../WarmTooltip';
 import grokkiIcon from '../../assets/grokki_icon.svg';
 import grokkiLogo from '../../assets/grokki_logo.png';
@@ -230,6 +231,30 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
 
   const feedEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Big Scale Image Zoom Lightbox Modal State
+  const [lightboxState, setLightboxState] = useState<{
+    isOpen: boolean;
+    src: string;
+    name: string;
+    originRect?: { top: number; left: number; width: number; height: number };
+  }>({
+    isOpen: false,
+    src: '',
+    name: '',
+  });
+
+  const openLightbox = (
+    src: string,
+    name: string,
+    originRect?: { top: number; left: number; width: number; height: number }
+  ) => {
+    setLightboxState({ isOpen: true, src, name, originRect });
+  };
+
+  const closeLightbox = () => {
+    setLightboxState(prev => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     feedEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -501,31 +526,72 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
     setTimeout(() => setCopiedId(null), 1800);
   };
 
-  const handleDownload = async (item: GeneratedImage) => {
+  const handleDownload = async (item: GeneratedImage, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const filename = `grokki_${item.id}.png`;
+
+    // 1. Data URLs (e.g. Google Imagen, Cloudflare, OpenAI base64)
     if (item.url.startsWith('data:')) {
-      const a = Object.assign(document.createElement('a'), {
-        href: item.url,
-        download: `grokki_${item.id}.jpg`,
-      });
+      const a = document.createElement('a');
+      a.href = item.url;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       return;
     }
+
+    // 2. Fetch directly as Blob (pollinations or remote URL)
     try {
-      const blob = await (await fetch(item.url)).blob();
-      const burl = URL.createObjectURL(blob);
-      const a = Object.assign(document.createElement('a'), {
-        href: burl,
-        download: `grokki_${item.id}.png`,
+      const res = await fetch(item.url, { mode: 'cors' });
+      if (res.ok) {
+        const blob = await res.blob();
+        const burl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = burl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(burl), 2000);
+        return;
+      }
+    } catch {}
+
+    // 3. Fallback: Draw via Canvas
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+        img.src = item.url;
       });
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(burl);
-    } catch {
-      window.open(item.url, '_blank');
-    }
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        const dataUrl = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
+      }
+    } catch {}
+
+    // 4. Fallback anchor
+    const a = document.createElement('a');
+    a.href = item.url;
+    a.target = '_blank';
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   // Shared GlideSelect styling
@@ -587,15 +653,15 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
               initial={{ opacity: 0, scale: 0.94 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="flex items-center justify-center -mb-28 sm:-mb-36 md:-mb-40 select-none pointer-events-none z-0"
+              className="flex items-center justify-center -mb-28 sm:-mb-36 md:-mb-54 select-none pointer-events-none z-0"
             >
               <img
                 src={grokkiLogo}
                 alt="Grokki"
                 draggable={false}
-                className="w-44 h-44 sm:w-60 sm:h-60 md:w-64 md:h-64 object-contain filter brightness-0 dark:invert"
+                className="w-44 h-44 sm:w-60 sm:h-60 md:w-84 md:h-84 object-contain filter brightness-0 dark:invert"
                 style={{
-                  maskImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 1) 5%, rgba(0, 0, 0, 0.02) 100%)',
+                  maskImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.02) 70%)',
                   WebkitMaskImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 1) 10%, rgba(0, 0, 0, 0.08) 100%)',
                 }}
               />
@@ -764,17 +830,34 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                         </div>
                       </div>
                     ) : item.url ? (
-                      <div className="relative inline-block rounded-lg overflow-hidden border border-gray-200 dark:border-white/[0.08] group max-w-[420px]">
+                      <div
+                        className="relative inline-block rounded-lg overflow-hidden border border-gray-200 dark:border-white/[0.08] group max-w-[420px] cursor-zoom-in"
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          openLightbox(item.url, `grokki_${item.id}.png`, {
+                            top: rect.top,
+                            left: rect.left,
+                            width: rect.width,
+                            height: rect.height,
+                          });
+                        }}
+                      >
                         <img
                           src={item.url}
                           alt={item.prompt}
-                          className="w-full h-auto block"
+                          className="w-full h-auto block select-none"
                         />
-                        <div className="absolute bottom-2 right-2 flex items-center gap-0.5 bg-black/70 rounded-md p-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                        <div
+                          className="absolute bottom-2 right-2 flex items-center gap-0.5 bg-black/70 rounded-md p-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-10"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <WarmTooltip content={copiedId === item.id ? 'Copied' : 'Copy prompt'} side="top">
                             <button
                               type="button"
-                              onClick={() => handleCopyPrompt(item.prompt, item.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyPrompt(item.prompt, item.id);
+                              }}
                               className="w-7 h-7 flex items-center justify-center rounded text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                             >
                               {copiedId === item.id
@@ -785,7 +868,10 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                           <WarmTooltip content="Download" side="top">
                             <button
                               type="button"
-                              onClick={() => handleDownload(item)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(item, e);
+                              }}
                               className="w-7 h-7 flex items-center justify-center rounded text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                             >
                               <Download className="w-3.5 h-3.5" />
@@ -794,7 +880,10 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                           <WarmTooltip content="Regenerate" side="top">
                             <button
                               type="button"
-                              onClick={() => handleGenerate(item.prompt, item.engine)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleGenerate(item.prompt, item.engine);
+                              }}
                               className="w-7 h-7 flex items-center justify-center rounded text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                             >
                               <RefreshCw className="w-3.5 h-3.5" />
@@ -1067,6 +1156,14 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
           </div>
         </div>
       )}
+      {/* Big Scale Image Zoom Lightbox Modal */}
+      <ImageLightboxModal
+        isOpen={lightboxState.isOpen}
+        src={lightboxState.src}
+        fileName={lightboxState.name}
+        originRect={lightboxState.originRect}
+        onClose={closeLightbox}
+      />
     </div>
   );
 };
