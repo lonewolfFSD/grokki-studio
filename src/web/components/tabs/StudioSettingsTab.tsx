@@ -1448,32 +1448,37 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
       </div>
 
       {/* Grokki Experimentals Section */}
-      <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-                Grokki Experimentals
-              </h3>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                It may have bugs or expected known issues. This toggle will hide or show the experimentals tab in the sidebar.
-              </p>
+      <div>
+        <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                  Grokki Experimentals
+                </h3>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  Preview cutting-edge prototype features including Image Studio and interactive 3D Companion.
+                </p>
+              </div>
             </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => onChangeConfig({ companionEnabled: !config.companionEnabled })}
-            className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out border-none ${
-              config.companionEnabled ? 'bg-purple-600 dark:bg-purple-500' : 'bg-gray-300 dark:bg-[#252836]'
-            }`}
-          >
-            <div
-              className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-200 ease-in-out ${
-                config.companionEnabled ? 'translate-x-5' : 'translate-x-0'
+            <button
+              type="button"
+              onClick={() => onChangeConfig({ companionEnabled: !config.companionEnabled })}
+              className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out border-none ${
+                config.companionEnabled ? 'bg-black dark:bg-white' : 'bg-gray-300 dark:bg-[#252836]'
               }`}
-            />
-          </button>
+            >
+              <div
+                className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                  config.companionEnabled ? 'bg-white dark:bg-black translate-x-5' : 'bg-white translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
         </div>
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 px-1 leading-relaxed">
+          It may have bugs or expected known issues. This toggle will hide or show the experimentals tab in the sidebar.
+        </p>
       </div>
 
       {/* 4. Chat & Streaming Experience */}
