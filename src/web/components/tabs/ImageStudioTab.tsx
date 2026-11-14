@@ -217,8 +217,22 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
   // Key configuration modal state
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [geminiKeyInput, setGeminiKeyInput] = useState(() => {
-    try { return localStorage.getItem(GEMINI_IMAGE_KEY) || config.geminiApiKey || ''; } catch { return config.geminiApiKey || ''; }
+    try {
+      return (
+        (config.geminiApiKey && config.geminiApiKey.trim()) ||
+        localStorage.getItem(GEMINI_IMAGE_KEY) ||
+        ''
+      );
+    } catch {
+      return config.geminiApiKey || '';
+    }
   });
+
+  useEffect(() => {
+    if (config.geminiApiKey?.trim()) {
+      setGeminiKeyInput(config.geminiApiKey.trim());
+    }
+  }, [config.geminiApiKey]);
   const [cfAccountInput, setCfAccountInput] = useState(() => {
     try { return localStorage.getItem(CF_ACCOUNT_KEY) || ''; } catch { return ''; }
   });
@@ -320,10 +334,9 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
     // 1. Google Nano Banana (Official Gemini Image Generation API - Pure Studio Quality, Zero Watermarks)
     if (provider === 'google') {
       const key = (
-        geminiKeyInput ||
-        config.geminiApiKey ||
-        (typeof localStorage !== 'undefined' ? localStorage.getItem(GEMINI_IMAGE_KEY) : '') ||
-        ''
+        (geminiKeyInput && geminiKeyInput.trim()) ||
+        (config.geminiApiKey && config.geminiApiKey.trim()) ||
+        (typeof localStorage !== 'undefined' ? localStorage.getItem(GEMINI_IMAGE_KEY) || '' : '')
       ).trim();
 
       if (!key) {
@@ -331,15 +344,13 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
         throw new Error('Please configure your Gemini API Key in Settings to use Nano Banana.');
       }
 
-      // Map to official Gemini image generation models
-      let targetModel = 'gemini-2.5-flash-image';
-      if (modelName === 'nano-banana-pro') {
-        targetModel = 'gemini-3-pro-image-preview';
-      } else if (modelName === 'nano-banana-2') {
-        targetModel = 'gemini-3.1-flash-image-preview';
-      } else {
-        targetModel = 'gemini-2.5-flash-image';
-      }
+      // Model priority list based on user selection
+      const candidateModels =
+        modelName === 'nano-banana-pro'
+          ? ['gemini-3-pro-image-preview', 'nano-banana-pro-preview', 'gemini-3-pro-image', 'imagen-3.0-generate-002']
+          : modelName === 'nano-banana-2'
+          ? ['gemini-3.1-flash-image-preview', 'gemini-nano-banana-2.1', 'gemini-3.1-flash-image']
+          : ['gemini-2.5-flash-image', 'gemini-3.1-flash-lite-image'];
 
       const finalPrompt = enh
         ? `masterpiece, ultra-detailed, 8k, professional cinematic lighting: ${promptText}`
@@ -359,44 +370,85 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
         },
       };
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${key}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }
-      );
+      let lastErrMessage = '';
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        const rawMsg = err.error?.message || `Google API status ${res.status}`;
-        if (
-          res.status === 429 ||
-          rawMsg.toLowerCase().includes('quota') ||
-          rawMsg.toLowerCase().includes('resource_exhausted')
-        ) {
-          throw new Error(
-            'Google Nano Banana quota exceeded on this Gemini API key (Free Tier keys currently have 0 image quota). Switch to FLUX.1 Clean or Free SDXL below.'
+      for (const m of candidateModels) {
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${key}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': key,
+              },
+              body: JSON.stringify(payload),
+            }
           );
+
+          if (res.ok) {
+            const data = await res.json();
+            const parts = data.candidates?.[0]?.content?.parts || [];
+            const imgPart = parts.find((p: any) => p.inlineData?.data);
+
+            if (imgPart?.inlineData?.data) {
+              const mime = imgPart.inlineData.mimeType || 'image/png';
+              return { finalImageUrl: `data:${mime};base64,${imgPart.inlineData.data}`, seed };
+            }
+
+            const textPart = parts.find((p: any) => p.text);
+            if (textPart?.text) {
+              throw new Error(`Nano Banana: ${textPart.text.slice(0, 150)}`);
+            }
+          } else {
+            const err = await res.json().catch(() => ({}));
+            const rawMsg = err.error?.message || `Google API status ${res.status}`;
+            lastErrMessage = rawMsg;
+            if (
+              res.status === 429 ||
+              rawMsg.toLowerCase().includes('quota') ||
+              rawMsg.toLowerCase().includes('free_tier') ||
+              rawMsg.toLowerCase().includes('resource_exhausted')
+            ) {
+              throw new Error(
+                'Google AI Studio API reports this key is on the Free Tier (0 image requests/day quota). If you have a paid plan, ensure Cloud Billing is linked at aistudio.google.com/app/plan_information, or switch to FLUX.1 Clean below.'
+              );
+            }
+          }
+        } catch (e: any) {
+          if (e.message.includes('Google AI Studio API reports')) throw e;
+          lastErrMessage = e.message;
         }
-        throw new Error(rawMsg);
       }
 
-      const data = await res.json();
-      const parts = data.candidates?.[0]?.content?.parts || [];
-      const imgPart = parts.find((p: any) => p.inlineData?.data);
-
-      if (!imgPart?.inlineData?.data) {
-        const textPart = parts.find((p: any) => p.text);
-        if (textPart?.text) {
-          throw new Error(`Nano Banana: ${textPart.text.slice(0, 150)}`);
+      // Secondary fallback: OpenAI-compatible endpoint with Bearer auth
+      try {
+        const oaiRes = await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/openai/images/generations',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${key}`,
+            },
+            body: JSON.stringify({
+              model: candidateModels[0],
+              prompt: finalPrompt,
+              size: ar === '16:9' ? '1280x720' : ar === '9:16' ? '720x1280' : '1024x1024',
+              response_format: 'b64_json',
+            }),
+          }
+        );
+        if (oaiRes.ok) {
+          const oaiData = await oaiRes.json();
+          const b64 = oaiData.data?.[0]?.b64_json;
+          if (b64) {
+            return { finalImageUrl: `data:image/png;base64,${b64}`, seed };
+          }
         }
-        throw new Error('Nano Banana returned no image data. Try adjusting your prompt.');
-      }
+      } catch {}
 
-      const mime = imgPart.inlineData.mimeType || 'image/png';
-      return { finalImageUrl: `data:${mime};base64,${imgPart.inlineData.data}`, seed };
+      throw new Error(lastErrMessage || 'Nano Banana returned no image data. Try adjusting your prompt.');
     }
 
     // 2. Cloudflare Workers AI (FLUX.1 Schnell)
