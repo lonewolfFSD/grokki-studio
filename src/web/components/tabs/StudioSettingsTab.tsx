@@ -1457,7 +1457,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
                   Grokki Experimentals
                 </h3>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                  Preview cutting-edge prototype features including Image Studio and interactive 3D Companion.
+                  Experimental prototyping features.
                 </p>
               </div>
             </div>
