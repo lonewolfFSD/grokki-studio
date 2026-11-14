@@ -13,6 +13,8 @@ import {
   ExternalLink,
   CheckCircle2,
   Zap,
+  Server,
+  Cloud,
 } from 'lucide-react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { AiImageIcon } from '@hugeicons/core-free-icons';
@@ -28,7 +30,7 @@ interface ImageStudioTabProps {
 }
 
 export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
-export type EngineProvider = 'google' | 'together' | 'pollinations';
+export type EngineProvider = 'bytedance' | 'proxy' | 'google' | 'together' | 'pollinations';
 
 interface GeneratedImage {
   id: string;
@@ -46,6 +48,8 @@ interface GeneratedImage {
 const STORAGE_KEY = 'grokki_image_studio_feed_v2';
 const GEMINI_IMAGE_KEY = 'grokki_gemini_image_key';
 const TOGETHER_KEY = 'grokki_together_image_key';
+const PROXY_ENDPOINT_KEY = 'grokki_image_proxy_endpoint';
+const PROXY_KEY_KEY = 'grokki_image_proxy_key';
 const ACTIVE_ENGINE_KEY = 'grokki_image_active_engine';
 
 const ASPECT_DIMS: Record<AspectRatio, { width: number; height: number; label: string }> = {
@@ -57,14 +61,23 @@ const ASPECT_DIMS: Record<AspectRatio, { width: number; height: number; label: s
 };
 
 const ENGINE_OPTIONS: GlideSelectOption[] = [
-  // Google Imagen 3 (Default & Recommended - 1-Click with your Grokki account)
+  // ByteDance Seedance & Jimeng Models (From GitHub Reverse Repos)
+  { value: 'bytedance:seedance-2.5', label: 'ByteDance • Seedance 2.5', group: 'ByteDance / Seedance' },
+  { value: 'bytedance:jimeng-v2', label: 'ByteDance • Jimeng / Dreamina', group: 'ByteDance / Seedance' },
+  { value: 'bytedance:doubao-image', label: 'ByteDance • Doubao AI', group: 'ByteDance / Seedance' },
+
+  // Coze & High-Limit Reverse Proxies
+  { value: 'proxy:dall-e-3', label: 'Coze • DALL-E 3 (High Limit)', group: 'Reverse Proxies' },
+  { value: 'proxy:flux-pro', label: 'Custom Proxy • FLUX Pro', group: 'Reverse Proxies' },
+
+  // Google Imagen 3 (High Quality Cloud, powered by Gemini)
   { value: 'google:imagen-3.0-generate-002', label: 'Google Imagen 3 (Ultra Quality)', group: 'Google AI' },
   { value: 'google:imagen-3.0-fast-generate-001', label: 'Google Imagen 3 Fast', group: 'Google AI' },
 
-  // Together AI (FLUX.1 Schnell - High Speed FLUX)
-  { value: 'together:black-forest-labs/FLUX.1-schnell-Free', label: 'FLUX.1 Schnell (High Speed)', group: 'FLUX Engines' },
+  // Together AI FLUX
+  { value: 'together:black-forest-labs/FLUX.1-schnell-Free', label: 'FLUX.1 Schnell (Together AI)', group: 'Together AI (FLUX)' },
 
-  // Free Cloud (Instant, No Key, No Queue)
+  // Free Instant Cloud (Zero Setup)
   { value: 'pollinations:turbo', label: 'SDXL Turbo (Instant • Zero Wait)', group: 'Free Cloud' },
   { value: 'pollinations:flux', label: 'FLUX.1 Standard (Free Cloud)', group: 'Free Cloud' },
   { value: 'pollinations:flux-anime', label: 'Anime Masterpiece (Studio Ghibli)', group: 'Free Cloud' },
@@ -82,7 +95,7 @@ const ASPECT_OPTIONS: GlideSelectOption[] = [
 export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChangeConfig }) => {
   const [inputValue, setInputValue] = useState('');
 
-  // Default to Google Imagen 3 if Gemini key is available, or saved preference, or SDXL Turbo
+  // Default to Seedance if chosen, or Google Imagen 3, or SDXL Turbo
   const [activeEngine, setActiveEngine] = useState<string>(() => {
     try {
       const saved = localStorage.getItem(ACTIVE_ENGINE_KEY);
@@ -97,15 +110,24 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // API Tokens
+  // API Tokens & Endpoints
   const [geminiKey, setGeminiKey] = useState<string>(() => {
     try { return localStorage.getItem(GEMINI_IMAGE_KEY) || config.geminiApiKey || ''; } catch { return config.geminiApiKey || ''; }
   });
   const [togetherKey, setTogetherKey] = useState<string>(() => {
     try { return localStorage.getItem(TOGETHER_KEY) || ''; } catch { return ''; }
   });
+  const [proxyEndpoint, setProxyEndpoint] = useState<string>(() => {
+    try { return localStorage.getItem(PROXY_ENDPOINT_KEY) || 'http://localhost:8000/v1'; } catch { return 'http://localhost:8000/v1'; }
+  });
+  const [proxyKey, setProxyKey] = useState<string>(() => {
+    try { return localStorage.getItem(PROXY_KEY_KEY) || ''; } catch { return ''; }
+  });
 
   const [showKeyModal, setShowKeyModal] = useState(false);
+  const [modalTab, setModalTab] = useState<'bytedance' | 'cloud'>('bytedance');
+  const [testingProxy, setTestingProxy] = useState(false);
+  const [proxyStatus, setProxyStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
   useEffect(() => {
     if (config.geminiApiKey && !geminiKey) {
@@ -160,11 +182,36 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
     try {
       localStorage.setItem(GEMINI_IMAGE_KEY, geminiKey.trim());
       localStorage.setItem(TOGETHER_KEY, togetherKey.trim());
+      localStorage.setItem(PROXY_ENDPOINT_KEY, proxyEndpoint.trim());
+      localStorage.setItem(PROXY_KEY_KEY, proxyKey.trim());
     } catch {}
     if (geminiKey.trim() && onChangeConfig) {
       onChangeConfig({ geminiApiKey: geminiKey.trim() });
     }
     setShowKeyModal(false);
+  };
+
+  const handleQuickCheckProxy = async () => {
+    setTestingProxy(true);
+    setProxyStatus(null);
+    const endpoint = (proxyEndpoint.trim() || 'http://localhost:8000/v1').replace(/\/+$/, '');
+    try {
+      const headers: Record<string, string> = {};
+      if (proxyKey.trim()) headers['Authorization'] = `Bearer ${proxyKey.trim()}`;
+      const res = await fetch(`${endpoint}/models`, { headers });
+      if (res.ok) {
+        setProxyStatus({ ok: true, msg: 'ByteDance Proxy is Online & Ready!' });
+      } else {
+        setProxyStatus({ ok: false, msg: `Proxy responded with status ${res.status}` });
+      }
+    } catch {
+      setProxyStatus({
+        ok: false,
+        msg: 'Proxy not running yet at http://localhost:8000. Start your jimeng-api / doubao2api container.',
+      });
+    } finally {
+      setTestingProxy(false);
+    }
   };
 
   // Helper to generate image via chosen engine
@@ -180,10 +227,60 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
 
     let finalImageUrl = '';
 
-    if (provider === 'google') {
+    if (provider === 'bytedance' || provider === 'proxy') {
+      const endpoint = (proxyEndpoint.trim() || 'http://localhost:8000/v1').replace(/\/+$/, '');
+      const targetUrl = endpoint.endsWith('/images/generations')
+        ? endpoint
+        : `${endpoint}/images/generations`;
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (proxyKey.trim()) {
+        headers['Authorization'] = `Bearer ${proxyKey.trim()}`;
+      }
+
+      try {
+        const response = await fetch(targetUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: modelName,
+            prompt: enh ? `${promptText}, 8k resolution, ultra-detailed masterpiece` : promptText,
+            n: 1,
+            size: `${width}x${height}`,
+          }),
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error?.message || `Proxy server returned status ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.data?.[0]?.b64_json) {
+          finalImageUrl = `data:image/jpeg;base64,${data.data[0].b64_json}`;
+        } else if (data.data?.[0]?.url) {
+          finalImageUrl = data.data[0].url;
+        } else if (data.images?.[0]) {
+          const img = data.images[0];
+          finalImageUrl = img.startsWith('http') || img.startsWith('data:') ? img : `data:image/png;base64,${img}`;
+        } else {
+          throw new Error('Proxy responded without image data.');
+        }
+      } catch (err: any) {
+        if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+          throw new Error(
+            `ByteDance Proxy is not active at ${endpoint}. Please launch your jimeng-api / doubao2api container, or switch to Google Imagen 3 for 1-click cloud generation.`
+          );
+        }
+        throw err;
+      }
+    } else if (provider === 'google') {
       const activeKey = (geminiKey || config.geminiApiKey || '').trim();
       if (!activeKey) {
         setShowKeyModal(true);
+        setModalTab('cloud');
         throw new Error('Please configure your Gemini API Key in Settings to use Google Imagen 3.');
       }
 
@@ -226,6 +323,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
     } else if (provider === 'together') {
       if (!togetherKey.trim()) {
         setShowKeyModal(true);
+        setModalTab('cloud');
         throw new Error('Please add your free Together AI key in Settings to use high-speed FLUX.1.');
       }
       const response = await fetch('https://api.together.xyz/v1/images/generations', {
@@ -255,7 +353,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
       // Free Cloud (Pollinations)
       const encPrompt = encodeURIComponent(promptText.trim());
       const cacheBust = `${Date.now()}`;
-      finalImageUrl = `https://image.pollinations.ai/prompt/${encPrompt}?model=${modelName}&width=${width}&height=${height}&seed=${seed}&nologo=true&enhance=${enh}&cb=${cacheBust}`;
+      finalImageUrl = `https://image.pollinations.ai/prompt/${encPrompt}?model=${modelName}&width=${width}&height=${height}&seed=${seed}&nologo=true&private=true&enhance=${enh}&cb=${cacheBust}`;
 
       // Pre-load to verify it returns a valid image
       await new Promise<void>((resolve, reject) => {
@@ -377,7 +475,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                 Grokki Image Studio
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mt-1 leading-relaxed">
-                Generate studio-quality illustrations in one click with Google Imagen 3 and FLUX.1.
+                Generate studio-quality illustrations with ByteDance Seedance, Google Imagen 3, and FLUX.
               </p>
             </div>
           )}
@@ -559,7 +657,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                   onChange={handleEngineChange}
                   size="sm"
                   radius={8}
-                  menuWidth={280}
+                  menuWidth={295}
                   surfaceColor={isDarkTheme ? '#1a1c24' : '#f3f4f6'}
                   highlightColor={isDarkTheme ? '#272a38' : '#e5e7eb'}
                   textColor={isDarkTheme ? '#f3f4f6' : '#111827'}
@@ -603,7 +701,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
 
               {/* Right Side: Key config & Submit */}
               <div className="flex items-center gap-1.5 shrink-0">
-                <WarmTooltip content="Image Engines & Accounts" side="top">
+                <WarmTooltip content="Configure ByteDance Seedance & Cloud Keys" side="top">
                   <button
                     type="button"
                     onClick={() => setShowKeyModal(true)}
@@ -647,12 +745,12 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
           </SpecularButton>
 
           <p className="text-[11px] text-center text-gray-400 dark:text-gray-500 mt-2 select-none tracking-normal">
-            Grokki Image Studio • One-click generation with Google Imagen 3 & FLUX.1
+            Grokki Image Studio • ByteDance Seedance • Google Imagen 3 • FLUX.1
           </p>
         </div>
       </div>
 
-      {/* Clean 1-Click Engine & Account Modal */}
+      {/* Engine & Key Configuration Hub Modal */}
       {showKeyModal && (
         <div
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
@@ -660,92 +758,222 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white dark:bg-[#15151a] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl p-5 flex flex-col gap-4 text-left animate-in fade-in zoom-in-95 duration-150"
+            className="w-full max-w-lg bg-white dark:bg-[#15151a] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl p-5 flex flex-col gap-4 text-left animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto"
           >
             {/* Modal Header */}
             <div>
               <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <Key className="w-4 h-4 text-blue-500" />
-                Image Engine Settings
+                <Key className="w-4 h-4 text-purple-500" />
+                Image Engine & Repositories Setup
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Manage your connected AI image engines. No servers or developer setup needed.
+                Connect ByteDance (Seedance / Jimeng / Doubao) reverse proxies or use cloud models.
               </p>
             </div>
 
-            {/* Providers List */}
-            <div className="flex flex-col gap-3">
-              {/* Google Imagen 3 Card */}
-              <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-white/10 flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-gray-900 dark:text-white">Google Imagen 3</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-semibold">
-                      Ultra Quality
-                    </span>
-                  </div>
-                  {config.geminiApiKey?.trim() ? (
-                    <span className="text-[11px] font-medium text-emerald-500 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Auto-Connected
-                    </span>
-                  ) : (
-                    <span className="text-[11px] font-medium text-amber-500">Key Needed</span>
-                  )}
-                </div>
-                <input
-                  type="password"
-                  value={geminiKey}
-                  onChange={(e) => setGeminiKey(e.target.value)}
-                  placeholder="Paste Google Gemini API Key (AIzaSy...)"
-                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#121318] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-                />
-                <p className="text-[10px] text-gray-400 leading-tight">
-                  Automatically syncs with your Grokki account for Google's top-tier photorealistic generation.
-                </p>
-              </div>
-
-              {/* Together AI FLUX Card */}
-              <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-white/10 flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-gray-900 dark:text-white">Together AI (FLUX.1)</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-500 font-semibold">
-                      Fast
-                    </span>
-                  </div>
-                  <a
-                    href="https://api.together.ai"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[10px] text-purple-500 hover:underline flex items-center gap-0.5"
-                  >
-                    Get Free Key <ExternalLink className="w-2.5 h-2.5" />
-                  </a>
-                </div>
-                <input
-                  type="password"
-                  value={togetherKey}
-                  onChange={(e) => setTogetherKey(e.target.value)}
-                  placeholder="Optional Together API Key"
-                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#121318] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-purple-500"
-                />
-                <p className="text-[10px] text-gray-400 leading-tight">
-                  Unlocks dedicated Black Forest Labs FLUX.1 generation in 2 seconds.
-                </p>
-              </div>
-
-              {/* Free Cloud Engines Pill */}
-              <div className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/15 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-emerald-500" />
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-white text-[11px]">Instant Cloud Mode</p>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400">Always active: SDXL Turbo & FLUX Anime with zero keys required.</p>
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Ready</span>
-              </div>
+            {/* Modal Tabs */}
+            <div className="flex border-b border-gray-200 dark:border-white/10 gap-4 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setModalTab('bytedance')}
+                className={`pb-2 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  modalTab === 'bytedance'
+                    ? 'border-purple-500 text-purple-600 dark:text-purple-400'
+                    : 'border-transparent text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                <Server className="w-3.5 h-3.5" />
+                ByteDance / Seedance Repos
+              </button>
+              <button
+                type="button"
+                onClick={() => setModalTab('cloud')}
+                className={`pb-2 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  modalTab === 'cloud'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                <Cloud className="w-3.5 h-3.5" />
+                Cloud API Keys
+              </button>
             </div>
+
+            {/* Tab 1: ByteDance / Seedance Repos */}
+            {modalTab === 'bytedance' && (
+              <div className="flex flex-col gap-3.5 animate-in fade-in duration-100">
+                <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20 text-xs">
+                  <span className="font-semibold text-purple-600 dark:text-purple-400 block mb-1">
+                    ByteDance & High-Limit Repositories:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                    <a
+                      href="https://github.com/iptag/jimeng-api"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-2.5 rounded-lg bg-white dark:bg-[#1b1c24] border border-gray-200 dark:border-white/10 flex flex-col hover:border-purple-500 transition-colors"
+                    >
+                      <span className="font-bold text-[11px] text-gray-900 dark:text-white flex items-center justify-between">
+                        iptag/jimeng-api <ExternalLink className="w-3 h-3 text-gray-400" />
+                      </span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        ByteDance Jimeng & Dreamina web reverse API.
+                      </span>
+                    </a>
+
+                    <a
+                      href="https://github.com/wangchuxiaoji-oss/doubao2api"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-2.5 rounded-lg bg-white dark:bg-[#1b1c24] border border-gray-200 dark:border-white/10 flex flex-col hover:border-purple-500 transition-colors"
+                    >
+                      <span className="font-bold text-[11px] text-gray-900 dark:text-white flex items-center justify-between">
+                        doubao2api <ExternalLink className="w-3 h-3 text-gray-400" />
+                      </span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        ByteDance Doubao OpenAI-compatible proxy.
+                      </span>
+                    </a>
+
+                    <a
+                      href="https://github.com/deanxv/coze-discord-proxy"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-2.5 rounded-lg bg-white dark:bg-[#1b1c24] border border-gray-200 dark:border-white/10 flex flex-col hover:border-purple-500 transition-colors"
+                    >
+                      <span className="font-bold text-[11px] text-gray-900 dark:text-white flex items-center justify-between">
+                        coze-discord-proxy <ExternalLink className="w-3 h-3 text-gray-400" />
+                      </span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        Free unlimited DALL-E 3 via ByteDance Coze.
+                      </span>
+                    </a>
+
+                    <a
+                      href="https://github.com/SamurAIGPT/Seedance-2.5-API"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-2.5 rounded-lg bg-white dark:bg-[#1b1c24] border border-gray-200 dark:border-white/10 flex flex-col hover:border-purple-500 transition-colors"
+                    >
+                      <span className="font-bold text-[11px] text-gray-900 dark:text-white flex items-center justify-between">
+                        Seedance-2.5-API <ExternalLink className="w-3 h-3 text-gray-400" />
+                      </span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        ByteDance Seedance 2.5 client & SDK.
+                      </span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* Proxy URL configuration */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">
+                      Reverse Proxy Base URL (OpenAI-compatible)
+                    </label>
+                    <button
+                      type="button"
+                      disabled={testingProxy}
+                      onClick={handleQuickCheckProxy}
+                      className="text-[10px] font-semibold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      {testingProxy ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : 'Check Status'}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={proxyEndpoint}
+                    onChange={(e) => setProxyEndpoint(e.target.value)}
+                    placeholder="http://localhost:8000/v1"
+                    className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#1c1c24] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-purple-500"
+                  />
+                  {proxyStatus && (
+                    <p
+                      className={`text-[10px] mt-1 flex items-center gap-1 font-medium ${
+                        proxyStatus.ok ? 'text-emerald-500' : 'text-amber-500'
+                      }`}
+                    >
+                      {proxyStatus.ok ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                      {proxyStatus.msg}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Routes <code>/images/generations</code> directly to your jimeng-api, doubao2api, or Coze container.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    Proxy Auth Key (Optional)
+                  </label>
+                  <input
+                    type="password"
+                    value={proxyKey}
+                    onChange={(e) => setProxyKey(e.target.value)}
+                    placeholder="sk-... or leave empty for local"
+                    className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#1c1c24] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Tab 2: Cloud API Keys */}
+            {modalTab === 'cloud' && (
+              <div className="flex flex-col gap-3.5 animate-in fade-in duration-100">
+                {/* Google Imagen 3 */}
+                <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-white/10 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-900 dark:text-white">Google Imagen 3</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-semibold">
+                        Ultra Quality
+                      </span>
+                    </div>
+                    {config.geminiApiKey?.trim() ? (
+                      <span className="text-[11px] font-medium text-emerald-500 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Auto-Connected
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-medium text-amber-500">Key Needed</span>
+                    )}
+                  </div>
+                  <input
+                    type="password"
+                    value={geminiKey}
+                    onChange={(e) => setGeminiKey(e.target.value)}
+                    placeholder="AIzaSy... (Pre-filled from Grokki settings)"
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#121318] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                {/* Together AI */}
+                <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#1a1c24] border border-gray-200 dark:border-white/10 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-900 dark:text-white">Together AI (FLUX.1)</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-500 font-semibold">
+                        Fast
+                      </span>
+                    </div>
+                    <a
+                      href="https://api.together.ai"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[10px] text-purple-500 hover:underline flex items-center gap-0.5"
+                    >
+                      Get Free Key <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </div>
+                  <input
+                    type="password"
+                    value={togetherKey}
+                    onChange={(e) => setTogetherKey(e.target.value)}
+                    placeholder="Together API Key"
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#121318] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Modal Actions */}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-white/5">
