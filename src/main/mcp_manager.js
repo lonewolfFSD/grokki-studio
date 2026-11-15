@@ -8,6 +8,8 @@ const fs = require('fs');
 const path = require('path');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { StdioClientTransport } = require('@modelcontextprotocol/sdk/client/stdio.js');
+const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js');
+const { SSEClientTransport } = require('@modelcontextprotocol/sdk/client/sse.js');
 
 class McpManager {
   constructor() {
@@ -108,31 +110,65 @@ class McpManager {
       await this.disconnectServer(serverId);
     }
 
-    const command = srvConfig.command;
-    const args = Array.isArray(srvConfig.args) ? srvConfig.args : [];
-    const env = { ...process.env, ...(srvConfig.env || {}) };
-
-    const transport = new StdioClientTransport({
-      command,
-      args,
-      env,
-    });
-
-    const client = new Client(
-      {
-        name: `grokki-client-${serverId}`,
-        version: '1.0.0',
-      },
-      {
-        capabilities: {
-          prompts: {},
-          resources: {},
-          tools: {},
+    const createClient = () =>
+      new Client(
+        {
+          name: `grokki-client-${serverId}`,
+          version: '1.0.0',
         },
-      }
-    );
+        {
+          capabilities: {
+            prompts: {},
+            resources: {},
+            tools: {},
+          },
+        }
+      );
 
-    await client.connect(transport);
+    let client = createClient();
+    let transport = null;
+
+    if (srvConfig.url) {
+      const targetUrl = new URL(srvConfig.url);
+      const headers = { ...(srvConfig.headers || {}) };
+      if (srvConfig.accessToken && !headers['Authorization'] && !headers['authorization']) {
+        headers['Authorization'] = `Bearer ${srvConfig.accessToken}`;
+      }
+      const reqInit = Object.keys(headers).length > 0 ? { headers } : undefined;
+      const preferSse =
+        srvConfig.transport === 'sse' || targetUrl.pathname.toLowerCase().endsWith('/sse');
+
+      if (preferSse) {
+        transport = new SSEClientTransport(targetUrl, { requestInit: reqInit });
+        await client.connect(transport);
+      } else {
+        try {
+          transport = new StreamableHTTPClientTransport(targetUrl, { requestInit: reqInit });
+          await client.connect(transport);
+        } catch (err) {
+          // If streamable HTTP fails with 404/405 (and not 401 auth error), try SSE fallback
+          if (err.code === 401 || String(err.message).includes('401')) {
+            throw err;
+          }
+          client = createClient();
+          transport = new SSEClientTransport(targetUrl, { requestInit: reqInit });
+          await client.connect(transport);
+        }
+      }
+    } else if (srvConfig.command) {
+      const command = srvConfig.command;
+      const args = Array.isArray(srvConfig.args) ? srvConfig.args : [];
+      const env = { ...process.env, ...(srvConfig.env || {}) };
+
+      transport = new StdioClientTransport({
+        command,
+        args,
+        env,
+      });
+      await client.connect(transport);
+    } else {
+      throw new Error(`Invalid MCP config for "${serverId}": missing url or command.`);
+    }
 
     // List available tools from the server
     let tools = [];
@@ -154,6 +190,15 @@ class McpManager {
     console.log(`[MCP] Connected server "${serverId}" with ${tools.length} tool(s).`);
     await this.refreshCombinedTools();
     return { success: true, tools };
+  }
+
+  isConnected(serverId) {
+    return this.clients.has(serverId);
+  }
+
+  getServerTools(serverId) {
+    const item = this.clients.get(serverId);
+    return item ? item.tools : [];
   }
 
   async disconnectServer(serverId) {
