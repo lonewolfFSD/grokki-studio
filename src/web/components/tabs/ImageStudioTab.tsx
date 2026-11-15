@@ -1025,34 +1025,32 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
         {/* Controls */}
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200/70 dark:border-white/[0.07]">
           <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-            {/* Mode Toggle Switcher: Image 🖼️ vs Video 🎬 */}
-            <div className="flex items-center rounded-lg p-0.5 bg-gray-100 dark:bg-white/[0.08] border border-gray-200 dark:border-white/10 shrink-0">
-              <WarmTooltip content="Switch to Image Generation" side="top">
+            {/* Mode Toggle Switcher: ONLY ICONS, light gray low-opacity selected background, no gradient */}
+            <div className="flex items-center rounded-md p-0.5 bg-black/[0.04] dark:bg-white/[0.05] border border-gray-200/80 dark:border-white/10 shrink-0">
+              <WarmTooltip content="Image Mode" side="top">
                 <button
                   type="button"
                   onClick={() => handleModeSwitch('image')}
-                  className={`flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors cursor-pointer ${
                     studioMode === 'image'
-                      ? 'bg-white dark:bg-[#1c1c24] text-gray-900 dark:text-white shadow-xs'
-                      : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                      ? 'bg-black/10 dark:bg-white/10 text-gray-900 dark:text-gray-100'
+                      : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]'
                   }`}
                 >
                   <ImageIcon className="w-3.5 h-3.5" />
-                  <span>Image</span>
                 </button>
               </WarmTooltip>
-              <WarmTooltip content="Switch to Video Generation (ByteDance Seedance & more)" side="top">
+              <WarmTooltip content="Video Mode (Seedance & more)" side="top">
                 <button
                   type="button"
                   onClick={() => handleModeSwitch('video')}
-                  className={`flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors cursor-pointer ${
                     studioMode === 'video'
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-xs font-bold'
-                      : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                      ? 'bg-black/10 dark:bg-white/10 text-gray-900 dark:text-gray-100'
+                      : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]'
                   }`}
                 >
                   <Film className="w-3.5 h-3.5" />
-                  <span>Video</span>
                 </button>
               </WarmTooltip>
             </div>
@@ -1295,7 +1293,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
             >
               <div className="flex items-center justify-between text-[11.5px] font-medium text-gray-400 dark:text-gray-500 pb-2">
                 <span>Start from an example</span>
-                <span className="text-[10px] text-pink-400 font-mono">
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
                   {studioMode === 'video' ? 'Seedance & Video Prompts' : 'Image Prompts'}
                 </span>
               </div>
@@ -1394,7 +1392,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                           className="w-full h-auto block select-none rounded-xl"
                         />
                         <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-[10px] font-semibold text-white/90 border border-white/10 pointer-events-none z-10">
-                          <Film className="w-3 h-3 text-pink-400" />
+                          <Film className="w-3 h-3 text-gray-300" />
                           <span>
                             {item.engine.includes('seedance-2.5')
                               ? 'Seedance 2.5'
@@ -1608,14 +1606,14 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between">
                   <span>ByteDance Seedance API Key</span>
-                  <span className="text-[10px] text-pink-400 font-mono">fal.ai / Seedance</span>
+                  <span className="text-[10px] text-gray-400 font-mono">fal.ai / Seedance</span>
                 </label>
                 <input
                   type="password"
                   value={seedanceKeyInput}
                   onChange={e => setSeedanceKeyInput(e.target.value)}
                   placeholder="Paste Seedance or fal.ai API key..."
-                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 dark:border-white/10 bg-transparent text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-pink-400"
+                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 dark:border-white/10 bg-transparent text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400"
                 />
                 <p className="text-[10px] text-gray-400 mt-0.5">
                   Used for Seedance 2.5 & 2.0 cinematic video. (Or select Free Video for zero-key generation).
