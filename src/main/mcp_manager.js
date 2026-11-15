@@ -373,10 +373,19 @@ class McpManager {
         if (descLower.includes(tok)) score += 4;
       }
 
+      // Penalize generic URL-fetching tools unless the prompt actually mentions a URL or link
+      if (/web_fetch|fetch_url/.test(nameLower) && !/https?:\/\/|\burl\b|\blink\b|\bwebpage\b/.test(cleanPrompt)) {
+        score -= 20;
+      }
+
       // Boost common read/list/get discovery tools when user asks to check/show/list
-      if (/^(list_|get_|search_|fetch_|read_)/.test(nameLower)) score += 3;
+      if (/^(list_|get_|search_|read_)/.test(nameLower)) score += 3;
       if (nameLower === 'list_deployments' || nameLower === 'get_deployment' || nameLower === 'list_projects' || nameLower === 'list_teams') {
         score += 6;
+      }
+      // Keep auth/recovery tools near the top so 403 recovery instructions can be followed
+      if (nameLower === 'authorize_team_access' || nameLower === 'authorize_team_sso') {
+        score += 5;
       }
 
       return { tool: t, score };

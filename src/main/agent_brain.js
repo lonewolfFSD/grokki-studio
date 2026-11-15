@@ -3339,13 +3339,15 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
       await mcpManager.ensureServersConnected(context?.activePlugins || []);
     } catch (_) {}
 
-    // When Deep Search / Live Grounding is active (and no @Plugin is invoked), omit desktop tools
-    const toolsDecl = (isWebSearchActive && !hasActivePlugins) ? undefined : this.getRelevantTools(prompt, provider, context);
+    // When Deep Search / Live Grounding is active (and no @Plugin is invoked), or when @Plugin is invoked in Chat mode, omit unrelated desktop tools so the model focuses on the plugin
+    const toolsDecl = ((isWebSearchActive && !hasActivePlugins) || (hasActivePlugins && !isAgent))
+      ? undefined
+      : this.getRelevantTools(prompt, provider, context);
     let tools = toolsDecl ? convertGeminiToolsToOpenAI(toolsDecl) : undefined;
     let loadedMcpToolNames = [];
     if (!isWebSearchActive || hasActivePlugins) {
       try {
-        const mcpLimit = (provider === 'ollama' || provider === 'groq') ? 20 : 40;
+        const mcpLimit = (provider === 'ollama' || provider === 'groq') ? 10 : 40;
         const mcpTools = mcpManager.getOpenAIToolDefinitions(prompt, context?.activePlugins || [], mcpLimit);
         if (mcpTools && mcpTools.length > 0) {
           tools = (tools || []).concat(mcpTools);
@@ -3359,7 +3361,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
       const exactListNote = loadedMcpToolNames.length > 0
         ? ` Exact available MCP tool names: ${loadedMcpToolNames.join(', ')}. You MUST ONLY call tool names from this exact list.`
         : '';
-      const pluginRule = `\nCONNECTED PLUGINS ACTIVE (${pluginNames}): You have live connected MCP tools (prefixed with mcp__) for ${pluginNames}. ALWAYS call the appropriate mcp__ tool(s) to fetch real data or perform actions on ${pluginNames}. NEVER refuse or tell the user to contact support.${exactListNote}`;
+      const pluginRule = `\nCONNECTED PLUGINS ACTIVE (${pluginNames}): You have live connected MCP tools (prefixed with mcp__) for ${pluginNames}. ALWAYS call the appropriate mcp__ tool(s) to fetch real data or perform actions on ${pluginNames}. To check or list items (e.g. deployments, projects, emails), call the list_* or get_* tool first with {} if you do not have an ID yet. NEVER pass null for required string parameters, and NEVER refuse or tell the user to contact support.${exactListNote}`;
       messages[0].content += pluginRule;
     }
 
