@@ -3374,7 +3374,15 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         ? ` Exact available MCP tool names: ${loadedMcpToolNames.join(', ')}. You MUST ONLY call tool names from this exact list.`
         : '';
       const pluginRule = `\nCONNECTED PLUGINS ACTIVE (${pluginNames}): You have live connected MCP tools (prefixed with mcp__) for ${pluginNames}. ALWAYS call the appropriate mcp__ tool(s) to fetch real data or perform actions on ${pluginNames}. To check or list items (e.g. deployments, projects, emails), call the list_* or get_* tool first with {} if you do not have an ID yet. NEVER pass null for required string parameters, and NEVER refuse or tell the user to contact support.${exactListNote}`;
-      messages[0].content += pluginRule;
+      if (provider === 'ollama' && !isAgent) {
+        // Keep system prompt & history ultra-lean for local Ollama so prompt-eval finishes quickly
+        messages[0].content = `You are Grokki. ${pluginRule.trim()}`;
+        if (messages.length > 4) {
+          messages = [messages[0], ...messages.slice(-3)];
+        }
+      } else {
+        messages[0].content += pluginRule;
+      }
     }
 
     codingAgentHarness.syncContext(context);
@@ -3407,7 +3415,11 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
               tools,
               signal,
               timeout: provider === 'ollama' ? 180000 : 45000,
-              max_tokens: isAgent ? (provider === 'openrouter' ? 2048 : 8192) : (provider === 'openrouter' ? 2048 : 4000),
+              max_tokens: (provider === 'ollama' && hasActivePlugins && !isAgent)
+                ? 256
+                : isAgent
+                ? (provider === 'openrouter' ? 2048 : 8192)
+                : (provider === 'openrouter' ? 2048 : 4000),
             });
             if (data && data.choices && data.choices.length > 0) {
               break;
@@ -3721,44 +3733,70 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           });
         }
 
-        // On local Ollama in Chat mode, once MCP tool(s) succeed, format structured JSON directly instead of waiting 60-180s for a slow local LLM rewrite
+        // On local Ollama in Chat mode, once MCP tool(s) succeed, format any plugin's structured JSON directly instead of waiting 60-180s for a slow local LLM rewrite
         if (provider === 'ollama' && !isAgent && stepToolResults.some((s) => s.name.startsWith('mcp__') && s.result?.success !== false)) {
+          const findPrimaryArray = (obj, depth = 0) => {
+            if (Array.isArray(obj)) return { key: 'items', arr: obj };
+            if (!obj || typeof obj !== 'object' || depth > 3) return null;
+            for (const [k, v] of Object.entries(obj)) {
+              if (Array.isArray(v) && (v.length === 0 || typeof v[0] === 'object')) {
+                return { key: k, arr: v };
+              }
+            }
+            for (const [k, v] of Object.entries(obj)) {
+              if (v && typeof v === 'object') {
+                const nested = findPrimaryArray(v, depth + 1);
+                if (nested) return nested;
+              }
+            }
+            return null;
+          };
+
+          const formatAnyItem = (itemObj) => {
+            if (!itemObj || typeof itemObj !== 'object') return `- ${String(itemObj)}`;
+            const title = itemObj.name || itemObj.title || itemObj.full_name || itemObj.slug || itemObj.subject || itemObj.key || itemObj.email || itemObj.id || 'Item';
+            const state = itemObj.state || itemObj.readyState || itemObj.status || itemObj.phase;
+            const target = itemObj.target || itemObj.framework || itemObj.type;
+            const rawUrl = itemObj.url || itemObj.html_url || itemObj.web_url || itemObj.link || itemObj.permalink;
+            const url = rawUrl ? ` — ${/^https?:\/\//i.test(String(rawUrl)) ? rawUrl : `https://${rawUrl}`}` : '';
+            const ts = itemObj.created || itemObj.created_at || itemObj.createdAt || itemObj.updated_at || itemObj.timestamp;
+            let when = '';
+            if (ts && (typeof ts === 'number' || typeof ts === 'string')) {
+              const d = new Date(ts);
+              if (!Number.isNaN(d.getTime())) when = ` · ${d.toLocaleString()}`;
+            }
+            const desc = (!url && itemObj.description) ? ` — ${String(itemObj.description).slice(0, 90)}` : '';
+            return `- **${title}**${target ? ` (${target})` : ''}${state ? ` — \`${state}\`` : ''}${url}${desc}${when}`;
+          };
+
           const formattedParts = [];
           for (const item of stepToolResults) {
             const raw = item.result?.message || '';
             let formatted = raw;
             try {
               const parsed = JSON.parse(raw);
-              const root = parsed?.result || parsed;
-              const deployments = root?.deployments?.deployments || root?.deployments;
-              const projects = root?.projects?.projects || root?.projects;
-              const teams = root?.teams?.teams || root?.teams;
-              if (Array.isArray(deployments)) {
-                if (deployments.length === 0) {
-                  formatted = 'No deployments found.';
+              const root = parsed?.result ?? parsed?.data ?? parsed;
+              const foundArr = findPrimaryArray(root);
+              const label = item.name.replace(/^mcp__([^_]+)__/, '$1 ').replace(/_/g, ' ').trim();
+              if (foundArr) {
+                if (foundArr.arr.length === 0) {
+                  formatted = `No ${foundArr.key.replace(/_/g, ' ')} found.`;
                 } else {
-                  const lines = deployments.slice(0, 10).map((d) => {
-                    const name = d.name || d.id || 'Deployment';
-                    const state = d.state || d.readyState || 'UNKNOWN';
-                    const target = d.target ? ` (${d.target})` : '';
-                    const url = d.url ? ` — https://${String(d.url).replace(/^https?:\/\//, '')}` : '';
-                    const when = d.created ? ` · ${new Date(d.created).toLocaleString()}` : '';
-                    return `- **${name}**${target} — \`${state}\`${url}${when}`;
-                  });
-                  formatted = `**Latest Vercel Deployments (${deployments.length} shown${root?.deployments?.pagination?.count ? `, ${root.deployments.pagination.count} in page` : ''}):**\n\n${lines.join('\n')}`;
+                  const lines = foundArr.arr.slice(0, 12).map(formatAnyItem);
+                  formatted = `**${label} (${foundArr.arr.length} shown):**\n\n${lines.join('\n')}`;
                 }
-              } else if (Array.isArray(projects)) {
-                formatted = projects.length === 0
-                  ? 'No projects found.'
-                  : `**Projects (${projects.length}):**\n\n` + projects.slice(0, 12).map((p) => `- **${p.name || p.id}**${p.framework ? ` (${p.framework})` : ''}`).join('\n');
-              } else if (Array.isArray(teams)) {
-                formatted = teams.length === 0
-                  ? 'No teams found.'
-                  : `**Teams (${teams.length}):**\n\n` + teams.slice(0, 12).map((t) => `- **${t.name || t.slug || t.id}**`).join('\n');
-              } else if (raw.length > 2000) {
-                formatted = '```json\n' + raw.slice(0, 2000) + '\n...\n```';
+              } else if (root && typeof root === 'object') {
+                const scalarLines = Object.entries(root)
+                  .filter(([k, v]) => v !== null && v !== undefined && typeof v !== 'object' && !/token|secret|password/i.test(k))
+                  .slice(0, 14)
+                  .map(([k, v]) => `- **${k}:** ${String(v).slice(0, 200)}`);
+                formatted = scalarLines.length > 0
+                  ? `**${label}:**\n\n${scalarLines.join('\n')}`
+                  : '```json\n' + JSON.stringify(root, null, 2).slice(0, 2000) + '\n```';
               }
-            } catch (_) {}
+            } catch (_) {
+              if (raw.length > 3500) formatted = raw.slice(0, 3500) + '\n...';
+            }
             if (formatted) formattedParts.push(formatted);
           }
           if (formattedParts.length > 0) {
