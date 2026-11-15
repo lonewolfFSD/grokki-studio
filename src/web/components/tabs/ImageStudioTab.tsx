@@ -12,6 +12,9 @@ import {
   Square,
   Key,
   X,
+  Film,
+  Play,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { JarvisConfig } from '../../types/jarvis';
 import SpecularButton from '../../../effects/SpecularButton';
@@ -29,6 +32,7 @@ interface ImageStudioTabProps {
 }
 
 export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
+export type StudioMode = 'image' | 'video';
 
 interface GeneratedImage {
   id: string;
@@ -40,11 +44,17 @@ interface GeneratedImage {
   enhance: boolean;
   timestamp: string;
   error?: string;
+  mediaType?: 'image' | 'video';
+  duration?: number;
 }
 
 const STORAGE_KEY = 'grokki_image_studio_feed_v2';
+const ACTIVE_STUDIO_MODE_KEY = 'grokki_studio_active_mode_v1';
 const GEMINI_IMAGE_KEY = 'grokki_gemini_image_key';
 const ACTIVE_ENGINE_KEY = 'grokki_image_active_engine';
+const ACTIVE_VIDEO_ENGINE_KEY = 'grokki_video_active_engine';
+const SEEDANCE_API_KEY = 'grokki_seedance_api_key';
+const LUMA_API_KEY = 'grokki_luma_api_key';
 const CF_ACCOUNT_KEY = 'grokki_cf_account_id';
 const CF_TOKEN_KEY = 'grokki_cf_api_token';
 const OPENAI_IMAGE_KEY = 'grokki_openai_image_key';
@@ -114,6 +124,15 @@ const BananaLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5
   </svg>
 );
 
+const ByteDanceLogo: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
+    <rect x="3" y="6" width="3.5" height="12" rx="1.5" fill="#3B82F6" />
+    <rect x="8.5" y="4" width="3.5" height="16" rx="1.5" fill="#06B6D4" />
+    <rect x="14" y="7" width="3.5" height="13" rx="1.5" fill="#EC4899" />
+    <rect x="19.5" y="9" width="3.5" height="9" rx="1.5" fill="#A855F7" />
+  </svg>
+);
+
 const RatioBoxIcon: React.FC<{ ratio: AspectRatio; className?: string }> = ({ ratio, className = 'w-3.5 h-3.5' }) => {
   const frames: Record<AspectRatio, { x: number; y: number; w: number; h: number }> = {
     '1:1':  { x: 3,    y: 3,    w: 10,  h: 10  },
@@ -169,12 +188,34 @@ const ENGINE_OPTIONS: GlideSelectOption[] = [
   { value: 'openai:dall-e-3',                                 label: modelLabel(OpenAILogo,     'DALL·E 3'),        tag: 'OpenAI'     },
 ];
 
+const VIDEO_ENGINE_OPTIONS: GlideSelectOption[] = [
+  // ByteDance Seedance Flagship Models
+  { value: 'seedance:seedance-2.5', label: modelLabel(ByteDanceLogo, 'Seedance 2.5'), tag: 'ByteDance' },
+  { value: 'seedance:seedance-2.0', label: modelLabel(ByteDanceLogo, 'Seedance 2.0'), tag: 'ByteDance' },
+  // 100% Free Video (Instant No Key)
+  { value: 'pollinations:video',    label: modelLabel(FluxLogo,      'FLUX / CogVideo'), tag: 'Free Video' },
+  // Luma Dream Machine (Ray)
+  { value: 'luma:ray-2',            label: modelLabel(Sparkles,      'Luma Ray 2'),   tag: 'Luma' },
+  // Kling 1.5 Pro
+  { value: 'kling:kling-v1-5',      label: modelLabel(Sparkles,      'Kling 1.5 Pro'),tag: 'Kling' },
+  // Runway Gen-3 Alpha
+  { value: 'runway:gen-3-alpha',    label: modelLabel(Sparkles,      'Runway Gen-3'), tag: 'Runway' },
+  // Google Veo 2
+  { value: 'google:veo-2',          label: modelLabel(BananaLogo,    'Google Veo 2'), tag: 'Google' },
+];
+
 const ASPECT_OPTIONS: GlideSelectOption[] = [
   { value: '1:1',  label: ratioLabel('1:1',  '1:1 Square'),    tag: '1024×1024' },
   { value: '16:9', label: ratioLabel('16:9', '16:9 Wide'),     tag: '1280×720'  },
   { value: '9:16', label: ratioLabel('9:16', '9:16 Tall'),     tag: '720×1280'  },
   { value: '4:3',  label: ratioLabel('4:3',  '4:3 Standard'),  tag: '1152×864'  },
   { value: '3:4',  label: ratioLabel('3:4',  '3:4 Portrait'),  tag: '864×1152'  },
+];
+
+const VIDEO_ASPECT_OPTIONS: GlideSelectOption[] = [
+  { value: '16:9', label: ratioLabel('16:9', '16:9 Cinematic'), tag: '1280×720' },
+  { value: '9:16', label: ratioLabel('9:16', '9:16 Shorts/Reels'), tag: '720×1280' },
+  { value: '1:1',  label: ratioLabel('1:1',  '1:1 Square'),     tag: '1024×1024' },
 ];
 
 const PROMPT_PRESETS: { tag: string; ratio: AspectRatio; prompt: string }[] = [
@@ -200,7 +241,39 @@ const PROMPT_PRESETS: { tag: string; ratio: AspectRatio; prompt: string }[] = [
   },
 ];
 
+const VIDEO_PROMPT_PRESETS: { tag: string; ratio: AspectRatio; prompt: string }[] = [
+  {
+    tag: 'Seedance Neon Rain Flight',
+    ratio: '16:9',
+    prompt: 'Cinematic sweeping drone shot flying low through a futuristic neo-Tokyo street in torrential rain, neon reflections in puddles, steam rising from grates, 4K film motion, realistic physics',
+  },
+  {
+    tag: 'Seedance Anime Wind Portrait',
+    ratio: '9:16',
+    prompt: 'Slow motion 60fps portrait of an anime maiden standing on a cliffside, wind catching her hair and silk kimono, cherry blossom petals swirling around in golden hour sunset lighting',
+  },
+  {
+    tag: 'Hyperspeed Cosmic Flight',
+    ratio: '16:9',
+    prompt: 'FPV camera plunging at lightspeed through a luminous spiraling cosmic nebula, vibrant purple and cyan star clusters illuminating undulating space dust, cinematic motion blur',
+  },
+  {
+    tag: 'Macro 1000fps Water Droplet',
+    ratio: '1:1',
+    prompt: 'Ultra slow-motion 1000fps macro capture of a crystal water drop splashing into a calm obsidian pool, creating a perfect crown splash with ripples expanding outwards in rim lighting',
+  },
+];
+
 export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChangeConfig }) => {
+  const [studioMode, setStudioMode] = useState<StudioMode>(() => {
+    try {
+      const saved = localStorage.getItem(ACTIVE_STUDIO_MODE_KEY);
+      return saved === 'video' ? 'video' : 'image';
+    } catch {
+      return 'image';
+    }
+  });
+
   const [inputValue, setInputValue] = useState('');
   const [activeEngine, setActiveEngine] = useState<string>(() => {
     try {
@@ -209,6 +282,15 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
     } catch {}
     return config.geminiApiKey?.trim() ? 'google:nano-banana-pro' : 'google:nano-banana-pro';
   });
+
+  const [activeVideoEngine, setActiveVideoEngine] = useState<string>(() => {
+    try {
+      const s = localStorage.getItem(ACTIVE_VIDEO_ENGINE_KEY);
+      if (s && VIDEO_ENGINE_OPTIONS.some(o => o.value === s)) return s;
+    } catch {}
+    return 'seedance:seedance-2.5';
+  });
+
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
   const [enhance, setEnhance] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -233,6 +315,23 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
       setGeminiKeyInput(config.geminiApiKey.trim());
     }
   }, [config.geminiApiKey]);
+
+  const [seedanceKeyInput, setSeedanceKeyInput] = useState(() => {
+    try {
+      return localStorage.getItem(SEEDANCE_API_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const [lumaKeyInput, setLumaKeyInput] = useState(() => {
+    try {
+      return localStorage.getItem(LUMA_API_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+
   const [cfAccountInput, setCfAccountInput] = useState(() => {
     try { return localStorage.getItem(CF_ACCOUNT_KEY) || ''; } catch { return ''; }
   });
@@ -298,6 +397,16 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
     } catch {}
   };
 
+  const handleModeSwitch = (mode: StudioMode) => {
+    setStudioMode(mode);
+    try {
+      localStorage.setItem(ACTIVE_STUDIO_MODE_KEY, mode);
+    } catch {}
+    if (mode === 'video' && aspectRatio !== '16:9' && aspectRatio !== '9:16' && aspectRatio !== '1:1') {
+      setAspectRatio('16:9');
+    }
+  };
+
   const handleEngineChange = (val: string) => {
     setActiveEngine(val);
     try {
@@ -305,9 +414,18 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
     } catch {}
   };
 
+  const handleVideoEngineChange = (val: string) => {
+    setActiveVideoEngine(val);
+    try {
+      localStorage.setItem(ACTIVE_VIDEO_ENGINE_KEY, val);
+    } catch {}
+  };
+
   const handleSaveKeys = () => {
     try {
       localStorage.setItem(GEMINI_IMAGE_KEY, geminiKeyInput.trim());
+      localStorage.setItem(SEEDANCE_API_KEY, seedanceKeyInput.trim());
+      localStorage.setItem(LUMA_API_KEY, lumaKeyInput.trim());
       localStorage.setItem(CF_ACCOUNT_KEY, cfAccountInput.trim());
       localStorage.setItem(CF_TOKEN_KEY, cfTokenInput.trim());
       localStorage.setItem(OPENAI_IMAGE_KEY, openaiKeyInput.trim());
@@ -328,8 +446,112 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
     enh: boolean,
   ) => {
     const [provider, modelName] = engineKey.split(':');
-    const { width, height } = ASPECT_DIMS[ar];
+    const { width, height } = ASPECT_DIMS[ar] || ASPECT_DIMS['16:9'];
     const seed = Math.floor(Math.random() * 9_000_000) + 1_000_000;
+
+    // 0. Video Engines (ByteDance Seedance 2.5 / 2.0, Pollinations Free Video, Luma, Kling, Runway, Veo)
+    if (provider === 'seedance') {
+      const seedanceKey = (
+        (seedanceKeyInput && seedanceKeyInput.trim()) ||
+        (typeof localStorage !== 'undefined' ? localStorage.getItem(SEEDANCE_API_KEY) || '' : '')
+      ).trim();
+
+      if (!seedanceKey) {
+        setShowKeyModal(true);
+        throw new Error(
+          'ByteDance Seedance requires an API key. Please enter your Seedance (or fal.ai) API key in Settings 🔑, or select "FLUX / CogVideo (Free Video)" for instant free generation!'
+        );
+      }
+
+      const is25 = modelName === 'seedance-2.5';
+      const endpoint = is25
+        ? 'https://fal.run/bytedance/seedance-2.5/text-to-video'
+        : 'https://fal.run/bytedance/seedance-2.0/text-to-video';
+
+      const finalPrompt = enh
+        ? `${promptText}, cinematic 4K film motion, realistic physical dynamics, fluid animation, 60fps`
+        : promptText;
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Key ${seedanceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: finalPrompt,
+          aspect_ratio: ar === '9:16' ? '9:16' : ar === '1:1' ? '1:1' : '16:9',
+          resolution: '720p',
+          duration: is25 ? 6 : 5,
+          generate_audio: true,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.message || `Seedance API status ${res.status}`);
+      }
+
+      const data = await res.json();
+      const videoUrl = data.video?.url || data.video_url || data.url;
+      if (!videoUrl) {
+        throw new Error('Seedance finished rendering but returned no video output.');
+      }
+      return { finalImageUrl: videoUrl, seed, mediaType: 'video' as const };
+    }
+
+    if (provider === 'luma') {
+      const lumaKey = (
+        (lumaKeyInput && lumaKeyInput.trim()) ||
+        (typeof localStorage !== 'undefined' ? localStorage.getItem(LUMA_API_KEY) || '' : '')
+      ).trim();
+
+      if (!lumaKey) {
+        setShowKeyModal(true);
+        throw new Error('Please enter your Luma Dream Machine API key in Settings 🔑.');
+      }
+
+      const res = await fetch('https://api.lumalabs.ai/dream-machine/v1/generations', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${lumaKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: promptText,
+          aspect_ratio: ar === '9:16' ? '9:16' : '16:9',
+          loop: true,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Luma error (${res.status})`);
+      }
+      const data = await res.json();
+      return { finalImageUrl: data.assets?.video || data.video_url || '', seed, mediaType: 'video' as const };
+    }
+
+    if (provider === 'pollinations' && modelName === 'video') {
+      const enc = encodeURIComponent(promptText.trim());
+      const cb = `${Date.now()}`;
+      const vidUrl = `https://image.pollinations.ai/prompt/${enc}?model=video&width=${width}&height=${height}&seed=${seed}&nologo=true&nofeed=true&private=true&cb=${cb}`;
+      try {
+        const fetchRes = await fetch(vidUrl);
+        if (fetchRes.ok) {
+          const blob = await fetchRes.blob();
+          const reader = new FileReader();
+          const b64Promise = new Promise<string>((resolve, reject) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+          });
+          reader.readAsDataURL(blob);
+          const dataUrl = await b64Promise;
+          return { finalImageUrl: dataUrl, seed, mediaType: 'video' as const };
+        }
+      } catch {}
+      return { finalImageUrl: vidUrl, seed, mediaType: 'video' as const };
+    }
 
     // 1. Google Nano Banana (Official Gemini Image Generation API - Pure Studio Quality, Zero Watermarks)
     if (provider === 'google') {
@@ -617,7 +839,8 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
     const promptText = (customPrompt ?? inputValue).trim();
     if (!promptText || isGenerating) return;
 
-    const engineToUse = overrideEngine ?? activeEngine;
+    const currentMode = studioMode;
+    const engineToUse = overrideEngine ?? (currentMode === 'video' ? activeVideoEngine : activeEngine);
     setInputValue('');
     setIsGenerating(true);
 
@@ -632,13 +855,23 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
       seed: 0,
       enhance,
       timestamp: timeStr,
+      mediaType: currentMode,
     };
 
     setGenerations(prev => [...prev, entry]);
 
     try {
-      const { finalImageUrl, seed } = await executeGeneration(promptText, engineToUse, aspectRatio, enhance);
-      saveGenerations([...generations, { ...entry, url: finalImageUrl, seed }]);
+      const res = await executeGeneration(promptText, engineToUse, aspectRatio, enhance);
+      const generatedMedia = (res as any).mediaType || currentMode;
+      saveGenerations([
+        ...generations,
+        {
+          ...entry,
+          url: res.finalImageUrl,
+          seed: res.seed,
+          mediaType: generatedMedia,
+        },
+      ]);
     } catch (err: any) {
       saveGenerations([...generations, { ...entry, error: err.message || 'Generation failed.' }]);
     } finally {
@@ -655,7 +888,15 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
 
   const handleDownload = async (item: GeneratedImage, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    const filename = `grokki_${item.id}.png`;
+    const isVideo =
+      item.mediaType === 'video' ||
+      item.url.includes('.mp4') ||
+      item.url.startsWith('data:video') ||
+      item.engine.includes('video') ||
+      item.engine.includes('seedance') ||
+      item.engine.includes('luma');
+    const ext = isVideo ? 'mp4' : 'png';
+    const filename = `grokki_${item.id}.${ext}`;
 
     // 1. Native Electron Save Dialog (bypasses Windows blob interception completely)
     if (typeof (window as any).jarvisAPI?.saveImageFile === 'function') {
@@ -682,7 +923,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
       return;
     }
 
-    // 3. Remote URL -> convert to base64 DataURL (NEVER createObjectURL blob to prevent Windows blob handler)
+    // 3. Remote URL -> convert to base64 DataURL
     try {
       const res = await fetch(item.url, { mode: 'cors' });
       if (res.ok) {
@@ -702,33 +943,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
       }
     } catch {}
 
-    // 4. Fallback: Draw via Canvas to DataURL
-    try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = reject;
-        img.src = item.url;
-      });
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth || img.width;
-      canvas.height = img.naturalHeight || img.height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        const dataUrl = canvas.toDataURL('image/png');
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        return;
-      }
-    } catch {}
-
-    // 5. Final fallback
+    // 4. Final fallback
     const a = document.createElement('a');
     a.href = item.url;
     a.target = '_blank';
@@ -787,7 +1002,11 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
               }
             }}
             rows={Math.min(6, Math.max(2, inputValue.split('\n').length))}
-            placeholder="Describe an image"
+            placeholder={
+              studioMode === 'video'
+                ? "Describe a video (e.g. ByteDance Seedance drone sweep over neon Tokyo, camera motion & fluid physics)..."
+                : "Describe an image"
+            }
             autoFocus
             className="w-full min-h-[48px] bg-transparent resize-none border-none outline-none text-[13.5px] leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 p-0 pr-6"
           />
@@ -806,18 +1025,50 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
         {/* Controls */}
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200/70 dark:border-white/[0.07]">
           <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+            {/* Mode Toggle Switcher: Image 🖼️ vs Video 🎬 */}
+            <div className="flex items-center rounded-lg p-0.5 bg-gray-100 dark:bg-white/[0.08] border border-gray-200 dark:border-white/10 shrink-0">
+              <WarmTooltip content="Switch to Image Generation" side="top">
+                <button
+                  type="button"
+                  onClick={() => handleModeSwitch('image')}
+                  className={`flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                    studioMode === 'image'
+                      ? 'bg-white dark:bg-[#1c1c24] text-gray-900 dark:text-white shadow-xs'
+                      : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  }`}
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  <span>Image</span>
+                </button>
+              </WarmTooltip>
+              <WarmTooltip content="Switch to Video Generation (ByteDance Seedance & more)" side="top">
+                <button
+                  type="button"
+                  onClick={() => handleModeSwitch('video')}
+                  className={`flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                    studioMode === 'video'
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-xs font-bold'
+                      : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  }`}
+                >
+                  <Film className="w-3.5 h-3.5" />
+                  <span>Video</span>
+                </button>
+              </WarmTooltip>
+            </div>
+
             {/* Model dropdown */}
             <GlideSelect
-              options={ENGINE_OPTIONS}
-              value={activeEngine}
-              onChange={handleEngineChange}
+              options={studioMode === 'video' ? VIDEO_ENGINE_OPTIONS : ENGINE_OPTIONS}
+              value={studioMode === 'video' ? activeVideoEngine : activeEngine}
+              onChange={studioMode === 'video' ? handleVideoEngineChange : handleEngineChange}
               {...glideProps}
-              menuWidth={230}
+              menuWidth={240}
             />
 
             {/* Aspect ratio */}
             <GlideSelect
-              options={ASPECT_OPTIONS}
+              options={studioMode === 'video' ? VIDEO_ASPECT_OPTIONS : ASPECT_OPTIONS}
               value={aspectRatio}
               onChange={v => setAspectRatio(v as AspectRatio)}
               {...glideProps}
@@ -1019,7 +1270,9 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                     transition={{ duration: 0.45, delay: 0.78, ease: [0.22, 1, 0.36, 1] }}
                   />
                 </svg>
-                <span className="relative z-10">Image Studio</span>
+                <span className="relative z-10">
+                  {studioMode === 'video' ? 'Video Studio' : 'Image Studio'}
+                </span>
               </span>
             </motion.h1>
 
@@ -1040,11 +1293,14 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
               transition={{ duration: 0.65, delay: 0.22, ease: [0.22, 1, 0.36, 1] }}
               className="mt-5 w-full max-w-2xl rounded-xl border border-gray-200 dark:border-white/10 bg-white/90 dark:bg-[#0c0c10]/90 backdrop-blur-md px-5 py-4 text-left shadow-lg relative z-10"
             >
-              <div className="text-[11.5px] font-medium text-gray-400 dark:text-gray-500 pb-2">
-                Start from an example
+              <div className="flex items-center justify-between text-[11.5px] font-medium text-gray-400 dark:text-gray-500 pb-2">
+                <span>Start from an example</span>
+                <span className="text-[10px] text-pink-400 font-mono">
+                  {studioMode === 'video' ? 'Seedance & Video Prompts' : 'Image Prompts'}
+                </span>
               </div>
               <div className="flex flex-col divide-y divide-gray-200/80 dark:divide-white/[0.07]">
-                {PROMPT_PRESETS.map(preset => (
+                {(studioMode === 'video' ? VIDEO_PROMPT_PRESETS : PROMPT_PRESETS).map(preset => (
                   <button
                     key={preset.tag}
                     type="button"
@@ -1128,6 +1384,73 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                           </div>
                         </div>
                       </div>
+                    ) : item.mediaType === 'video' || item.url.includes('.mp4') || item.url.startsWith('data:video') || item.engine.includes('video') || item.engine.includes('seedance') || item.engine.includes('luma') ? (
+                      <div className="relative inline-block rounded-xl overflow-hidden border border-gray-200 dark:border-white/[0.08] group max-w-[460px] bg-black">
+                        <video
+                          src={item.url}
+                          controls
+                          loop
+                          playsInline
+                          className="w-full h-auto block select-none rounded-xl"
+                        />
+                        <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-[10px] font-semibold text-white/90 border border-white/10 pointer-events-none z-10">
+                          <Film className="w-3 h-3 text-pink-400" />
+                          <span>
+                            {item.engine.includes('seedance-2.5')
+                              ? 'Seedance 2.5'
+                              : item.engine.includes('seedance')
+                              ? 'Seedance 2.0'
+                              : item.engine.includes('luma')
+                              ? 'Luma Ray'
+                              : 'AI Video'}
+                          </span>
+                        </div>
+                        <div
+                          className="absolute bottom-2 right-2 flex items-center gap-0.5 bg-black/70 rounded-md p-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-20"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <WarmTooltip content={copiedId === item.id ? 'Copied' : 'Copy prompt'} side="top">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyPrompt(item.prompt, item.id);
+                              }}
+                              className="w-7 h-7 flex items-center justify-center rounded text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            >
+                              {copiedId === item.id ? (
+                                <Check className="w-3.5 h-3.5 text-green-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </WarmTooltip>
+                          <WarmTooltip content="Download MP4" side="top">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(item, e);
+                              }}
+                              className="w-7 h-7 flex items-center justify-center rounded text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          </WarmTooltip>
+                          <WarmTooltip content="Regenerate" side="top">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleGenerate(item.prompt, item.engine);
+                              }}
+                              className="w-7 h-7 flex items-center justify-center rounded text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                            </button>
+                          </WarmTooltip>
+                        </div>
+                      </div>
                     ) : item.url ? (
                       <div
                         className="relative inline-block rounded-lg overflow-hidden border border-gray-200 dark:border-white/[0.08] group max-w-[420px] cursor-zoom-in"
@@ -1194,7 +1517,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                       <div className="w-56 h-56 rounded-lg bg-gray-100 dark:bg-[#131317] border border-gray-200 dark:border-white/[0.06] flex flex-col items-center justify-center gap-2">
                         <div className="w-5 h-5 rounded-full border-[1.5px] border-gray-300 dark:border-white/20 border-t-gray-700 dark:border-t-white/60 animate-spin" />
                         <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                          Generating image…
+                          {item.mediaType === 'video' ? 'Generating video (Seedance / AI Video)…' : 'Generating image…'}
                         </span>
                       </div>
                     )}
@@ -1277,6 +1600,38 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                   value={cfTokenInput}
                   onChange={e => setCfTokenInput(e.target.value)}
                   placeholder="Cloudflare API Token"
+                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 dark:border-white/10 bg-transparent text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400"
+                />
+              </div>
+
+              {/* ByteDance Seedance Key (for Seedance 2.5 / 2.0 AI Video) */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between">
+                  <span>ByteDance Seedance API Key</span>
+                  <span className="text-[10px] text-pink-400 font-mono">fal.ai / Seedance</span>
+                </label>
+                <input
+                  type="password"
+                  value={seedanceKeyInput}
+                  onChange={e => setSeedanceKeyInput(e.target.value)}
+                  placeholder="Paste Seedance or fal.ai API key..."
+                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 dark:border-white/10 bg-transparent text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-pink-400"
+                />
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  Used for Seedance 2.5 & 2.0 cinematic video. (Or select Free Video for zero-key generation).
+                </p>
+              </div>
+
+              {/* Luma Dream Machine API Key */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Luma Dream Machine API Key <span className="text-[10px] text-gray-400">(optional, for Ray 2)</span>
+                </label>
+                <input
+                  type="password"
+                  value={lumaKeyInput}
+                  onChange={e => setLumaKeyInput(e.target.value)}
+                  placeholder="luma-…"
                   className="w-full h-8 px-2.5 rounded-md border border-gray-200 dark:border-white/10 bg-transparent text-xs font-mono text-gray-900 dark:text-gray-100 outline-none focus:border-gray-400"
                 />
               </div>

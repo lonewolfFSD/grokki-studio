@@ -129,6 +129,13 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   const [displaySrc, setDisplaySrc] = useState<string>(src);
   const [isImgLoading, setIsImgLoading] = useState<boolean>(true);
   const [hasError, setHasError] = useState<boolean>(false);
+  const isVideo = Boolean(
+    displaySrc &&
+      (displaySrc.includes('.mp4') ||
+        displaySrc.startsWith('data:video') ||
+        displaySrc.includes('model=video') ||
+        fileName.toLowerCase().endsWith('.mp4'))
+  );
 
   useEffect(() => {
     setDisplaySrc(src);
@@ -867,6 +874,16 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 </div>
+              ) : isVideo ? (
+                /* Underlying Video Player */
+                <video
+                  src={displaySrc}
+                  controls
+                  autoPlay
+                  loop
+                  playsInline
+                  className="max-w-[90vw] max-h-[76vh] object-contain block select-none rounded-2xl shadow-2xl bg-black"
+                />
               ) : (
                 /* Underlying Image */
                 <img
