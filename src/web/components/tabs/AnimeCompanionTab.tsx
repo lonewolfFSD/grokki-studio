@@ -227,13 +227,13 @@ interface PresetAvatar {
 const PRESET_AVATARS: PresetAvatar[] = [
   {
     id: 'aiko_v1',
-    name: 'Aiko v1 (Classic)',
+    name: 'Aibou v1 (Classic)',
     desc: 'Original',
     url: './assets/avatars/Aiko.vrm',
   },
   {
     id: 'aiko_v2',
-    name: 'Aiko v2 (Halloween)',
+    name: 'Aibou v2 (Halloween)',
     desc: 'Gothic Halloween',
     url: './assets/avatars/Aiko_v2.vrm',
   }
@@ -327,7 +327,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config, on
     return [
       {
         role: 'assistant',
-        content: "Hi there! I'm Ani. I'm so happy you came to hang out in my room! What's on your mind today?",
+        content: "Hi there! I'm Aibou. I'm so happy you came to hang out in my room! What's on your mind today?",
         timestamp: Date.now(),
       },
     ];
@@ -338,9 +338,11 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config, on
   const [loadError, setLoadError] = useState<string | null>(null);
   const [avatarName, setAvatarName] = useState<string>(() => {
     try {
-      return localStorage.getItem('ani_companion_name') || 'Aiko';
+      const saved = localStorage.getItem('ani_companion_name');
+      if (saved && saved !== 'Aiko' && saved !== 'Ani') return saved;
+      return 'Aibou';
     } catch {
-      return 'Aiko';
+      return 'Aibou';
     }
   });
 
@@ -1940,7 +1942,7 @@ ${avatarName}:`;
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md gap-2.5">
           <Loader2 className="w-6 h-6 text-gray-300 animate-spin" />
           <p className="text-xs font-medium text-gray-300 tracking-wide">
-            Entering Aiko&apos;s Room...
+            Entering Grokki Aibou...
           </p>
         </div>
       )}
@@ -2629,17 +2631,17 @@ ${avatarName}:`;
             <div className="mt-5 pt-4 border-t border-white/10">
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-white tracking-wide">
-                  Aiko Outfit &amp; Model Version
+                  Aibou Outfit &amp; Model Version
                 </label>
                 <span className="text-[10px] text-sky-400 font-mono">
-                  {modelUrl.includes('Aiko_v2') ? 'Aiko v2 (Halloween)' : modelUrl.includes('Aiko') ? 'Aiko v1 (Classic)' : 'Custom'}
+                  {modelUrl.includes('Aiko_v2') ? 'Aibou v2 (Halloween)' : modelUrl.includes('Aiko') ? 'Aibou v1 (Classic)' : 'Custom'}
                 </span>
               </div>
               <p className="text-[11px] text-gray-400 mb-2.5 leading-relaxed">
-                Switch instantly between Aiko&apos;s original look and the Halloween gothic outfit.
+                Switch instantly between Aibou&apos;s original look and the Halloween gothic outfit.
               </p>
 
-              {/* Aiko v1 vs v2 Quick Switcher Grid */}
+              {/* Aibou v1 vs v2 Quick Switcher Grid */}
               <div className="grid grid-cols-2 gap-2 mb-3">
                 {PRESET_AVATARS.map((av) => {
                   const isSelected = modelUrl === av.url;

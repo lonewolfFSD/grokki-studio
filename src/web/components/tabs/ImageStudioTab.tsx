@@ -1026,12 +1026,12 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200/70 dark:border-white/[0.07]">
           <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
             {/* Mode Toggle Switcher: ONLY ICONS, light gray low-opacity selected background, no gradient */}
-            <div className="flex items-center rounded-md p-0.5 bg-black/[0.04] dark:bg-white/[0.05] border border-gray-200/80 dark:border-white/10 shrink-0">
+            <div className="flex items-center rounded-md py-[2px] px-[3px] bg-black/[0.04] dark:bg-white/[0.05] border border-gray-200/80 dark:border-white/10 shrink-0">
               <WarmTooltip content="Image Mode" side="top">
                 <button
                   type="button"
                   onClick={() => handleModeSwitch('image')}
-                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors cursor-pointer ${
+                  className={`w-6.5 h-6.5 flex items-center justify-center rounded-[6px] transition-colors cursor-pointer ${
                     studioMode === 'image'
                       ? 'bg-black/10 dark:bg-white/10 text-gray-900 dark:text-gray-100'
                       : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]'
@@ -1044,7 +1044,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                 <button
                   type="button"
                   onClick={() => handleModeSwitch('video')}
-                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors cursor-pointer ${
+                  className={`w-6.5 h-6.5 flex items-center justify-center rounded-[6px] py-[2px] px-[3px] transition-colors cursor-pointer ${
                     studioMode === 'video'
                       ? 'bg-black/10 dark:bg-white/10 text-gray-900 dark:text-gray-100'
                       : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]'

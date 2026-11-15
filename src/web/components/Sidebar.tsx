@@ -1330,7 +1330,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                 )}
               </div>
 
-              {/* 3D Companion */}
+              {/* Grokki Aibou */}
               <div
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1345,7 +1345,7 @@ export const Sidebar = React.memo<SidebarProps>(({
               >
                 <div className="flex items-center gap-2">
                   <HugeiconsIcon icon={User02Icon} size={15} strokeWidth={1.8} className={activeTab === 'companion' ? 'text-pink-500' : 'text-gray-500 dark:text-gray-400'} />
-                  <span>Companion</span>
+                  <span>Grokki Aibou</span>
                 </div>
                 {activeTab === 'companion' && (
                   <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-pink-500" />
