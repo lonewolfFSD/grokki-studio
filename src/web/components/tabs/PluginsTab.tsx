@@ -14,14 +14,7 @@ import {
   ArrowLeft01Icon,
 } from '@hugeicons/core-free-icons';
 import { GrokkiPlugin, JarvisConfig } from '../../types/jarvis';
-
-// Imported local logos
-import githubLogo from '../../assets/logos/github.png';
-import notionLogo from '../../assets/logos/notion.png';
-import obsidianLogo from '../../assets/logos/obsidian.png';
-import whatsappLogo from '../../assets/logos/whatsapp.svg';
-import spotifyLogo from '../../assets/logos/spotify.svg';
-import appleMusicLogo from '../../assets/logos/applemusic.svg';
+import { PluginBrandLogo } from '../PluginBrandLogo';
 
 interface PluginsTabProps {
   config?: JarvisConfig;
@@ -71,261 +64,6 @@ const STORE_CATEGORIES = [
   'Education',
   'Sales',
 ];
-
-// Official Brand & App Icon Renderer
-const PluginBrandLogo: React.FC<{
-  id: string;
-  name?: string;
-  imageUrl?: string | null;
-  className?: string;
-}> = ({ id, name = '', imageUrl, className = 'w-10 h-10' }) => {
-  const [imgFailed, setImgFailed] = useState(false);
-  const normId = id.toLowerCase();
-  const normName = name.toLowerCase();
-
-  if (imageUrl && !imgFailed) {
-    return (
-      <img
-        src={imageUrl}
-        alt={name}
-        className={`${className} rounded-xl object-contain shrink-0 bg-[#14151a] border border-white/10 p-1.5`}
-        onError={() => setImgFailed(true)}
-      />
-    );
-  }
-
-  // Gmail
-  if (normId === 'gmail' || normName.includes('gmail')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#14151a] border border-white/10 flex items-center justify-center p-2 shrink-0`}>
-        <svg viewBox="0 0 24 24" className="w-full h-full">
-          <path d="M2 6l10 7 10-7v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6z" fill="#EA4335" />
-          <path d="M20 4H4c-1.1 0-2 .9-2 2l10 7 10-7c0-1.1-.9-2-2-2z" fill="#FBBC04" />
-          <path d="M2 6v12h3V8.5L2 6z" fill="#4285F4" />
-          <path d="M22 6v12h-3V8.5L22 6z" fill="#34A853" />
-        </svg>
-      </div>
-    );
-  }
-
-  // Google Drive / Workspace
-  if (normId.includes('drive') || normId === 'google-workspace') {
-    return (
-      <div className={`${className} rounded-xl bg-[#14151a] border border-white/10 flex items-center justify-center p-2 shrink-0`}>
-        <svg viewBox="0 0 87.3 78" className="w-full h-full">
-          <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da" />
-          <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47" />
-          <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335" />
-          <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d" />
-          <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc" />
-          <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00" />
-        </svg>
-      </div>
-    );
-  }
-
-  // GitHub
-  if (normId.includes('github') || normId === 'git-tools') {
-    return (
-      <div className={`${className} rounded-xl bg-[#14151a] border border-white/10 flex items-center justify-center p-2 shrink-0`}>
-        <img src={githubLogo} alt="GitHub" className="w-full h-full object-contain invert dark:invert-0" />
-      </div>
-    );
-  }
-
-  // Supabase
-  if (normId.includes('supabase')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#14151a] border border-emerald-500/20 flex items-center justify-center p-2 shrink-0`}>
-        <svg viewBox="0 0 109 113" className="w-5 h-5">
-          <path d="M65.4 112.5c-2.3 2.9-7.1 1.7-7.7-2L48 57.7h45.6c4.6 0 7.3 5 4.8 8.9L65.4 112.5z" fill="#3ECF8E" />
-          <path d="M43.6.5c2.3-2.9 7.1-1.7 7.7 2L61 55.3H15.4c-4.6 0-7.3-5-4.8-8.9L43.6.5z" fill="#3ECF8E" fillOpacity="0.75" />
-        </svg>
-      </div>
-    );
-  }
-
-  // Canva
-  if (normId.includes('canva')) {
-    return (
-      <div className={`${className} rounded-xl bg-gradient-to-br from-[#00C4CC] to-[#7D2AE8] flex items-center justify-center shrink-0 text-white font-serif italic font-bold text-lg`}>
-        C
-      </div>
-    );
-  }
-
-  // Figma
-  if (normId.includes('figma')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#14151a] border border-white/10 flex items-center justify-center p-2 shrink-0`}>
-        <svg viewBox="0 0 38 57" className="w-4 h-5">
-          <path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z" fill="#1ABCFE" />
-          <path d="M0 47.5a9.5 9.5 0 0 1 9.5-9.5H19v9.5a9.5 9.5 0 1 1-19 0z" fill="#0ACF83" />
-          <path d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19H19z" fill="#FF7262" />
-          <path d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z" fill="#F24E1E" />
-          <path d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z" fill="#A259FF" />
-        </svg>
-      </div>
-    );
-  }
-
-  // Slack
-  if (normId.includes('slack')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#14151a] border border-white/10 flex items-center justify-center p-2 shrink-0`}>
-        <svg viewBox="0 0 128 128" className="w-5 h-5">
-          <path d="M26.7 80.5a12.8 12.8 0 1 1-12.8-12.8h12.8v12.8zM33.1 80.5a12.8 12.8 0 0 1 25.6 0v32a12.8 12.8 0 0 1-25.6 0v-32z" fill="#E01E5A" />
-          <path d="M47.5 26.7a12.8 12.8 0 1 1 12.8-12.8v12.8h-12.8zM47.5 33.1a12.8 12.8 0 0 1 0 25.6h-32a12.8 12.8 0 0 1 0-25.6h32z" fill="#36C5F0" />
-          <path d="M101.3 47.5a12.8 12.8 0 1 1 12.8 12.8h-12.8v-12.8zM94.9 47.5a12.8 12.8 0 0 1-25.6 0v-32a12.8 12.8 0 0 1 25.6 0v32z" fill="#2EB67D" />
-          <path d="M80.5 101.3a12.8 12.8 0 1 1-12.8 12.8v-12.8h12.8zM80.5 94.9a12.8 12.8 0 0 1 0-25.6h32a12.8 12.8 0 0 1 0 25.6h-32z" fill="#ECB22E" />
-        </svg>
-      </div>
-    );
-  }
-
-  // Vercel
-  if (normId.includes('vercel')) {
-    return (
-      <div className={`${className} rounded-xl bg-white text-black border border-gray-200 flex items-center justify-center p-2.5 shrink-0`}>
-        <svg viewBox="0 0 76 65" className="w-4 h-4" fill="currentColor">
-          <path d="M37.5274 0L75.0548 65H0L37.5274 0Z" />
-        </svg>
-      </div>
-    );
-  }
-
-  // Stripe
-  if (normId.includes('stripe')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#635BFF] flex items-center justify-center shrink-0 text-white font-bold text-lg`}>
-        S
-      </div>
-    );
-  }
-
-  // Linear
-  if (normId.includes('linear')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#5E6AD2] flex items-center justify-center p-2 shrink-0 text-white`}>
-        <svg viewBox="0 0 100 100" className="w-5 h-5" fill="currentColor">
-          <path d="M1.2 50a48.8 48.8 0 0 0 48.8 48.8c12 0 23-4.3 31.6-11.5L5.7 18.4A48.6 48.6 0 0 0 1.2 50zm17.2-37.3l81.6 81.6A48.8 48.8 0 0 0 98.8 50a48.8 48.8 0 0 0-48.8-48.8c-12 0-23 4.3-31.6 11.5z" />
-        </svg>
-      </div>
-    );
-  }
-
-  // Spotify
-  if (normId.includes('spotify')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#14151a] border border-white/10 flex items-center justify-center p-2 shrink-0`}>
-        <img src={spotifyLogo} alt="Spotify" className="w-full h-full object-contain" />
-      </div>
-    );
-  }
-
-  // Apple Music
-  if (normId.includes('apple-music')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#FA243C] flex items-center justify-center p-2 shrink-0`}>
-        <img src={appleMusicLogo} alt="Apple Music" className="w-full h-full object-contain brightness-200" />
-      </div>
-    );
-  }
-
-  // Notion
-  if (normId.includes('notion')) {
-    return (
-      <div className={`${className} rounded-xl bg-white dark:bg-[#14151a] border border-gray-200 dark:border-white/10 flex items-center justify-center p-2 shrink-0`}>
-        <img src={notionLogo} alt="Notion" className="w-full h-full object-contain" />
-      </div>
-    );
-  }
-
-  // Obsidian
-  if (normId.includes('obsidian')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#14151a] border border-purple-500/30 flex items-center justify-center p-2 shrink-0`}>
-        <img src={obsidianLogo} alt="Obsidian" className="w-full h-full object-contain" />
-      </div>
-    );
-  }
-
-  // WhatsApp
-  if (normId.includes('whatsapp')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#14151a] border border-emerald-500/30 flex items-center justify-center p-2 shrink-0`}>
-        <img src={whatsappLogo} alt="WhatsApp" className="w-full h-full object-contain" />
-      </div>
-    );
-  }
-
-  // HubSpot
-  if (normId.includes('hubspot')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#FF7A59] flex items-center justify-center p-2 shrink-0 text-white font-bold text-sm`}>
-        HS
-      </div>
-    );
-  }
-
-  // Dropbox
-  if (normId.includes('dropbox')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#0061FE] flex items-center justify-center p-2 shrink-0 text-white`}>
-        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
-          <path d="M6 2l6 4-6 4-6-4 6-4zm12 0l6 4-6 4-6-4 6-4zM0 10l6 4 6-4-6-4-6 4zm24 0l-6-4-6 4 6 4 6-4zM6 14.5l6 4 6-4-6-4-6 4z" />
-        </svg>
-      </div>
-    );
-  }
-
-  // ElevenLabs
-  if (normId.includes('elevenlabs')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#14151a] border border-white/15 text-white flex items-center justify-center p-2.5 shrink-0`}>
-        <div className="flex items-center gap-1">
-          <div className="w-1 h-4 bg-white rounded-full" />
-          <div className="w-1 h-4 bg-white rounded-full" />
-        </div>
-      </div>
-    );
-  }
-
-  // Remote Desktop
-  if (normId.includes('desktop')) {
-    return (
-      <div className={`${className} rounded-xl bg-[#14151a] border border-white/15 flex items-center justify-center p-2 shrink-0 text-white font-bold text-xs`}>
-        DC
-      </div>
-    );
-  }
-
-  // Clean monogram fallback with deterministic brand color
-  const palette = [
-    'bg-[#1E293B] text-sky-400 border-sky-500/20',
-    'bg-[#1E1B4B] text-indigo-400 border-indigo-500/20',
-    'bg-[#064E3B] text-emerald-400 border-emerald-500/20',
-    'bg-[#3B0764] text-purple-400 border-purple-500/20',
-    'bg-[#451A03] text-amber-400 border-amber-500/20',
-    'bg-[#3F1D2E] text-rose-400 border-rose-500/20',
-  ];
-  let hash = 0;
-  for (let i = 0; i < normId.length; i++) hash = normId.charCodeAt(i) + ((hash << 5) - hash);
-  const colorCls = palette[Math.abs(hash) % palette.length];
-  const initials = (name || id)
-    .replace(/[^a-zA-Z0-9 ]/g, '')
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join('') || 'P';
-
-  return (
-    <div className={`${className} rounded-xl border flex items-center justify-center shrink-0 font-bold text-xs ${colorCls}`}>
-      {initials}
-    </div>
-  );
-};
 
 export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
   const [viewMode, setViewMode] = useState<MainViewMode>('store');
@@ -487,6 +225,27 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
   useEffect(() => {
     fetchRegistry('');
   }, [fetchRegistry]);
+
+  // Auto-open Connect modal when navigated from Grokki Chat @plugin menu
+  useEffect(() => {
+    if (registryServers.length === 0) return;
+    try {
+      const targetId = localStorage.getItem('grokki_open_plugin_connect');
+      if (targetId) {
+        localStorage.removeItem('grokki_open_plugin_connect');
+        const found = registryServers.find(
+          (s) => s.id.toLowerCase() === targetId.toLowerCase() || s.name.toLowerCase() === targetId.toLowerCase()
+        );
+        if (found) {
+          setConnectingItem(found);
+          setCredentialValues({});
+          setCustomBearerToken('');
+          setShowManualTokenInput(false);
+          setConnectError(null);
+        }
+      }
+    } catch (_) {}
+  }, [registryServers]);
 
   const handleSearchChange = (val: string) => {
     setRegistrySearch(val);

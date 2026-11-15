@@ -253,6 +253,14 @@ class McpManager {
     }));
   }
 
+  getGeminiToolDeclarations() {
+    return this.allTools.map((t) => ({
+      name: t.mcpName,
+      description: t.description,
+      parameters: t.inputSchema || { type: 'OBJECT', properties: {} },
+    }));
+  }
+
   isMcpTool(name) {
     return typeof name === 'string' && name.startsWith('mcp__');
   }

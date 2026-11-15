@@ -3176,6 +3176,14 @@ STRICT OPERATIONAL DIRECTIVES:
       }
     }
 
+    // Active @Plugin Mentions Packaging (from Grokki Chat @ plugin menu)
+    if (context && Array.isArray(context.activePlugins) && context.activePlugins.length > 0) {
+      const pluginListText = context.activePlugins
+        .map((p) => `@${p.name} (${p.description || 'Platform plugin'}${p.connected ? ' — Connected' : ''})`)
+        .join(', ');
+      fullPrompt = `[Active Platform Plugin(s) Invoked by User: ${pluginListText}]\nUse the connected MCP or platform tools for ${context.activePlugins.map((p) => p.name).join(', ')} to fetch live data or execute the requested action on that platform.\n${fullPrompt}`.trim();
+    }
+
     fullPrompt = expandSlashDirective(fullPrompt);
 
     const isAgent = Boolean(context && context.mode === 'agent');
@@ -3328,11 +3336,11 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
     // When Deep Search / Live Grounding is active or query is non-action, omit desktop tools
     const toolsDecl = isWebSearchActive ? undefined : this.getRelevantTools(prompt, provider, context);
     let tools = toolsDecl ? convertGeminiToolsToOpenAI(toolsDecl) : undefined;
-    if (tools && !isWebSearchActive && provider !== 'ollama') {
+    if (!isWebSearchActive && provider !== 'ollama') {
       try {
         const mcpTools = mcpManager.getOpenAIToolDefinitions();
         if (mcpTools && mcpTools.length > 0) {
-          tools = tools.concat(mcpTools);
+          tools = (tools || []).concat(mcpTools);
         }
       } catch (_) {}
     }
@@ -4133,6 +4141,14 @@ To allow me to inspect, edit, create files, or run commands on your system:
       }
     }
 
+    // Active @Plugin Mentions Packaging in Gemini
+    if (context && Array.isArray(context.activePlugins) && context.activePlugins.length > 0) {
+      const pluginListText = context.activePlugins
+        .map((p) => `@${p.name} (${p.description || 'Platform plugin'}${p.connected ? ' — Connected' : ''})`)
+        .join(', ');
+      fullPrompt = `[Active Platform Plugin(s) Invoked by User: ${pluginListText}]\nUse the connected MCP or platform tools for ${context.activePlugins.map((p) => p.name).join(', ')} to fetch live data or execute the requested action on that platform.\n${fullPrompt}`.trim();
+    }
+
     const ai = new GoogleGenAI({ apiKey });
     this.currentContext = context || {};
 
@@ -4163,7 +4179,19 @@ To allow me to inspect, edit, create files, or run commands on your system:
     }
 
     // When Deep Search / Live Grounding is active, omit desktop tools so Gemini synthesizes search results
-    const tools = isWebSearchActive ? undefined : this.getRelevantTools(prompt, 'gemini', context);
+    let tools = isWebSearchActive ? undefined : this.getRelevantTools(prompt, 'gemini', context);
+    if (!isWebSearchActive) {
+      try {
+        const mcpGeminiDecls = mcpManager.getGeminiToolDeclarations();
+        if (mcpGeminiDecls && mcpGeminiDecls.length > 0) {
+          if (tools && tools[0] && Array.isArray(tools[0].functionDeclarations)) {
+            tools = [{ functionDeclarations: [...tools[0].functionDeclarations, ...mcpGeminiDecls] }];
+          } else {
+            tools = [{ functionDeclarations: mcpGeminiDecls }];
+          }
+        }
+      } catch (_) {}
+    }
     const systemInstruction = isAgent
       ? this.buildAgentSystemPrompt(context, config, fullPrompt, conversationHistory)
       : memory.buildSystemPrompt(config, fullPrompt, context);

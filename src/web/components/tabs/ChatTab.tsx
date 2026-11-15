@@ -9,6 +9,7 @@ import {
 } from '../../utils/greetings';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Layers01Icon } from '@hugeicons/core-free-icons';
+import { PluginBrandLogo } from '../PluginBrandLogo';
 import {
   ArrowUp,
   CornerDownLeft,
@@ -2241,7 +2242,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashDismissed, setSlashDismissed] = useState(false);
 
-  // Workspace Mentions state (@file and @folder)
+  // Workspace Mentions state (@file and @folder in Agent Mode) & @Plugin Mentions in Grokki Chat
   const [workspaceRoot, setWorkspaceRoot] = useState<string>('');
   const [workspaceFolderName, setWorkspaceFolderName] = useState<string>('');
   const [scannedFiles, setScannedFiles] = useState<WorkspaceMention[]>([]);
@@ -2249,6 +2250,20 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const [stagedMentions, setStagedMentions] = useState<WorkspaceMention[]>([]);
   const [mentionIndex, setMentionIndex] = useState<number>(0);
   const [mentionDismissed, setMentionDismissed] = useState<boolean>(false);
+
+  // Grokki Chat @Plugin selector state
+  interface ChatPluginMentionItem {
+    id: string;
+    name: string;
+    description: string;
+    imageUrl?: string | null;
+    authPortalUrl?: string | null;
+    mcpUrl?: string | null;
+    officialPluginId?: string;
+    connected: boolean;
+  }
+  const [chatPluginsList, setChatPluginsList] = useState<ChatPluginMentionItem[]>([]);
+  const [stagedPlugins, setStagedPlugins] = useState<ChatPluginMentionItem[]>([]);
 
   // AI Brain Detection & Model Selection
   const activeBrain = (config.provider || 'gemini') as AiProvider;
@@ -2766,16 +2781,154 @@ export const ChatTab = React.memo<ChatTabProps>(({
       )
     : [];
 
-  // Workspace @mention detection
+  // Workspace @mention (Agent mode) or @Plugin mention (Grokki Chat mode)
   const lastAtIdx = inputValue.lastIndexOf('@');
+  const afterAtText = lastAtIdx !== -1 ? inputValue.slice(lastAtIdx + 1) : '';
   const isMentionMode =
     lastAtIdx !== -1 &&
     (lastAtIdx === 0 || /\s/.test(inputValue[lastAtIdx - 1])) &&
+    !afterAtText.includes('  ') &&
+    afterAtText.split(/\s/).length <= 2 &&
     !mentionDismissed;
 
   const mentionQuery = isMentionMode
-    ? inputValue.slice(lastAtIdx + 1).split(/\s/)[0]
+    ? inputValue.slice(lastAtIdx + 1).trim()
     : '';
+
+  // Load installed & catalog plugins for Grokki Chat @ menu
+  const refreshChatPlugins = useCallback(async () => {
+    try {
+      const [pluginsRes, regRes, googleSt, waSt, notionSt, obsidianSt, ghSt] = await Promise.all([
+        window.jarvisAPI?.getPlugins ? window.jarvisAPI.getPlugins() : Promise.resolve(null),
+        window.jarvisAPI?.fetchMcpRegistry ? (window.jarvisAPI.fetchMcpRegistry as any)('') : Promise.resolve(null),
+        window.jarvisAPI?.getGoogleStatus ? window.jarvisAPI.getGoogleStatus().catch(() => null) : Promise.resolve(null),
+        window.jarvisAPI?.getOpenWAStatus ? window.jarvisAPI.getOpenWAStatus().catch(() => null) : Promise.resolve(null),
+        window.jarvisAPI?.getNotionStatus ? window.jarvisAPI.getNotionStatus().catch(() => null) : Promise.resolve(null),
+        window.jarvisAPI?.getObsidianStatus ? window.jarvisAPI.getObsidianStatus().catch(() => null) : Promise.resolve(null),
+        window.jarvisAPI?.getGitHubStatus ? window.jarvisAPI.getGitHubStatus().catch(() => null) : Promise.resolve(null),
+      ]);
+
+      const accountStatuses: Record<string, boolean> = {
+        'google-workspace': Boolean(googleSt?.connected),
+        whatsapp: Boolean(waSt?.connected),
+        notion: Boolean(notionSt?.connected),
+        obsidian: Boolean(obsidianSt?.connected),
+        'git-tools': Boolean(ghSt?.connected),
+      };
+
+      const officialList: any[] = pluginsRes?.official || [];
+      const customList: any[] = pluginsRes?.custom || [];
+      const registryList: any[] = regRes?.servers || [];
+
+      const connectedOfficialIds = new Set<string>();
+      for (const off of officialList) {
+        const linked = off.requiresAccount ? (accountStatuses[off.id] ?? off.accountLinked ?? false) : true;
+        if (linked && off.isEnabled) {
+          connectedOfficialIds.add(off.id);
+        }
+      }
+
+      const connectedCustomMap = new Map<string, any>();
+      for (const cp of customList) {
+        if (cp.isEnabled) {
+          connectedCustomMap.set(cp.id.toLowerCase(), cp);
+        }
+      }
+
+      const itemsMap = new Map<string, ChatPluginMentionItem>();
+
+      // 1. Add all connected custom plugins first
+      for (const cp of customList) {
+        if (!cp.isEnabled) continue;
+        itemsMap.set(cp.id.toLowerCase(), {
+          id: cp.id,
+          name: cp.name,
+          description: cp.description || 'Connected MCP plugin',
+          imageUrl: cp.imageUrl || null,
+          authPortalUrl: cp.repoUrl || null,
+          mcpUrl: cp.mcpServer?.url || null,
+          connected: true,
+        });
+      }
+
+      // 2. Add curated & registry plugins (prioritizing LinkedIn, Vercel, OpenAI Platform, Linktree, Gmail, etc.)
+      const priorityIds = ['linkedin', 'vercel', 'openai-platform', 'linktree', 'gmail', 'google-drive', 'github', 'supabase', 'notion-mcp', 'canva', 'figma', 'slack', 'stripe', 'spotify', 'hubspot'];
+      const sortedRegistry = [...registryList].sort((a, b) => {
+        const idxA = priorityIds.indexOf(a.id);
+        const idxB = priorityIds.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return 0;
+      });
+
+      for (const srv of sortedRegistry) {
+        const key = srv.id.toLowerCase();
+        const isConn =
+          connectedCustomMap.has(key) ||
+          (srv.officialPluginId ? connectedOfficialIds.has(srv.officialPluginId) : false);
+
+        if (itemsMap.has(key)) {
+          const existing = itemsMap.get(key)!;
+          existing.imageUrl = existing.imageUrl || srv.imageUrl;
+          existing.authPortalUrl = existing.authPortalUrl || srv.authPortalUrl;
+          existing.mcpUrl = existing.mcpUrl || srv.mcpUrl;
+          continue;
+        }
+
+        itemsMap.set(key, {
+          id: srv.id,
+          name: srv.name,
+          description: srv.description || 'Connect and run actions on this platform',
+          imageUrl: srv.imageUrl || null,
+          authPortalUrl: srv.authPortalUrl || null,
+          mcpUrl: srv.mcpUrl || null,
+          officialPluginId: srv.officialPluginId,
+          connected: isConn,
+        });
+      }
+
+      // Sort so connected plugins appear at the top, followed by priority/available plugins
+      const allItems = Array.from(itemsMap.values()).sort((a, b) => {
+        if (a.connected && !b.connected) return -1;
+        if (!a.connected && b.connected) return 1;
+        const idxA = priorityIds.indexOf(a.id);
+        const idxB = priorityIds.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return 0;
+      });
+
+      setChatPluginsList(allItems);
+    } catch (e) {
+      console.warn('Failed to load chat plugins for @ menu:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshChatPlugins();
+  }, [refreshChatPlugins]);
+
+  useEffect(() => {
+    if (isMentionMode && !agentMode) {
+      refreshChatPlugins();
+    }
+  }, [isMentionMode, agentMode, refreshChatPlugins]);
+
+  const filteredChatPlugins = useMemo(() => {
+    if (!isMentionMode || agentMode) return [];
+    const q = mentionQuery.toLowerCase().trim();
+    if (!q) return chatPluginsList.slice(0, 25);
+    return chatPluginsList
+      .filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.id.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q)
+      )
+      .slice(0, 25);
+  }, [isMentionMode, agentMode, mentionQuery, chatPluginsList]);
 
   useEffect(() => {
     if (window.jarvisAPI?.getWorkspaceRoot) {
@@ -2789,7 +2942,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
   }, []);
 
   useEffect(() => {
-    if (!isMentionMode) return;
+    if (!isMentionMode || !agentMode) return;
     let isCancelled = false;
     if (window.jarvisAPI?.scanWorkspaceFiles) {
       window.jarvisAPI.scanWorkspaceFiles({ query: mentionQuery, maxResults: 30 }).then((res) => {
@@ -2804,7 +2957,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     return () => {
       isCancelled = true;
     };
-  }, [isMentionMode, mentionQuery]);
+  }, [isMentionMode, agentMode, mentionQuery]);
 
   useEffect(() => {
     if (lastAtIdx === -1) {
@@ -2812,6 +2965,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
       setMentionIndex(0);
     }
   }, [lastAtIdx]);
+
+  useEffect(() => {
+    setMentionIndex(0);
+  }, [mentionQuery]);
 
   useEffect(() => {
     if (!inputValue.startsWith('/')) {
@@ -3763,6 +3920,34 @@ export const ChatTab = React.memo<ChatTabProps>(({
     setTimeout(() => inputRef.current?.focus(), 40);
   };
 
+  const handleSelectChatPlugin = (plugin: ChatPluginMentionItem) => {
+    const prefix = inputValue.slice(0, lastAtIdx);
+    const suffix = inputValue.slice(lastAtIdx + 1 + mentionQuery.length);
+    const nextText = `${prefix}@${plugin.name} ${suffix}`.trimStart();
+    setInputValue(nextText);
+    setStagedPlugins((prev) =>
+      prev.some((p) => p.id === plugin.id) ? prev : [...prev, plugin]
+    );
+    setMentionDismissed(true);
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 40);
+  };
+
+  const handleConnectPluginFromAtMenu = (plugin: ChatPluginMentionItem, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setMentionDismissed(true);
+    try {
+      localStorage.setItem('grokki_open_plugin_connect', plugin.id);
+    } catch (_) {}
+    onNavigateTab('plugins');
+  };
+
   const handleSelectWorkspaceFolder = async () => {
     if (!window.jarvisAPI?.selectWorkspaceFolder) return;
     try {
@@ -3880,7 +4065,20 @@ export const ChatTab = React.memo<ChatTabProps>(({
     }
 
     const currentMentions = [...stagedMentions];
-    if (text.includes('@')) {
+    const currentActivePlugins = [...stagedPlugins];
+
+    if (!agentMode && text.includes('@')) {
+      for (const p of chatPluginsList) {
+        const escaped = p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (new RegExp(`@${escaped}\\b`, 'i').test(text) || new RegExp(`@${p.id}\\b`, 'i').test(text)) {
+          if (!currentActivePlugins.some((ap) => ap.id === p.id)) {
+            currentActivePlugins.push(p);
+          }
+        }
+      }
+    }
+
+    if (agentMode && text.includes('@')) {
       const inlineMatches = text.match(/@([a-zA-Z0-9_.\-/\\]+)/g) || [];
       for (const rawToken of inlineMatches) {
         const cleanToken = rawToken.slice(1).replace(/[.,;:!?)]+$/, '');
@@ -3945,6 +4143,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     setInputValue('');
     setAttachedFile(null);
     setStagedMentions([]);
+    setStagedPlugins([]);
     setSlashDismissed(false);
     setMentionDismissed(false);
     onSetConvoThinking?.(targetConvoId, true);
@@ -3985,6 +4184,9 @@ export const ChatTab = React.memo<ChatTabProps>(({
         }
         if (currentMentions.length > 0) {
           context.projectMentions = currentMentions;
+        }
+        if (currentActivePlugins.length > 0) {
+          context.activePlugins = currentActivePlugins;
         }
         if (webSearchEnabled) {
           context.webSearch = true;
@@ -4028,6 +4230,9 @@ export const ChatTab = React.memo<ChatTabProps>(({
         }
         if (currentMentions.length > 0) {
           context.projectMentions = currentMentions;
+        }
+        if (currentActivePlugins.length > 0) {
+          context.activePlugins = currentActivePlugins;
         }
         if (webSearchEnabled) {
           context.webSearch = true;
@@ -4213,7 +4418,33 @@ export const ChatTab = React.memo<ChatTabProps>(({
       handleStopGeneration();
       return;
     }
-    if (isMentionMode && scannedFiles.length > 0) {
+    if (isMentionMode && !agentMode && filteredChatPlugins.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex((prev) => (prev + 1) % filteredChatPlugins.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex((prev) => (prev - 1 + filteredChatPlugins.length) % filteredChatPlugins.length);
+        return;
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault();
+        const selected = filteredChatPlugins[mentionIndex] || filteredChatPlugins[0];
+        if (selected) {
+          handleSelectChatPlugin(selected);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setMentionDismissed(true);
+        return;
+      }
+    }
+
+    if (isMentionMode && agentMode && scannedFiles.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setMentionIndex((prev) => (prev + 1) % scannedFiles.length);
@@ -4912,6 +5143,76 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
   const renderMentionMenu = (placement: 'top' | 'bottom' = 'bottom') => {
     if (!isMentionMode) return null;
+
+    // In Grokki Chat (!agentMode), @ shows the ChatGPT-style Plugins selector
+    if (!agentMode) {
+      const positionClasses =
+        placement === 'top'
+          ? 'bottom-full mb-2.5 shadow-[0_20px_50px_rgba(0,0,0,0.75)]'
+          : 'top-full mt-2.5 shadow-[0_20px_50px_rgba(0,0,0,0.75)]';
+
+      return (
+        <div
+          className={`absolute left-0 right-0 bg-[#1e1e1e] border border-white/[0.08] rounded-2xl z-50 overflow-hidden flex flex-col animate-in fade-in duration-150 select-none ${positionClasses}`}
+        >
+          <div className="max-h-[300px] overflow-y-auto p-1.5 flex flex-col gap-0.5">
+            {filteredChatPlugins.length === 0 ? (
+              <div className="px-3.5 py-4 text-[13px] text-zinc-400 text-left">
+                No matching plugins found for "@{mentionQuery}"
+              </div>
+            ) : (
+              filteredChatPlugins.map((plugin, idx) => {
+                const isSelected = idx === mentionIndex;
+                return (
+                  <div
+                    key={plugin.id}
+                    onClick={() => handleSelectChatPlugin(plugin)}
+                    onMouseEnter={() => setMentionIndex(idx)}
+                    className={`flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-left cursor-pointer transition-colors ${
+                      isSelected ? 'bg-white/[0.08]' : 'hover:bg-white/[0.05]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <PluginBrandLogo
+                        id={plugin.id}
+                        name={plugin.name}
+                        imageUrl={plugin.imageUrl}
+                        authPortalUrl={plugin.authPortalUrl}
+                        mcpUrl={plugin.mcpUrl}
+                        className="w-5 h-5 rounded-md border-0 bg-transparent"
+                        imgClassName="p-0"
+                      />
+                      <div className="flex items-baseline gap-2.5 min-w-0 flex-1">
+                        <span className="text-[13.5px] font-medium text-white shrink-0">
+                          {plugin.name}
+                        </span>
+                        <span className="text-[13px] text-zinc-400 truncate">
+                          {plugin.description}
+                        </span>
+                      </div>
+                    </div>
+
+                    {!plugin.connected && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleConnectPluginFromAtMenu(plugin, e)}
+                        className="text-[12.5px] font-medium text-zinc-200 hover:text-white px-2 py-0.5 rounded-md hover:bg-white/10 transition-colors cursor-pointer bg-transparent border-none shrink-0"
+                      >
+                        Connect
+                      </button>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <div className="px-3.5 py-2 text-[12px] text-zinc-500 border-t border-white/[0.05] text-left">
+            Type to search plugins
+          </div>
+        </div>
+      );
+    }
+
     return (
       <WorkspaceMentionMenu
         items={scannedFiles}
@@ -5711,6 +6012,35 @@ export const ChatTab = React.memo<ChatTabProps>(({
             {renderSlashMenu()}
             {renderMentionMenu('bottom')}
             {renderSynthesizerVisualizer()}
+
+            {stagedPlugins.length > 0 && !agentMode && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-2 px-1">
+                {stagedPlugins.map((p) => (
+                  <div
+                    key={p.id}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1e1e1e] border border-white/10 text-white text-[12px] font-medium shadow-xs"
+                  >
+                    <PluginBrandLogo
+                      id={p.id}
+                      name={p.name}
+                      imageUrl={p.imageUrl}
+                      authPortalUrl={p.authPortalUrl}
+                      mcpUrl={p.mcpUrl}
+                      className="w-4 h-4 rounded-sm border-0 bg-transparent"
+                      imgClassName="p-0"
+                    />
+                    <span>{p.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setStagedPlugins((prev) => prev.filter((item) => item.id !== p.id))}
+                      className="text-zinc-400 hover:text-white cursor-pointer bg-transparent border-none p-0 ml-0.5 flex items-center"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {stagedMentions.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 mb-2 px-1">
@@ -6752,6 +7082,35 @@ export const ChatTab = React.memo<ChatTabProps>(({
             {renderSlashMenu('top')}
             {renderMentionMenu('top')}
             {renderSynthesizerVisualizer()}
+
+            {stagedPlugins.length > 0 && !agentMode && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-2 px-1">
+                {stagedPlugins.map((p) => (
+                  <div
+                    key={p.id}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1e1e1e] border border-white/10 text-white text-[12px] font-medium shadow-xs"
+                  >
+                    <PluginBrandLogo
+                      id={p.id}
+                      name={p.name}
+                      imageUrl={p.imageUrl}
+                      authPortalUrl={p.authPortalUrl}
+                      mcpUrl={p.mcpUrl}
+                      className="w-4 h-4 rounded-sm border-0 bg-transparent"
+                      imgClassName="p-0"
+                    />
+                    <span>{p.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setStagedPlugins((prev) => prev.filter((item) => item.id !== p.id))}
+                      className="text-zinc-400 hover:text-white cursor-pointer bg-transparent border-none p-0 ml-0.5 flex items-center"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {stagedMentions.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 mb-2 px-1">
