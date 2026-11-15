@@ -12,17 +12,19 @@ import {
   Search01Icon,
   ComputerTerminal01Icon,
   Layers01Icon,
-  StarIcon,
   ArrowUpRight01Icon,
+  InformationCircleIcon,
+  User02Icon,
 } from '@hugeicons/core-free-icons';
 import { GrokkiPlugin, JarvisConfig } from '../../types/jarvis';
 
-// Real logos for Grokki's official plugins
+// Imported local logos
 import googleLogo from '../../assets/logos/google.png';
 import githubLogo from '../../assets/logos/github.png';
 import notionLogo from '../../assets/logos/notion.png';
 import obsidianLogo from '../../assets/logos/obsidian.png';
 import whatsappLogo from '../../assets/logos/whatsapp.svg';
+import spotifyLogo from '../../assets/logos/spotify.svg';
 
 interface PluginsTabProps {
   config?: JarvisConfig;
@@ -30,42 +32,271 @@ interface PluginsTabProps {
   onNavigateTab?: (tab: string) => void;
 }
 
-type PluginSubView = 'list' | 'add' | 'configure';
-type AddPluginMode = 'marketplace' | 'stdio' | 'remote' | 'json';
+type MainViewMode = 'store' | 'installed' | 'custom-add';
+type AddCustomMode = 'stdio' | 'remote' | 'json';
 
-interface McpRegistryServer {
+interface RegistryPluginItem {
   id: string;
   name: string;
-  fullName: string;
-  author: string;
   description: string;
-  stars: number;
-  imageUrl: string;
-  repoUrl: string;
-  command: string;
-  args: string[];
-  transport: 'stdio' | 'streamable-http';
+  category: string;
+  author?: string;
+  imageUrl?: string;
+  command?: string;
+  args?: string[];
+  transport?: 'stdio' | 'streamable-http';
+  isOfficial?: boolean;
+  officialPluginId?: string;
+  requiresAccount?: boolean;
 }
 
+// Crisp Vector Brand Logos for the Marketplace
+const PluginBrandLogo: React.FC<{ id: string; name?: string; imageUrl?: string; className?: string }> = ({
+  id,
+  name = '',
+  imageUrl,
+  className = 'w-10 h-10',
+}) => {
+  const normId = id.toLowerCase();
+
+  // If explicit imageUrl provided from server and not local fallback
+  if (imageUrl && !normId.includes('custom') && !normId.includes('plugin-')) {
+    return (
+      <img
+        src={imageUrl}
+        alt={name}
+        className={`${className} rounded-xl object-contain shrink-0 bg-white/5 border border-white/10 p-1`}
+        onError={(e) => {
+          (e.currentTarget as HTMLElement).style.display = 'none';
+        }}
+      />
+    );
+  }
+
+  // Gmail
+  if (normId === 'gmail' || normId.includes('gmail')) {
+    return (
+      <div className={`${className} rounded-xl bg-white dark:bg-[#14151a] border border-gray-200 dark:border-white/10 flex items-center justify-center p-2 shrink-0 shadow-xs`}>
+        <svg viewBox="0 0 24 24" className="w-full h-full">
+          <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z" fill="#E8E8E8" />
+          <path d="M20 4L12 11 4 4" fill="#EA4335" />
+          <path d="M4 4h4v7L4 7z" fill="#C5221F" />
+          <path d="M20 4h-4v7l4-4z" fill="#C5221F" />
+          <path d="M2 6l10 7 10-7v12H2z" fill="#EA4335" />
+          <path d="M2 18l7-6-7-5z" fill="#FBBC04" />
+          <path d="M22 18l-7-6 7-5z" fill="#34A853" />
+          <path d="M2 6v12h2V6z" fill="#4285F4" />
+          <path d="M20 6v12h2V6z" fill="#4285F4" />
+        </svg>
+      </div>
+    );
+  }
+
+  // Google Drive / Workspace
+  if (normId.includes('drive') || normId === 'google-workspace') {
+    return (
+      <div className={`${className} rounded-xl bg-white dark:bg-[#14151a] border border-gray-200 dark:border-white/10 flex items-center justify-center p-2 shrink-0 shadow-xs`}>
+        <svg viewBox="0 0 87.3 78" className="w-full h-full">
+          <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da" />
+          <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47" />
+          <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335" />
+          <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d" />
+          <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc" />
+          <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00" />
+        </svg>
+      </div>
+    );
+  }
+
+  // GitHub
+  if (normId.includes('github') || normId === 'git-tools') {
+    return (
+      <div className={`${className} rounded-xl bg-black dark:bg-[#181920] border border-gray-200 dark:border-white/10 flex items-center justify-center p-2 shrink-0 shadow-xs`}>
+        <img src={githubLogo} alt="GitHub" className="w-full h-full object-contain invert dark:invert-0" />
+      </div>
+    );
+  }
+
+  // Supabase
+  if (normId.includes('supabase')) {
+    return (
+      <div className={`${className} rounded-xl bg-[#1c1c1c] border border-emerald-500/20 flex items-center justify-center p-2 shrink-0 shadow-xs`}>
+        <svg viewBox="0 0 109 113" className="w-5 h-5">
+          <path
+            d="M65.4 112.5c-2.3 2.9-7.1 1.7-7.7-2L48 57.7h45.6c4.6 0 7.3 5 4.8 8.9L65.4 112.5z"
+            fill="#3ECF8E"
+          />
+          <path
+            d="M43.6.5c2.3-2.9 7.1-1.7 7.7 2L61 55.3H15.4c-4.6 0-7.3-5-4.8-8.9L43.6.5z"
+            fill="#3ECF8E"
+            fillOpacity="0.75"
+          />
+        </svg>
+      </div>
+    );
+  }
+
+  // ElevenLabs
+  if (normId.includes('elevenlabs')) {
+    return (
+      <div className={`${className} rounded-xl bg-black dark:bg-white text-white dark:text-black border border-white/10 flex items-center justify-center p-2.5 shrink-0 shadow-xs`}>
+        <div className="flex items-center gap-1">
+          <div className="w-1.5 h-4.5 bg-current rounded-full" />
+          <div className="w-1.5 h-4.5 bg-current rounded-full" />
+        </div>
+      </div>
+    );
+  }
+
+  // Spotify
+  if (normId.includes('spotify')) {
+    return (
+      <div className={`${className} rounded-xl bg-[#121212] border border-emerald-500/20 flex items-center justify-center p-2 shrink-0 shadow-xs`}>
+        <img src={spotifyLogo} alt="Spotify" className="w-full h-full object-contain" />
+      </div>
+    );
+  }
+
+  // Dropbox
+  if (normId.includes('dropbox')) {
+    return (
+      <div className={`${className} rounded-xl bg-[#0061FE] border border-blue-400/30 flex items-center justify-center p-2 shrink-0 shadow-xs`}>
+        <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor">
+          <path d="M6 2l6 4-6 4-6-4 6-4zm12 0l6 4-6 4-6-4 6-4zM0 10l6 4 6-4-6-4-6 4zm24 0l-6-4-6 4 6 4 6-4zM6 14.5l6 4 6-4-6-4-6 4zm6 5.5l-6-4-1.5 1 7.5 5 7.5-5-1.5-1-6 4z" />
+        </svg>
+      </div>
+    );
+  }
+
+  // Linear
+  if (normId.includes('linear')) {
+    return (
+      <div className={`${className} rounded-xl bg-[#5E6AD2] border border-indigo-400/30 flex items-center justify-center p-2 shrink-0 shadow-xs text-white`}>
+        <svg viewBox="0 0 100 100" className="w-5 h-5" fill="currentColor">
+          <path d="M1.2 50a48.8 48.8 0 0 0 48.8 48.8c12 0 23-4.3 31.6-11.5L5.7 18.4A48.6 48.6 0 0 0 1.2 50zm17.2-37.3l81.6 81.6A48.8 48.8 0 0 0 98.8 50a48.8 48.8 0 0 0-48.8-48.8c-12 0-23 4.3-31.6 11.5z" />
+        </svg>
+      </div>
+    );
+  }
+
+  // Figma
+  if (normId.includes('figma')) {
+    return (
+      <div className={`${className} rounded-xl bg-[#1e1e1e] border border-white/10 flex items-center justify-center p-2 shrink-0 shadow-xs`}>
+        <svg viewBox="0 0 38 57" className="w-4 h-5">
+          <path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z" fill="#1ABCFE" />
+          <path d="M0 47.5a9.5 9.5 0 0 1 9.5-9.5H19v9.5a9.5 9.5 0 1 1-19 0z" fill="#0ACF83" />
+          <path d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19H19z" fill="#FF7262" />
+          <path d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z" fill="#F24E1E" />
+          <path d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z" fill="#A259FF" />
+        </svg>
+      </div>
+    );
+  }
+
+  // Slack
+  if (normId.includes('slack')) {
+    return (
+      <div className={`${className} rounded-xl bg-[#4A154B] border border-white/10 flex items-center justify-center p-2 shrink-0 shadow-xs`}>
+        <svg viewBox="0 0 128 128" className="w-5 h-5">
+          <path d="M26.7 80.5a12.8 12.8 0 1 1-12.8-12.8h12.8v12.8z" fill="#E01E5A" />
+          <path d="M33.1 80.5a12.8 12.8 0 0 1 25.6 0v32a12.8 12.8 0 0 1-25.6 0v-32z" fill="#E01E5A" />
+          <path d="M47.5 26.7a12.8 12.8 0 1 1 12.8-12.8v12.8h-12.8z" fill="#36C5F0" />
+          <path d="M47.5 33.1a12.8 12.8 0 0 1 0 25.6h-32a12.8 12.8 0 0 1 0-25.6h32z" fill="#36C5F0" />
+          <path d="M101.3 47.5a12.8 12.8 0 1 1 12.8 12.8h-12.8v-12.8z" fill="#2EB67D" />
+          <path d="M94.9 47.5a12.8 12.8 0 0 1-25.6 0v-32a12.8 12.8 0 0 1 25.6 0v32z" fill="#2EB67D" />
+          <path d="M80.5 101.3a12.8 12.8 0 1 1-12.8 12.8v-12.8h12.8z" fill="#ECB22E" />
+          <path d="M80.5 94.9a12.8 12.8 0 0 1 0-25.6h32a12.8 12.8 0 0 1 0 25.6h-32z" fill="#ECB22E" />
+        </svg>
+      </div>
+    );
+  }
+
+  // Playwright
+  if (normId.includes('playwright')) {
+    return (
+      <div className={`${className} rounded-xl bg-[#2EAD33]/15 border border-[#2EAD33]/30 flex items-center justify-center p-2 shrink-0 shadow-xs`}>
+        <span className="text-lg">🎭</span>
+      </div>
+    );
+  }
+
+  // SQLite / Database
+  if (normId.includes('sqlite') || normId.includes('postgres') || normId.includes('db')) {
+    return (
+      <div className={`${className} rounded-xl bg-[#003B57]/20 border border-[#003B57]/40 flex items-center justify-center p-2 shrink-0 shadow-xs text-sky-400`}>
+        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
+          <ellipse cx="12" cy="5" rx="9" ry="3" />
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+        </svg>
+      </div>
+    );
+  }
+
+  // Notion
+  if (normId.includes('notion')) {
+    return (
+      <div className={`${className} rounded-xl bg-white dark:bg-[#181920] border border-gray-200 dark:border-white/10 flex items-center justify-center p-2 shrink-0 shadow-xs`}>
+        <img src={notionLogo} alt="Notion" className="w-full h-full object-contain" />
+      </div>
+    );
+  }
+
+  // Obsidian
+  if (normId.includes('obsidian')) {
+    return (
+      <div className={`${className} rounded-xl bg-[#7C3AED]/15 border border-[#7C3AED]/30 flex items-center justify-center p-2 shrink-0 shadow-xs`}>
+        <img src={obsidianLogo} alt="Obsidian" className="w-full h-full object-contain" />
+      </div>
+    );
+  }
+
+  // WhatsApp
+  if (normId.includes('whatsapp')) {
+    return (
+      <div className={`${className} rounded-xl bg-[#25D366]/15 border border-[#25D366]/30 flex items-center justify-center p-2 shrink-0 shadow-xs`}>
+        <img src={whatsappLogo} alt="WhatsApp" className="w-full h-full object-contain" />
+      </div>
+    );
+  }
+
+  // Remote Desktop / Desktop Automation
+  if (normId.includes('desktop')) {
+    return (
+      <div className={`${className} rounded-xl bg-black/60 dark:bg-white/10 border border-white/15 flex items-center justify-center p-2 shrink-0 shadow-xs text-indigo-400`}>
+        <HugeiconsIcon icon={ComputerTerminal01Icon} size={20} strokeWidth={2} />
+      </div>
+    );
+  }
+
+  // Fallback
+  return (
+    <div className={`${className} rounded-xl bg-gray-100 dark:bg-zinc-800/80 border border-gray-200 dark:border-white/10 flex items-center justify-center shrink-0 text-gray-400 dark:text-zinc-400`}>
+      <HugeiconsIcon icon={PuzzleIcon} size={20} strokeWidth={1.8} />
+    </div>
+  );
+};
+
 export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
-  const [currentView, setCurrentView] = useState<PluginSubView>('list');
+  const [viewMode, setViewMode] = useState<MainViewMode>('store');
   const [officialPlugins, setOfficialPlugins] = useState<GrokkiPlugin[]>([]);
   const [customPlugins, setCustomPlugins] = useState<GrokkiPlugin[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // In-Tab Configure Sub-View State
+  // Search & Live Registry
+  const [registrySearch, setRegistrySearch] = useState('');
+  const [registryServers, setRegistryServers] = useState<RegistryPluginItem[]>([]);
+  const [isRegistryLoading, setIsRegistryLoading] = useState(false);
+  const [installingId, setInstallingId] = useState<string | null>(null);
+
+  // In-Tab Configure Drawer State
   const [configuringPlugin, setConfiguringPlugin] = useState<GrokkiPlugin | null>(null);
   const [tempConfig, setTempConfig] = useState<Record<string, any>>({});
 
-  // In-Tab Add Plugin Sub-View State
-  const [addMode, setAddMode] = useState<AddPluginMode>('marketplace');
-  const [registryServers, setRegistryServers] = useState<McpRegistryServer[]>([]);
-  const [isRegistryLoading, setIsRegistryLoading] = useState(false);
-  const [registrySearch, setRegistrySearch] = useState('');
-  const [installingId, setInstallingId] = useState<string | null>(null);
-
-  // Custom Form Fields
+  // Custom Form Fields (for power users)
+  const [addCustomMode, setAddCustomMode] = useState<AddCustomMode>('stdio');
   const [newPluginName, setNewPluginName] = useState('');
   const [newPluginDesc, setNewPluginDesc] = useState('');
   const [newMcpCommand, setNewMcpCommand] = useState('npx');
@@ -184,53 +415,99 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
   }, []);
 
   useEffect(() => {
-    if (currentView === 'add' && addMode === 'marketplace') {
-      fetchRegistry(registrySearch);
-    }
-  }, [currentView, addMode, fetchRegistry]);
+    fetchRegistry(registrySearch);
+  }, [fetchRegistry, registrySearch]);
 
   const handleSearchChange = (val: string) => {
     setRegistrySearch(val);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => {
       fetchRegistry(val);
-    }, 350);
+    }, 300);
   };
 
-  const handleToggle = async (plugin: GrokkiPlugin, e: React.MouseEvent) => {
-    e.stopPropagation();
+  // Check if a plugin is installed & active
+  const isInstalled = useCallback(
+    (pluginId: string) => {
+      const isCustom = customPlugins.some((p) => p.id === pluginId && p.isEnabled);
+      const isOff = officialPlugins.some((p) => (p.id === pluginId || (pluginId === 'gmail' && p.id === 'google-workspace') || (pluginId === 'google-drive' && p.id === 'google-workspace')) && p.isEnabled);
+      return isCustom || isOff;
+    },
+    [customPlugins, officialPlugins]
+  );
 
-    // Block enabling if account is required and not linked in Workspace settings
-    if (!plugin.isEnabled && plugin.requiresAccount && !plugin.accountLinked) {
-      showNotice(`⚠️ ${plugin.name} cannot be turned on. Connect your account in Workspace settings first.`);
-      return;
-    }
+  // 1-Click Install or Connect
+  const handleInstallPlugin = async (item: RegistryPluginItem) => {
+    setInstallingId(item.id);
 
-    const nextState = !plugin.isEnabled;
+    // If it maps to an official built-in plugin
+    if (item.isOfficial || item.officialPluginId) {
+      const targetId = item.officialPluginId || item.id;
+      const off = officialPlugins.find((p) => p.id === targetId);
 
-    if (plugin.category === 'official') {
-      setOfficialPlugins((prev) =>
-        prev.map((p) => (p.id === plugin.id ? { ...p, isEnabled: nextState } : p))
-      );
-    } else {
-      setCustomPlugins((prev) =>
-        prev.map((p) => (p.id === plugin.id ? { ...p, isEnabled: nextState } : p))
-      );
-    }
-
-    try {
-      if (window.jarvisAPI?.togglePlugin) {
-        const res = await window.jarvisAPI.togglePlugin(plugin.id, nextState);
-        if (res && res.error) {
-          showNotice(`⚠️ ${res.error}`);
-          fetchPlugins();
+      if (off) {
+        if (off.requiresAccount && !off.accountLinked) {
+          // Open configure modal to connect account
+          handleOpenConfigure(off);
+          setInstallingId(null);
           return;
         }
-        showNotice(`${plugin.name} ${nextState ? 'enabled' : 'disabled'}`);
+
+        // Toggle official on
+        try {
+          if (window.jarvisAPI?.togglePlugin) {
+            await window.jarvisAPI.togglePlugin(targetId, true);
+            showNotice(`Connected ${item.name}!`);
+            await fetchPlugins();
+          }
+        } catch (e: any) {
+          alert(`Failed to activate: ${e.message}`);
+        }
+        setInstallingId(null);
+        return;
       }
-    } catch (err) {
-      console.error('[PluginsTab] Toggle failed:', err);
-      fetchPlugins();
+    }
+
+    // Otherwise, install as MCP plugin
+    try {
+      if (window.jarvisAPI?.addCustomPlugin) {
+        const res = await window.jarvisAPI.addCustomPlugin({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          category: item.category || 'mcp',
+          icon: item.id,
+          imageUrl: item.imageUrl,
+          isEnabled: true,
+          mcpServer: {
+            transport: item.transport || 'stdio',
+            command: item.command || 'npx',
+            args: item.args || ['-y', item.id],
+          },
+        });
+
+        if (res?.success) {
+          showNotice(`Installed ${item.name} successfully!`);
+          await fetchPlugins();
+        } else {
+          alert(res?.error || 'Installation failed.');
+        }
+      }
+    } catch (err: any) {
+      alert(`Installation error: ${err.message}`);
+    } finally {
+      setInstallingId(null);
+    }
+  };
+
+  const handleToggleOfficial = async (pluginId: string, nextState: boolean) => {
+    try {
+      if (window.jarvisAPI?.togglePlugin) {
+        await window.jarvisAPI.togglePlugin(pluginId, nextState);
+        await fetchPlugins();
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -238,7 +515,6 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
     if (e) e.stopPropagation();
     setConfiguringPlugin(plugin);
     setTempConfig({ ...(plugin.config || {}) });
-    setCurrentView('configure');
   };
 
   const handleSaveConfig = async () => {
@@ -247,7 +523,6 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
       if (window.jarvisAPI?.savePluginConfig) {
         await window.jarvisAPI.savePluginConfig(configuringPlugin.id, tempConfig);
         showNotice(`Saved settings for ${configuringPlugin.name}`);
-        setCurrentView('list');
         setConfiguringPlugin(null);
         await fetchPlugins();
       }
@@ -256,14 +531,15 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
     }
   };
 
-  const handleDeleteCustom = async (pluginId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDeleteCustom = async (pluginId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (!confirm(`Uninstall plugin "${pluginId}"?`)) return;
     try {
       if (window.jarvisAPI?.deletePlugin) {
         const res = await window.jarvisAPI.deletePlugin(pluginId);
         if (res?.success) {
           showNotice(`Uninstalled ${pluginId}`);
+          if (configuringPlugin?.id === pluginId) setConfiguringPlugin(null);
           await fetchPlugins();
         }
       }
@@ -272,42 +548,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
     }
   };
 
-  // Real MCP Registry 1-Click Install
-  const handleInstallFromRegistry = async (server: McpRegistryServer) => {
-    setInstallingId(server.id);
-    try {
-      if (window.jarvisAPI?.addCustomPlugin) {
-        const res = await window.jarvisAPI.addCustomPlugin({
-          id: server.id,
-          name: server.name,
-          description: server.description,
-          category: 'mcp',
-          icon: 'mcp',
-          imageUrl: server.imageUrl,
-          repoUrl: server.repoUrl,
-          mcpServer: {
-            transport: server.transport || 'stdio',
-            command: server.command,
-            args: server.args,
-          },
-        });
-
-        if (res?.success) {
-          showNotice(`Installed ${server.name} successfully!`);
-          setCurrentView('list');
-          await fetchPlugins();
-        } else {
-          alert(res?.error || 'Failed to install plugin.');
-        }
-      }
-    } catch (err: any) {
-      alert(`Installation failed: ${err.message}`);
-    } finally {
-      setInstallingId(null);
-    }
-  };
-
-  // Custom Form Submit
+  // Add Custom Plugin (stdio / remote / json)
   const handleAddCustomPlugin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddError(null);
@@ -320,7 +561,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
     try {
       let mcpServerConfig: any = null;
 
-      if (addMode === 'stdio') {
+      if (addCustomMode === 'stdio') {
         const argsArray = newMcpArgs
           .trim()
           .split('\n')
@@ -345,7 +586,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
           args: argsArray,
           env: Object.keys(envObj).length > 0 ? envObj : undefined,
         };
-      } else if (addMode === 'remote') {
+      } else if (addCustomMode === 'remote') {
         if (!newRemoteUrl.trim()) {
           setAddError('Remote endpoint URL is required.');
           return;
@@ -374,8 +615,8 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
         });
 
         if (res?.success) {
-          showNotice(`Installed plugin "${newPluginName.trim()}"`);
-          setCurrentView('list');
+          showNotice(`Installed custom plugin "${newPluginName.trim()}"`);
+          setViewMode('store');
           setNewPluginName('');
           setNewPluginDesc('');
           setNewMcpCommand('npx');
@@ -393,380 +634,431 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
     }
   };
 
-  // Config JSON Batch Importer
-  const handleImportJson = async () => {
-    setAddError(null);
-    if (!rawJsonConfig.trim()) {
-      setAddError('Please paste a JSON configuration.');
-      return;
-    }
+  // Curated Popular Plugins
+  const popularPlugins: RegistryPluginItem[] = useMemo(
+    () => [
+      {
+        id: 'gmail',
+        name: 'Gmail',
+        description: 'Read and manage Gmail messages and drafts',
+        category: 'Popular',
+        isOfficial: true,
+        officialPluginId: 'google-workspace',
+        requiresAccount: true,
+      },
+      {
+        id: 'google-drive',
+        name: 'Google Drive',
+        description: 'Drive, Docs, Sheets, or Slides',
+        category: 'Popular',
+        isOfficial: true,
+        officialPluginId: 'google-workspace',
+        requiresAccount: true,
+      },
+      {
+        id: 'desktop-automation',
+        name: 'Remote Desktop Commander',
+        description: 'Use your computer and automate windows from chat',
+        category: 'Popular',
+        isOfficial: true,
+        officialPluginId: 'desktop-automation',
+      },
+      {
+        id: 'github-mcp',
+        name: 'GitHub',
+        description: 'Triage PRs, issues, CI, and publish flows',
+        category: 'Popular',
+        isOfficial: true,
+        officialPluginId: 'git-tools',
+        command: 'npx',
+        args: ['-y', '@modelcontextprotocol/server-github'],
+      },
+      {
+        id: 'supabase',
+        name: 'Supabase',
+        description: 'Manage and query PostgreSQL databases',
+        category: 'Popular',
+        command: 'npx',
+        args: ['-y', '@supabase/mcp-server-supabase'],
+      },
+      {
+        id: 'notion',
+        name: 'Notion',
+        description: 'Query, create, and manage pages and databases',
+        category: 'Popular',
+        isOfficial: true,
+        officialPluginId: 'notion',
+        requiresAccount: true,
+      },
+    ],
+    []
+  );
 
-    try {
-      const parsed = JSON.parse(rawJsonConfig.trim());
-      const serversToInstall: Array<{ name: string; mcp: any }> = [];
+  // Curated New & Noteworthy Plugins
+  const noteworthyPlugins: RegistryPluginItem[] = useMemo(
+    () => [
+      {
+        id: 'elevenlabs',
+        name: 'ElevenLabs',
+        description: 'Voice agents, media generation, and cloned TTS',
+        category: 'New & Noteworthy',
+        command: 'npx',
+        args: ['-y', 'elevenlabs-mcp'],
+      },
+      {
+        id: 'spotify',
+        name: 'Spotify',
+        description: 'Control playback, browse playlists, and search tracks',
+        category: 'New & Noteworthy',
+        command: 'npx',
+        args: ['-y', 'spotify-mcp'],
+      },
+      {
+        id: 'playwright-mcp',
+        name: 'Playwright',
+        description: 'Automate live web browsing, UI testing, and scraping',
+        category: 'New & Noteworthy',
+        command: 'npx',
+        args: ['-y', '@modelcontextprotocol/server-playwright'],
+      },
+      {
+        id: 'dropbox',
+        name: 'Dropbox',
+        description: 'Find, create, and manage cloud files across teams',
+        category: 'New & Noteworthy',
+        command: 'npx',
+        args: ['-y', 'dropbox-mcp'],
+      },
+      {
+        id: 'linear',
+        name: 'Linear',
+        description: 'Sync issues, engineering roadmaps, and sprints',
+        category: 'New & Noteworthy',
+        command: 'npx',
+        args: ['-y', 'linear-mcp'],
+      },
+      {
+        id: 'figma',
+        name: 'Figma',
+        description: 'Inspect UI layouts, components, and export SVG code',
+        category: 'New & Noteworthy',
+        command: 'npx',
+        args: ['-y', 'figma-mcp'],
+      },
+      {
+        id: 'slack',
+        name: 'Slack',
+        description: 'Send messages, read channels, and manage threads',
+        category: 'New & Noteworthy',
+        command: 'npx',
+        args: ['-y', '@modelcontextprotocol/server-slack'],
+      },
+    ],
+    []
+  );
 
-      if (parsed.mcpServers && typeof parsed.mcpServers === 'object') {
-        Object.entries(parsed.mcpServers).forEach(([srvName, srvConf]: [string, any]) => {
-          serversToInstall.push({
-            name: srvName,
-            mcp: {
-              transport: srvConf.transport || (srvConf.url ? 'streamable-http' : 'stdio'),
-              command: srvConf.command || 'npx',
-              args: srvConf.args || [],
-              env: srvConf.env,
-              url: srvConf.url,
-              headers: srvConf.headers,
-            },
-          });
-        });
-      } else if (parsed.name && (parsed.command || parsed.url)) {
-        serversToInstall.push({
-          name: parsed.name,
-          mcp: {
-            transport: parsed.transport || (parsed.url ? 'streamable-http' : 'stdio'),
-            command: parsed.command || 'npx',
-            args: parsed.args || [],
-            env: parsed.env,
-            url: parsed.url,
-            headers: parsed.headers,
-          },
-        });
-      } else {
-        throw new Error('Unrecognized format. Must contain "mcpServers" object or valid server schema.');
-      }
+  // Curated Developer & Data Plugins
+  const developerPlugins: RegistryPluginItem[] = useMemo(
+    () => [
+      {
+        id: 'sqlite-mcp',
+        name: 'SQLite Explorer',
+        description: 'Zero-config local SQLite inspection and SQL execution',
+        category: 'Developer & Data',
+        command: 'uvx',
+        args: ['mcp-server-sqlite', '--db-path', 'database.sqlite'],
+      },
+      {
+        id: 'brave-search-mcp',
+        name: 'Brave Search',
+        description: 'Real-time web search and index scraping in agent loops',
+        category: 'Developer & Data',
+        command: 'npx',
+        args: ['-y', '@modelcontextprotocol/server-brave-search'],
+      },
+      {
+        id: 'postgres-mcp',
+        name: 'PostgreSQL Database',
+        description: 'Inspect schemas, execute queries, and analyze data',
+        category: 'Developer & Data',
+        command: 'npx',
+        args: ['-y', '@modelcontextprotocol/server-postgres'],
+      },
+      {
+        id: 'scrapling-mcp',
+        name: 'Scrapling',
+        description: 'High-performance web crawler and data extractor',
+        category: 'Developer & Data',
+        command: 'uvx',
+        args: ['scrapling-mcp'],
+      },
+      {
+        id: 'n8n-mcp',
+        name: 'n8n Automations',
+        description: 'Connect 400+ third-party service workflows',
+        category: 'Developer & Data',
+        command: 'npx',
+        args: ['-y', 'n8n-mcp'],
+      },
+      {
+        id: 'obsidian',
+        name: 'Obsidian Vault',
+        description: 'Read and index local Markdown notes and wikilinks',
+        category: 'Developer & Data',
+        isOfficial: true,
+        officialPluginId: 'obsidian',
+        requiresAccount: true,
+      },
+      {
+        id: 'whatsapp',
+        name: 'WhatsApp Gateway',
+        description: 'Automated messaging, contact chats, and alerts',
+        category: 'Developer & Data',
+        isOfficial: true,
+        officialPluginId: 'whatsapp',
+        requiresAccount: true,
+      },
+    ],
+    []
+  );
 
-      if (window.jarvisAPI?.addCustomPlugin) {
-        for (const item of serversToInstall) {
-          await window.jarvisAPI.addCustomPlugin({
-            name: item.name,
-            description: `Imported MCP server (${item.mcp.transport || 'stdio'})`,
-            category: 'mcp',
-            mcpServer: item.mcp,
-          });
-        }
+  // Render a single ChatGPT-style Plugin Row
+  const renderPluginRow = (item: RegistryPluginItem) => {
+    const installed = isInstalled(item.id);
+    const installing = installingId === item.id;
 
-        showNotice(`Imported ${serversToInstall.length} MCP server(s)!`);
-        setCurrentView('list');
-        setRawJsonConfig('');
-        await fetchPlugins();
-      }
-    } catch (err: any) {
-      setAddError(err.message || 'Invalid JSON syntax.');
-    }
-  };
+    // Find actual matching plugin object if configured
+    const officialMatch = officialPlugins.find((p) => p.id === (item.officialPluginId || item.id));
+    const customMatch = customPlugins.find((p) => p.id === item.id);
+    const activePlugin = officialMatch || customMatch;
 
-  // Real Icon & Image Renderer for Grokki Plugins
-  const renderPluginIcon = (icon?: string, id?: string, imageUrl?: string | null) => {
-    if (imageUrl) {
-      return (
-        <img
-          src={imageUrl}
-          alt="Plugin logo"
-          className="w-10 h-10 rounded-xl object-cover shrink-0 border border-gray-200 dark:border-zinc-800"
-          onError={(e) => {
-            (e.currentTarget as HTMLElement).style.display = 'none';
-          }}
-        />
-      );
-    }
+    return (
+      <div
+        key={item.id}
+        onClick={() => {
+          if (installed && activePlugin) {
+            handleOpenConfigure(activePlugin);
+          }
+        }}
+        className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
+          installed
+            ? 'bg-white dark:bg-[#0c0d10] border-gray-200/90 dark:border-white/[0.09] hover:border-gray-300 dark:hover:border-white/20 cursor-pointer shadow-xs'
+            : 'bg-white/60 dark:bg-[#0a0b0d]/70 border-gray-200/70 dark:border-white/[0.06] hover:border-gray-300 dark:hover:border-white/15'
+        }`}
+      >
+        <div className="flex items-center gap-3.5 min-w-0 pr-3">
+          <PluginBrandLogo id={item.id} name={item.name} imageUrl={item.imageUrl} className="w-10 h-10" />
 
-    switch (icon || id) {
-      case 'google':
-      case 'google-workspace':
-        return (
-          <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 flex items-center justify-center shrink-0 p-2 shadow-xs">
-            <img src={googleLogo} alt="Google" className="w-full h-full object-contain" />
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                {item.name}
+              </span>
+              {installed && (
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              )}
+            </div>
+            <p className="text-xs text-gray-500 dark:text-zinc-400 truncate leading-relaxed">
+              {item.description}
+            </p>
           </div>
-        );
-      case 'desktop':
-      case 'desktop-automation':
-        return (
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/15 to-indigo-500/20 border border-blue-500/30 flex items-center justify-center shrink-0">
-            <HugeiconsIcon icon={ComputerTerminal01Icon} size={20} strokeWidth={2} className="text-blue-500 dark:text-blue-400" />
-          </div>
-        );
-      case 'notion':
-        return (
-          <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 flex items-center justify-center shrink-0 p-2 shadow-xs">
-            <img src={notionLogo} alt="Notion" className="w-full h-full object-contain" />
-          </div>
-        );
-      case 'obsidian':
-        return (
-          <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 flex items-center justify-center shrink-0 p-2 shadow-xs">
-            <img src={obsidianLogo} alt="Obsidian" className="w-full h-full object-contain" />
-          </div>
-        );
-      case 'whatsapp':
-        return (
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center shrink-0 p-2">
-            <img src={whatsappLogo} alt="WhatsApp" className="w-full h-full object-contain" />
-          </div>
-        );
-      case 'git':
-      case 'git-tools':
-        return (
-          <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 flex items-center justify-center shrink-0 p-2 shadow-xs">
-            <img src={githubLogo} alt="GitHub" className="w-full h-full object-contain dark:invert" />
-          </div>
-        );
-      case 'memory':
-      case 'persistent-memory':
-        return (
-          <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center shrink-0">
-            <HugeiconsIcon icon={Layers01Icon} size={20} strokeWidth={2} className="text-purple-400" />
-          </div>
-        );
-      default:
-        return (
-          <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
-            <HugeiconsIcon icon={PuzzleIcon} size={20} strokeWidth={2} className="text-gray-700 dark:text-zinc-300" />
-          </div>
-        );
-    }
+        </div>
+
+        {/* Right Action */}
+        <div className="flex items-center gap-2 shrink-0">
+          {installing ? (
+            <div className="w-8 h-8 rounded-full flex items-center justify-center">
+              <HugeiconsIcon icon={RefreshCwIcon} size={15} strokeWidth={2.2} className="animate-spin text-gray-400" />
+            </div>
+          ) : installed ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (activePlugin) handleOpenConfigure(activePlugin);
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              title="Installed & Active (Click to configure)"
+            >
+              <HugeiconsIcon icon={Tick02Icon} size={16} strokeWidth={2.5} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleInstallPlugin(item);
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-gray-600 dark:text-zinc-300 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              title={`Install ${item.name}`}
+            >
+              <HugeiconsIcon icon={Add01Icon} size={18} strokeWidth={2} />
+            </button>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="flex-1 w-full min-h-full bg-[#f7f7fa] dark:bg-[#070709] text-gray-900 dark:text-zinc-100 font-sans select-none px-8 py-10 overflow-y-auto">
-      {/* Floating Notice Toast */}
+    <div className="flex-1 h-full flex flex-col bg-[#f7f7fa] dark:bg-[#070709] overflow-hidden select-none">
+      {/* Toast Notice */}
       {notice && (
-        <div className="fixed top-6 right-8 z-50 px-3.5 py-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-medium shadow-xl flex items-center gap-2 animate-in fade-in duration-150">
-          <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.5} />
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-gray-950 text-xs font-medium shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-150 flex items-center gap-2">
+          <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.5} className="text-emerald-400 dark:text-emerald-600" />
           <span>{notice}</span>
         </div>
       )}
 
-      {/* VIEW 1: PLUGINS LIST VIEW */}
-      {currentView === 'list' && (
-        <div className="max-w-4xl mx-auto w-full flex flex-col gap-6 animate-in fade-in duration-150">
-          {/* Header Row */}
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">Plugins</h1>
-              <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
-                Add and manage plugins
-              </p>
-            </div>
+      {/* TOP HEADER (ChatGPT style) */}
+      <div className="px-6 py-4 flex items-center justify-between gap-4 border-b border-gray-200/80 dark:border-white/[0.07] bg-white dark:bg-[#070709] shrink-0">
+        {/* Left: [ Plugins ] [ Skills ] Toggle Pills */}
+        <div className="flex items-center gap-1 p-1 rounded-full bg-gray-100 dark:bg-[#14151a] border border-gray-200/80 dark:border-white/[0.08] shrink-0">
+          <button
+            type="button"
+            className="px-3 py-1 rounded-full text-xs font-semibold bg-white dark:bg-[#202127] text-gray-900 dark:text-white shadow-xs cursor-default"
+          >
+            Plugins
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigateTab?.('skills')}
+            className="px-3 py-1 rounded-full text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white transition-colors cursor-pointer"
+          >
+            Skills
+          </button>
+        </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={fetchPlugins}
-                disabled={isLoading}
-                className="p-2 rounded-lg text-gray-500 dark:text-zinc-400 hover:text-black dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer"
-                title="Refresh plugins"
-              >
-                <HugeiconsIcon icon={RefreshCwIcon} size={16} strokeWidth={2} className={isLoading ? 'animate-spin' : ''} />
-              </button>
+        {/* Center: Search Plugins Bar */}
+        <div className="relative flex-1 max-w-md">
+          <HugeiconsIcon
+            icon={Search01Icon}
+            size={15}
+            strokeWidth={2}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-500 pointer-events-none"
+          />
+          <input
+            type="text"
+            placeholder="Search plugins (Gmail, Supabase, ElevenLabs, Playwright...)"
+            value={registrySearch}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full pl-9 pr-8 py-1.5 rounded-full bg-gray-50 dark:bg-[#121318] border border-gray-200 dark:border-white/10 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-zinc-500 outline-none focus:border-gray-400 dark:focus:border-white/25 transition-all"
+          />
+          {registrySearch && (
+            <button
+              type="button"
+              onClick={() => handleSearchChange('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white"
+            >
+              <HugeiconsIcon icon={Cancel01Icon} size={13} strokeWidth={2} />
+            </button>
+          )}
+        </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setAddError(null);
-                  setCurrentView('add');
-                }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gray-950 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold hover:bg-gray-800 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer select-none"
-              >
-                <HugeiconsIcon icon={Add01Icon} size={14} strokeWidth={2.5} />
-                <span>Add plugin</span>
-              </button>
-            </div>
-          </div>
+        {/* Right: View Toggles & Custom Add */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setViewMode(viewMode === 'installed' ? 'store' : 'installed')}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
+              viewMode === 'installed'
+                ? 'bg-black/5 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white font-semibold'
+                : 'border-gray-200 dark:border-white/10 text-gray-600 dark:text-zinc-300 hover:text-black dark:hover:text-white'
+            }`}
+          >
+            Installed ({officialPlugins.filter((p) => p.isEnabled).length + customPlugins.length})
+          </button>
 
-          {/* Official Core Capability Packs (Real Grokki Features) */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xs font-semibold text-gray-500 dark:text-zinc-400">
-                Official {officialPlugins.length}
+          <button
+            type="button"
+            onClick={() => setViewMode(viewMode === 'custom-add' ? 'store' : 'custom-add')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
+              viewMode === 'custom-add'
+                ? 'bg-black/5 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white font-semibold'
+                : 'border-gray-200 dark:border-white/10 text-gray-600 dark:text-zinc-300 hover:text-black dark:hover:text-white'
+            }`}
+          >
+            <HugeiconsIcon icon={Add01Icon} size={14} strokeWidth={2.2} />
+            <span>Custom MCP</span>
+          </button>
+        </div>
+      </div>
+
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 overflow-y-auto px-6 py-6 max-w-5xl mx-auto w-full">
+        {/* VIEW 1: SEARCH RESULTS */}
+        {registrySearch.trim() ? (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                Search Results for &ldquo;{registrySearch}&rdquo;
               </h2>
+              {isRegistryLoading && (
+                <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                  <HugeiconsIcon icon={RefreshCwIcon} size={13} strokeWidth={2} className="animate-spin" />
+                  <span>Fetching live servers...</span>
+                </div>
+              )}
             </div>
 
-            <div className="flex flex-col gap-2">
-              {officialPlugins.map((plugin) => {
-                const isBlockedByAccount = plugin.requiresAccount && !plugin.accountLinked;
-                return (
+            {registryServers.length === 0 && !isRegistryLoading ? (
+              <div className="p-12 text-center rounded-2xl border border-dashed border-gray-200 dark:border-white/10">
+                <p className="text-sm text-gray-500 dark:text-zinc-400">No matching plugins found.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {registryServers.map((server) => renderPluginRow(server))}
+              </div>
+            )}
+          </div>
+        ) : viewMode === 'installed' ? (
+          /* VIEW 2: INSTALLED PLUGINS ONLY */
+          <div className="flex flex-col gap-6">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-white/[0.08]">
+              <div>
+                <h1 className="text-base font-semibold text-gray-950 dark:text-white">Installed Plugins</h1>
+                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                  Manage your active integrations and community MCP servers.
+                </p>
+              </div>
+            </div>
+
+            {/* Official Active */}
+            <div className="flex flex-col gap-3">
+              <h3 className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                Official Workspace Tools
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {officialPlugins.map((plugin) => (
                   <div
                     key={plugin.id}
                     onClick={() => handleOpenConfigure(plugin)}
-                    className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer ${
-                      plugin.isEnabled
-                        ? 'bg-white dark:bg-[#0c0d10] border-gray-200/80 dark:border-zinc-800/80 hover:border-gray-300 dark:hover:border-zinc-700 hover:bg-gray-50/70 dark:hover:bg-[#111216]'
-                        : isBlockedByAccount
-                        ? 'bg-gray-50/40 dark:bg-[#070709] border-gray-200/40 dark:border-zinc-850/50 opacity-60 hover:opacity-80'
-                        : 'bg-gray-50/50 dark:bg-[#070709] border-gray-200/50 dark:border-zinc-800/60 opacity-60 hover:opacity-85'
-                    }`}
+                    className="flex items-center justify-between p-3.5 rounded-2xl border bg-white dark:bg-[#0c0d10] border-gray-200/90 dark:border-white/[0.09] hover:border-gray-300 dark:hover:border-white/20 transition-all cursor-pointer shadow-xs"
                   >
-                    <div className="flex items-center gap-3.5 min-w-0 pr-4">
-                      {renderPluginIcon(plugin.icon, plugin.id)}
-
+                    <div className="flex items-center gap-3.5 min-w-0 pr-3">
+                      <PluginBrandLogo id={plugin.id} name={plugin.name} className="w-10 h-10" />
                       <div className="flex flex-col min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-semibold text-gray-950 dark:text-white truncate">
-                            {plugin.name}
-                          </span>
-                          {plugin.badge && (
-                            <span className="text-[10px] font-medium text-blue-500 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/20">
-                              {plugin.badge}
-                            </span>
-                          )}
-                          {plugin.requiresAccount && (
-                            plugin.accountLinked ? (
-                              <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/25">
-                                Linked
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (onNavigateTab) onNavigateTab('workspace');
-                                }}
-                                className="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-1.5 py-0.2 rounded border border-amber-500/25 flex items-center gap-1 cursor-pointer transition-colors"
-                                title="Click to open Workspace settings and connect this account"
-                              >
-                                Not linked in Workspace ↗
-                              </button>
-                            )
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-zinc-400 line-clamp-1 leading-relaxed mt-0.5">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                          {plugin.name}
+                        </span>
+                        <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
                           {plugin.description}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       <button
                         type="button"
-                        onClick={(e) => handleOpenConfigure(plugin, e)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                        title="Configure plugin"
-                      >
-                        <HugeiconsIcon icon={Settings01Icon} size={15} strokeWidth={1.8} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => handleToggle(plugin, e)}
-                        className={`w-9 h-5 rounded-full p-0.5 transition-colors relative shrink-0 focus:outline-none ${
-                          isBlockedByAccount
-                            ? 'bg-gray-200/60 dark:bg-zinc-800/60 border border-gray-300/60 dark:border-zinc-700/60 opacity-40 cursor-not-allowed'
-                            : plugin.isEnabled
-                            ? 'bg-gray-950 dark:bg-white text-white dark:text-gray-950 cursor-pointer'
-                            : 'bg-gray-200 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 cursor-pointer'
-                        }`}
-                        title={
-                          isBlockedByAccount
-                            ? `Cannot be enabled. Connect your ${plugin.accountName || 'account'} in Workspace settings first.`
-                            : plugin.isEnabled
-                            ? 'Disable plugin'
-                            : 'Enable plugin'
-                        }
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-full transition-transform shadow-xs ${
-                            plugin.isEnabled
-                              ? 'translate-x-4 bg-white dark:bg-zinc-950'
-                              : 'translate-x-0 bg-white dark:bg-zinc-400'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Custom & Community MCP Plugins Section */}
-          <div className="flex flex-col gap-3 pt-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold text-gray-500 dark:text-zinc-400">
-                Community & MCP Plugins ({customPlugins.length})
-              </h2>
-            </div>
-
-            {customPlugins.length === 0 ? (
-              <div className="p-8 rounded-2xl border border-dashed border-gray-300 dark:border-zinc-800 bg-white/40 dark:bg-[#0a0b0e]/50 flex flex-col items-center justify-center text-center">
-                <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800/80 border border-gray-200 dark:border-zinc-700/80 flex items-center justify-center mb-3">
-                  <HugeiconsIcon icon={PuzzleIcon} size={22} strokeWidth={1.8} className="text-gray-400 dark:text-zinc-500" />
-                </div>
-                <p className="text-sm font-semibold text-gray-800 dark:text-zinc-200">
-                  No community or MCP plugins installed
-                </p>
-                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1 max-w-md leading-relaxed">
-                  Connect external Model Context Protocol (MCP) servers or community packages with real-time tool execution.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAddError(null);
-                    setCurrentView('add');
-                  }}
-                  className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                >
-                  <HugeiconsIcon icon={Add01Icon} size={14} strokeWidth={2.5} />
-                  <span>Browse MCP Registry & Install</span>
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {customPlugins.map((plugin) => (
-                  <div
-                    key={plugin.id}
-                    onClick={() => handleOpenConfigure(plugin)}
-                    className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer ${
-                      plugin.isEnabled
-                        ? 'bg-white dark:bg-[#0c0d10] border-gray-200/80 dark:border-zinc-800/80 hover:border-gray-300 dark:hover:border-zinc-700 hover:bg-gray-50/70 dark:hover:bg-[#111216]'
-                        : 'bg-gray-50/50 dark:bg-[#070709] border-gray-200/50 dark:border-zinc-800/60 opacity-60 hover:opacity-85'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0 pr-4">
-                      {renderPluginIcon(plugin.icon, plugin.id, plugin.imageUrl)}
-
-                      <div className="flex flex-col min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-gray-950 dark:text-white truncate">
-                            {plugin.name}
-                          </span>
-                          <span className="text-[10px] font-mono text-gray-700 dark:text-zinc-300 bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.2 rounded border border-gray-300 dark:border-zinc-700">
-                            {plugin.mcpServer?.transport || plugin.category}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-zinc-400 line-clamp-1 leading-relaxed mt-0.5">
-                          {plugin.description || 'Custom MCP plugin integration.'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                      <button
-                        type="button"
-                        onClick={(e) => handleOpenConfigure(plugin, e)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                        title="Configure plugin"
-                      >
-                        <HugeiconsIcon icon={Settings01Icon} size={15} strokeWidth={1.8} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteCustom(plugin.id, e)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
-                        title="Uninstall plugin"
-                      >
-                        <HugeiconsIcon icon={Delete02Icon} size={15} strokeWidth={1.8} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => handleToggle(plugin, e)}
-                        className={`w-9 h-5 rounded-full p-0.5 transition-colors relative shrink-0 focus:outline-none cursor-pointer ${
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleOfficial(plugin.id, !plugin.isEnabled);
+                        }}
+                        className={`w-9 h-5 rounded-full p-0.5 transition-colors relative focus:outline-none cursor-pointer ${
                           plugin.isEnabled
                             ? 'bg-gray-950 dark:bg-white text-white dark:text-gray-950'
                             : 'bg-gray-200 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700'
                         }`}
-                        title={plugin.isEnabled ? 'Disable plugin' : 'Enable plugin'}
                       >
                         <div
                           className={`w-4 h-4 rounded-full transition-transform shadow-xs ${
@@ -780,623 +1072,346 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* VIEW 2: IN-TAB "ADD PLUGIN" (NO MODAL - REAL REGISTRY FETCHING WITH IMAGES) */}
-      {currentView === 'add' && (
-        <div className="max-w-4xl mx-auto w-full flex flex-col gap-6 animate-in fade-in duration-150">
-          {/* Top Bar with Back Button */}
-          <div className="flex items-center justify-between border-b border-gray-200 dark:border-zinc-800/80 pb-4">
-            <button
-              type="button"
-              onClick={() => setCurrentView('list')}
-              className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-zinc-400 hover:text-gray-950 dark:hover:text-white transition-colors cursor-pointer"
-            >
-              <HugeiconsIcon icon={ArrowLeft01Icon} size={16} strokeWidth={2} />
-              <span>Back to Plugins</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCurrentView('list')}
-              className="px-3 py-1 rounded-lg text-xs font-medium text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-          </div>
-
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">
-              Install Model Context Protocol (MCP) Plugins
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
-              Browse real community servers from the open MCP registry, connect a local subprocess command, or stream a remote HTTP endpoint.
-            </p>
-          </div>
-
-          {/* Sub-Navigation Tabs */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 w-fit">
-            <button
-              type="button"
-              onClick={() => setAddMode('marketplace')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                addMode === 'marketplace'
-                  ? 'bg-white dark:bg-zinc-800 text-gray-900 dark:text-white font-semibold shadow-xs'
-                  : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              Real MCP Registry
-            </button>
-            <button
-              type="button"
-              onClick={() => setAddMode('stdio')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                addMode === 'stdio'
-                  ? 'bg-white dark:bg-zinc-800 text-gray-900 dark:text-white font-semibold shadow-xs'
-                  : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              Custom Local (stdio)
-            </button>
-            <button
-              type="button"
-              onClick={() => setAddMode('remote')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                addMode === 'remote'
-                  ? 'bg-white dark:bg-zinc-800 text-gray-900 dark:text-white font-semibold shadow-xs'
-                  : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              Remote HTTP / SSE
-            </button>
-            <button
-              type="button"
-              onClick={() => setAddMode('json')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                addMode === 'json'
-                  ? 'bg-white dark:bg-zinc-800 text-gray-900 dark:text-white font-semibold shadow-xs'
-                  : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              Import Config JSON
-            </button>
-          </div>
-
-          {addError && (
-            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-mono">
-              {addError}
             </div>
-          )}
 
-          {/* TAB 1: REAL MCP REGISTRY (WITH REAL AVATARS & LIVE DATA) */}
-          {addMode === 'marketplace' && (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="relative flex-1 max-w-md">
-                  <HugeiconsIcon
-                    icon={Search01Icon}
-                    size={15}
-                    strokeWidth={2}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Search real MCP servers (playwright, postgres, github, sqlite...)"
-                    value={registrySearch}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-zinc-600 outline-none"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => fetchRegistry(registrySearch)}
-                  disabled={isRegistryLoading}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 text-xs font-medium text-gray-600 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors cursor-pointer shrink-0"
-                >
-                  <HugeiconsIcon icon={RefreshCwIcon} size={14} strokeWidth={2} className={isRegistryLoading ? 'animate-spin' : ''} />
-                  <span>Refresh Registry</span>
-                </button>
-              </div>
-
-              {isRegistryLoading ? (
-                <div className="p-12 flex flex-col items-center justify-center text-center">
-                  <HugeiconsIcon icon={RefreshCwIcon} size={24} strokeWidth={2} className="animate-spin text-gray-400 dark:text-zinc-500 mb-2" />
-                  <p className="text-xs text-gray-500 dark:text-zinc-400">Fetching live servers from MCP registry...</p>
-                </div>
-              ) : registryServers.length === 0 ? (
-                <div className="p-12 rounded-2xl border border-dashed border-gray-200 dark:border-zinc-800 text-center">
-                  <p className="text-xs text-gray-500 dark:text-zinc-400">No matching MCP servers found.</p>
+            {/* Custom Installed */}
+            <div className="flex flex-col gap-3 pt-4">
+              <h3 className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                Community MCP Plugins ({customPlugins.length})
+              </h3>
+              {customPlugins.length === 0 ? (
+                <div className="p-8 text-center rounded-2xl border border-dashed border-gray-200 dark:border-white/10">
+                  <p className="text-xs text-gray-500 dark:text-zinc-400">
+                    No custom or community MCP plugins installed yet.
+                  </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                  {registryServers.map((server) => {
-                    const isInstalled = customPlugins.some((p) => p.id === server.id);
-                    const isInstalling = installingId === server.id;
-
-                    return (
-                      <div
-                        key={server.id}
-                        className="p-4 rounded-xl border border-gray-200/80 dark:border-zinc-800/80 bg-white dark:bg-[#0c0d10] hover:border-gray-300 dark:hover:border-zinc-700 flex flex-col justify-between gap-4 transition-all"
-                      >
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-start gap-3">
-                            {server.imageUrl ? (
-                              <img
-                                src={server.imageUrl}
-                                alt={server.name}
-                                className="w-10 h-10 rounded-xl object-cover shrink-0 border border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900"
-                                onError={(e) => {
-                                  (e.currentTarget as HTMLElement).style.display = 'none';
-                                }}
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
-                                <HugeiconsIcon icon={PuzzleIcon} size={18} strokeWidth={2} className="text-gray-500" />
-                              </div>
-                            )}
-
-                            <div className="flex flex-col min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs font-semibold text-gray-950 dark:text-white truncate">
-                                  {server.name}
-                                </span>
-                                {server.stars > 0 && (
-                                  <span className="flex items-center gap-1 text-[10.5px] font-mono text-amber-500 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20 shrink-0">
-                                    <HugeiconsIcon icon={StarIcon} size={10} strokeWidth={2} />
-                                    <span>{server.stars >= 1000 ? `${(server.stars / 1000).toFixed(1)}k` : server.stars}</span>
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-[11px] font-mono text-gray-400 dark:text-zinc-500 truncate">
-                                {server.fullName || server.author}
-                              </span>
-                            </div>
-                          </div>
-
-                          <p className="text-xs text-gray-600 dark:text-zinc-400 leading-relaxed line-clamp-2">
-                            {server.description}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {customPlugins.map((plugin) => (
+                    <div
+                      key={plugin.id}
+                      onClick={() => handleOpenConfigure(plugin)}
+                      className="flex items-center justify-between p-3.5 rounded-2xl border bg-white dark:bg-[#0c0d10] border-gray-200/90 dark:border-white/[0.09] hover:border-gray-300 dark:hover:border-white/20 transition-all cursor-pointer shadow-xs"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0 pr-3">
+                        <PluginBrandLogo id={plugin.id} name={plugin.name} imageUrl={plugin.imageUrl} className="w-10 h-10" />
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                            {plugin.name}
+                          </span>
+                          <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
+                            {plugin.description}
                           </p>
-
-                          <div className="font-mono text-[10.5px] text-gray-600 dark:text-zinc-400 bg-gray-50 dark:bg-[#121318] p-2 rounded-lg border border-gray-100 dark:border-zinc-800 truncate">
-                            {server.command} {server.args.join(' ')}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-zinc-800/60">
-                          {server.repoUrl ? (
-                            <a
-                              href={server.repoUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-black dark:text-zinc-400 dark:hover:text-white transition-colors"
-                            >
-                              <span>View Source</span>
-                              <HugeiconsIcon icon={ArrowUpRight01Icon} size={12} strokeWidth={2} />
-                            </a>
-                          ) : <div />}
-
-                          <button
-                            type="button"
-                            disabled={isInstalled || isInstalling}
-                            onClick={() => handleInstallFromRegistry(server)}
-                            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-xs select-none ${
-                              isInstalled
-                                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 cursor-default'
-                                : 'bg-gray-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-gray-800 dark:hover:bg-zinc-200 cursor-pointer'
-                            }`}
-                          >
-                            {isInstalled ? 'Installed' : isInstalling ? 'Installing...' : 'Install Plugin'}
-                          </button>
                         </div>
                       </div>
-                    );
-                  })}
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteCustom(plugin.id, e)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 transition-colors"
+                          title="Uninstall"
+                        >
+                          <HugeiconsIcon icon={Delete02Icon} size={15} strokeWidth={1.8} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-          )}
+          </div>
+        ) : viewMode === 'custom-add' ? (
+          /* VIEW 3: POWER USER CUSTOM ADD (stdio / remote / json) */
+          <div className="max-w-2xl mx-auto flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-base font-semibold text-gray-950 dark:text-white">Add Custom MCP Server</h1>
+                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                  Connect a local subprocess or remote HTTP server for development.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewMode('store')}
+                className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-white/10 text-xs font-medium text-gray-600 dark:text-zinc-300 hover:text-black dark:hover:text-white"
+              >
+                Back to Store
+              </button>
+            </div>
 
-          {/* TAB 2: CUSTOM STDIO MCP */}
-          {addMode === 'stdio' && (
-            <form onSubmit={handleAddCustomPlugin} className="flex flex-col gap-4 max-w-2xl">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-800 dark:text-zinc-200">
-                  Plugin Name *
-                </label>
+            <div className="flex items-center gap-2 p-1 rounded-xl bg-gray-100 dark:bg-[#14151a] w-fit">
+              <button
+                type="button"
+                onClick={() => setAddCustomMode('stdio')}
+                className={`px-3 py-1 rounded-lg text-xs font-medium ${
+                  addCustomMode === 'stdio'
+                    ? 'bg-white dark:bg-[#202127] text-gray-900 dark:text-white shadow-xs font-semibold'
+                    : 'text-gray-600 dark:text-zinc-400'
+                }`}
+              >
+                Local Subprocess (stdio)
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddCustomMode('remote')}
+                className={`px-3 py-1 rounded-lg text-xs font-medium ${
+                  addCustomMode === 'remote'
+                    ? 'bg-white dark:bg-[#202127] text-gray-900 dark:text-white shadow-xs font-semibold'
+                    : 'text-gray-600 dark:text-zinc-400'
+                }`}
+              >
+                Remote HTTP / SSE
+              </button>
+            </div>
+
+            {addError && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-mono">
+                {addError}
+              </div>
+            )}
+
+            <form onSubmit={handleAddCustomPlugin} className="flex flex-col gap-4">
+              <div>
+                <label className="text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1 block">Server Name</label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. GitHub Tools, Neon Postgres, Linear"
+                  placeholder="e.g. My Custom Database"
                   value={newPluginName}
                   onChange={(e) => setNewPluginName(e.target.value)}
-                  className="w-full bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-white/10 text-xs text-gray-900 dark:text-white outline-none"
                 />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-800 dark:text-zinc-200">
-                  Description
-                </label>
+              <div>
+                <label className="text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1 block">Description</label>
                 <input
                   type="text"
-                  placeholder="e.g. Query pull requests, issues, and repositories"
+                  placeholder="Short summary of what tools this server provides"
                   value={newPluginDesc}
                   onChange={(e) => setNewPluginDesc(e.target.value)}
-                  className="w-full bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-white/10 text-xs text-gray-900 dark:text-white outline-none"
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-gray-800 dark:text-zinc-200">
-                    Command (Executable) *
-                  </label>
+              {addCustomMode === 'stdio' ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1 block">Command</label>
+                      <input
+                        type="text"
+                        placeholder="npx, uvx, python, node..."
+                        value={newMcpCommand}
+                        onChange={(e) => setNewMcpCommand(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-white outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1 block">Arguments (one per line)</label>
+                      <textarea
+                        rows={3}
+                        placeholder="-y&#10;@my/mcp-server"
+                        value={newMcpArgs}
+                        onChange={(e) => setNewMcpArgs(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-white outline-none resize-none"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1 block">Remote Endpoint URL</label>
                   <input
-                    type="text"
-                    required
-                    placeholder="npx, uvx, node, python, or binary path"
-                    value={newMcpCommand}
-                    onChange={(e) => setNewMcpCommand(e.target.value)}
-                    className="w-full font-mono bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
+                    type="url"
+                    placeholder="https://my-server.com/sse"
+                    value={newRemoteUrl}
+                    onChange={(e) => setNewRemoteUrl(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-white outline-none"
                   />
                 </div>
+              )}
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-gray-800 dark:text-zinc-200">
-                    Transport
-                  </label>
-                  <input
-                    type="text"
-                    disabled
-                    value="stdio (Local Subprocess)"
-                    className="w-full font-mono bg-gray-100 dark:bg-zinc-900/60 border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-500 dark:text-zinc-400 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-800 dark:text-zinc-200">
-                  Arguments (One per line)
-                </label>
-                <textarea
-                  rows={4}
-                  placeholder="-y&#10;@modelcontextprotocol/server-github"
-                  value={newMcpArgs}
-                  onChange={(e) => setNewMcpArgs(e.target.value)}
-                  className="w-full font-mono bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none resize-none leading-relaxed"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-800 dark:text-zinc-200">
-                  Environment Variables (KEY=VALUE, one per line)
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="GITHUB_PERSONAL_ACCESS_TOKEN=ghp_...&#10;DATABASE_URL=postgres://..."
-                  value={newMcpEnv}
-                  onChange={(e) => setNewMcpEnv(e.target.value)}
-                  className="w-full font-mono bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none resize-none leading-relaxed"
-                />
-              </div>
-
-              <div className="flex items-center gap-3 pt-2">
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold hover:bg-gray-800 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer select-none"
-                >
-                  Install Plugin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentView('list')}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-gray-600 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
+              <button
+                type="submit"
+                className="mt-2 py-2.5 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold cursor-pointer transition-all hover:bg-gray-800 dark:hover:bg-zinc-200"
+              >
+                Register &amp; Connect MCP Server
+              </button>
             </form>
-          )}
-
-          {/* TAB 3: REMOTE HTTP / SSE MCP */}
-          {addMode === 'remote' && (
-            <form onSubmit={handleAddCustomPlugin} className="flex flex-col gap-4 max-w-2xl">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-800 dark:text-zinc-200">
-                  Plugin Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Remote Cloud MCP, Vector DB Endpoint"
-                  value={newPluginName}
-                  onChange={(e) => setNewPluginName(e.target.value)}
-                  className="w-full bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
-                />
+          </div>
+        ) : (
+          /* VIEW 4: CHATGPT-STYLE STORE FRONT */
+          <div className="flex flex-col gap-8 pb-12">
+            {/* 1. Popular Section */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1 cursor-pointer">
+                  <span>Popular</span>
+                  <span className="text-gray-400 dark:text-zinc-500 font-normal">&rsaquo;</span>
+                </h2>
               </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-800 dark:text-zinc-200">
-                  Remote Endpoint URL * (HTTP / SSE)
-                </label>
-                <input
-                  type="url"
-                  required
-                  placeholder="http://localhost:3000/mcp or https://mcp.company.internal/sse"
-                  value={newRemoteUrl}
-                  onChange={(e) => setNewRemoteUrl(e.target.value)}
-                  className="w-full font-mono bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-800 dark:text-zinc-200">
-                  Authorization Bearer Token (Optional)
-                </label>
-                <input
-                  type="password"
-                  placeholder="mcp_live_sec_..."
-                  value={newRemoteAuthHeader}
-                  onChange={(e) => setNewRemoteAuthHeader(e.target.value)}
-                  className="w-full font-mono bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
-                />
-              </div>
-
-              <div className="flex items-center gap-3 pt-2">
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold hover:bg-gray-800 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer select-none"
-                >
-                  Connect Remote MCP
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentView('list')}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-gray-600 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* TAB 4: IMPORT CONFIG JSON */}
-          {addMode === 'json' && (
-            <div className="flex flex-col gap-4 max-w-2xl">
-              <p className="text-xs text-gray-600 dark:text-zinc-400 leading-relaxed">
-                Paste any standard MCP configuration JSON snippet below containing <code className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 font-mono text-[11px]">mcpServers</code>. Grokki will automatically register the commands, arguments, and environment variables.
-              </p>
-
-              <textarea
-                rows={12}
-                placeholder={`{\n  "mcpServers": {\n    "github": {\n      "command": "npx",\n      "args": ["-y", "@modelcontextprotocol/server-github"],\n      "env": {\n        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."\n      }\n    }\n  }\n}`}
-                value={rawJsonConfig}
-                onChange={(e) => setRawJsonConfig(e.target.value)}
-                className="w-full font-mono bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800 rounded-xl p-4 text-xs text-gray-900 dark:text-zinc-100 outline-none leading-relaxed resize-none shadow-xs"
-              />
-
-              <div className="flex items-center gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={handleImportJson}
-                  className="px-5 py-2 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold hover:bg-gray-800 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer select-none"
-                >
-                  Import & Install
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentView('list')}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-gray-600 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {popularPlugins.map((plugin) => renderPluginRow(plugin))}
               </div>
             </div>
-          )}
-        </div>
-      )}
 
-      {/* VIEW 3: IN-TAB "CONFIGURE PLUGIN" (NO MODAL) */}
-      {currentView === 'configure' && configuringPlugin && (
-        <div className="max-w-3xl mx-auto w-full flex flex-col gap-6 animate-in fade-in duration-150">
-          {/* Top Bar with Back Button */}
-          <div className="flex items-center justify-between border-b border-gray-200 dark:border-zinc-800/80 pb-4">
-            <button
-              type="button"
-              onClick={() => setCurrentView('list')}
-              className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-zinc-400 hover:text-gray-950 dark:hover:text-white transition-colors cursor-pointer"
-            >
-              <HugeiconsIcon icon={ArrowLeft01Icon} size={16} strokeWidth={2} />
-              <span>Back to Plugins</span>
-            </button>
+            {/* 2. New & Noteworthy Section */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1 cursor-pointer">
+                  <span>New &amp; Noteworthy</span>
+                  <span className="text-gray-400 dark:text-zinc-500 font-normal">&rsaquo;</span>
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {noteworthyPlugins.map((plugin) => renderPluginRow(plugin))}
+              </div>
+            </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setCurrentView('list')}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveConfig}
-                className="px-4 py-1.5 rounded-lg bg-gray-950 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold hover:bg-gray-800 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer select-none"
-              >
-                Save Changes
-              </button>
+            {/* 3. Developer & Data Section */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1 cursor-pointer">
+                  <span>Developer &amp; Data</span>
+                  <span className="text-gray-400 dark:text-zinc-500 font-normal">&rsaquo;</span>
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {developerPlugins.map((plugin) => renderPluginRow(plugin))}
+              </div>
             </div>
           </div>
+        )}
+      </div>
 
-          <div className="flex items-center gap-4">
-            {renderPluginIcon(configuringPlugin.icon, configuringPlugin.id, configuringPlugin.imageUrl)}
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-gray-950 dark:text-white">
-                  {configuringPlugin.name}
-                </h1>
-                {configuringPlugin.badge && (
-                  <span className="text-[10px] font-medium text-blue-500 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/20">
-                    {configuringPlugin.badge}
-                  </span>
-                )}
+      {/* SLIDE-OVER CONFIGURE DRAWER */}
+      {configuringPlugin && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end"
+          onClick={() => setConfiguringPlugin(null)}
+        >
+          <div
+            className="w-full max-w-md h-full bg-white dark:bg-[#0c0d10] border-l border-gray-200 dark:border-white/10 p-6 flex flex-col justify-between shadow-2xl animate-in slide-in-from-right duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <PluginBrandLogo id={configuringPlugin.id} name={configuringPlugin.name} imageUrl={configuringPlugin.imageUrl} className="w-11 h-11" />
+                  <div>
+                    <h2 className="text-base font-semibold text-gray-950 dark:text-white">
+                      {configuringPlugin.name}
+                    </h2>
+                    <span className="text-xs text-gray-400 font-mono">
+                      {configuringPlugin.category || 'MCP Server'}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setConfiguringPlugin(null)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white"
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} size={18} strokeWidth={2} />
+                </button>
               </div>
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
+
+              <p className="text-xs text-gray-600 dark:text-zinc-300 leading-relaxed">
                 {configuringPlugin.description}
               </p>
-            </div>
-          </div>
 
-          <div className="p-6 rounded-2xl bg-white dark:bg-[#0c0d10] border border-gray-200 dark:border-zinc-800/80 flex flex-col gap-4 text-xs">
-            {/* Real Settings Per Grokki Plugin */}
-            {configuringPlugin.id === 'google-workspace' && (
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-gray-800 dark:text-zinc-200">Calendar Agenda Sync</span>
-                    <span className="text-[11px] text-gray-500 dark:text-zinc-400">Sync upcoming events with Grokki's Today agenda timeline</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={tempConfig.syncCalendar !== false}
-                    onChange={(e) => setTempConfig({ ...tempConfig, syncCalendar: e.target.checked })}
-                    className="w-4 h-4 rounded accent-gray-900 dark:accent-white"
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-gray-800 dark:text-zinc-200">Draft Email Authorization</span>
-                    <span className="text-[11px] text-gray-500 dark:text-zinc-400">Allow agent to compose drafts in Gmail without automatic sending</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={tempConfig.allowDraftEmails !== false}
-                    onChange={(e) => setTempConfig({ ...tempConfig, allowDraftEmails: e.target.checked })}
-                    className="w-4 h-4 rounded accent-gray-900 dark:accent-white"
-                  />
-                </div>
-              </div>
-            )}
-
-            {configuringPlugin.id === 'desktop-automation' && (
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-gray-800 dark:text-zinc-200">
-                    UI Interaction Timeout (milliseconds)
-                  </label>
-                  <input
-                    type="number"
-                    value={tempConfig.timeoutMs ?? 15000}
-                    onChange={(e) =>
-                      setTempConfig({ ...tempConfig, timeoutMs: parseInt(e.target.value) || 15000 })
-                    }
-                    className="w-full bg-gray-50 dark:bg-[#111216] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-gray-800 dark:text-zinc-200">Fallback to Vision Model</span>
-                    <span className="text-[11px] text-gray-500 dark:text-zinc-400">Capture desktop screenshot when accessibility elements are unavailable</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={tempConfig.fallbackToVision !== false}
-                    onChange={(e) => setTempConfig({ ...tempConfig, fallbackToVision: e.target.checked })}
-                    className="w-4 h-4 rounded accent-gray-900 dark:accent-white"
-                  />
-                </div>
-              </div>
-            )}
-
-            {configuringPlugin.id === 'notion' && (
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-gray-800 dark:text-zinc-200">Auto-sync Document Pages</span>
-                    <span className="text-[11px] text-gray-500 dark:text-zinc-400">Keep recent Notion document links indexed in memory</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={tempConfig.autoSyncPages !== false}
-                    onChange={(e) => setTempConfig({ ...tempConfig, autoSyncPages: e.target.checked })}
-                    className="w-4 h-4 rounded accent-gray-900 dark:accent-white"
-                  />
-                </div>
-              </div>
-            )}
-
-            {configuringPlugin.id === 'obsidian' && (
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-gray-800 dark:text-zinc-200">
-                    Default Vault Directory
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. C:\Users\Username\Documents\ObsidianVault"
-                    value={tempConfig.defaultVaultPath || ''}
-                    onChange={(e) => setTempConfig({ ...tempConfig, defaultVaultPath: e.target.value })}
-                    className="w-full bg-gray-50 dark:bg-[#111216] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none font-mono"
-                  />
-                </div>
-              </div>
-            )}
-
-            {configuringPlugin.id === 'git-tools' && (
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-gray-800 dark:text-zinc-200">
-                    Max Diff Inspection Lines
-                  </label>
-                  <input
-                    type="number"
-                    value={tempConfig.maxDiffLines ?? 1500}
-                    onChange={(e) =>
-                      setTempConfig({ ...tempConfig, maxDiffLines: parseInt(e.target.value) || 1500 })
-                    }
-                    className="w-full bg-gray-50 dark:bg-[#111216] border border-gray-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-zinc-100 outline-none"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Custom MCP Server Details */}
-            {configuringPlugin.category === 'mcp' && configuringPlugin.mcpServer && (
-              <div className="flex flex-col gap-3 font-mono text-xs">
-                <div className="flex items-center gap-2 text-gray-500 dark:text-zinc-400 font-sans">
-                  <span>Transport:</span>
-                  <span className="font-mono text-gray-900 dark:text-white px-2 py-0.5 rounded bg-gray-100 dark:bg-zinc-800">
-                    {configuringPlugin.mcpServer.transport || 'stdio'}
+              {/* Status & Toggle */}
+              <div className="p-4 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50/70 dark:bg-white/[0.03] flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-gray-900 dark:text-white block">Plugin Status</span>
+                  <span className="text-[11px] text-gray-500 dark:text-zinc-400">
+                    {configuringPlugin.isEnabled ? 'Enabled & Active in agent tools' : 'Disabled'}
                   </span>
                 </div>
 
-                {configuringPlugin.mcpServer.command && (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-gray-500 dark:text-zinc-400 font-sans">Execution Command:</span>
-                    <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#070709] border border-gray-200 dark:border-zinc-800 text-gray-900 dark:text-zinc-200 overflow-x-auto">
-                      {configuringPlugin.mcpServer.command}{' '}
-                      {(configuringPlugin.mcpServer.args || []).join(' ')}
-                    </div>
-                  </div>
-                )}
-
-                {configuringPlugin.mcpServer.url && (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-gray-500 dark:text-zinc-400 font-sans">Remote Endpoint URL:</span>
-                    <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#070709] border border-gray-200 dark:border-zinc-800 text-gray-900 dark:text-zinc-200 overflow-x-auto">
-                      {configuringPlugin.mcpServer.url}
-                    </div>
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !configuringPlugin.isEnabled;
+                    if (configuringPlugin.category === 'official') {
+                      handleToggleOfficial(configuringPlugin.id, next);
+                    } else if (window.jarvisAPI?.togglePlugin) {
+                      window.jarvisAPI.togglePlugin(configuringPlugin.id, next).then(fetchPlugins);
+                    }
+                    setConfiguringPlugin({ ...configuringPlugin, isEnabled: next });
+                  }}
+                  className={`w-9 h-5 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                    configuringPlugin.isEnabled
+                      ? 'bg-gray-950 dark:bg-white'
+                      : 'bg-gray-200 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full transition-transform ${
+                      configuringPlugin.isEnabled
+                        ? 'translate-x-4 bg-white dark:bg-zinc-950'
+                        : 'translate-x-0 bg-white dark:bg-zinc-400'
+                    }`}
+                  />
+                </button>
               </div>
-            )}
+
+              {/* Account Connection Alert (for Google Workspace or Notion) */}
+              {configuringPlugin.requiresAccount && (
+                <div className="p-4 rounded-xl border border-sky-500/20 bg-sky-500/5 flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-sky-500">
+                    <HugeiconsIcon icon={User02Icon} size={16} strokeWidth={2} />
+                    <span className="text-xs font-semibold">Account Authorization</span>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-zinc-300 leading-relaxed">
+                    {configuringPlugin.accountLinked
+                      ? 'Connected and authorized with your workspace.'
+                      : 'Requires an authenticated account connection.'}
+                  </p>
+                  {!configuringPlugin.accountLinked && onNavigateTab && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfiguringPlugin(null);
+                        onNavigateTab('google');
+                      }}
+                      className="mt-1 px-3 py-1.5 rounded-lg bg-sky-500 text-white text-xs font-semibold w-fit cursor-pointer hover:bg-sky-600"
+                    >
+                      Connect Account in Workspace
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Controls */}
+            <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-white/10">
+              {configuringPlugin.category !== 'official' ? (
+                <button
+                  type="button"
+                  onClick={(e) => handleDeleteCustom(configuringPlugin.id, e)}
+                  className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 font-medium cursor-pointer"
+                >
+                  <HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={2} />
+                  <span>Uninstall Plugin</span>
+                </button>
+              ) : <div />}
+
+              <button
+                type="button"
+                onClick={() => setConfiguringPlugin(null)}
+                className="px-4 py-2 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 };
+
+export default PluginsTab;
