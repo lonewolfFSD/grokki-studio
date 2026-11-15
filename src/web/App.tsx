@@ -1078,6 +1078,7 @@ export const App: React.FC = () => {
     overview: 'Home',
     companion: 'Aibou',
     images: 'Kinetix',
+    office: 'Scribe',
     workspace: 'Plugins',
     plugins: 'Plugins',
     skills: 'Agent Skills',

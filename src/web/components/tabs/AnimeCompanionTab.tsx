@@ -1942,7 +1942,7 @@ ${avatarName}:`;
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md gap-2.5">
           <Loader2 className="w-6 h-6 text-gray-300 animate-spin" />
           <p className="text-xs font-medium text-gray-300 tracking-wide">
-            Entering Grokki Aibou...
+            Entering Aibou...
           </p>
         </div>
       )}

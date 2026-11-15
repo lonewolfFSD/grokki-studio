@@ -1225,7 +1225,7 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
                   transition={{ duration: 0.45, delay: 0.72, ease: [0.22, 1, 0.36, 1] }}
                 />
               </svg>
-              <span className="relative z-10">Office Studio</span>
+              <span className="relative z-10">Scribe</span>
             </span>
           </motion.h1>
 

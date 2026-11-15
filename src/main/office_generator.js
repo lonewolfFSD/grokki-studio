@@ -1170,7 +1170,7 @@ async function generateDocument(data, themeKey = 'slate') {
  */
 async function generateSpreadsheet(data, themeKey = 'slate') {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'Office Studio';
+  workbook.creator = 'Scribe';
   workbook.created = new Date();
 
   const sheetData = Array.isArray(data.sheets) && data.sheets.length > 0 ? data.sheets : [data];

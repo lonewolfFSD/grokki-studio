@@ -31,6 +31,7 @@ import {
   Logout01Icon,
   AiSparklesIcon,
   AiImageIcon,
+  Heart,
   User02Icon,
   FlaskConicalIcon,
   Presentation01Icon,
@@ -1286,7 +1287,7 @@ export const Sidebar = React.memo<SidebarProps>(({
               style={{ top: `${extrasMenuPos.top}px`, left: `${extrasMenuPos.left}px` }}
               className="fixed z-[9999] w-[184px] rounded-xl bg-white dark:bg-[#222225] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-white/[0.09] shadow-2xl p-1 flex flex-col gap-0.5 select-none animate-in fade-in zoom-in-95 duration-100"
             >
-              {/* Office Studio */}
+              {/* Scribe */}
               <div
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1301,7 +1302,7 @@ export const Sidebar = React.memo<SidebarProps>(({
               >
                 <div className="flex items-center gap-2">
                   <HugeiconsIcon icon={Presentation01Icon} size={15} strokeWidth={1.8} className={activeTab === 'office' ? 'text-emerald-500' : 'text-gray-500 dark:text-gray-400'} />
-                  <span>Office Studio</span>
+                  <span>Scribe</span>
                 </div>
                 {activeTab === 'office' && (
                   <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-emerald-500" />
@@ -1330,7 +1331,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                 )}
               </div>
 
-              {/* Grokki Aibou */}
+              {/* Aibou */}
               <div
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1344,8 +1345,8 @@ export const Sidebar = React.memo<SidebarProps>(({
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <HugeiconsIcon icon={User02Icon} size={15} strokeWidth={1.8} className={activeTab === 'companion' ? 'text-pink-500' : 'text-gray-500 dark:text-gray-400'} />
-                  <span>Grokki Aibou</span>
+                  <HugeiconsIcon icon={Heart} size={15} strokeWidth={1.8} className={activeTab === 'companion' ? 'text-pink-500' : 'text-gray-500 dark:text-gray-400'} />
+                  <span>Aibou</span>
                 </div>
                 {activeTab === 'companion' && (
                   <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-pink-500" />
