@@ -3551,6 +3551,38 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           break;
         }
 
+        // Remap hallucinated tool names (e.g. "checkdeployments") to the best matching real mcp__ tool in `tools`
+        if (hasActivePlugins && Array.isArray(tools) && tools.length > 0) {
+          const validToolNames = new Set(tools.map((t) => t?.function?.name).filter(Boolean));
+          const mcpCandidates = tools.filter((t) => (t?.function?.name || '').startsWith('mcp__'));
+          for (const call of toolCalls) {
+            const origName = call?.function?.name || '';
+            if (!origName || validToolNames.has(origName) || mcpCandidates.length === 0) continue;
+            const normOrig = origName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            let bestTool = mcpCandidates[0];
+            let bestScore = -Infinity;
+            for (const cand of mcpCandidates) {
+              const candName = cand.function.name;
+              const rawPart = candName.replace(/^mcp__[^_]+__/, '').toLowerCase();
+              const words = rawPart.split('_').filter((w) => w.length >= 3);
+              let score = 0;
+              for (const w of words) {
+                const stem = w.endsWith('s') && w.length > 3 ? w.slice(0, -1) : w;
+                if (normOrig.includes(stem)) score += 10;
+              }
+              const req = cand.function?.parameters?.required;
+              if (!Array.isArray(req) || req.length === 0) score += 5;
+              if (/^(list_|get_|search_)/.test(rawPart)) score += 3;
+              if (score > bestScore) {
+                bestScore = score;
+                bestTool = cand;
+              }
+            }
+            console.log(`[AgentBrain] Remapped hallucinated tool '${origName}' -> '${bestTool.function.name}'`);
+            call.function.name = bestTool.function.name;
+          }
+        }
+
         const stepToolResults = [];
         for (const call of toolCalls) {
           if (signal && signal.aborted) {
