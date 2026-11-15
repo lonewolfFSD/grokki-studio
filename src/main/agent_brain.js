@@ -3335,9 +3335,20 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
 
     this.currentContext = context || {};
     // Ensure any requested @Plugin MCP servers are connected on-demand
+    let mcpConn = { connected: [], errors: [] };
     try {
-      await mcpManager.ensureServersConnected(context?.activePlugins || []);
+      mcpConn = await mcpManager.ensureServersConnected(context?.activePlugins || []) || { connected: [], errors: [] };
     } catch (_) {}
+
+    if (hasActivePlugins && mcpConn.errors && mcpConn.errors.length > 0 && mcpConn.connected.length === 0) {
+      const expiredErrs = mcpConn.errors.filter((e) => e.authExpired);
+      const errNames = mcpConn.errors.map((e) => e.serverId).join(', ');
+      const errMsg = expiredErrs.length > 0
+        ? `Your **${errNames}** OAuth session/token expired. Please open **Plugins** and reconnect **${errNames}** (or paste a fresh access token), then retry your request.`
+        : `Could not connect to **${errNames}** MCP server: ${mcpConn.errors[0].error}`;
+      memory.addTurn('model', errMsg, null, context);
+      return { reply: errMsg, actions: [], model: `${provider}:mcp-auth` };
+    }
 
     // When Deep Search / Live Grounding is active (and no @Plugin is invoked), or when @Plugin is invoked in Chat mode, omit unrelated desktop tools so the model focuses on the plugin
     const toolsDecl = ((isWebSearchActive && !hasActivePlugins) || (hasActivePlugins && !isAgent))
@@ -3509,6 +3520,28 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                 });
               }
             }
+          }
+        }
+
+        // If the model ignored connected @Plugin MCP tools on step 1 (e.g. asked for an account URL),
+        // automatically invoke the top-ranked zero-required-parameter MCP discovery tool so real data is fetched.
+        if (toolCalls.length === 0 && currentStep === 1 && hasActivePlugins && Array.isArray(tools) && tools.length > 0) {
+          const safeMcpTool = tools.find((t) => {
+            const fnName = t?.function?.name || '';
+            const req = t?.function?.parameters?.required;
+            return fnName.startsWith('mcp__') && (!Array.isArray(req) || req.length === 0);
+          });
+          if (safeMcpTool) {
+            console.log(`[AgentBrain] Model skipped MCP tools on step 1; auto-invoking ${safeMcpTool.function.name}({})`);
+            toolCalls.push({
+              id: `auto_mcp_${Date.now()}`,
+              type: 'function',
+              function: {
+                name: safeMcpTool.function.name,
+                arguments: {},
+              },
+            });
+            replyText = '';
           }
         }
 
@@ -4217,12 +4250,23 @@ To allow me to inspect, edit, create files, or run commands on your system:
       }
     }
 
+    const hasActivePluginsGemini = Boolean(context && Array.isArray(context.activePlugins) && context.activePlugins.length > 0);
+
     // Ensure any requested @Plugin MCP servers are connected on-demand
+    let mcpConnGemini = { connected: [], errors: [] };
     try {
-      await mcpManager.ensureServersConnected(context?.activePlugins || []);
+      mcpConnGemini = await mcpManager.ensureServersConnected(context?.activePlugins || []) || { connected: [], errors: [] };
     } catch (_) {}
 
-    const hasActivePluginsGemini = Boolean(context && Array.isArray(context.activePlugins) && context.activePlugins.length > 0);
+    if (hasActivePluginsGemini && mcpConnGemini.errors && mcpConnGemini.errors.length > 0 && mcpConnGemini.connected.length === 0) {
+      const expiredErrs = mcpConnGemini.errors.filter((e) => e.authExpired);
+      const errNames = mcpConnGemini.errors.map((e) => e.serverId).join(', ');
+      const errMsg = expiredErrs.length > 0
+        ? `Your **${errNames}** OAuth session/token expired. Please open **Plugins** and reconnect **${errNames}** (or paste a fresh access token), then retry your request.`
+        : `Could not connect to **${errNames}** MCP server: ${mcpConnGemini.errors[0].error}`;
+      memory.addTurn('model', errMsg, null, context);
+      return { reply: errMsg, actions: [], model: 'gemini:mcp-auth' };
+    }
 
     // When Deep Search / Live Grounding is active, omit desktop tools so Gemini synthesizes search results
     let tools = (isWebSearchActive && !hasActivePluginsGemini) ? undefined : this.getRelevantTools(prompt, 'gemini', context);

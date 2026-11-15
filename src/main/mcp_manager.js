@@ -312,20 +312,35 @@ class McpManager {
       ? activePlugins.map((p) => String(p.id || p.name || '').toLowerCase().trim()).filter(Boolean)
       : [];
 
+    const connected = [];
+    const errors = [];
+
     for (const [serverId, srv] of Object.entries(servers)) {
       if (!srv || !srv.enabled) continue;
-      if (this.clients.has(serverId)) continue;
       if (requestedIds.length > 0) {
         const lowerId = serverId.toLowerCase();
         const matches = requestedIds.some((rid) => lowerId === rid || lowerId.includes(rid) || rid.includes(lowerId));
         if (!matches) continue;
       }
+      if (this.clients.has(serverId)) {
+        connected.push(serverId);
+        continue;
+      }
       try {
         await this.connectServer(serverId, srv);
+        connected.push(serverId);
       } catch (err) {
-        console.warn(`[MCP] On-demand connect failed for "${serverId}":`, err.message);
+        const errMsg = err?.message || String(err);
+        console.warn(`[MCP] On-demand connect failed for "${serverId}":`, errMsg);
+        errors.push({
+          serverId,
+          error: errMsg,
+          authExpired: /invalid_token|expired|unauthorized|401/i.test(errMsg),
+        });
       }
     }
+
+    return { connected, errors };
   }
 
   getRelevantMcpTools(prompt = '', activePlugins = [], maxTools = 35) {
