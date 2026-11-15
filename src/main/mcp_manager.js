@@ -242,23 +242,148 @@ class McpManager {
     return this.allTools;
   }
 
-  getOpenAIToolDefinitions() {
-    return this.allTools.map((t) => ({
+  getOpenAIToolDefinitions(prompt = '', activePlugins = [], maxTools = 35) {
+    const selected = this.getRelevantMcpTools(prompt, activePlugins, maxTools);
+    return selected.map((t) => ({
       type: 'function',
       function: {
         name: t.mcpName,
-        description: t.description,
-        parameters: t.inputSchema,
+        description: (t.description || t.rawName || '').slice(0, 500),
+        parameters: t.inputSchema || { type: 'object', properties: {} },
       },
     }));
   }
 
-  getGeminiToolDeclarations() {
-    return this.allTools.map((t) => ({
+  sanitizeSchemaForGemini(schema) {
+    if (!schema || typeof schema !== 'object') {
+      return { type: 'OBJECT', properties: {} };
+    }
+    const typeMap = {
+      object: 'OBJECT',
+      string: 'STRING',
+      number: 'NUMBER',
+      integer: 'INTEGER',
+      boolean: 'BOOLEAN',
+      array: 'ARRAY',
+    };
+
+    const rawType = Array.isArray(schema.type) ? schema.type[0] : schema.type;
+    const mappedType = typeMap[String(rawType || 'object').toLowerCase()] || 'STRING';
+    const out = { type: mappedType };
+
+    if (schema.description && typeof schema.description === 'string') {
+      out.description = schema.description.slice(0, 400);
+    }
+    if (Array.isArray(schema.enum) && schema.enum.length > 0 && mappedType === 'STRING') {
+      out.enum = schema.enum.map((e) => String(e));
+    }
+
+    if (mappedType === 'OBJECT') {
+      const props = {};
+      if (schema.properties && typeof schema.properties === 'object') {
+        for (const [k, v] of Object.entries(schema.properties)) {
+          props[k] = this.sanitizeSchemaForGemini(v);
+        }
+      }
+      out.properties = props;
+      if (Array.isArray(schema.required) && schema.required.length > 0) {
+        out.required = schema.required.filter((r) => typeof r === 'string' && r in props);
+      }
+    } else if (mappedType === 'ARRAY') {
+      out.items = schema.items ? this.sanitizeSchemaForGemini(schema.items) : { type: 'STRING' };
+    }
+
+    return out;
+  }
+
+  getGeminiToolDeclarations(prompt = '', activePlugins = [], maxTools = 55) {
+    const selected = this.getRelevantMcpTools(prompt, activePlugins, maxTools);
+    return selected.map((t) => ({
       name: t.mcpName,
-      description: t.description,
-      parameters: t.inputSchema || { type: 'OBJECT', properties: {} },
+      description: (t.description || t.rawName || '').slice(0, 500),
+      parameters: this.sanitizeSchemaForGemini(t.inputSchema),
     }));
+  }
+
+  async ensureServersConnected(activePlugins = []) {
+    const config = this.getConfig();
+    const servers = config.mcpServers || {};
+    const requestedIds = Array.isArray(activePlugins)
+      ? activePlugins.map((p) => String(p.id || p.name || '').toLowerCase().trim()).filter(Boolean)
+      : [];
+
+    for (const [serverId, srv] of Object.entries(servers)) {
+      if (!srv || !srv.enabled) continue;
+      if (this.clients.has(serverId)) continue;
+      if (requestedIds.length > 0) {
+        const lowerId = serverId.toLowerCase();
+        const matches = requestedIds.some((rid) => lowerId === rid || lowerId.includes(rid) || rid.includes(lowerId));
+        if (!matches) continue;
+      }
+      try {
+        await this.connectServer(serverId, srv);
+      } catch (err) {
+        console.warn(`[MCP] On-demand connect failed for "${serverId}":`, err.message);
+      }
+    }
+  }
+
+  getRelevantMcpTools(prompt = '', activePlugins = [], maxTools = 35) {
+    if (!Array.isArray(this.allTools) || this.allTools.length === 0) return [];
+
+    let pool = this.allTools;
+
+    // 1. If user explicitly invoked @Plugin(s), scope to those servers first
+    if (Array.isArray(activePlugins) && activePlugins.length > 0) {
+      const targetIds = activePlugins
+        .map((p) => String(p.id || p.name || '').toLowerCase().trim())
+        .filter(Boolean);
+      const scoped = this.allTools.filter((t) => {
+        const sid = (t.serverId || '').toLowerCase();
+        return targetIds.some((tid) => sid === tid || sid.includes(tid) || tid.includes(sid));
+      });
+      if (scoped.length > 0) {
+        pool = scoped;
+      }
+    }
+
+    if (pool.length <= maxTools) {
+      return pool;
+    }
+
+    // 2. Score tools by prompt keywords so large servers (e.g. Vercel's 250 tools) fit cleanly in LLM tool limits
+    const cleanPrompt = (prompt || '').toLowerCase().replace(/@[a-z0-9_.-]+/gi, ' ');
+    const tokens = cleanPrompt
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= 2 && !['can', 'you', 'the', 'for', 'and', 'with', 'check', 'please', 'my', 'me', 'on', 'in', 'to', 'of', 'is', 'are', 'what'].includes(w));
+
+    const expandedTokens = new Set(tokens);
+    for (const tok of tokens) {
+      if (tok.endsWith('s') && tok.length > 3) expandedTokens.add(tok.slice(0, -1));
+      else expandedTokens.add(`${tok}s`);
+    }
+
+    const scored = pool.map((t) => {
+      const nameLower = (t.rawName || '').toLowerCase();
+      const descLower = (t.description || '').toLowerCase();
+      let score = 0;
+
+      for (const tok of expandedTokens) {
+        if (nameLower.includes(tok)) score += 12;
+        if (descLower.includes(tok)) score += 4;
+      }
+
+      // Boost common read/list/get discovery tools when user asks to check/show/list
+      if (/^(list_|get_|search_|fetch_|read_)/.test(nameLower)) score += 3;
+      if (nameLower === 'list_deployments' || nameLower === 'get_deployment' || nameLower === 'list_projects' || nameLower === 'list_teams') {
+        score += 6;
+      }
+
+      return { tool: t, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, maxTools).map((s) => s.tool);
   }
 
   isMcpTool(name) {
@@ -282,8 +407,20 @@ class McpManager {
         name: found.rawName,
         arguments: args || {},
       });
+
+      let message = '';
+      if (result && Array.isArray(result.content)) {
+        message = result.content
+          .map((c) => (c.type === 'text' ? c.text : JSON.stringify(c)))
+          .filter(Boolean)
+          .join('\n\n');
+      } else if (result) {
+        message = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+      }
+
       return {
-        success: true,
+        success: !result?.isError,
+        message: message || 'MCP tool executed successfully.',
         result,
       };
     } catch (err) {
@@ -291,6 +428,7 @@ class McpManager {
       return {
         success: false,
         error: err.message || String(err),
+        message: `MCP tool "${found.rawName}" failed: ${err.message || String(err)}`,
       };
     }
   }

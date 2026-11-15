@@ -3207,8 +3207,9 @@ STRICT OPERATIONAL DIRECTIVES:
       ? context.conversationHistory
       : memory.getConvoHistory(convoId);
 
+    const hasActivePlugins = Boolean(context && Array.isArray(context.activePlugins) && context.activePlugins.length > 0);
     let groundingSources = [];
-    const isWebSearchActive = !isConversationalPrompt && Boolean(
+    const isWebSearchActive = !isConversationalPrompt && !hasActivePlugins && Boolean(
       context && (context.webSearch || context.webSearchEnabled) ||
       shouldAutoSearchWeb(prompt, conversationHistory)
     );
@@ -3333,16 +3334,28 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
     }
 
     this.currentContext = context || {};
-    // When Deep Search / Live Grounding is active or query is non-action, omit desktop tools
-    const toolsDecl = isWebSearchActive ? undefined : this.getRelevantTools(prompt, provider, context);
+    // Ensure any requested @Plugin MCP servers are connected on-demand
+    try {
+      await mcpManager.ensureServersConnected(context?.activePlugins || []);
+    } catch (_) {}
+
+    // When Deep Search / Live Grounding is active (and no @Plugin is invoked), omit desktop tools
+    const toolsDecl = (isWebSearchActive && !hasActivePlugins) ? undefined : this.getRelevantTools(prompt, provider, context);
     let tools = toolsDecl ? convertGeminiToolsToOpenAI(toolsDecl) : undefined;
-    if (!isWebSearchActive && provider !== 'ollama') {
+    if (!isWebSearchActive || hasActivePlugins) {
       try {
-        const mcpTools = mcpManager.getOpenAIToolDefinitions();
+        const mcpLimit = (provider === 'ollama' || provider === 'groq') ? 20 : 40;
+        const mcpTools = mcpManager.getOpenAIToolDefinitions(prompt, context?.activePlugins || [], mcpLimit);
         if (mcpTools && mcpTools.length > 0) {
           tools = (tools || []).concat(mcpTools);
         }
       } catch (_) {}
+    }
+
+    if (hasActivePlugins) {
+      const pluginNames = context.activePlugins.map((p) => p.name).join(', ');
+      const pluginRule = `\nCONNECTED PLUGINS ACTIVE (${pluginNames}): You have live connected MCP tools (prefixed with mcp__) for ${pluginNames}. ALWAYS call the appropriate mcp__ tool(s) to fetch real data or perform actions on ${pluginNames}. NEVER refuse or tell the user to contact support.`;
+      messages[0].content += pluginRule;
     }
 
     codingAgentHarness.syncContext(context);
@@ -4178,11 +4191,18 @@ To allow me to inspect, edit, create files, or run commands on your system:
       }
     }
 
+    // Ensure any requested @Plugin MCP servers are connected on-demand
+    try {
+      await mcpManager.ensureServersConnected(context?.activePlugins || []);
+    } catch (_) {}
+
+    const hasActivePluginsGemini = Boolean(context && Array.isArray(context.activePlugins) && context.activePlugins.length > 0);
+
     // When Deep Search / Live Grounding is active, omit desktop tools so Gemini synthesizes search results
-    let tools = isWebSearchActive ? undefined : this.getRelevantTools(prompt, 'gemini', context);
-    if (!isWebSearchActive) {
+    let tools = (isWebSearchActive && !hasActivePluginsGemini) ? undefined : this.getRelevantTools(prompt, 'gemini', context);
+    if (!isWebSearchActive || hasActivePluginsGemini) {
       try {
-        const mcpGeminiDecls = mcpManager.getGeminiToolDeclarations();
+        const mcpGeminiDecls = mcpManager.getGeminiToolDeclarations(prompt, context?.activePlugins || [], 55);
         if (mcpGeminiDecls && mcpGeminiDecls.length > 0) {
           if (tools && tools[0] && Array.isArray(tools[0].functionDeclarations)) {
             tools = [{ functionDeclarations: [...tools[0].functionDeclarations, ...mcpGeminiDecls] }];
@@ -4192,9 +4212,13 @@ To allow me to inspect, edit, create files, or run commands on your system:
         }
       } catch (_) {}
     }
-    const systemInstruction = isAgent
+    let systemInstruction = isAgent
       ? this.buildAgentSystemPrompt(context, config, fullPrompt, conversationHistory)
       : memory.buildSystemPrompt(config, fullPrompt, context);
+    if (hasActivePluginsGemini) {
+      const pluginNames = context.activePlugins.map((p) => p.name).join(', ');
+      systemInstruction += `\nCONNECTED PLUGINS ACTIVE (${pluginNames}): You have live connected MCP tools (prefixed with mcp__) for ${pluginNames}. ALWAYS call the appropriate mcp__ tool(s) to fetch real data or perform actions on ${pluginNames}. NEVER refuse or tell the user to contact support.`;
+    }
 
     memory.addTurn('user', prompt, null, context);
 
