@@ -401,31 +401,31 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   });
   const [unrealSpeechVoice, setUnrealSpeechVoice] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem('ani_unrealspeech_voice') || 'Scarlett';
-      return saved === 'Sakura' ? 'Scarlett' : saved;
+      const saved = localStorage.getItem('ani_unrealspeech_voice_v2') || 'Liv';
+      return saved === 'Sakura' ? 'Liv' : saved;
     } catch {
-      return 'Scarlett';
+      return 'Liv';
     }
   });
   const [unrealSpeechPitch, setUnrealSpeechPitch] = useState<number>(() => {
     try {
-      const v = parseFloat(localStorage.getItem('ani_unrealspeech_pitch') || '0.94');
-      return Number.isFinite(v) ? v : 0.94;
+      const v = parseFloat(localStorage.getItem('ani_unrealspeech_pitch_v2') || '1.08');
+      return Number.isFinite(v) && v >= 1.0 ? v : 1.08;
     } catch {
-      return 0.94;
+      return 1.08;
     }
   });
   const [unrealSpeechSpeed, setUnrealSpeechSpeed] = useState<number>(() => {
     try {
-      const v = parseFloat(localStorage.getItem('ani_unrealspeech_speed') || '-0.18');
-      return Number.isFinite(v) ? v : -0.18;
+      const v = parseFloat(localStorage.getItem('ani_unrealspeech_speed_v2') || '-0.03');
+      return Number.isFinite(v) && v >= -0.1 ? v : -0.03;
     } catch {
-      return -0.18;
+      return -0.03;
     }
   });
   const [sultryVocalEq, setSultryVocalEq] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('ani_sultry_vocal_eq') !== 'false';
+      return localStorage.getItem('ani_sultry_vocal_eq_v2') !== 'false';
     } catch {
       return true;
     }
@@ -441,30 +441,30 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   const handleSaveUnrealVoice = (v: string) => {
     setUnrealSpeechVoice(v);
     try {
-      localStorage.setItem('ani_unrealspeech_voice', v);
+      localStorage.setItem('ani_unrealspeech_voice_v2', v);
     } catch {}
   };
 
   const handleSaveUnrealPitch = (pitchVal: number) => {
-    const clamped = Math.max(0.75, Math.min(1.25, Number(pitchVal.toFixed(2))));
+    const clamped = Math.max(1.0, Math.min(1.25, Number(pitchVal.toFixed(2))));
     setUnrealSpeechPitch(clamped);
     try {
-      localStorage.setItem('ani_unrealspeech_pitch', String(clamped));
+      localStorage.setItem('ani_unrealspeech_pitch_v2', String(clamped));
     } catch {}
   };
 
   const handleSaveUnrealSpeed = (speedVal: number) => {
-    const clamped = Math.max(-0.5, Math.min(0.4, Number(speedVal.toFixed(2))));
+    const clamped = Math.max(-0.12, Math.min(0.25, Number(speedVal.toFixed(2))));
     setUnrealSpeechSpeed(clamped);
     try {
-      localStorage.setItem('ani_unrealspeech_speed', String(clamped));
+      localStorage.setItem('ani_unrealspeech_speed_v2', String(clamped));
     } catch {}
   };
 
   const handleToggleSultryEq = (enabled: boolean) => {
     setSultryVocalEq(enabled);
     try {
-      localStorage.setItem('ani_sultry_vocal_eq', String(enabled));
+      localStorage.setItem('ani_sultry_vocal_eq_v2', String(enabled));
     } catch {}
   };
 
@@ -1163,35 +1163,34 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
       try {
         let hasSpoken = false;
 
-        // Helper: Route audio through a Sultry Condenser-Mic Vocal Chain (proximity warmth + de-harsh + breathy air shimmer)
+        // Helper: Route audio through a Young, Silky-Breathy Vocal Chain (cuts low mud + boosts feminine presence & whisper air)
         const attachAudioWithSultryChain = (audio: HTMLAudioElement) => {
           if (!audioContextRef.current || !analyserRef.current) return;
           const ctx = audioContextRef.current;
           const source = ctx.createMediaElementSource(audio);
 
           if (sultryVocalEq) {
-            // 1. Intimate proximity chest warmth (210 Hz lowshelf +3.8 dB)
-            const warmthFilter = ctx.createBiquadFilter();
-            warmthFilter.type = 'lowshelf';
-            warmthFilter.frequency.value = 210;
-            warmthFilter.gain.value = 3.8;
+            // 1. High-pass at 155 Hz to strip out heavy/old low-end mud
+            const hpFilter = ctx.createBiquadFilter();
+            hpFilter.type = 'highpass';
+            hpFilter.frequency.value = 155;
 
-            // 2. Smooth out nasal/digital TTS edge (3100 Hz peaking -2.8 dB)
-            const smoothFilter = ctx.createBiquadFilter();
-            smoothFilter.type = 'peaking';
-            smoothFilter.frequency.value = 3100;
-            smoothFilter.Q.value = 1.25;
-            smoothFilter.gain.value = -2.8;
+            // 2. Feminine silky presence lift at 4.2 kHz (+2.4 dB)
+            const presenceFilter = ctx.createBiquadFilter();
+            presenceFilter.type = 'peaking';
+            presenceFilter.frequency.value = 4200;
+            presenceFilter.Q.value = 1.1;
+            presenceFilter.gain.value = 2.4;
 
-            // 3. Breathy whisper air shimmer (8200 Hz highshelf +4.2 dB)
+            // 3. Breathy whisper air shimmer at 9.5 kHz (+4.5 dB)
             const airFilter = ctx.createBiquadFilter();
             airFilter.type = 'highshelf';
-            airFilter.frequency.value = 8200;
-            airFilter.gain.value = 4.2;
+            airFilter.frequency.value = 9500;
+            airFilter.gain.value = 4.5;
 
-            source.connect(warmthFilter);
-            warmthFilter.connect(smoothFilter);
-            smoothFilter.connect(airFilter);
+            source.connect(hpFilter);
+            hpFilter.connect(presenceFilter);
+            presenceFilter.connect(airFilter);
             airFilter.connect(analyserRef.current);
           } else {
             source.connect(analyserRef.current);
@@ -1199,13 +1198,13 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           analyserRef.current.connect(ctx.destination);
         };
 
-        // 1. UnrealSpeech Seductive Customized Voice (if user configured UnrealSpeech API Key)
+        // 1. UnrealSpeech Young Seductive Voice (if user configured UnrealSpeech API Key)
         if (unrealSpeechApiKey && unrealSpeechApiKey.trim()) {
           try {
             const validVoice =
               unrealSpeechVoice && unrealSpeechVoice !== 'Sakura'
                 ? unrealSpeechVoice
-                : 'Scarlett';
+                : 'Liv';
 
             const res = await fetch('https://api.unrealspeech.com/stream', {
               method: 'POST',
@@ -1261,9 +1260,9 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
             hasSpoken = true;
             isSpeakingRef.current = true;
             const audio = new Audio(`data:${res.mimeType || 'audio/mpeg'};base64,${res.base64Audio}`);
-            // Apply subtle pitch & speed shift on fallback audio to match seductive tuning
+            // Keep preservesPitch true (or slight upward lift >= 1.04) so voice NEVER drags or sounds old
             (audio as any).preservesPitch = false;
-            audio.playbackRate = Math.max(0.82, Math.min(1.12, unrealSpeechPitch * (1 + unrealSpeechSpeed * 0.25)));
+            audio.playbackRate = Math.max(1.04, Math.min(1.14, unrealSpeechPitch));
             currentAudioElementRef.current = audio;
 
             attachAudioWithSultryChain(audio);
@@ -1285,12 +1284,12 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           }
         }
 
-        // Sultry Web Speech Fallback
+        // Young Feminine Flirty Web Speech Fallback
         if (!hasSpoken && 'speechSynthesis' in window) {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(cleanText);
-          utterance.rate = Math.max(0.78, Math.min(1.15, 0.92 + unrealSpeechSpeed * 0.35));
-          utterance.pitch = Math.max(0.75, Math.min(1.3, unrealSpeechPitch));
+          utterance.rate = 1.02;
+          utterance.pitch = Math.max(1.15, Math.min(1.35, unrealSpeechPitch + 0.1));
 
           const voices = window.speechSynthesis.getVoices();
           const cuteVoice =
@@ -1862,9 +1861,9 @@ ${avatarName}:`;
               {/* Voice Timbre Selection */}
               <div className="grid grid-cols-3 gap-1.5 mb-3">
                 {[
-                  { id: 'Scarlett', label: 'Scarlett', desc: 'Sultry & Husky' },
-                  { id: 'Liv', label: 'Liv', desc: 'Breathy & Soft' },
-                  { id: 'Amy', label: 'Amy', desc: 'Velvet Warm' },
+                  { id: 'Liv', label: 'Liv', desc: 'Young & Breathy' },
+                  { id: 'Scarlett', label: 'Scarlett', desc: 'Flirty & Silky' },
+                  { id: 'Amy', label: 'Amy', desc: 'Sweet & Soft' },
                 ].map((v) => (
                   <button
                     key={v.id}
@@ -1885,9 +1884,9 @@ ${avatarName}:`;
               {/* Quick Seductive Presets */}
               <div className="grid grid-cols-3 gap-1.5 mb-3">
                 {[
-                  { label: 'Seductive Whisper', voice: 'Scarlett', pitch: 0.92, speed: -0.22 },
-                  { label: 'Sultry Tease', voice: 'Scarlett', pitch: 0.95, speed: -0.16 },
-                  { label: 'Breathy Velvet', voice: 'Liv', pitch: 0.96, speed: -0.18 },
+                  { label: 'Flirty Siren', voice: 'Liv', pitch: 1.08, speed: -0.03 },
+                  { label: 'Breathy Tease', voice: 'Scarlett', pitch: 1.10, speed: -0.02 },
+                  { label: 'Sweet Whisper', voice: 'Liv', pitch: 1.13, speed: 0.02 },
                 ].map((preset) => {
                   const active =
                     unrealSpeechVoice === preset.voice &&
@@ -1919,13 +1918,13 @@ ${avatarName}:`;
               <div className="space-y-2.5 bg-white/[0.04] border border-white/10 rounded-xl p-3 mb-2.5">
                 <div>
                   <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-gray-300">Vocal Pitch (Husky ↔ High)</span>
+                    <span className="text-gray-300">Youthful Pitch (Natural ↔ Flirty High)</span>
                     <span className="font-mono text-pink-300">{unrealSpeechPitch.toFixed(2)}</span>
                   </div>
                   <input
                     type="range"
-                    min="0.80"
-                    max="1.15"
+                    min="1.00"
+                    max="1.22"
                     step="0.01"
                     value={unrealSpeechPitch}
                     onChange={(e) => handleSaveUnrealPitch(parseFloat(e.target.value))}
@@ -1935,14 +1934,14 @@ ${avatarName}:`;
 
                 <div>
                   <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-gray-300">Delivery Pace (Lingering ↔ Fast)</span>
+                    <span className="text-gray-300">Delivery Pace (Intimate ↔ Lively)</span>
                     <span className="font-mono text-pink-300">{unrealSpeechSpeed.toFixed(2)}</span>
                   </div>
                   <input
                     type="range"
-                    min="-0.40"
+                    min="-0.10"
                     max="0.20"
-                    step="0.02"
+                    step="0.01"
                     value={unrealSpeechSpeed}
                     onChange={(e) => handleSaveUnrealSpeed(parseFloat(e.target.value))}
                     className="w-full accent-pink-500 cursor-pointer h-1.5 bg-white/10 rounded-lg"
@@ -1950,7 +1949,7 @@ ${avatarName}:`;
                 </div>
 
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-gray-300">Condenser Mic Warmth &amp; Breath EQ</span>
+                  <span className="text-[11px] text-gray-300">Silky Presence &amp; Breath Air EQ</span>
                   <button
                     type="button"
                     onClick={() => handleToggleSultryEq(!sultryVocalEq)}
