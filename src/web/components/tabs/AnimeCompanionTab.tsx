@@ -2114,18 +2114,6 @@ ${avatarName}:`;
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={handleSaveAllCompanionSettings}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                    settingsSaved
-                      ? 'bg-emerald-500 text-black border-emerald-400'
-                      : 'bg-white text-black border-white hover:bg-gray-200'
-                  }`}
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>{settingsSaved ? 'Saved!' : 'Save'}</span>
-                </button>
-                <button
-                  type="button"
                   onClick={() => setShowSettings(false)}
                   className="p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white cursor-pointer border-none bg-transparent"
                 >
@@ -2189,21 +2177,9 @@ ${avatarName}:`;
             <div className="mt-5 pt-4 border-t border-white/10">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-semibold text-white tracking-wide">
-                  {avatarName} Voice Engine Studio
+                  Voice Engine Studio
                 </label>
-                <span className="text-[10px] text-pink-400 font-mono">
-                  {companionTtsEngine === 'fish_audio'
-                    ? fishAudioApiKey
-                      ? 'Fish Audio Active'
-                      : 'Fish Key Needed'
-                    : companionTtsEngine === 'elevenlabs'
-                    ? elevenLabsKey
-                      ? 'ElevenLabs Active'
-                      : 'Key Needed'
-                    : unrealSpeechApiKey
-                    ? `${unrealSpeechVoice} • ${unrealSpeechPitch}`
-                    : 'Key Needed'}
-                </span>
+                
               </div>
 
               {/* Engine Switcher Tabs */}
@@ -2224,7 +2200,6 @@ ${avatarName}:`;
                     }`}
                   >
                     <div className="text-[11px] font-semibold">{eng.label}</div>
-                    <div className="text-[9px] opacity-75 mt-0.5">{eng.sub}</div>
                   </button>
                 ))}
               </div>
@@ -2232,10 +2207,7 @@ ${avatarName}:`;
               {/* PANEL 1: FISH AUDIO (ANIME / WAIFU / ASMR) */}
               {companionTtsEngine === 'fish_audio' && (
                 <div className="space-y-2.5">
-                  <p className="text-[11px] text-gray-400 leading-relaxed">
-                    Use any anime, waifu, VTuber, or seductive ASMR voice from{' '}
-                    <span className="text-pink-300 font-mono">fish.audio</span>.
-                  </p>
+                  
                   <input
                     type="password"
                     value={fishAudioApiKey}
@@ -2247,7 +2219,6 @@ ${avatarName}:`;
                   <div>
                     <div className="flex items-center justify-between text-[10px] text-gray-400 mb-1">
                       <span>Voice Reference ID or fish.audio URL</span>
-                      <span className="text-pink-300 truncate max-w-[140px]">{fishAudioVoiceTitle}</span>
                     </div>
                     <input
                       type="text"
@@ -2259,7 +2230,7 @@ ${avatarName}:`;
                   </div>
 
                   {/* Live Fish Audio Anime / Seductive Voice Finder */}
-                  <div className="bg-white/[0.04] border border-white/10 rounded-xl p-2.5">
+                  <div className="bg-white/[0.04] hidden border border-white/10 rounded-xl p-2.5">
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-[10px] font-semibold text-gray-300">
                         Browse Live Fish Audio Voices
@@ -2328,7 +2299,7 @@ ${avatarName}:`;
                   </div>
 
                   {/* Fish Audio Prosody & Expressiveness Sliders */}
-                  <div className="space-y-2 bg-white/[0.04] border border-white/10 rounded-xl p-3">
+                  <div className="space-y-2 hidden bg-white/[0.04] border border-white/10 rounded-xl p-3">
                     <div>
                       <div className="flex justify-between text-[11px] mb-1">
                         <span className="text-gray-300">Expressive Flirtiness (Temp)</span>
@@ -2540,7 +2511,6 @@ ${avatarName}:`;
                       : 'bg-white text-black border-white hover:bg-gray-200'
                   }`}
                 >
-                  <Check className="w-3.5 h-3.5" />
                   <span>{settingsSaved ? 'Saved!' : 'Save Voice'}</span>
                 </button>
                 <button
@@ -2659,7 +2629,6 @@ ${avatarName}:`;
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold">{av.name}</span>
                       </div>
-                      <div className="text-[10px] opacity-75 mt-0.5">{av.desc}</div>
                     </button>
                   );
                 })}
@@ -2705,7 +2674,6 @@ ${avatarName}:`;
                       : 'bg-white text-black border-white hover:bg-gray-200'
                   }`}
                 >
-                  <Check className="w-4 h-4" />
                   <span>{settingsSaved ? 'All Companion Settings Saved!' : 'Save Changes'}</span>
                 </button>
               </div>

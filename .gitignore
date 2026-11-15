@@ -16,6 +16,8 @@ data/github_credentials.json
 data/obsidian_vault.json
 data/plugins.json
 data/jarvis-config.json
+data/mcp_oauth_tokens.json
+data/mcp_servers.json
 
 # Build outputs
 dist/

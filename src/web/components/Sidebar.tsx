@@ -1062,6 +1062,16 @@ export const Sidebar = React.memo<SidebarProps>(({
             </div>
           )}
 
+          <SidebarRow
+                  icon={Home01Icon}
+                  label="Home"
+                  isActive={activeTab === 'overview'}
+                  isCollapsed={isCollapsed}
+                  onClick={() => onSelectTab('overview')}
+                />
+
+          
+
           {/* Top Actions: New Chat / Session & Overview (Home) */}
           <div className="flex flex-col gap-0.5 flex-shrink-0">
             <SidebarRow
@@ -1116,15 +1126,33 @@ export const Sidebar = React.memo<SidebarProps>(({
               </div>
             </WarmTooltip>
 
+            <>
+                <div ref={capabilitiesBtnRef} className="w-full">
+                  <SidebarRow
+                    icon={ToolsIcon}
+                    label="Capabilities"
+                    isActive={activeTab === 'skills' || isCapabilitiesOpen}
+                    isCollapsed={isCollapsed}
+                    onClick={handleToggleCapabilities}
+                    rightSlot={
+                      <HugeiconsIcon
+                        icon={ChevronRightIcon}
+                        size={13}
+                        strokeWidth={2}
+                        className={`text-gray-400 transition-all duration-150 ${
+                          isCapabilitiesOpen ? 'text-gray-900 dark:text-gray-100 translate-x-0.5' : 'group-hover:text-gray-600 dark:group-hover:text-gray-300'
+                        }`}
+                      />
+                    }
+                  />
+                </div>
+
+                
+              </>
+
             {appMode !== 'agent' && (
               <>
-                <SidebarRow
-                  icon={Home01Icon}
-                  label="Home"
-                  isActive={activeTab === 'overview'}
-                  isCollapsed={isCollapsed}
-                  onClick={() => onSelectTab('overview')}
-                />
+                
                 {companionEnabled && (
                   <div ref={extrasBtnRef} className="w-full">
                     <SidebarRow
@@ -1166,31 +1194,9 @@ export const Sidebar = React.memo<SidebarProps>(({
               </>
             )}
 
-            {appMode === 'agent' && (
-              <>
-                <div ref={capabilitiesBtnRef} className="w-full">
-                  <SidebarRow
-                    icon={ToolsIcon}
-                    label="Capabilities"
-                    isActive={activeTab === 'skills' || isCapabilitiesOpen}
-                    isCollapsed={isCollapsed}
-                    onClick={handleToggleCapabilities}
-                    rightSlot={
-                      <HugeiconsIcon
-                        icon={ChevronRightIcon}
-                        size={13}
-                        strokeWidth={2}
-                        className={`text-gray-400 transition-all duration-150 ${
-                          isCapabilitiesOpen ? 'text-gray-900 dark:text-gray-100 translate-x-0.5' : 'group-hover:text-gray-600 dark:group-hover:text-gray-300'
-                        }`}
-                      />
-                    }
-                  />
-                </div>
-
-                
-              </>
-            )}
+            
+              
+           
           </div>
 
           {/* Sleek divider line under the overview button */}
@@ -1228,6 +1234,8 @@ export const Sidebar = React.memo<SidebarProps>(({
               </button>
             </div>
           )}
+
+          
 
           {/* Capabilities Popover Menu (Fixed to escape any parent overflow) */}
           {isCapabilitiesOpen && (
@@ -1279,6 +1287,8 @@ export const Sidebar = React.memo<SidebarProps>(({
               </div>
             </div>
           )}
+
+          
 
           {/* Extras Popover Menu */}
           {isExtrasOpen && (
