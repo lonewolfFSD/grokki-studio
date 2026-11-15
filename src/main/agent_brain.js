@@ -3342,19 +3342,24 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
     // When Deep Search / Live Grounding is active (and no @Plugin is invoked), omit desktop tools
     const toolsDecl = (isWebSearchActive && !hasActivePlugins) ? undefined : this.getRelevantTools(prompt, provider, context);
     let tools = toolsDecl ? convertGeminiToolsToOpenAI(toolsDecl) : undefined;
+    let loadedMcpToolNames = [];
     if (!isWebSearchActive || hasActivePlugins) {
       try {
         const mcpLimit = (provider === 'ollama' || provider === 'groq') ? 20 : 40;
         const mcpTools = mcpManager.getOpenAIToolDefinitions(prompt, context?.activePlugins || [], mcpLimit);
         if (mcpTools && mcpTools.length > 0) {
           tools = (tools || []).concat(mcpTools);
+          loadedMcpToolNames = mcpTools.map((t) => t.function?.name).filter(Boolean);
         }
       } catch (_) {}
     }
 
     if (hasActivePlugins) {
       const pluginNames = context.activePlugins.map((p) => p.name).join(', ');
-      const pluginRule = `\nCONNECTED PLUGINS ACTIVE (${pluginNames}): You have live connected MCP tools (prefixed with mcp__) for ${pluginNames}. ALWAYS call the appropriate mcp__ tool(s) to fetch real data or perform actions on ${pluginNames}. NEVER refuse or tell the user to contact support.`;
+      const exactListNote = loadedMcpToolNames.length > 0
+        ? ` Exact available MCP tool names: ${loadedMcpToolNames.join(', ')}. You MUST ONLY call tool names from this exact list.`
+        : '';
+      const pluginRule = `\nCONNECTED PLUGINS ACTIVE (${pluginNames}): You have live connected MCP tools (prefixed with mcp__) for ${pluginNames}. ALWAYS call the appropriate mcp__ tool(s) to fetch real data or perform actions on ${pluginNames}. NEVER refuse or tell the user to contact support.${exactListNote}`;
       messages[0].content += pluginRule;
     }
 
@@ -3368,6 +3373,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
       let activeMessages = [...messages];
       const maxAgentSteps = (context && context.maxTurns) ? Math.min(Math.max(parseInt(context.maxTurns, 10), 1), 32) : 8;
       let currentStep = 0;
+      const seenToolCalls = new Map();
 
       while (currentStep < maxAgentSteps) {
         currentStep++;
@@ -3557,8 +3563,11 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           const stepStatus = (result && result.success === false) ? 'failed' : 'completed';
           console.log(`[AgentBrain] Tool '${name}' result: ${stepStatus.toUpperCase()}`, result?.message ? result.message.slice(0, 100) : (result?.error || ''));
 
+          const callSig = `${name}:${JSON.stringify(args || {})}`;
+          seenToolCalls.set(callSig, (seenToolCalls.get(callSig) || 0) + 1);
+
           executed.push({ id: stepId, name, args, result, status: stepStatus });
-          stepToolResults.push({ call, name, result });
+          stepToolResults.push({ call, name, result, callSig });
 
           this.emitAgentStep(context, {
             id: stepId,
@@ -3589,6 +3598,14 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           break;
         }
 
+        // Break out of infinite tool-call loops when the model repeats the exact same call >= 2 times
+        if (stepToolResults.length > 0 && stepToolResults.every(s => (seenToolCalls.get(s.callSig) || 0) >= 2)) {
+          const lastRes = stepToolResults[stepToolResults.length - 1].result;
+          finalReplyText = lastRes?.message || lastRes?.error || `Stopped repeated tool call loop on ${stepToolResults[0].name}.`;
+          console.warn(`[AgentBrain] Loop guard triggered for repeated tool call: ${stepToolResults[0].name}`);
+          break;
+        }
+
         // DeepSeek Harness Agent Loop: feed tool outputs back for multi-turn execution
         activeMessages.push({
           role: 'assistant',
@@ -3604,7 +3621,9 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         });
 
         for (const item of stepToolResults) {
-          const content = typeof item.result === 'string' ? item.result : (item.result?.message || JSON.stringify(item.result));
+          const content = typeof item.result === 'string'
+            ? item.result
+            : (item.result?.message || item.result?.error || JSON.stringify(item.result));
           activeMessages.push({
             role: 'tool',
             tool_call_id: item.call.id || `call_${Date.now()}`,
@@ -3614,12 +3633,17 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
 
         if (stepToolResults.length > 0) {
           const lastRes = stepToolResults[stepToolResults.length - 1].result;
-          finalReplyText = lastRes?.message || `Completed ${stepToolResults.map(s => s.name).join(', ')}.`;
+          if (lastRes && lastRes.success === false) {
+            finalReplyText = lastRes.message || lastRes.error || `Tool ${stepToolResults[stepToolResults.length - 1].name} failed.`;
+          } else {
+            finalReplyText = lastRes?.message || `Completed ${stepToolResults.map(s => s.name).join(', ')}.`;
+          }
         }
       }
 
       if (!finalReplyText && executed.length > 0) {
-        finalReplyText = executed[executed.length - 1].result?.message || `Done: ${executed[0].name.replace(/_/g, ' ')}.`;
+        const lastExecRes = executed[executed.length - 1].result;
+        finalReplyText = lastExecRes?.message || lastExecRes?.error || `Done: ${executed[0].name.replace(/_/g, ' ')}.`;
       } else if (!finalReplyText) {
         finalReplyText = 'Ready.';
       }
@@ -4200,10 +4224,12 @@ To allow me to inspect, edit, create files, or run commands on your system:
 
     // When Deep Search / Live Grounding is active, omit desktop tools so Gemini synthesizes search results
     let tools = (isWebSearchActive && !hasActivePluginsGemini) ? undefined : this.getRelevantTools(prompt, 'gemini', context);
+    let loadedMcpGeminiNames = [];
     if (!isWebSearchActive || hasActivePluginsGemini) {
       try {
         const mcpGeminiDecls = mcpManager.getGeminiToolDeclarations(prompt, context?.activePlugins || [], 55);
         if (mcpGeminiDecls && mcpGeminiDecls.length > 0) {
+          loadedMcpGeminiNames = mcpGeminiDecls.map((d) => d.name).filter(Boolean);
           if (tools && tools[0] && Array.isArray(tools[0].functionDeclarations)) {
             tools = [{ functionDeclarations: [...tools[0].functionDeclarations, ...mcpGeminiDecls] }];
           } else {
@@ -4217,7 +4243,10 @@ To allow me to inspect, edit, create files, or run commands on your system:
       : memory.buildSystemPrompt(config, fullPrompt, context);
     if (hasActivePluginsGemini) {
       const pluginNames = context.activePlugins.map((p) => p.name).join(', ');
-      systemInstruction += `\nCONNECTED PLUGINS ACTIVE (${pluginNames}): You have live connected MCP tools (prefixed with mcp__) for ${pluginNames}. ALWAYS call the appropriate mcp__ tool(s) to fetch real data or perform actions on ${pluginNames}. NEVER refuse or tell the user to contact support.`;
+      const exactListNote = loadedMcpGeminiNames.length > 0
+        ? ` Exact available MCP tool names: ${loadedMcpGeminiNames.join(', ')}. You MUST ONLY call tool names from this exact list.`
+        : '';
+      systemInstruction += `\nCONNECTED PLUGINS ACTIVE (${pluginNames}): You have live connected MCP tools (prefixed with mcp__) for ${pluginNames}. ALWAYS call the appropriate mcp__ tool(s) to fetch real data or perform actions on ${pluginNames}. NEVER refuse or tell the user to contact support.${exactListNote}`;
     }
 
     memory.addTurn('user', prompt, null, context);

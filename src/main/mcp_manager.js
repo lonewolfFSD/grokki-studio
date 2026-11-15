@@ -393,12 +393,25 @@ class McpManager {
   async executeMcpTool(mcpToolName, args) {
     const found = this.allTools.find((t) => t.mcpName === mcpToolName);
     if (!found) {
-      return { success: false, error: `MCP Tool "${mcpToolName}" not found.` };
+      const prefixMatch = String(mcpToolName || '').match(/^(mcp__[^_]+__)/);
+      const serverPrefix = prefixMatch ? prefixMatch[1] : null;
+      const candidateTools = (serverPrefix
+        ? this.allTools.filter((t) => t.mcpName.startsWith(serverPrefix))
+        : this.allTools
+      )
+        .slice(0, 20)
+        .map((t) => t.mcpName);
+      const hint = candidateTools.length > 0
+        ? ` Use one of these exact available tool names instead: ${candidateTools.join(', ')}`
+        : '';
+      const errMsg = `MCP Tool "${mcpToolName}" not found.${hint}`;
+      return { success: false, error: errMsg, message: errMsg };
     }
 
     const item = this.clients.get(found.serverId);
     if (!item) {
-      return { success: false, error: `MCP Server "${found.serverId}" is not currently connected.` };
+      const errMsg = `MCP Server "${found.serverId}" is not currently connected.`;
+      return { success: false, error: errMsg, message: errMsg };
     }
 
     try {
