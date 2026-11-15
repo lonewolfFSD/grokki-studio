@@ -358,7 +358,7 @@ class ElevenLabsTTSService {
     }
   }
 
-  async synthesize(text, voiceId = 'JBFqnCBsd6RMkjVDRZzb', apiKey = '', modelId = 'eleven_v3') {
+  async synthesize(text, voiceId = 'JBFqnCBsd6RMkjVDRZzb', apiKey = '', modelId = 'eleven_v3', voiceSettings = null) {
     const key = String(apiKey || process.env.ELEVENLABS_API_KEY || '').trim();
     const cleanText = voicestudioTTS.formatForExpressiveSpeech(text);
     if (!cleanText) {
@@ -410,9 +410,9 @@ class ElevenLabsTTSService {
               text: cleanText,
               model_id: currentModel,
               voice_settings: {
-                stability: 0.5,
-                similarity_boost: 0.78,
-                style: 0.15,
+                stability: typeof voiceSettings?.stability === 'number' ? voiceSettings.stability : 0.5,
+                similarity_boost: typeof voiceSettings?.similarity_boost === 'number' ? voiceSettings.similarity_boost : 0.78,
+                style: typeof voiceSettings?.style === 'number' ? voiceSettings.style : 0.15,
                 use_speaker_boost: true,
               },
             }),

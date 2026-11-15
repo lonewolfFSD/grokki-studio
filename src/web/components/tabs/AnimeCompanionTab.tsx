@@ -391,6 +391,198 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     } catch {}
   };
 
+  // Multi-Engine Companion Voice State (Fish Audio / ElevenLabs / UnrealSpeech)
+  const [companionTtsEngine, setCompanionTtsEngine] = useState<'fish_audio' | 'elevenlabs' | 'unrealspeech'>(() => {
+    try {
+      const saved = localStorage.getItem('ani_tts_engine_v1');
+      if (saved === 'fish_audio' || saved === 'elevenlabs' || saved === 'unrealspeech') return saved;
+      return 'fish_audio';
+    } catch {
+      return 'fish_audio';
+    }
+  });
+
+  // Fish Audio State
+  const [fishAudioApiKey, setFishAudioApiKey] = useState<string>(() => {
+    try {
+      return localStorage.getItem('ani_fish_audio_api_key') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [fishAudioRefId, setFishAudioRefId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('ani_fish_audio_ref_id') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [fishAudioVoiceTitle, setFishAudioVoiceTitle] = useState<string>(() => {
+    try {
+      return localStorage.getItem('ani_fish_audio_voice_title') || 'Custom / Default Waifu';
+    } catch {
+      return 'Custom / Default Waifu';
+    }
+  });
+  const [fishAudioSpeed, setFishAudioSpeed] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem('ani_fish_audio_speed') || '0.97');
+      return Number.isFinite(v) ? v : 0.97;
+    } catch {
+      return 0.97;
+    }
+  });
+  const [fishAudioTemp, setFishAudioTemp] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem('ani_fish_audio_temp') || '0.90');
+      return Number.isFinite(v) ? v : 0.90;
+    } catch {
+      return 0.90;
+    }
+  });
+  const [fishSearchQuery, setFishSearchQuery] = useState<string>('anime girl');
+  const [fishSearchResults, setFishSearchResults] = useState<
+    Array<{ id: string; title: string; author: string; taskCount: number }>
+  >([]);
+  const [fishSearching, setFishSearching] = useState<boolean>(false);
+
+  // ElevenLabs Companion State
+  const [elevenLabsKey, setElevenLabsKey] = useState<string>(() => {
+    try {
+      return localStorage.getItem('ani_elevenlabs_api_key') || config?.elevenlabsApiKey || '';
+    } catch {
+      return config?.elevenlabsApiKey || '';
+    }
+  });
+  const [elevenLabsVoiceId, setElevenLabsVoiceId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('ani_elevenlabs_voice_id') || 'piTKgcLEGmPE4e6mEKli'; // Nicole (ASMR Whisper)
+    } catch {
+      return 'piTKgcLEGmPE4e6mEKli';
+    }
+  });
+  const [elevenLabsStability, setElevenLabsStability] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem('ani_elevenlabs_stability') || '0.28');
+      return Number.isFinite(v) ? v : 0.28;
+    } catch {
+      return 0.28;
+    }
+  });
+  const [elevenLabsStyle, setElevenLabsStyle] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem('ani_elevenlabs_style') || '0.65');
+      return Number.isFinite(v) ? v : 0.65;
+    } catch {
+      return 0.65;
+    }
+  });
+
+  const [ttsStatusError, setTtsStatusError] = useState<string | null>(null);
+
+  const handleSelectEngine = (engine: 'fish_audio' | 'elevenlabs' | 'unrealspeech') => {
+    setCompanionTtsEngine(engine);
+    setTtsStatusError(null);
+    try {
+      localStorage.setItem('ani_tts_engine_v1', engine);
+    } catch {}
+  };
+
+  const handleSaveFishKey = (key: string) => {
+    setFishAudioApiKey(key);
+    setTtsStatusError(null);
+    try {
+      localStorage.setItem('ani_fish_audio_api_key', key);
+    } catch {}
+  };
+
+  const handleSaveFishRefId = (rawInput: string, title?: string) => {
+    // Auto-extract 32-char hex ID if user pasted a full https://fish.audio/m/<id> URL
+    const match = rawInput.trim().match(/([a-f0-9]{32})/i);
+    const cleanId = match ? match[1] : rawInput.trim();
+    setFishAudioRefId(cleanId);
+    setTtsStatusError(null);
+    try {
+      localStorage.setItem('ani_fish_audio_ref_id', cleanId);
+      if (title) {
+        setFishAudioVoiceTitle(title);
+        localStorage.setItem('ani_fish_audio_voice_title', title);
+      }
+    } catch {}
+  };
+
+  const handleSaveFishSpeed = (val: number) => {
+    const clamped = Math.max(0.8, Math.min(1.2, Number(val.toFixed(2))));
+    setFishAudioSpeed(clamped);
+    try {
+      localStorage.setItem('ani_fish_audio_speed', String(clamped));
+    } catch {}
+  };
+
+  const handleSaveFishTemp = (val: number) => {
+    const clamped = Math.max(0.6, Math.min(1.0, Number(val.toFixed(2))));
+    setFishAudioTemp(clamped);
+    try {
+      localStorage.setItem('ani_fish_audio_temp', String(clamped));
+    } catch {}
+  };
+
+  const handleSearchFishVoices = async (customQuery?: string) => {
+    const q = (customQuery !== undefined ? customQuery : fishSearchQuery).trim();
+    if (customQuery !== undefined) setFishSearchQuery(q);
+    setFishSearching(true);
+    setTtsStatusError(null);
+    try {
+      if ((window.jarvisAPI as any)?.searchFishVoices) {
+        const res = await (window.jarvisAPI as any).searchFishVoices({
+          query: q,
+          apiKey: fishAudioApiKey.trim(),
+        });
+        if (res && res.success && Array.isArray(res.items)) {
+          setFishSearchResults(res.items);
+        } else {
+          setTtsStatusError(res?.error || 'Could not search Fish Audio voices');
+        }
+      }
+    } catch (e: any) {
+      setTtsStatusError(e?.message || 'Fish Audio search failed');
+    } finally {
+      setFishSearching(false);
+    }
+  };
+
+  const handleSaveElevenKey = (key: string) => {
+    setElevenLabsKey(key);
+    setTtsStatusError(null);
+    try {
+      localStorage.setItem('ani_elevenlabs_api_key', key);
+    } catch {}
+  };
+
+  const handleSaveElevenVoice = (id: string) => {
+    setElevenLabsVoiceId(id);
+    setTtsStatusError(null);
+    try {
+      localStorage.setItem('ani_elevenlabs_voice_id', id);
+    } catch {}
+  };
+
+  const handleSaveElevenStability = (val: number) => {
+    const clamped = Math.max(0.1, Math.min(0.95, Number(val.toFixed(2))));
+    setElevenLabsStability(clamped);
+    try {
+      localStorage.setItem('ani_elevenlabs_stability', String(clamped));
+    } catch {}
+  };
+
+  const handleSaveElevenStyle = (val: number) => {
+    const clamped = Math.max(0.0, Math.min(1.0, Number(val.toFixed(2))));
+    setElevenLabsStyle(clamped);
+    try {
+      localStorage.setItem('ani_elevenlabs_style', String(clamped));
+    } catch {}
+  };
+
   // UnrealSpeech API & Seductive Voice Tuning State
   const [unrealSpeechApiKey, setUnrealSpeechApiKey] = useState<string>(() => {
     try {
@@ -409,7 +601,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   });
   const [unrealSpeechPitch, setUnrealSpeechPitch] = useState<number>(() => {
     try {
-      const v = parseFloat(localStorage.getItem('ani_unrealspeech_pitch_v2') || '1.08');
+      const v = parseFloat(localStorage.getItem('ani_unrealspeech_pitch_v2') || '0.8');
       return Number.isFinite(v) && v >= 1.0 ? v : 1.08;
     } catch {
       return 1.08;
@@ -1198,8 +1390,93 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           analyserRef.current.connect(ctx.destination);
         };
 
-        // 1. UnrealSpeech Young Seductive Voice (if user configured UnrealSpeech API Key)
-        if (unrealSpeechApiKey && unrealSpeechApiKey.trim()) {
+        // Helper to play a base64 or blob audio URL through the lip-sync + silky EQ chain
+        const playSynthesizedAudioUrl = async (audioSrc: string) => {
+          const audio = new Audio(audioSrc);
+          currentAudioElementRef.current = audio;
+          hasSpoken = true;
+          isSpeakingRef.current = true;
+
+          attachAudioWithSultryChain(audio);
+          startCaptionSync(cleanText, audio);
+
+          audio.onended = () => {
+            isSpeakingRef.current = false;
+            targetEmotionRef.current = 'relaxed';
+            scheduleCaptionRemoval();
+          };
+          audio.onerror = () => {
+            isSpeakingRef.current = false;
+            targetEmotionRef.current = 'relaxed';
+            scheduleCaptionRemoval();
+          };
+
+          await audio.play();
+        };
+
+        // 1. Fish Audio (Fish Speech S1 / 1.6 — Anime, Waifu & ASMR Voices)
+        if (
+          (companionTtsEngine === 'fish_audio' || (!unrealSpeechApiKey && !elevenLabsKey)) &&
+          fishAudioApiKey &&
+          fishAudioApiKey.trim()
+        ) {
+          try {
+            if (window.jarvisAPI?.speakText) {
+              const res: any = await (window.jarvisAPI as any).speakText(cleanText, fishAudioRefId.trim(), {
+                provider: 'fish_audio',
+                apiKey: fishAudioApiKey.trim(),
+                speed: fishAudioSpeed,
+                temperature: fishAudioTemp,
+                model: 's1',
+              });
+              if (res && res.success && res.base64Audio) {
+                setTtsStatusError(null);
+                await playSynthesizedAudioUrl(`data:${res.mimeType || 'audio/mpeg'};base64,${res.base64Audio}`);
+                return;
+              } else if (res?.error) {
+                setTtsStatusError(res.error);
+                console.warn('[Ani] Fish Audio IPC error:', res.error);
+              }
+            }
+          } catch (e: any) {
+            console.warn('[Ani] Fish Audio call error, falling back:', e);
+          }
+        }
+
+        // 2. ElevenLabs (Nicole ASMR Whisper / Elli Flirty / Gigi Anime)
+        if (companionTtsEngine === 'elevenlabs' && elevenLabsKey && elevenLabsKey.trim()) {
+          try {
+            if (window.jarvisAPI?.speakText) {
+              const res: any = await (window.jarvisAPI as any).speakText(cleanText, elevenLabsVoiceId, {
+                provider: 'elevenlabs',
+                apiKey: elevenLabsKey.trim(),
+                model: 'eleven_flash_v2_5',
+                voiceSettings: {
+                  stability: elevenLabsStability,
+                  similarity_boost: 0.82,
+                  style: elevenLabsStyle,
+                },
+              });
+              if (res && res.success && res.base64Audio) {
+                setTtsStatusError(null);
+                await playSynthesizedAudioUrl(`data:${res.mimeType || 'audio/mpeg'};base64,${res.base64Audio}`);
+                return;
+              } else if (res?.error) {
+                setTtsStatusError(res.error);
+                console.warn('[Ani] ElevenLabs error:', res.error);
+              }
+            }
+          } catch (e) {
+            console.warn('[Ani] ElevenLabs call error, falling back:', e);
+          }
+        }
+
+        // 3. UnrealSpeech Young Seductive Voice (if selected or configured)
+        if (
+          (companionTtsEngine === 'unrealspeech' || !fishAudioApiKey) &&
+          unrealSpeechApiKey &&
+          unrealSpeechApiKey.trim()
+        ) {
           try {
             const validVoice =
               unrealSpeechVoice && unrealSpeechVoice !== 'Sakura'
@@ -1225,26 +1502,8 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
             if (res.ok) {
               const blob = await res.blob();
               const audioUrl = URL.createObjectURL(blob);
-              const audio = new Audio(audioUrl);
-              currentAudioElementRef.current = audio;
-              hasSpoken = true;
-              isSpeakingRef.current = true;
-
-              attachAudioWithSultryChain(audio);
-              startCaptionSync(cleanText, audio);
-
-              audio.onended = () => {
-                isSpeakingRef.current = false;
-                targetEmotionRef.current = 'relaxed';
-                scheduleCaptionRemoval();
-              };
-              audio.onerror = () => {
-                isSpeakingRef.current = false;
-                targetEmotionRef.current = 'relaxed';
-                scheduleCaptionRemoval();
-              };
-
-              await audio.play();
+              setTtsStatusError(null);
+              await playSynthesizedAudioUrl(audioUrl);
               return;
             } else {
               console.warn('[Ani] UnrealSpeech API returned HTTP', res.status);
@@ -1331,7 +1590,25 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
         scheduleCaptionRemoval();
       }
     },
-    [cuteVoicePreset, voiceEnabled, unrealSpeechApiKey, unrealSpeechVoice, unrealSpeechPitch, unrealSpeechSpeed, sultryVocalEq, startCaptionSync]
+    [
+      cuteVoicePreset,
+      voiceEnabled,
+      companionTtsEngine,
+      fishAudioApiKey,
+      fishAudioRefId,
+      fishAudioSpeed,
+      fishAudioTemp,
+      elevenLabsKey,
+      elevenLabsVoiceId,
+      elevenLabsStability,
+      elevenLabsStyle,
+      unrealSpeechApiKey,
+      unrealSpeechVoice,
+      unrealSpeechPitch,
+      unrealSpeechSpeed,
+      sultryVocalEq,
+      startCaptionSync,
+    ]
   );
 
   // 4. Send Message & Connect to Dedicated Ani Memory Brain
@@ -1837,134 +2114,350 @@ ${avatarName}:`;
               </div>
             </div>
 
-            {/* UnrealSpeech Seductive Voice Tuner */}
+            {/* Aiko Companion Voice Studio (Fish Audio / ElevenLabs / UnrealSpeech) */}
             <div className="mt-5 pt-4 border-t border-white/10">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-semibold text-white tracking-wide">
-                  UnrealSpeech Seductive Voice Tuner
+                  {avatarName} Voice Engine Studio
                 </label>
                 <span className="text-[10px] text-pink-400 font-mono">
-                  {unrealSpeechApiKey ? `${unrealSpeechVoice} • Pitch ${unrealSpeechPitch}` : 'Key Missing'}
+                  {companionTtsEngine === 'fish_audio'
+                    ? fishAudioApiKey
+                      ? 'Fish Audio Active'
+                      : 'Fish Key Needed'
+                    : companionTtsEngine === 'elevenlabs'
+                    ? elevenLabsKey
+                      ? 'ElevenLabs Active'
+                      : 'Key Needed'
+                    : unrealSpeechApiKey
+                    ? `${unrealSpeechVoice} • ${unrealSpeechPitch}`
+                    : 'Key Needed'}
                 </span>
               </div>
-              <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
-                Customized sultry pitch, lingering tempo, and condenser-mic breathiness EQ for {avatarName}.
-              </p>
-              <input
-                type="password"
-                value={unrealSpeechApiKey}
-                onChange={(e) => handleSaveUnrealKey(e.target.value)}
-                placeholder="Paste UnrealSpeech API Key here..."
-                className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-xs text-white placeholder-gray-500 outline-none focus:border-pink-400 mb-3 font-mono"
-              />
 
-              {/* Voice Timbre Selection */}
+              {/* Engine Switcher Tabs */}
               <div className="grid grid-cols-3 gap-1.5 mb-3">
                 {[
-                  { id: 'Liv', label: 'Liv', desc: 'Young & Breathy' },
-                  { id: 'Scarlett', label: 'Scarlett', desc: 'Flirty & Silky' },
-                  { id: 'Amy', label: 'Amy', desc: 'Sweet & Soft' },
-                ].map((v) => (
+                  { id: 'fish_audio' as const, label: 'Fish Audio', sub: 'Anime & Waifu' },
+                  { id: 'elevenlabs' as const, label: 'ElevenLabs', sub: 'ASMR Whisper' },
+                  { id: 'unrealspeech' as const, label: 'UnrealSpeech', sub: 'Pitch Tuner' },
+                ].map((eng) => (
                   <button
-                    key={v.id}
+                    key={eng.id}
                     type="button"
-                    onClick={() => handleSaveUnrealVoice(v.id)}
+                    onClick={() => handleSelectEngine(eng.id)}
                     className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
-                      unrealSpeechVoice === v.id
+                      companionTtsEngine === eng.id
                         ? 'bg-pink-500/20 border-pink-400 text-pink-200'
                         : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
                     }`}
                   >
-                    <div className="text-xs font-semibold">{v.label}</div>
-                    <div className="text-[9px] opacity-75 mt-0.5">{v.desc}</div>
+                    <div className="text-[11px] font-semibold">{eng.label}</div>
+                    <div className="text-[9px] opacity-75 mt-0.5">{eng.sub}</div>
                   </button>
                 ))}
               </div>
 
-              {/* Quick Seductive Presets */}
-              <div className="grid grid-cols-3 gap-1.5 mb-3">
-                {[
-                  { label: 'Flirty Siren', voice: 'Liv', pitch: 1.08, speed: -0.03 },
-                  { label: 'Breathy Tease', voice: 'Scarlett', pitch: 1.10, speed: -0.02 },
-                  { label: 'Sweet Whisper', voice: 'Liv', pitch: 1.13, speed: 0.02 },
-                ].map((preset) => {
-                  const active =
-                    unrealSpeechVoice === preset.voice &&
-                    Math.abs(unrealSpeechPitch - preset.pitch) < 0.015 &&
-                    Math.abs(unrealSpeechSpeed - preset.speed) < 0.02;
-                  return (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => {
-                        handleSaveUnrealVoice(preset.voice);
-                        handleSaveUnrealPitch(preset.pitch);
-                        handleSaveUnrealSpeed(preset.speed);
-                        handleToggleSultryEq(true);
-                      }}
-                      className={`px-2 py-1.5 rounded-lg border text-[10px] font-medium transition-all cursor-pointer ${
-                        active
-                          ? 'bg-white text-black border-white font-semibold'
-                          : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
-                      }`}
-                    >
-                      {preset.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Pitch & Speed Sliders */}
-              <div className="space-y-2.5 bg-white/[0.04] border border-white/10 rounded-xl p-3 mb-2.5">
-                <div>
-                  <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-gray-300">Youthful Pitch (Natural ↔ Flirty High)</span>
-                    <span className="font-mono text-pink-300">{unrealSpeechPitch.toFixed(2)}</span>
-                  </div>
+              {/* PANEL 1: FISH AUDIO (ANIME / WAIFU / ASMR) */}
+              {companionTtsEngine === 'fish_audio' && (
+                <div className="space-y-2.5">
+                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                    Use any anime, waifu, VTuber, or seductive ASMR voice from{' '}
+                    <span className="text-pink-300 font-mono">fish.audio</span>.
+                  </p>
                   <input
-                    type="range"
-                    min="1.00"
-                    max="1.22"
-                    step="0.01"
-                    value={unrealSpeechPitch}
-                    onChange={(e) => handleSaveUnrealPitch(parseFloat(e.target.value))}
-                    className="w-full accent-pink-500 cursor-pointer h-1.5 bg-white/10 rounded-lg"
+                    type="password"
+                    value={fishAudioApiKey}
+                    onChange={(e) => handleSaveFishKey(e.target.value)}
+                    placeholder="Paste Fish Audio API Key (fish.audio)..."
+                    className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-xs text-white placeholder-gray-500 outline-none focus:border-pink-400 font-mono"
                   />
-                </div>
 
-                <div>
-                  <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-gray-300">Delivery Pace (Intimate ↔ Lively)</span>
-                    <span className="font-mono text-pink-300">{unrealSpeechSpeed.toFixed(2)}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="-0.10"
-                    max="0.20"
-                    step="0.01"
-                    value={unrealSpeechSpeed}
-                    onChange={(e) => handleSaveUnrealSpeed(parseFloat(e.target.value))}
-                    className="w-full accent-pink-500 cursor-pointer h-1.5 bg-white/10 rounded-lg"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-gray-300">Silky Presence &amp; Breath Air EQ</span>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleSultryEq(!sultryVocalEq)}
-                    className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
-                      sultryVocalEq ? 'bg-pink-500' : 'bg-white/15'
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                        sultryVocalEq ? 'translate-x-4' : 'translate-x-0'
-                      }`}
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] text-gray-400 mb-1">
+                      <span>Voice Reference ID or fish.audio URL</span>
+                      <span className="text-pink-300 truncate max-w-[140px]">{fishAudioVoiceTitle}</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={fishAudioRefId}
+                      onChange={(e) => handleSaveFishRefId(e.target.value, 'Custom Voice ID')}
+                      placeholder="Paste Reference ID or https://fish.audio/m/..."
+                      className="w-full px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-[11px] text-white placeholder-gray-500 outline-none focus:border-pink-400 font-mono"
                     />
-                  </button>
+                  </div>
+
+                  {/* Live Fish Audio Anime / Seductive Voice Finder */}
+                  <div className="bg-white/[0.04] border border-white/10 rounded-xl p-2.5">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-semibold text-gray-300">
+                        Browse Live Fish Audio Voices
+                      </span>
+                      {fishSearching && <Loader2 className="w-3 h-3 text-pink-400 animate-spin" />}
+                    </div>
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {['anime girl', 'ASMR', 'waifu', 'Makima', 'Raiden Shogun', 'Kafka'].map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => handleSearchFishVoices(tag)}
+                          className="px-2 py-0.5 rounded-md bg-white/5 hover:bg-pink-500/20 border border-white/10 hover:border-pink-400/40 text-[10px] text-gray-300 hover:text-pink-200 transition-all cursor-pointer"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={fishSearchQuery}
+                        onChange={(e) => setFishSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSearchFishVoices()}
+                        placeholder="Search any character or voice style..."
+                        className="flex-1 px-2.5 py-1 rounded-lg bg-black/40 border border-white/15 text-[11px] text-white placeholder-gray-500 outline-none focus:border-pink-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSearchFishVoices()}
+                        className="px-2.5 py-1 rounded-lg bg-pink-500/25 hover:bg-pink-500/35 border border-pink-400/40 text-pink-200 text-[10px] font-semibold cursor-pointer"
+                      >
+                        Find
+                      </button>
+                    </div>
+
+                    {fishSearchResults.length > 0 && (
+                      <div className="mt-2 max-h-32 overflow-y-auto space-y-1 pr-1">
+                        {fishSearchResults.map((item) => {
+                          const isSelected = fishAudioRefId === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleSaveFishRefId(item.id, item.title)}
+                              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-left transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-pink-500/25 border-pink-400 text-white'
+                                  : 'bg-black/30 border-white/10 text-gray-300 hover:bg-white/10'
+                              }`}
+                            >
+                              <div className="truncate pr-2">
+                                <div className="text-[11px] font-semibold truncate">{item.title}</div>
+                                <div className="text-[9px] text-gray-400 truncate">
+                                  by {item.author} • {item.id.slice(0, 8)}…
+                                </div>
+                              </div>
+                              <span className="text-[9px] font-mono text-pink-300 shrink-0">
+                                {isSelected ? 'Selected' : 'Use'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Fish Audio Prosody & Expressiveness Sliders */}
+                  <div className="space-y-2 bg-white/[0.04] border border-white/10 rounded-xl p-3">
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="text-gray-300">Expressive Flirtiness (Temp)</span>
+                        <span className="font-mono text-pink-300">{fishAudioTemp.toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.65"
+                        max="1.00"
+                        step="0.01"
+                        value={fishAudioTemp}
+                        onChange={(e) => handleSaveFishTemp(parseFloat(e.target.value))}
+                        className="w-full accent-pink-500 cursor-pointer h-1.5 bg-white/10 rounded-lg"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="text-gray-300">Voice Pace (0.85x ↔ 1.15x)</span>
+                        <span className="font-mono text-pink-300">{fishAudioSpeed.toFixed(2)}x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.85"
+                        max="1.15"
+                        step="0.01"
+                        value={fishAudioSpeed}
+                        onChange={(e) => handleSaveFishSpeed(parseFloat(e.target.value))}
+                        className="w-full accent-pink-500 cursor-pointer h-1.5 bg-white/10 rounded-lg"
+                      />
+                    </div>
+                  </div>
                 </div>
+              )}
+
+              {/* PANEL 2: ELEVENLABS (INTIMATE ASMR / WHISPER / ANIME) */}
+              {companionTtsEngine === 'elevenlabs' && (
+                <div className="space-y-2.5">
+                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                    Ultra-realistic whisper, breathiness &amp; vocal inflection via ElevenLabs.
+                  </p>
+                  <input
+                    type="password"
+                    value={elevenLabsKey}
+                    onChange={(e) => handleSaveElevenKey(e.target.value)}
+                    placeholder="Paste ElevenLabs API Key..."
+                    className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-xs text-white placeholder-gray-500 outline-none focus:border-pink-400 font-mono"
+                  />
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { id: 'piTKgcLEGmPE4e6mEKli', label: 'Nicole', desc: 'ASMR Soft Whisper' },
+                      { id: 'MF3mGyEYCl7XYWbV9V6O', label: 'Elli', desc: 'Youthful & Teasing' },
+                      { id: 'jBpfuIE2acCO8z3wKNLl', label: 'Gigi', desc: 'Cute Anime Girl' },
+                      { id: 'pFZP5JQG7iQjIQuC4Bku', label: 'Lily', desc: 'Velvety Sultry' },
+                    ].map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => handleSaveElevenVoice(v.id)}
+                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                          elevenLabsVoiceId === v.id
+                            ? 'bg-pink-500/20 border-pink-400 text-pink-200'
+                            : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        <div className="text-xs font-semibold">{v.label}</div>
+                        <div className="text-[9px] opacity-75">{v.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2 bg-white/[0.04] border border-white/10 rounded-xl p-3">
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="text-gray-300">Breathiness (Lower Stability = More Breathy)</span>
+                        <span className="font-mono text-pink-300">{elevenLabsStability.toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.15"
+                        max="0.85"
+                        step="0.01"
+                        value={elevenLabsStability}
+                        onChange={(e) => handleSaveElevenStability(parseFloat(e.target.value))}
+                        className="w-full accent-pink-500 cursor-pointer h-1.5 bg-white/10 rounded-lg"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="text-gray-300">Seductive Style Exaggeration</span>
+                        <span className="font-mono text-pink-300">{elevenLabsStyle.toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.00"
+                        max="1.00"
+                        step="0.01"
+                        value={elevenLabsStyle}
+                        onChange={(e) => handleSaveElevenStyle(parseFloat(e.target.value))}
+                        className="w-full accent-pink-500 cursor-pointer h-1.5 bg-white/10 rounded-lg"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* PANEL 3: UNREALSPEECH */}
+              {companionTtsEngine === 'unrealspeech' && (
+                <div className="space-y-2.5">
+                  <input
+                    type="password"
+                    value={unrealSpeechApiKey}
+                    onChange={(e) => handleSaveUnrealKey(e.target.value)}
+                    placeholder="Paste UnrealSpeech API Key here..."
+                    className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-xs text-white placeholder-gray-500 outline-none focus:border-pink-400 font-mono"
+                  />
+
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'Liv', label: 'Liv', desc: 'Young & Breathy' },
+                      { id: 'Scarlett', label: 'Scarlett', desc: 'Flirty & Silky' },
+                      { id: 'Amy', label: 'Amy', desc: 'Sweet & Soft' },
+                    ].map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => handleSaveUnrealVoice(v.id)}
+                        className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                          unrealSpeechVoice === v.id
+                            ? 'bg-pink-500/20 border-pink-400 text-pink-200'
+                            : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        <div className="text-xs font-semibold">{v.label}</div>
+                        <div className="text-[9px] opacity-75 mt-0.5">{v.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2 bg-white/[0.04] border border-white/10 rounded-xl p-3">
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="text-gray-300">Youthful Pitch (1.00 ↔ 1.22)</span>
+                        <span className="font-mono text-pink-300">{unrealSpeechPitch.toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1.00"
+                        max="1.22"
+                        step="0.01"
+                        value={unrealSpeechPitch}
+                        onChange={(e) => handleSaveUnrealPitch(parseFloat(e.target.value))}
+                        className="w-full accent-pink-500 cursor-pointer h-1.5 bg-white/10 rounded-lg"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="text-gray-300">Delivery Pace (-0.10 ↔ +0.20)</span>
+                        <span className="font-mono text-pink-300">{unrealSpeechSpeed.toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-0.10"
+                        max="0.20"
+                        step="0.01"
+                        value={unrealSpeechSpeed}
+                        onChange={(e) => handleSaveUnrealSpeed(parseFloat(e.target.value))}
+                        className="w-full accent-pink-500 cursor-pointer h-1.5 bg-white/10 rounded-lg"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Shared Silky Breath EQ Toggle + Status + Preview Button */}
+              <div className="flex items-center justify-between px-3 py-2 mt-2 rounded-xl bg-white/[0.03] border border-white/10">
+                <span className="text-[11px] text-gray-300">Silky Presence &amp; Whisper Air EQ</span>
+                <button
+                  type="button"
+                  onClick={() => handleToggleSultryEq(!sultryVocalEq)}
+                  className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
+                    sultryVocalEq ? 'bg-pink-500' : 'bg-white/15'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                      sultryVocalEq ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
+
+              {ttsStatusError && (
+                <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-[10px] text-rose-300">
+                  {ttsStatusError}
+                </div>
+              )}
 
               <button
                 type="button"
@@ -1973,9 +2466,9 @@ ${avatarName}:`;
                     "Mmm... hey there... come a little closer, I've been waiting just for you."
                   )
                 }
-                className="w-full py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-400/40 text-pink-200 text-xs font-semibold transition-all cursor-pointer"
+                className="w-full mt-2.5 py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-400/40 text-pink-200 text-xs font-semibold transition-all cursor-pointer"
               >
-                Preview Seductive Voice
+                Preview {companionTtsEngine === 'fish_audio' ? 'Fish Audio' : companionTtsEngine === 'elevenlabs' ? 'ElevenLabs' : 'UnrealSpeech'} Voice
               </button>
             </div>
 

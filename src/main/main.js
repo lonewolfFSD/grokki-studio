@@ -4211,16 +4211,81 @@ ipcMain.handle('jarvis:execute-ai-audio', async (event, { base64Audio, mimeType 
   return await agentBrain.runAudio(base64Audio, mimeType, config);
 });
 
-ipcMain.handle('jarvis:speak', async (event, { text, voice, provider, apiKey, model, endpoint, speed } = {}) => {
+ipcMain.handle('jarvis:speak', async (event, { text, voice, provider, apiKey, model, endpoint, speed, temperature, voiceSettings } = {}) => {
   const config = loadConfig();
   if (config.ttsEnabled === false && !provider) return { success: false, disabled: true };
   const activeProvider = provider || config.ttsProvider || 'grokki_voice';
+
+  // Fish Audio (Fish Speech S1 / 1.6 / 1.5) — Anime, Waifu & ASMR Voices
+  if (activeProvider === 'fish_audio') {
+    const fishKey = (apiKey !== undefined ? apiKey : config.fishAudioApiKey || process.env.FISH_AUDIO_API_KEY) || '';
+    if (!fishKey.trim()) {
+      return { success: false, error: 'Please enter your Fish Audio API key first.' };
+    }
+    try {
+      const rawRef = String(voice || '').trim();
+      // Extract 32-char hex model ID if user pasted a full fish.audio/m/<id> URL
+      const hexMatch = rawRef.match(/([a-f0-9]{32})/i);
+      const cleanRefId = hexMatch ? hexMatch[1] : rawRef;
+
+      const payload = {
+        text: String(text || '').trim(),
+        format: 'mp3',
+        mp3_bitrate: 128,
+        normalize: true,
+        latency: 'normal',
+        temperature: typeof temperature === 'number' ? temperature : 0.85,
+        top_p: 0.85,
+        prosody: {
+          speed: typeof speed === 'number' ? speed : 1.0,
+          volume: 0,
+        },
+      };
+      if (cleanRefId) {
+        payload.reference_id = cleanRefId;
+      }
+
+      const fishModelHeader = model || 's1';
+      const res = await fetch('https://api.fish.audio/v1/tts', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${fishKey.trim()}`,
+          'Content-Type': 'application/json',
+          model: fishModelHeader,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const arrayBuf = await res.arrayBuffer();
+        const base64Audio = Buffer.from(arrayBuf).toString('base64');
+        return {
+          success: true,
+          base64Audio,
+          mimeType: 'audio/mpeg',
+          cleanText: text,
+          providerUsed: 'fish_audio',
+        };
+      } else {
+        const errBody = await res.text().catch(() => '');
+        console.warn(`[FishAudio] HTTP ${res.status}:`, errBody);
+        return {
+          success: false,
+          error: `Fish Audio HTTP ${res.status}: ${errBody.slice(0, 140)}`,
+        };
+      }
+    } catch (fishErr) {
+      console.warn('[FishAudio] Synthesis error:', fishErr.message);
+      return { success: false, error: fishErr.message || 'Fish Audio request failed' };
+    }
+  }
+
   if (activeProvider === 'elevenlabs') {
     const elKey = (apiKey !== undefined ? apiKey : config.elevenlabsApiKey) || '';
     const elVoice = voice || config.elevenlabsVoiceId || 'JBFqnCBsd6RMkjVDRZzb';
     const elModel = model || config.elevenlabsModel || 'eleven_v3';
     if (elKey.trim()) {
-      const elRes = await elevenlabsTTS.synthesize(text, elVoice, elKey.trim(), elModel);
+      const elRes = await elevenlabsTTS.synthesize(text, elVoice, elKey.trim(), elModel, voiceSettings);
       if (elRes && elRes.success) return elRes;
       if (provider === 'elevenlabs') return elRes;
     } else if (provider === 'elevenlabs') {
@@ -4261,6 +4326,46 @@ ipcMain.handle('jarvis:speak', async (event, { text, voice, provider, apiKey, mo
 
 ipcMain.handle('jarvis:fetch-grokki-voices', async () => {
   return await grokkiVoiceTTS.fetchVoices();
+});
+
+ipcMain.handle('jarvis:search-fish-voices', async (event, { query = '', apiKey = '' } = {}) => {
+  const config = loadConfig();
+  const fishKey = (apiKey || config.fishAudioApiKey || process.env.FISH_AUDIO_API_KEY || '').trim();
+  try {
+    const params = new URLSearchParams({
+      page_size: '12',
+      page_number: '1',
+      sort_by: 'score',
+    });
+    if (query && query.trim()) {
+      params.set('title', query.trim());
+    }
+    const headers = { Accept: 'application/json' };
+    if (fishKey) {
+      headers.Authorization = `Bearer ${fishKey}`;
+    }
+    const res = await fetch(`https://api.fish.audio/model?${params.toString()}`, {
+      method: 'GET',
+      headers,
+    });
+    if (!res.ok) {
+      return { success: false, error: `HTTP ${res.status}`, items: [] };
+    }
+    const data = await res.json();
+    const rawItems = Array.isArray(data?.items) ? data.items : [];
+    const items = rawItems.map((m) => ({
+      id: m._id || m.id || '',
+      title: m.title || 'Untitled Voice',
+      description: (m.description || '').slice(0, 90),
+      author: m.author?.nickname || 'Fish Audio',
+      likes: m.like_count || 0,
+      taskCount: m.task_count || 0,
+      languages: Array.isArray(m.languages) ? m.languages : [],
+    })).filter((m) => m.id);
+    return { success: true, items };
+  } catch (err) {
+    return { success: false, error: err.message || 'Search failed', items: [] };
+  }
 });
 
 ipcMain.handle('jarvis:check-grokki-voice-health', async () => {
