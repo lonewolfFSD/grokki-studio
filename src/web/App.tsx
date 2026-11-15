@@ -1217,7 +1217,6 @@ export const App: React.FC = () => {
                 fallback={
                   <div className="w-full h-full bg-[#070709] flex flex-col items-center justify-center gap-3 text-gray-400">
                     <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                    <span className="text-xs tracking-wider uppercase font-mono">Loading Ani...</span>
                   </div>
                 }
               >
@@ -1232,8 +1231,7 @@ export const App: React.FC = () => {
               <React.Suspense
                 fallback={
                   <div className="w-full h-full bg-[#07070a] flex flex-col items-center justify-center gap-3 text-gray-400">
-                    <div className="w-8 h-8 rounded-full border-2 border-pink-500/30 border-t-pink-500 animate-spin" />
-                    <span className="text-xs tracking-wider uppercase font-mono text-pink-300">Loading Image Studio...</span>
+                    <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white animate-spin" />
                   </div>
                 }
               >
@@ -1248,8 +1246,7 @@ export const App: React.FC = () => {
               <React.Suspense
                 fallback={
                   <div className="w-full h-full bg-[#07070a] flex flex-col items-center justify-center gap-3 text-gray-400">
-                    <div className="w-8 h-8 rounded-full border-2 border-emerald-500/30 border-t-emerald-500 animate-spin" />
-                    <span className="text-xs tracking-wider uppercase font-mono text-emerald-300">Loading Office Studio...</span>
+                    <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white animate-spin" />
                   </div>
                 }
               >

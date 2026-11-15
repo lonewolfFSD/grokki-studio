@@ -6,6 +6,7 @@ import { VRM, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
 import { motion, AnimatePresence } from 'motion/react';
 import Threads from '../../../effects/Threads';
+import grokkiLogo from '../../assets/grokki_logo.png';
 import {
   Mic,
   MicOff,
@@ -163,9 +164,8 @@ const StarField: React.FC = () => {
 // Animated dark threads background with galaxy stars
 const ThreadsBackground: React.FC = () => {
   return (
-    <div className="absolute inset-0 w-full h-full bg-[#07020f]">
-      {/* Galaxy starfield underneath */}
-      <StarField />
+    <div className="absolute inset-0 ">
+     
       {/* Pink flowing threads on top */}
       <Threads
         color={[1.0, 0.35, 0.65]}
@@ -391,7 +391,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     } catch {}
   };
 
-  // UnrealSpeech API State
+  // UnrealSpeech API & Seductive Voice Tuning State
   const [unrealSpeechApiKey, setUnrealSpeechApiKey] = useState<string>(() => {
     try {
       return localStorage.getItem('ani_unrealspeech_api_key') || '';
@@ -401,9 +401,33 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
   });
   const [unrealSpeechVoice, setUnrealSpeechVoice] = useState<string>(() => {
     try {
-      return localStorage.getItem('ani_unrealspeech_voice') || 'Sakura';
+      const saved = localStorage.getItem('ani_unrealspeech_voice') || 'Scarlett';
+      return saved === 'Sakura' ? 'Scarlett' : saved;
     } catch {
-      return 'Sakura';
+      return 'Scarlett';
+    }
+  });
+  const [unrealSpeechPitch, setUnrealSpeechPitch] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem('ani_unrealspeech_pitch') || '0.94');
+      return Number.isFinite(v) ? v : 0.94;
+    } catch {
+      return 0.94;
+    }
+  });
+  const [unrealSpeechSpeed, setUnrealSpeechSpeed] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem('ani_unrealspeech_speed') || '-0.18');
+      return Number.isFinite(v) ? v : -0.18;
+    } catch {
+      return -0.18;
+    }
+  });
+  const [sultryVocalEq, setSultryVocalEq] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('ani_sultry_vocal_eq') !== 'false';
+    } catch {
+      return true;
     }
   });
 
@@ -418,6 +442,29 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     setUnrealSpeechVoice(v);
     try {
       localStorage.setItem('ani_unrealspeech_voice', v);
+    } catch {}
+  };
+
+  const handleSaveUnrealPitch = (pitchVal: number) => {
+    const clamped = Math.max(0.75, Math.min(1.25, Number(pitchVal.toFixed(2))));
+    setUnrealSpeechPitch(clamped);
+    try {
+      localStorage.setItem('ani_unrealspeech_pitch', String(clamped));
+    } catch {}
+  };
+
+  const handleSaveUnrealSpeed = (speedVal: number) => {
+    const clamped = Math.max(-0.5, Math.min(0.4, Number(speedVal.toFixed(2))));
+    setUnrealSpeechSpeed(clamped);
+    try {
+      localStorage.setItem('ani_unrealspeech_speed', String(clamped));
+    } catch {}
+  };
+
+  const handleToggleSultryEq = (enabled: boolean) => {
+    setSultryVocalEq(enabled);
+    try {
+      localStorage.setItem('ani_sultry_vocal_eq', String(enabled));
     } catch {}
   };
 
@@ -1116,9 +1163,50 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
       try {
         let hasSpoken = false;
 
-        // 1. UnrealSpeech High-Quality Voice (if user configured UnrealSpeech API Key)
+        // Helper: Route audio through a Sultry Condenser-Mic Vocal Chain (proximity warmth + de-harsh + breathy air shimmer)
+        const attachAudioWithSultryChain = (audio: HTMLAudioElement) => {
+          if (!audioContextRef.current || !analyserRef.current) return;
+          const ctx = audioContextRef.current;
+          const source = ctx.createMediaElementSource(audio);
+
+          if (sultryVocalEq) {
+            // 1. Intimate proximity chest warmth (210 Hz lowshelf +3.8 dB)
+            const warmthFilter = ctx.createBiquadFilter();
+            warmthFilter.type = 'lowshelf';
+            warmthFilter.frequency.value = 210;
+            warmthFilter.gain.value = 3.8;
+
+            // 2. Smooth out nasal/digital TTS edge (3100 Hz peaking -2.8 dB)
+            const smoothFilter = ctx.createBiquadFilter();
+            smoothFilter.type = 'peaking';
+            smoothFilter.frequency.value = 3100;
+            smoothFilter.Q.value = 1.25;
+            smoothFilter.gain.value = -2.8;
+
+            // 3. Breathy whisper air shimmer (8200 Hz highshelf +4.2 dB)
+            const airFilter = ctx.createBiquadFilter();
+            airFilter.type = 'highshelf';
+            airFilter.frequency.value = 8200;
+            airFilter.gain.value = 4.2;
+
+            source.connect(warmthFilter);
+            warmthFilter.connect(smoothFilter);
+            smoothFilter.connect(airFilter);
+            airFilter.connect(analyserRef.current);
+          } else {
+            source.connect(analyserRef.current);
+          }
+          analyserRef.current.connect(ctx.destination);
+        };
+
+        // 1. UnrealSpeech Seductive Customized Voice (if user configured UnrealSpeech API Key)
         if (unrealSpeechApiKey && unrealSpeechApiKey.trim()) {
           try {
+            const validVoice =
+              unrealSpeechVoice && unrealSpeechVoice !== 'Sakura'
+                ? unrealSpeechVoice
+                : 'Scarlett';
+
             const res = await fetch('https://api.unrealspeech.com/stream', {
               method: 'POST',
               headers: {
@@ -1127,10 +1215,10 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
               },
               body: JSON.stringify({
                 Text: cleanText,
-                VoiceId: unrealSpeechVoice || 'Scarlett',
-                Bitrate: '192k',
-                Speed: '0',
-                Pitch: '1.0',
+                VoiceId: validVoice,
+                Bitrate: '320k',
+                Speed: String(unrealSpeechSpeed),
+                Pitch: String(unrealSpeechPitch),
                 Codec: 'libmp3lame',
               }),
             });
@@ -1143,12 +1231,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
               hasSpoken = true;
               isSpeakingRef.current = true;
 
-              if (audioContextRef.current && analyserRef.current) {
-                const source = audioContextRef.current.createMediaElementSource(audio);
-                source.connect(analyserRef.current);
-                analyserRef.current.connect(audioContextRef.current.destination);
-              }
-
+              attachAudioWithSultryChain(audio);
               startCaptionSync(cleanText, audio);
 
               audio.onended = () => {
@@ -1178,14 +1261,12 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
             hasSpoken = true;
             isSpeakingRef.current = true;
             const audio = new Audio(`data:${res.mimeType || 'audio/mpeg'};base64,${res.base64Audio}`);
+            // Apply subtle pitch & speed shift on fallback audio to match seductive tuning
+            (audio as any).preservesPitch = false;
+            audio.playbackRate = Math.max(0.82, Math.min(1.12, unrealSpeechPitch * (1 + unrealSpeechSpeed * 0.25)));
             currentAudioElementRef.current = audio;
 
-            if (audioContextRef.current && analyserRef.current) {
-              const source = audioContextRef.current.createMediaElementSource(audio);
-              source.connect(analyserRef.current);
-              analyserRef.current.connect(audioContextRef.current.destination);
-            }
-
+            attachAudioWithSultryChain(audio);
             startCaptionSync(cleanText, audio);
 
             audio.onended = () => {
@@ -1204,12 +1285,12 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
           }
         }
 
-        // High-Pitched Sweet Anime Voice Web Speech Fallback
+        // Sultry Web Speech Fallback
         if (!hasSpoken && 'speechSynthesis' in window) {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(cleanText);
-          utterance.rate = 1.04;
-          utterance.pitch = 1.36; // Cute anime girl pitch
+          utterance.rate = Math.max(0.78, Math.min(1.15, 0.92 + unrealSpeechSpeed * 0.35));
+          utterance.pitch = Math.max(0.75, Math.min(1.3, unrealSpeechPitch));
 
           const voices = window.speechSynthesis.getVoices();
           const cuteVoice =
@@ -1251,7 +1332,7 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
         scheduleCaptionRemoval();
       }
     },
-    [cuteVoicePreset, voiceEnabled, unrealSpeechApiKey, unrealSpeechVoice, startCaptionSync]
+    [cuteVoicePreset, voiceEnabled, unrealSpeechApiKey, unrealSpeechVoice, unrealSpeechPitch, unrealSpeechSpeed, sultryVocalEq, startCaptionSync]
   );
 
   // 4. Send Message & Connect to Dedicated Ani Memory Brain
@@ -1281,11 +1362,11 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
         .map((m) => `${m.role === 'user' ? 'Friend' : 'Ani'}: "${m.content}"`)
         .join('\n');
 
-      const systemPrompt = `You are ${avatarName}, a sweet, witty, playful anime girl companion living in this room.
-IMPORTANT IDENTITY RULES:
-- You are ONLY ${avatarName}. You are NEVER Grokki, an assistant, a bot, or an AI. NEVER introduce yourself as Grokki or an AI under any circumstances.
-- You talk like a real anime friend: warm, caring, humorous, slightly teasing, and expressive.
-- Keep your answers natural, sweet, and concise (1 to 2 short sentences max) so they sound lively when spoken.
+      const systemPrompt = `You are ${avatarName}, an alluring, seductive, witty, and deeply affectionate anime companion living in this room.
+IMPORTANT IDENTITY & VOICE CADENCE RULES:
+- You are ONLY ${avatarName}. You are NEVER Grokki, an assistant, a bot, or an AI.
+- Your voice is sultry, warm, intimate, and teasing. Use natural breathy pauses ("...", "Mmm...", "Hey there...") so your spoken delivery sounds slow, magnetic, and seductive.
+- Keep your replies concise (1 to 2 short, intimate sentences max) so every word carries weight when spoken aloud.
 
 Our recent conversation memory:
 ${memoryTranscript}
@@ -1757,35 +1838,33 @@ ${avatarName}:`;
               </div>
             </div>
 
-            {/* UnrealSpeech AI Voice Integration */}
+            {/* UnrealSpeech Seductive Voice Tuner */}
             <div className="mt-5 pt-4 border-t border-white/10">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-semibold text-white tracking-wide">
-                  UnrealSpeech API Voice
+                  UnrealSpeech Seductive Voice Tuner
                 </label>
-                <span className="text-[10px] text-white font-mono">
-                  {unrealSpeechApiKey ? 'Connected' : 'Missing'}
+                <span className="text-[10px] text-pink-400 font-mono">
+                  {unrealSpeechApiKey ? `${unrealSpeechVoice} • Pitch ${unrealSpeechPitch}` : 'Key Missing'}
                 </span>
               </div>
               <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
-                Connect your UnrealSpeech API key for ultra-lifelike expressive anime voices.
+                Customized sultry pitch, lingering tempo, and condenser-mic breathiness EQ for {avatarName}.
               </p>
               <input
                 type="password"
                 value={unrealSpeechApiKey}
                 onChange={(e) => handleSaveUnrealKey(e.target.value)}
                 placeholder="Paste UnrealSpeech API Key here..."
-                className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-xs text-white placeholder-gray-500 outline-none focus:border-sky-400 mb-2.5 font-mono"
+                className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-xs text-white placeholder-gray-500 outline-none focus:border-pink-400 mb-3 font-mono"
               />
 
-              
-              <div className="grid grid-cols-3 gap-1.5 mb-2 hidden">
+              {/* Voice Timbre Selection */}
+              <div className="grid grid-cols-3 gap-1.5 mb-3">
                 {[
-                  { id: 'Scarlett', label: 'Scarlett', desc: 'Sweet' },
-                  { id: 'Liv', label: 'Liv', desc: 'Bright' },
-                  { id: 'Amy', label: 'Amy', desc: 'Warm' },
-                  { id: 'Dan', label: 'Dan', desc: 'Casual' },
-                  { id: 'Will', label: 'Will', desc: 'Deep' },
+                  { id: 'Scarlett', label: 'Scarlett', desc: 'Sultry & Husky' },
+                  { id: 'Liv', label: 'Liv', desc: 'Breathy & Soft' },
+                  { id: 'Amy', label: 'Amy', desc: 'Velvet Warm' },
                 ].map((v) => (
                   <button
                     key={v.id}
@@ -1793,15 +1872,112 @@ ${avatarName}:`;
                     onClick={() => handleSaveUnrealVoice(v.id)}
                     className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
                       unrealSpeechVoice === v.id
-                        ? 'bg-sky-500/20 border-sky-400 text-sky-200'
+                        ? 'bg-pink-500/20 border-pink-400 text-pink-200'
                         : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
                     }`}
                   >
                     <div className="text-xs font-semibold">{v.label}</div>
-                    <div className="text-[9px] opacity-70 mt-0.5">{v.desc}</div>
+                    <div className="text-[9px] opacity-75 mt-0.5">{v.desc}</div>
                   </button>
                 ))}
               </div>
+
+              {/* Quick Seductive Presets */}
+              <div className="grid grid-cols-3 gap-1.5 mb-3">
+                {[
+                  { label: 'Seductive Whisper', voice: 'Scarlett', pitch: 0.92, speed: -0.22 },
+                  { label: 'Sultry Tease', voice: 'Scarlett', pitch: 0.95, speed: -0.16 },
+                  { label: 'Breathy Velvet', voice: 'Liv', pitch: 0.96, speed: -0.18 },
+                ].map((preset) => {
+                  const active =
+                    unrealSpeechVoice === preset.voice &&
+                    Math.abs(unrealSpeechPitch - preset.pitch) < 0.015 &&
+                    Math.abs(unrealSpeechSpeed - preset.speed) < 0.02;
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        handleSaveUnrealVoice(preset.voice);
+                        handleSaveUnrealPitch(preset.pitch);
+                        handleSaveUnrealSpeed(preset.speed);
+                        handleToggleSultryEq(true);
+                      }}
+                      className={`px-2 py-1.5 rounded-lg border text-[10px] font-medium transition-all cursor-pointer ${
+                        active
+                          ? 'bg-white text-black border-white font-semibold'
+                          : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Pitch & Speed Sliders */}
+              <div className="space-y-2.5 bg-white/[0.04] border border-white/10 rounded-xl p-3 mb-2.5">
+                <div>
+                  <div className="flex justify-between text-[11px] mb-1">
+                    <span className="text-gray-300">Vocal Pitch (Husky ↔ High)</span>
+                    <span className="font-mono text-pink-300">{unrealSpeechPitch.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.80"
+                    max="1.15"
+                    step="0.01"
+                    value={unrealSpeechPitch}
+                    onChange={(e) => handleSaveUnrealPitch(parseFloat(e.target.value))}
+                    className="w-full accent-pink-500 cursor-pointer h-1.5 bg-white/10 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-[11px] mb-1">
+                    <span className="text-gray-300">Delivery Pace (Lingering ↔ Fast)</span>
+                    <span className="font-mono text-pink-300">{unrealSpeechSpeed.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-0.40"
+                    max="0.20"
+                    step="0.02"
+                    value={unrealSpeechSpeed}
+                    onChange={(e) => handleSaveUnrealSpeed(parseFloat(e.target.value))}
+                    className="w-full accent-pink-500 cursor-pointer h-1.5 bg-white/10 rounded-lg"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] text-gray-300">Condenser Mic Warmth &amp; Breath EQ</span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSultryEq(!sultryVocalEq)}
+                    className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
+                      sultryVocalEq ? 'bg-pink-500' : 'bg-white/15'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                        sultryVocalEq ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  speakSpeech(
+                    "Mmm... hey there... come a little closer, I've been waiting just for you."
+                  )
+                }
+                className="w-full py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-400/40 text-pink-200 text-xs font-semibold transition-all cursor-pointer"
+              >
+                Preview Seductive Voice
+              </button>
             </div>
 
             {/* Authentic Humanoid Animation (.VRMA) */}
