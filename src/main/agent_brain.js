@@ -3378,7 +3378,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         // Keep system prompt & history ultra-lean for local Ollama so prompt-eval finishes quickly
         messages[0].content = `You are Grokki. ${pluginRule.trim()}`;
         if (messages.length > 4) {
-          messages = [messages[0], ...messages.slice(-3)];
+          messages.splice(1, messages.length - 4);
         }
       } else {
         messages[0].content += pluginRule;
