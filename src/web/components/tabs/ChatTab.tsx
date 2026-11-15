@@ -4175,6 +4175,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       attachedFile: currentAttachment || undefined,
       mentions: currentMentions.length > 0 ? currentMentions : undefined,
+      plugins: currentActivePlugins.length > 0 ? currentActivePlugins : undefined,
     };
 
     updateTargetMessages((prev) => [...prev, userMsg]);
