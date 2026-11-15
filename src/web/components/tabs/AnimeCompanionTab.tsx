@@ -285,7 +285,7 @@ function detectEmotionFromText(text: string): EmotionPreset {
   return 'relaxed';
 }
 
-export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) => {
+export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config, onChangeConfig }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const vrmRef = useRef<VRM | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -658,6 +658,61 @@ export const AnimeCompanionTab: React.FC<AnimeCompanionTabProps> = ({ config }) 
     try {
       localStorage.setItem('ani_sultry_vocal_eq_v2', String(enabled));
     } catch {}
+  };
+
+  const [settingsSaved, setSettingsSaved] = useState<boolean>(false);
+
+  const handleSaveAllCompanionSettings = async () => {
+    try {
+      // Extract clean 32-char hex ID if user pasted a full fish.audio URL
+      const match = fishAudioRefId.trim().match(/([a-f0-9]{32})/i);
+      const cleanFishRef = match ? match[1] : fishAudioRefId.trim();
+      if (cleanFishRef !== fishAudioRefId) {
+        setFishAudioRefId(cleanFishRef);
+      }
+
+      localStorage.setItem('ani_companion_name', avatarName);
+      localStorage.setItem('ani_companion_bg_url', currentBgUrl);
+      localStorage.setItem('ani_companion_avatar_url', modelUrl);
+      localStorage.setItem('ani_tts_engine_v1', companionTtsEngine);
+      localStorage.setItem('ani_fish_audio_api_key', fishAudioApiKey.trim());
+      localStorage.setItem('ani_fish_audio_ref_id', cleanFishRef);
+      localStorage.setItem('ani_fish_audio_voice_title', fishAudioVoiceTitle);
+      localStorage.setItem('ani_fish_audio_speed', String(fishAudioSpeed));
+      localStorage.setItem('ani_fish_audio_temp', String(fishAudioTemp));
+      localStorage.setItem('ani_elevenlabs_api_key', elevenLabsKey.trim());
+      localStorage.setItem('ani_elevenlabs_voice_id', elevenLabsVoiceId);
+      localStorage.setItem('ani_elevenlabs_stability', String(elevenLabsStability));
+      localStorage.setItem('ani_elevenlabs_style', String(elevenLabsStyle));
+      localStorage.setItem('ani_unrealspeech_api_key', unrealSpeechApiKey.trim());
+      localStorage.setItem('ani_unrealspeech_voice_v2', unrealSpeechVoice);
+      localStorage.setItem('ani_unrealspeech_pitch_v2', String(unrealSpeechPitch));
+      localStorage.setItem('ani_unrealspeech_speed_v2', String(unrealSpeechSpeed));
+      localStorage.setItem('ani_sultry_vocal_eq_v2', String(sultryVocalEq));
+
+      const configPatch: any = {
+        fishAudioApiKey: fishAudioApiKey.trim(),
+        fishAudioRefId: cleanFishRef,
+        companionTtsEngine,
+      };
+      if (elevenLabsKey.trim()) {
+        configPatch.elevenlabsApiKey = elevenLabsKey.trim();
+      }
+      if (onChangeConfig) {
+        onChangeConfig(configPatch);
+      }
+      if ((window.jarvisAPI as any)?.saveConfig) {
+        await (window.jarvisAPI as any).saveConfig({
+          ...(config || {}),
+          ...configPatch,
+        });
+      }
+    } catch (e) {
+      console.warn('[Ani] Save companion settings error:', e);
+    }
+    setTtsStatusError(null);
+    setSettingsSaved(true);
+    setTimeout(() => setSettingsSaved(false), 2200);
   };
 
   // Save memory changes to localStorage
@@ -2054,13 +2109,27 @@ ${avatarName}:`;
           >
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <span className="text-base font-semibold tracking-wide">{avatarName}&apos;s Room &amp; Persona</span>
-              <button
-                type="button"
-                onClick={() => setShowSettings(false)}
-                className="p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white cursor-pointer border-none bg-transparent"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleSaveAllCompanionSettings}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                    settingsSaved
+                      ? 'bg-emerald-500 text-black border-emerald-400'
+                      : 'bg-white text-black border-white hover:bg-gray-200'
+                  }`}
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{settingsSaved ? 'Saved!' : 'Save'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSettings(false)}
+                  className="p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white cursor-pointer border-none bg-transparent"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Room Background Selection */}
@@ -2459,17 +2528,31 @@ ${avatarName}:`;
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={() =>
-                  speakSpeech(
-                    "Mmm... hey there... come a little closer, I've been waiting just for you."
-                  )
-                }
-                className="w-full mt-2.5 py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-400/40 text-pink-200 text-xs font-semibold transition-all cursor-pointer"
-              >
-                Preview {companionTtsEngine === 'fish_audio' ? 'Fish Audio' : companionTtsEngine === 'elevenlabs' ? 'ElevenLabs' : 'UnrealSpeech'} Voice
-              </button>
+              <div className="grid grid-cols-2 gap-2 mt-2.5">
+                <button
+                  type="button"
+                  onClick={handleSaveAllCompanionSettings}
+                  className={`py-2 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    settingsSaved
+                      ? 'bg-emerald-500 text-black border-emerald-400'
+                      : 'bg-white text-black border-white hover:bg-gray-200'
+                  }`}
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{settingsSaved ? 'Saved!' : 'Save Voice'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    speakSpeech(
+                      "Mmm... hey there... come a little closer, I've been waiting just for you."
+                    )
+                  }
+                  className="py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-400/40 text-pink-200 text-xs font-semibold transition-all cursor-pointer"
+                >
+                  Preview Voice
+                </button>
+              </div>
             </div>
 
             {/* Authentic Humanoid Animation (.VRMA) */}
@@ -2609,9 +2692,21 @@ ${avatarName}:`;
                 </button>
               </div>
 
-              {/* <div className="mt-2 p-2 rounded-lg bg-white/5 border border-white/10 text-[10px] font-mono text-gray-400 truncate">
-                E:\Assistant AI\public\assets\avatars\
-              </div> */}
+              {/* Sticky Bottom Save Button */}
+              <div className="mt-5 pt-3 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={handleSaveAllCompanionSettings}
+                  className={`w-full py-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-lg ${
+                    settingsSaved
+                      ? 'bg-emerald-500 text-black border-emerald-400'
+                      : 'bg-white text-black border-white hover:bg-gray-200'
+                  }`}
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{settingsSaved ? 'All Companion Settings Saved!' : 'Save Changes'}</span>
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
