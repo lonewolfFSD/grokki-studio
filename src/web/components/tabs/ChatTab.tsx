@@ -4152,6 +4152,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           attachedFile: currentAttachment || undefined,
           mentions: currentMentions.length > 0 ? currentMentions : undefined,
+          plugins: currentActivePlugins.length > 0 ? currentActivePlugins : undefined,
         };
         const noModelMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
@@ -6516,6 +6517,31 @@ export const ChatTab = React.memo<ChatTabProps>(({
                             )
                           )}
                           <p className="whitespace-pre-wrap m-0 leading-relaxed text-[13.5px]">
+                            {Array.isArray(msg.plugins) && msg.plugins.length > 0 && (
+                              <span className="inline-flex flex-wrap items-center gap-1.5 mr-1.5 align-middle">
+                                {msg.plugins.map((p) => (
+                                  <span
+                                    key={p.id}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[13px] font-medium leading-tight"
+                                    style={{
+                                      color: '#38bdf8',
+                                      backgroundColor: 'rgba(56, 189, 248, 0.14)',
+                                    }}
+                                  >
+                                    <PluginBrandLogo
+                                      id={p.id}
+                                      name={p.name}
+                                      imageUrl={p.imageUrl}
+                                      authPortalUrl={p.authPortalUrl}
+                                      mcpUrl={p.mcpUrl}
+                                      className="w-3.5 h-3.5 rounded-[3px] border-0 bg-transparent shrink-0"
+                                      imgClassName="p-0"
+                                    />
+                                    <span>{p.name}</span>
+                                  </span>
+                                ))}
+                              </span>
+                            )}
                             {renderContentWithBrandLinks(msg.content)}
                           </p>
                         </div>

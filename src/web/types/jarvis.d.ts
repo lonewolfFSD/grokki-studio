@@ -385,6 +385,7 @@ export interface ChatMessage {
   isAnimated?: boolean;
   grounding?: GroundingMetadata;
   mentions?: WorkspaceMention[];
+  plugins?: { id: string; name: string; imageUrl?: string; authPortalUrl?: string; mcpUrl?: string }[];
   dualBattle?: DualBattleResult;
 }
 
