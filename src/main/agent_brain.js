@@ -3721,8 +3721,50 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           });
         }
 
-        // On local Ollama in Chat mode, once an MCP tool succeeded, drop `tools` on the next turn so the model summarizes immediately instead of re-evaluating tool schemas
+        // On local Ollama in Chat mode, once MCP tool(s) succeed, format structured JSON directly instead of waiting 60-180s for a slow local LLM rewrite
         if (provider === 'ollama' && !isAgent && stepToolResults.some((s) => s.name.startsWith('mcp__') && s.result?.success !== false)) {
+          const formattedParts = [];
+          for (const item of stepToolResults) {
+            const raw = item.result?.message || '';
+            let formatted = raw;
+            try {
+              const parsed = JSON.parse(raw);
+              const root = parsed?.result || parsed;
+              const deployments = root?.deployments?.deployments || root?.deployments;
+              const projects = root?.projects?.projects || root?.projects;
+              const teams = root?.teams?.teams || root?.teams;
+              if (Array.isArray(deployments)) {
+                if (deployments.length === 0) {
+                  formatted = 'No deployments found.';
+                } else {
+                  const lines = deployments.slice(0, 10).map((d) => {
+                    const name = d.name || d.id || 'Deployment';
+                    const state = d.state || d.readyState || 'UNKNOWN';
+                    const target = d.target ? ` (${d.target})` : '';
+                    const url = d.url ? ` — https://${String(d.url).replace(/^https?:\/\//, '')}` : '';
+                    const when = d.created ? ` · ${new Date(d.created).toLocaleString()}` : '';
+                    return `- **${name}**${target} — \`${state}\`${url}${when}`;
+                  });
+                  formatted = `**Latest Vercel Deployments (${deployments.length} shown${root?.deployments?.pagination?.count ? `, ${root.deployments.pagination.count} in page` : ''}):**\n\n${lines.join('\n')}`;
+                }
+              } else if (Array.isArray(projects)) {
+                formatted = projects.length === 0
+                  ? 'No projects found.'
+                  : `**Projects (${projects.length}):**\n\n` + projects.slice(0, 12).map((p) => `- **${p.name || p.id}**${p.framework ? ` (${p.framework})` : ''}`).join('\n');
+              } else if (Array.isArray(teams)) {
+                formatted = teams.length === 0
+                  ? 'No teams found.'
+                  : `**Teams (${teams.length}):**\n\n` + teams.slice(0, 12).map((t) => `- **${t.name || t.slug || t.id}**`).join('\n');
+              } else if (raw.length > 2000) {
+                formatted = '```json\n' + raw.slice(0, 2000) + '\n...\n```';
+              }
+            } catch (_) {}
+            if (formatted) formattedParts.push(formatted);
+          }
+          if (formattedParts.length > 0) {
+            finalReplyText = formattedParts.join('\n\n');
+            break;
+          }
           tools = undefined;
         }
 
