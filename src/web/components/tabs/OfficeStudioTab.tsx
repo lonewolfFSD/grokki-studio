@@ -562,6 +562,90 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
                 </div>
               )}
 
+              {/* Flowchart / Process Diagram Slide */}
+              {(slide.type === 'flowchart' || Array.isArray(slide.steps)) &&
+                Array.isArray(slide.steps) &&
+                slide.steps.length > 0 && (
+                  <div className="flex items-stretch gap-1.5 mt-2">
+                    {slide.steps.slice(0, 4).map((st: any, idx: number) => (
+                      <React.Fragment key={idx}>
+                        <div className="flex-1 min-w-0 rounded-lg p-2 bg-white/[0.06] border border-white/10 flex flex-col justify-between">
+                          <div>
+                            <span
+                              className="inline-block text-[8px] font-bold uppercase px-1.5 py-0.5 rounded mb-1 text-white"
+                              style={{ backgroundColor: themeMeta.accent }}
+                            >
+                              Step {idx + 1}
+                            </span>
+                            <div className="text-[10.5px] font-bold text-white leading-tight line-clamp-1">
+                              {st.title || st.label}
+                            </div>
+                            <div className="text-[9px] text-white/65 line-clamp-2 mt-0.5 leading-snug">
+                              {st.description}
+                            </div>
+                          </div>
+                        </div>
+                        {idx < Math.min(slide.steps.length, 4) - 1 && (
+                          <div className="flex items-center text-white/40 text-xs font-bold shrink-0">
+                            →
+                          </div>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )}
+
+              {/* Bar Chart Slide */}
+              {slide.chart &&
+                Array.isArray(slide.chart.labels) &&
+                Array.isArray(slide.chart.values) && (
+                  <div className="grid grid-cols-12 gap-3 mt-2 items-center">
+                    <div className="col-span-7 rounded-lg p-2.5 bg-white/[0.05] border border-white/10 space-y-1.5">
+                      {(() => {
+                        const vals = slide.chart.values.map((v: any) => Number(v) || 0);
+                        const maxV = Math.max(...vals, 1);
+                        return slide.chart.labels.slice(0, 4).map((lbl: string, idx: number) => {
+                          const v = vals[idx] ?? 0;
+                          const pct = Math.max(8, Math.round((v / maxV) * 100));
+                          return (
+                            <div key={idx} className="space-y-0.5">
+                              <div className="flex justify-between text-[9.5px] text-white/80 font-medium">
+                                <span className="truncate">{lbl}</span>
+                                <span className="font-mono">{v.toLocaleString()}</span>
+                              </div>
+                              <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${pct}%`,
+                                    backgroundColor: themeMeta.accent,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                    {!slide.chart && Array.isArray(slide.bullets) && slide.bullets.length > 0 && (
+                      <ul className="col-span-5 space-y-1">
+                        {slide.bullets.slice(0, 3).map((b: string, idx: number) => (
+                          <li
+                            key={idx}
+                            className="text-[9.5px] text-white/80 leading-snug flex items-start gap-1.5"
+                          >
+                            <span
+                              className="w-1 h-1 rounded-full mt-1.5 shrink-0"
+                              style={{ backgroundColor: themeMeta.accent }}
+                            />
+                            <span className="line-clamp-2">{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
               {Array.isArray(slide.cards) && slide.cards.length > 0 && (
                 <div className="grid grid-cols-3 gap-2 mt-2">
                   {slide.cards.slice(0, 3).map((c: any, idx: number) => (
@@ -580,7 +664,7 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
                 </div>
               )}
 
-              {Array.isArray(slide.bullets) && slide.bullets.length > 0 && (
+              {!slide.chart && Array.isArray(slide.bullets) && slide.bullets.length > 0 && (
                 <ul className="space-y-1 mt-2">
                   {slide.bullets.slice(0, 4).map((b: string, idx: number) => (
                     <li
@@ -784,6 +868,62 @@ export const OfficeStudioTab: React.FC<OfficeStudioTabProps> = ({ config }) => {
               style={{ borderLeftColor: themeMeta.accent }}
             >
               {data.summary}
+            </div>
+          )}
+
+          {/* KPI Scorecard Grid inside Document Preview */}
+          {Array.isArray(data.metrics) && data.metrics.length > 0 && (
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {data.metrics.slice(0, 3).map((m: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="p-2.5 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-200/70 dark:border-white/[0.07]"
+                >
+                  <div
+                    className="text-sm font-extrabold"
+                    style={{ color: themeMeta.accent }}
+                  >
+                    {m.value}
+                  </div>
+                  <div className="text-[10.5px] font-semibold text-gray-800 dark:text-gray-200 truncate">
+                    {m.label}
+                  </div>
+                  <div className="text-[9.5px] text-gray-500 dark:text-gray-400 line-clamp-1">
+                    {m.description}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Visual Flowchart Diagram inside Document Preview */}
+          {Array.isArray(data.flowchart) && data.flowchart.length > 0 && (
+            <div className="pt-1">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">
+                Architecture & Process Flow
+              </div>
+              <div className="flex items-stretch gap-1">
+                {data.flowchart.slice(0, 4).map((st: any, idx: number) => (
+                  <React.Fragment key={idx}>
+                    <div className="flex-1 min-w-0 p-2 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-200/80 dark:border-white/[0.08]">
+                      <div
+                        className="text-[9px] font-bold uppercase"
+                        style={{ color: themeMeta.accent }}
+                      >
+                        {idx + 1}. {st.title || st.label}
+                      </div>
+                      <div className="text-[9.5px] text-gray-500 dark:text-gray-400 line-clamp-2 mt-0.5 leading-snug">
+                        {st.description}
+                      </div>
+                    </div>
+                    {idx < Math.min(data.flowchart.length, 4) - 1 && (
+                      <div className="flex items-center text-gray-400 dark:text-gray-500 text-xs font-bold">
+                        →
+                      </div>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
             </div>
           )}
 

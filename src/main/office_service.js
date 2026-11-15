@@ -15,72 +15,102 @@ const {
 } = require('./office_generator');
 
 /**
- * Creates high-quality fallback data if LLM call times out or returns malformed JSON
+ * Direct, human-toned fallback data with flowcharts, charts, and KPI scorecards
  */
 function getFallbackData(type, userPrompt, themeKey, blueprint = 'auto') {
   const cleanTitle =
-    userPrompt && userPrompt.length > 4
+    userPrompt && userPrompt.length > 3
       ? userPrompt.slice(0, 56).replace(/\n/g, ' ')
-      : 'Executive Strategic Overview';
+      : 'Product & Execution Plan';
 
   if (type === 'pptx') {
     return {
       title: cleanTitle,
-      subtitle: 'Comprehensive Strategy, Key Metrics & Tactical Roadmap',
-      category: blueprint !== 'auto' ? blueprint.toUpperCase() : 'STRATEGIC DECK',
+      subtitle: 'Key Numbers, System Flow, and Execution Plan',
+      category: blueprint !== 'auto' ? blueprint.toUpperCase() : 'OVERVIEW',
+      imagePrompt: `${cleanTitle}, modern minimalist workspace photography, dramatic lighting`,
       slides: [
         {
           type: 'title',
-          tag: 'Confidential Strategy',
+          tag: 'Overview',
           title: cleanTitle,
-          subtitle: `A comprehensive presentation covering key pillars, metrics, and execution roadmap for ${cleanTitle}.`,
+          subtitle: `A direct breakdown of core numbers, workflow architecture, and next steps for ${cleanTitle}.`,
         },
         {
           type: 'metrics',
-          tag: 'Key Performance Indicators',
-          title: 'Core Metrics & Benchmarks',
-          subtitle: 'Quantitative indicators and target operational outcomes.',
+          tag: 'Key Numbers',
+          title: 'Where Things Stand Today',
+          subtitle: 'Primary numbers driving decisions this quarter.',
           metrics: [
-            { value: '3.4x', label: 'Efficiency Gain', description: 'Measured improvement across primary operational workflows.' },
-            { value: '99.4%', label: 'Reliability Target', description: 'High-availability execution standard with fault tolerance.' },
-            { value: '42%', label: 'Cost Reduction', description: 'Optimized resource allocation and unit economics.' },
+            { value: '3.2x', label: 'Throughput Speedup', description: 'Measured reduction in end-to-end cycle time after removing manual handoffs.' },
+            { value: '99.4%', label: 'Uptime Reliability', description: 'Sustained service availability across primary production workloads.' },
+            { value: '-38%', label: 'Unit Cost Drop', description: 'Lowered per-unit overhead through caching and batch scheduling.' },
+          ],
+        },
+        {
+          type: 'flowchart',
+          tag: 'System Flow',
+          title: 'How the Workflow Operates End-to-End',
+          subtitle: 'Four-stage pipeline from raw input to verified output.',
+          steps: [
+            { title: '1. Ingest & Validate', description: 'Capture incoming requests, strip malformed payloads, and normalize schema.' },
+            { title: '2. Context Routing', description: 'Match task complexity to the fastest capable worker or model tier.' },
+            { title: '3. Parallel Execution', description: 'Run core synthesis and verification checks concurrently.' },
+            { title: '4. Delivery & Audit', description: 'Ship final artifact to user and log latency + quality metrics.' },
+          ],
+          takeaway: 'Isolating validation from execution cuts tail latency by more than half.',
+        },
+        {
+          type: 'chart',
+          tag: 'Performance Trend',
+          title: 'Quarterly Output vs. Baseline',
+          subtitle: 'Steady quarter-over-quarter gains across four consecutive cycles.',
+          chart: {
+            seriesName: 'Output Index',
+            labels: ['Q1', 'Q2', 'Q3', 'Q4'],
+            values: [48, 74, 112, 165],
+          },
+          bullets: [
+            'Q1–Q2 focused on eliminating stability bottlenecks.',
+            'Q3 introduced automated routing and caching.',
+            'Q4 reached 165 index—more than triple Q1 baseline.',
           ],
         },
         {
           type: 'cards',
-          tag: 'Core Pillars',
-          title: 'Strategic Focus Areas',
-          subtitle: 'Three foundational pillars driving execution and long-term impact.',
+          tag: 'Core Priorities',
+          title: 'Three Areas That Matter Most',
+          subtitle: 'Where engineering and operations focus is locked in.',
           cards: [
             {
-              title: 'Architecture & Foundation',
-              description: 'Scalable, modular design built for reliability and rapid iteration.',
-              bullets: ['Modular component design', 'Automated quality verification', 'Zero-bottleneck scaling'],
+              title: 'Fast Feedback Loops',
+              description: 'Ship small, measurable changes weekly instead of massive quarterly drops.',
+              bullets: ['Automated regression checks', 'Sub-second local previews', 'Clear rollback paths'],
             },
             {
-              title: 'Operational Velocity',
-              description: 'Streamlined workflows accelerating delivery from concept to production.',
-              bullets: ['Continuous feedback loops', 'Clear milestone ownership', 'Frictionless deployment'],
+              title: 'Lean Infrastructure',
+              description: 'Keep dependencies minimal and avoid heavy external bottlenecks.',
+              bullets: ['Local-first file compilation', 'Zero idle compute waste', 'Predictable cost ceiling'],
             },
             {
-              title: 'Measurable Impact',
-              description: 'Data-driven telemetry ensuring every milestone delivers concrete results.',
-              bullets: ['Real-time KPI tracking', 'Proactive risk mitigation', 'Sustained ROI growth'],
+              title: 'Real-World Quality',
+              description: 'Optimize for actual human readability, not boilerplate volume.',
+              bullets: ['Direct, scannable layouts', 'Visual diagrams over walls of text', 'Immediate native file export'],
             },
           ],
         },
         {
           type: 'bullets',
-          tag: 'Action Plan',
-          title: 'Execution Roadmap & Next Steps',
-          subtitle: 'Immediate priorities and upcoming delivery milestones.',
+          tag: 'Next Steps',
+          title: 'Immediate Action Plan',
+          subtitle: 'Concrete deliverables for the next 30 days.',
           bullets: [
-            'Finalize core requirements, architecture specifications, and stakeholder alignment.',
-            'Execute phase-1 rollout with real-time telemetry and quality benchmarks.',
-            'Conduct comprehensive review and optimize high-leverage bottlenecks.',
-            'Scale deployment across all target workflows and document best practices.',
+            'Lock final scope and assign a single owner to each pipeline stage.',
+            'Run benchmark tests against real user workloads and fix the top 3 slow paths.',
+            'Review weekly numbers every Friday and cut anything that is not moving the needle.',
+            'Ship v1 to production and gather direct user feedback.',
           ],
-          takeaway: `Disciplined execution on ${cleanTitle} will deliver measurable impact and long-term strategic advantage.`,
+          takeaway: `Keep scope tight, measure real usage, and ship ${cleanTitle} without unnecessary complexity.`,
         },
       ],
     };
@@ -89,55 +119,67 @@ function getFallbackData(type, userPrompt, themeKey, blueprint = 'auto') {
   if (type === 'xlsx' || type === 'csv') {
     return {
       title: cleanTitle,
-      subtitle: 'Quantitative Breakdown, Variance Analysis & Projections',
-      sheetName: 'Model Data',
-      headers: ['Category / Line Item', 'Q1 Baseline', 'Q2 Actual', 'Variance', 'Growth %', 'Annual Projected'],
+      subtitle: 'Quarterly Breakdown, Variance & Projected Run-Rate',
+      sheetName: 'Overview',
+      headers: ['Line Item', 'Q1 Actual', 'Q2 Actual', 'Variance', 'Growth %', 'Annual Run-Rate'],
       rows: [
-        ['Core Platform Operations', 125000, 148000, 23000, 0.184, 592000],
-        ['Product & Engineering R&D', 85000, 92000, 7000, 0.082, 368000],
-        ['Infrastructure & Compute', 42000, 39000, -3000, -0.071, 156000],
-        ['Growth & Distribution', 64000, 78000, 14000, 0.218, 312000],
-        ['Customer Success & Support', 31000, 34500, 3500, 0.112, 138000],
-        ['General & Administrative', 24000, 23500, -500, -0.021, 94000],
+        ['Core Product Subscriptions', 145000, 182000, 37000, 0.255, 728000],
+        ['Enterprise Annual Licenses', 95000, 124000, 29000, 0.305, 496000],
+        ['Usage & API Tier Revenue', 38000, 49500, 11500, 0.302, 198000],
+        ['Cloud & Compute Hosting', -42000, -38500, 3500, -0.083, -154000],
+        ['Engineering & Product Team', -88000, -91000, -3000, 0.034, -364000],
+        ['Growth & Customer Acquisition', -34000, -39000, -5000, 0.147, -156000],
+        ['Operations & Tooling', -14500, -14000, 500, -0.034, -56000],
       ],
     };
   }
 
   return {
     title: cleanTitle,
-    subtitle: 'Comprehensive Analysis, Structured Findings & Action Plan',
-    category: blueprint !== 'auto' ? blueprint.toUpperCase() : 'EXECUTIVE DOCUMENT',
-    summary: `This document provides a structured analysis and actionable framework for ${cleanTitle}, covering key findings, comparative benchmarks, and strategic recommendations.`,
+    subtitle: 'Practical Breakdown, Architecture Flow & Action Plan',
+    category: blueprint !== 'auto' ? blueprint.toUpperCase() : 'BRIEFING',
+    summary: `This document lays out a direct, practical plan for ${cleanTitle}—covering the core numbers, how the workflow fits together, where the bottlenecks are, and what to execute next.`,
+    metrics: [
+      { value: '3.2x', label: 'Cycle Speedup', description: 'Faster turnaround from initial input to finished output.' },
+      { value: '99.4%', label: 'Reliability', description: 'Consistent execution across standard workloads.' },
+      { value: '-38%', label: 'Cost per Unit', description: 'Savings from leaner resource allocation.' },
+    ],
+    flowchart: [
+      { title: 'Input & Scope', description: 'Define clear constraints and target outcome.' },
+      { title: 'Core Processing', description: 'Run structured synthesis and validation.' },
+      { title: 'Quality Check', description: 'Verify accuracy, numbers, and formatting.' },
+      { title: 'Final Delivery', description: 'Ship ready-to-use output and track results.' },
+    ],
     sections: [
       {
-        title: '1. Executive Overview & Scope',
-        content: `A thorough evaluation of ${cleanTitle} highlights critical opportunities for optimization, structural clarity, and measurable execution. The sections below establish the foundational principles and operational requirements.`,
+        title: '1. Context & What We Are Solving',
+        content: `Most teams waste time on bloated processes when tackling ${cleanTitle}. The goal here is straightforward: strip out unnecessary steps, focus on the highest-leverage bottlenecks, and deliver measurable results quickly.`,
         bullets: [
-          'Clear alignment between core objectives and measurable deliverables.',
-          'Structured methodology designed for scalability and long-term maintainability.',
-          'Proactive risk identification and quality assurance built into each stage.',
+          'Keep the scope focused on outcomes that users immediately notice.',
+          'Automate repetitive handoffs so the team focuses on high-judgment work.',
+          'Track three core metrics instead of drowning in vanity dashboards.',
         ],
       },
       {
-        title: '2. Structured Benchmark & Milestone Breakdown',
-        content: 'The table below summarizes the primary workstreams, ownership, timelines, and status indicators:',
+        title: '2. Milestones & Ownership',
+        content: 'Below is the concrete delivery schedule, who owns each piece, and current status:',
         table: {
-          headers: ['Phase / Workstream', 'Owner', 'Timeline', 'Priority', 'Status'],
+          headers: ['Deliverable', 'Owner', 'Target Window', 'Priority', 'Status'],
           rows: [
-            ['Phase 1: Research & Architecture', 'Core Team', 'Weeks 1-2', 'High', 'Completed'],
-            ['Phase 2: Core Implementation', 'Engineering', 'Weeks 3-6', 'Critical', 'In Progress'],
-            ['Phase 3: Validation & QA Testing', 'Quality Assurance', 'Weeks 7-8', 'High', 'Scheduled'],
-            ['Phase 4: Production Rollout', 'Operations', 'Week 9+', 'High', 'Planned'],
+            ['Core Architecture & Schema Lock', 'Engineering', 'Week 1', 'High', 'Complete'],
+            ['Pipeline & Diagram Integration', 'Product', 'Week 2', 'Critical', 'In Progress'],
+            ['Load Testing & Edge-Case Fixes', 'QA / Infra', 'Week 3', 'High', 'Scheduled'],
+            ['Production Rollout & Review', 'All Leads', 'Week 4', 'High', 'Pending'],
           ],
         },
       },
       {
-        title: '3. Strategic Recommendations & Next Steps',
-        content: 'To maximize impact and maintain momentum, stakeholders should prioritize the following immediate actions:',
+        title: '3. Risks & Direct Mitigations',
+        content: 'Every plan hits friction in the real world. Here are the main failure modes and how we prevent them:',
         bullets: [
-          'Review and ratify the milestone schedule and resource allocations.',
-          'Establish weekly progress checkpoints against the quantitative benchmarks.',
-          'Document key learnings and iterate based on real-world performance data.',
+          'Scope creep: Lock requirements before sprint start and push non-essential ideas to phase 2.',
+          'Latency spikes: Set hard timeouts on external calls with clean local fallbacks.',
+          'Adoption friction: Make the default output immediately usable without manual cleanup.',
         ],
       },
     ],
@@ -145,77 +187,105 @@ function getFallbackData(type, userPrompt, themeKey, blueprint = 'auto') {
 }
 
 /**
- * Builds the LLM system prompt based on document type and blueprint
+ * Builds the LLM system prompt with direct human tone + visual diagrams/charts
  */
 function buildSystemPrompt(docType, blueprint = 'auto') {
   const blueprintGuidance =
     blueprint && blueprint !== 'auto'
-      ? `\nDocument Archetype: "${blueprint}". Tailor all content, terminology, metrics, and structure specifically to an authentic ${blueprint}.`
+      ? `\nArchetype: "${blueprint}". Structure the content, numbers, and sections specifically for a real-world ${blueprint}.`
       : '';
 
-  if (docType === 'pptx') {
-    return `You are an elite presentation designer creating an executive-grade PowerPoint deck structure in JSON format.${blueprintGuidance}
-Write rich, specific, real-world content directly tailored to the user's topic (never use generic placeholders).
-Design 5 to 6 slides:
-- Slide 1: Hero title slide (type: "title", tag, title, subtitle)
-- Slide 2: 3 Key Metrics / KPIs (type: "metrics", tag, title, subtitle, metrics: [{ value, label, description }])
-- Slide 3: 3 Core Pillars / Feature Cards (type: "cards", tag, title, subtitle, cards: [{ title, description, bullets: ["point 1", "point 2"] }])
-- Slide 4: Deep-dive analysis or architecture (type: "cards" or "bullets", tag, title, subtitle, bullets: [], takeaway)
-- Slide 5: Roadmap / Conclusions / Next Steps (type: "bullets", tag, title, subtitle, bullets: [], takeaway)
+  const humanToneRules = `
+WRITING STYLE RULES (CRITICAL):
+- Write like a sharp, experienced human operator speaking directly to a colleague or board.
+- Be direct, concrete, and specific to the user's topic.
+- NEVER use AI cliches or corporate fluff ("delve", "testament", "synergistic", "paradigm shift", "tapestry", "in conclusion").
+- Use realistic numbers, concrete examples, and punchy sentences.`;
 
-CRITICAL: Return ONLY valid raw JSON with no markdown fences:
+  if (docType === 'pptx') {
+    return `You are a world-class presentation designer and strategist creating a 6-slide PowerPoint deck in JSON format.${blueprintGuidance}
+${humanToneRules}
+
+Include a mix of visual slide types so the presentation looks human-crafted and visually engaging:
+- Slide 1: Cover slide (type: "title", tag, title, subtitle)
+- Slide 2: 3 Key Numbers / KPIs (type: "metrics", tag, title, subtitle, metrics: [{ value, label, description }])
+- Slide 3: Visual Process Flowchart / Architecture Diagram (type: "flowchart", tag, title, subtitle, steps: [4 connected stages with { title, description }], takeaway)
+- Slide 4: Quantitative Bar Chart Slide (type: "chart", tag, title, subtitle, chart: { seriesName: "Metric", labels: ["Label 1", "Label 2", "Label 3", "Label 4"], values: [number, number, number, number] }, bullets: ["Insight 1", "Insight 2", "Insight 3"])
+- Slide 5: 3 Core Pillars / Comparison Cards (type: "cards", tag, title, subtitle, cards: [{ title, description, bullets: ["Point 1", "Point 2"] }])
+- Slide 6: Action Plan & Bottom Line (type: "bullets", tag, title, subtitle, bullets: ["Action 1", "Action 2", "Action 3", "Action 4"], takeaway)
+
+Return ONLY valid raw JSON (no markdown fences):
 {
-  "title": "Specific Presentation Title",
-  "subtitle": "Specific Executive Subtitle",
-  "category": "Category Tag",
+  "title": "Direct Deck Title",
+  "subtitle": "Sharp 1-line subtitle",
+  "category": "Short Tag",
+  "imagePrompt": "5-8 word visual photography prompt matching the topic for the cover slide",
   "slides": [
-    { "type": "title", "tag": "Tag", "title": "Slide Title", "subtitle": "Detailed subtitle" },
-    { "type": "metrics", "tag": "KPIs", "title": "Key Metrics", "subtitle": "Context", "metrics": [{ "value": "99.9%", "label": "Metric Name", "description": "Specific explanation" }] },
-    { "type": "cards", "tag": "Pillars", "title": "Core Pillars", "subtitle": "Context", "cards": [{ "title": "Pillar 1", "description": "Explanation", "bullets": ["Point A", "Point B"] }] },
-    { "type": "bullets", "tag": "Roadmap", "title": "Execution Plan", "subtitle": "Context", "bullets": ["Detailed step 1", "Detailed step 2", "Detailed step 3", "Detailed step 4"], "takeaway": "Key bottom-line takeaway" }
+    { "type": "title", "tag": "Overview", "title": "Title", "subtitle": "Subtitle" },
+    { "type": "metrics", "tag": "Key Numbers", "title": "Slide Title", "subtitle": "Sub", "metrics": [{ "value": "$4.8M", "label": "Label", "description": "Direct explanation" }] },
+    { "type": "flowchart", "tag": "How It Works", "title": "System Flow", "subtitle": "Sub", "steps": [{ "title": "Stage 1", "description": "What happens" }, { "title": "Stage 2", "description": "What happens" }, { "title": "Stage 3", "description": "What happens" }, { "title": "Stage 4", "description": "What happens" }], "takeaway": "1-sentence key insight" },
+    { "type": "chart", "tag": "Data", "title": "Chart Title", "subtitle": "Sub", "chart": { "seriesName": "Metric", "labels": ["Q1", "Q2", "Q3", "Q4"], "values": [40, 65, 95, 140] }, "bullets": ["Key point 1", "Key point 2", "Key point 3"] },
+    { "type": "cards", "tag": "Core Pillars", "title": "Three Focus Areas", "subtitle": "Sub", "cards": [{ "title": "Card 1", "description": "Direct summary", "bullets": ["Detail A", "Detail B"] }] },
+    { "type": "bullets", "tag": "Next Steps", "title": "Execution Plan", "subtitle": "Sub", "bullets": ["Step 1", "Step 2", "Step 3", "Step 4"], "takeaway": "Bottom-line conclusion" }
   ]
 }`;
   }
 
   if (docType === 'xlsx' || docType === 'csv') {
-    return `You are an elite financial modeling and data analysis expert creating a realistic spreadsheet in JSON format.${blueprintGuidance}
-Write specific, realistic line items and numbers directly tailored to the user's request:
-- Use raw numbers (e.g. 150000, not "$150k") for numeric columns so Excel =SUM() formulas work automatically.
-- Provide 7 to 12 detailed rows.
-- Return ONLY valid raw JSON with no markdown fences:
+    return `You are a sharp financial and data analyst creating a structured spreadsheet in JSON format.${blueprintGuidance}
+${humanToneRules}
+- Use raw numbers (e.g. 145000, not "$145k") for numeric columns so Excel formulas calculate totals and averages automatically.
+- Provide 7 to 12 specific, realistic rows tailored to the user's topic.
+- Return ONLY valid raw JSON (no markdown fences):
 {
   "title": "Specific Model Title",
-  "subtitle": "Model Scope and Description",
-  "sheetName": "Data Sheet",
+  "subtitle": "Clear 1-line scope",
+  "sheetName": "Model",
   "headers": ["Line Item", "Q1", "Q2", "Q3", "Q4", "Total / Projected"],
   "rows": [
-    ["Specific Row 1", 120000, 135000, 150000, 175000, 580000]
+    ["Specific Item 1", 120000, 135000, 155000, 180000, 590000]
   ]
 }`;
   }
 
-  return `You are an elite strategy consultant, researcher, and technical author writing a comprehensive, publication-grade document in JSON format.${blueprintGuidance}
-Write thorough, specific, well-researched content directly addressing the user's topic with an executive summary, 4 detailed sections, bullet points, and a structured data table.
-- Return ONLY valid raw JSON with no markdown fences:
+  return `You are a sharp strategy advisor, engineer, and writer creating a publication-ready document in JSON format.${blueprintGuidance}
+${humanToneRules}
+Include:
+- "metrics": 3 concrete KPI scorecards ({ value, label, description })
+- "flowchart": 4 connected process/architecture stages ({ title, description }) so a visual diagram is rendered in the document
+- "sections": 3 to 4 substantive sections with direct prose, actionable bullets, and a structured comparison/milestone table.
+
+Return ONLY valid raw JSON (no markdown fences):
 {
   "title": "Specific Document Title",
-  "subtitle": "Clear Subtitle and Scope",
-  "category": "Document Category",
-  "summary": "Thorough 3-sentence executive summary of the topic.",
+  "subtitle": "Clear, direct subtitle",
+  "category": "Category Tag",
+  "summary": "Direct 2-3 sentence summary stating the core thesis and outcome.",
+  "metrics": [
+    { "value": "99.9%", "label": "Metric Name", "description": "Short context" },
+    { "value": "2.8x", "label": "Metric Name", "description": "Short context" },
+    { "value": "-32%", "label": "Metric Name", "description": "Short context" }
+  ],
+  "flowchart": [
+    { "title": "Step 1", "description": "Brief explanation" },
+    { "title": "Step 2", "description": "Brief explanation" },
+    { "title": "Step 3", "description": "Brief explanation" },
+    { "title": "Step 4", "description": "Brief explanation" }
+  ],
   "sections": [
     {
-      "title": "1. Section Heading",
-      "content": "Detailed, substantive multi-sentence paragraph explaining this section in depth.",
+      "title": "1. Section Title",
+      "content": "Direct, human-written paragraph with concrete substance.",
       "bullets": ["Specific point 1", "Specific point 2", "Specific point 3"]
     },
     {
-      "title": "2. Comparative Breakdown",
-      "content": "Analysis introducing the structured table below.",
+      "title": "2. Breakdown & Benchmarks",
+      "content": "Context for the data table below.",
       "table": {
         "headers": ["Column 1", "Column 2", "Column 3", "Column 4"],
         "rows": [
-          ["Row 1A", "Row 1B", "Row 1C", "Row 1D"],
-          ["Row 2A", "Row 2B", "Row 2C", "Row 2D"]
+          ["Cell 1A", "Cell 1B", "Cell 1C", "Cell 1D"],
+          ["Cell 2A", "Cell 2B", "Cell 2C", "Cell 2D"]
         ]
       }
     }
@@ -268,15 +338,14 @@ async function generateOfficeDocument({
   // 1. Synthesize real topic-specific structure via active LLM provider
   if (agentBrain && typeof agentBrain.generateAcademicLLM === 'function') {
     try {
-      // Ensure agentBrain has the latest loaded config (API keys & active provider)
       if (config && Object.keys(config).length > 0) {
         agentBrain.activeConfig = { ...(agentBrain.activeConfig || {}), ...config };
       }
 
       const systemPrompt = buildSystemPrompt(normalizedType, blueprint);
-      const userPrompt = `Create a complete, detailed ${normalizedType.toUpperCase()} document for:\n"${cleanPrompt}"\n\nReturn strictly valid JSON:`;
+      const userPrompt = `Topic / Request:\n"${cleanPrompt}"\n\nWrite direct, human-toned, specific content with visual flowchart steps and concrete numbers. Return strictly valid JSON:`;
 
-      const llmPromise = agentBrain.generateAcademicLLM(systemPrompt, userPrompt, 3200);
+      const llmPromise = agentBrain.generateAcademicLLM(systemPrompt, userPrompt, 3500);
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('LLM synthesis timed out')), 30000)
       );
@@ -336,7 +405,7 @@ async function generateOfficeDocument({
   }
 
   // 4. Save to Downloads directory
-  const safeTitle = (structuredData.title || cleanPrompt || 'grokki_doc')
+  const safeTitle = (structuredData.title || cleanPrompt || 'document')
     .replace(/[/\\?%*:|"<>]/g, '_')
     .slice(0, 38)
     .trim();
