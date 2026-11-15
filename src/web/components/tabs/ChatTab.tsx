@@ -3923,7 +3923,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const handleSelectChatPlugin = (plugin: ChatPluginMentionItem) => {
     const prefix = inputValue.slice(0, lastAtIdx);
     const suffix = inputValue.slice(lastAtIdx + 1 + mentionQuery.length);
-    const nextText = `${prefix}@${plugin.name} ${suffix}`.trimStart();
+    const nextText = `${prefix}${suffix}`.replace(/^\s+/, '');
     setInputValue(nextText);
     setStagedPlugins((prev) =>
       prev.some((p) => p.id === plugin.id) ? prev : [...prev, plugin]
@@ -3934,6 +3934,43 @@ export const ChatTab = React.memo<ChatTabProps>(({
         inputRef.current.focus();
       }
     }, 40);
+  };
+
+  const renderInlineStagedPlugins = () => {
+    if (stagedPlugins.length === 0 || agentMode) return null;
+    return (
+      <div className="flex items-center gap-1.5 shrink-0 flex-wrap pt-[3px]">
+        {stagedPlugins.map((p) => (
+          <span
+            key={p.id}
+            className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-md text-[14px] font-medium leading-tight select-none transition-colors"
+            style={{
+              color: '#38bdf8',
+              backgroundColor: 'rgba(56, 189, 248, 0.12)',
+            }}
+          >
+            <PluginBrandLogo
+              id={p.id}
+              name={p.name}
+              imageUrl={p.imageUrl}
+              authPortalUrl={p.authPortalUrl}
+              mcpUrl={p.mcpUrl}
+              className="w-4 h-4 rounded-[4px] border-0 bg-transparent shrink-0"
+              imgClassName="p-0"
+            />
+            <span>{p.name}</span>
+            <button
+              type="button"
+              onClick={() => setStagedPlugins((prev) => prev.filter((item) => item.id !== p.id))}
+              title={`Remove ${p.name}`}
+              className="opacity-60 hover:opacity-100 cursor-pointer bg-transparent border-none p-0 ml-0.5 flex items-center text-[#38bdf8]"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+    );
   };
 
   const handleConnectPluginFromAtMenu = (plugin: ChatPluginMentionItem, e?: React.MouseEvent) => {
@@ -4413,6 +4450,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key === 'Backspace' && !agentMode && stagedPlugins.length > 0 && inputValue === '') {
+      e.preventDefault();
+      setStagedPlugins((prev) => prev.slice(0, -1));
+      return;
+    }
     if (isChatThinking && e.key === 'Escape') {
       e.preventDefault();
       handleStopGeneration();
@@ -6013,35 +6055,6 @@ export const ChatTab = React.memo<ChatTabProps>(({
             {renderMentionMenu('bottom')}
             {renderSynthesizerVisualizer()}
 
-            {stagedPlugins.length > 0 && !agentMode && (
-              <div className="flex flex-wrap items-center gap-1.5 mb-2 px-1">
-                {stagedPlugins.map((p) => (
-                  <div
-                    key={p.id}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1e1e1e] border border-white/10 text-white text-[12px] font-medium shadow-xs"
-                  >
-                    <PluginBrandLogo
-                      id={p.id}
-                      name={p.name}
-                      imageUrl={p.imageUrl}
-                      authPortalUrl={p.authPortalUrl}
-                      mcpUrl={p.mcpUrl}
-                      className="w-4 h-4 rounded-sm border-0 bg-transparent"
-                      imgClassName="p-0"
-                    />
-                    <span>{p.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => setStagedPlugins((prev) => prev.filter((item) => item.id !== p.id))}
-                      className="text-zinc-400 hover:text-white cursor-pointer bg-transparent border-none p-0 ml-0.5 flex items-center"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
             {stagedMentions.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 mb-2 px-1">
                 <span className="text-[10px] text-gray-400 font-medium">Context:</span>
@@ -6087,29 +6100,36 @@ export const ChatTab = React.memo<ChatTabProps>(({
               {/* Battle Stage Selector when Dual-Battle Mode is active (Only in Grokki Chat) */}
               {dualBattleEnabled && !agentMode && renderBattleStageBar('top')}
 
-              {/* Input Field on Top with Inline Brand Icon & Grokki Blue URL Highlighting */}
-              <RichBrandInput
-                inputRef={inputRef}
-                value={inputValue}
-                onChange={setInputValue}
-                onKeyDown={handleKeyDown}
-                placeholder={
-                  isRecording
-                    ? "Listening... speaking your prompt"
-                    : agentMode && !agentRoot
-                    ? "Select a project folder below before sending tasks..."
-                    : agentMode
-                    ? `Ask Grokki Agent to inspect, edit, or run commands in ${agentRootName}...`
-                    : attachedFile
-                    ? isVideoAttachment(attachedFile)
-                    ? `Send ${attachedFile.name} on WhatsApp or upload to Drive...`
-                    : `Ask Grokki about ${attachedFile.name}...`
-                    : dualBattleEnabled
-                    ? "Ask Grokki to compare both AI Brains side-by-side..."
-                    : "Type / for slash commands, or ask Grokki anything..."
-                }
-                autoFocus
-              />
+              {/* Input Field on Top with Inline Plugin Brand Pill & Grokki Blue Highlighting */}
+              <div className="flex items-start gap-2 w-full">
+                {renderInlineStagedPlugins()}
+                <div className="flex-1 min-w-0">
+                  <RichBrandInput
+                    inputRef={inputRef}
+                    value={inputValue}
+                    onChange={setInputValue}
+                    onKeyDown={handleKeyDown}
+                    placeholder={
+                      isRecording
+                        ? "Listening... speaking your prompt"
+                        : agentMode && !agentRoot
+                        ? "Select a project folder below before sending tasks..."
+                        : agentMode
+                        ? `Ask Grokki Agent to inspect, edit, or run commands in ${agentRootName}...`
+                        : stagedPlugins.length > 0
+                        ? `Ask ${stagedPlugins.map((p) => p.name).join(', ')}...`
+                        : attachedFile
+                        ? isVideoAttachment(attachedFile)
+                        ? `Send ${attachedFile.name} on WhatsApp or upload to Drive...`
+                        : `Ask Grokki about ${attachedFile.name}...`
+                        : dualBattleEnabled
+                        ? "Ask Grokki to compare both AI Brains side-by-side..."
+                        : "Type / for slash commands, or ask Grokki anything..."
+                    }
+                    autoFocus
+                  />
+                </div>
+              </div>
 
               {/* Bottom Row Below Input: Plus & Model Selector on Left, Mic & Send on Right */}
               <div className="flex items-center justify-between gap-2 pt-0.5">
@@ -7083,35 +7103,6 @@ export const ChatTab = React.memo<ChatTabProps>(({
             {renderMentionMenu('top')}
             {renderSynthesizerVisualizer()}
 
-            {stagedPlugins.length > 0 && !agentMode && (
-              <div className="flex flex-wrap items-center gap-1.5 mb-2 px-1">
-                {stagedPlugins.map((p) => (
-                  <div
-                    key={p.id}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1e1e1e] border border-white/10 text-white text-[12px] font-medium shadow-xs"
-                  >
-                    <PluginBrandLogo
-                      id={p.id}
-                      name={p.name}
-                      imageUrl={p.imageUrl}
-                      authPortalUrl={p.authPortalUrl}
-                      mcpUrl={p.mcpUrl}
-                      className="w-4 h-4 rounded-sm border-0 bg-transparent"
-                      imgClassName="p-0"
-                    />
-                    <span>{p.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => setStagedPlugins((prev) => prev.filter((item) => item.id !== p.id))}
-                      className="text-zinc-400 hover:text-white cursor-pointer bg-transparent border-none p-0 ml-0.5 flex items-center"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
             {stagedMentions.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 mb-2 px-1">
                 <span className="text-[10px] text-gray-400 font-medium">Context:</span>
@@ -7157,28 +7148,35 @@ export const ChatTab = React.memo<ChatTabProps>(({
               {/* Battle Stage Selector when Dual-Battle Mode is active (Only in Grokki Chat) */}
               {dualBattleEnabled && !agentMode && renderBattleStageBar('top')}
 
-              {/* Input Field on Top with Inline Brand Icon & Grokki Blue URL Highlighting */}
-              <RichBrandInput
-                inputRef={inputRef}
-                value={inputValue}
-                onChange={setInputValue}
-                onKeyDown={handleKeyDown}
-                placeholder={
-                  isRecording
-                    ? "Listening... speaking your prompt"
-                    : agentMode && !agentRoot
-                    ? "Select a project folder below before sending tasks..."
-                    : agentMode
-                    ? `Ask Grokki Agent to inspect, edit, or run commands in ${agentRootName}...`
-                    : attachedFile
-                    ? isVideoAttachment(attachedFile)
-                    ? `Send ${attachedFile.name} on WhatsApp or upload to Drive...`
-                    : `Ask Grokki about ${attachedFile.name}...`
-                    : dualBattleEnabled
-                    ? "Ask Grokki to compare both AI Brains side-by-side..."
-                    : "Type / for direct slash commands, or ask anything..."
-                }
-              />
+              {/* Input Field on Top with Inline Plugin Brand Pill & Grokki Blue Highlighting */}
+              <div className="flex items-start gap-2 w-full">
+                {renderInlineStagedPlugins()}
+                <div className="flex-1 min-w-0">
+                  <RichBrandInput
+                    inputRef={inputRef}
+                    value={inputValue}
+                    onChange={setInputValue}
+                    onKeyDown={handleKeyDown}
+                    placeholder={
+                      isRecording
+                        ? "Listening... speaking your prompt"
+                        : agentMode && !agentRoot
+                        ? "Select a project folder below before sending tasks..."
+                        : agentMode
+                        ? `Ask Grokki Agent to inspect, edit, or run commands in ${agentRootName}...`
+                        : stagedPlugins.length > 0
+                        ? `Ask ${stagedPlugins.map((p) => p.name).join(', ')}...`
+                        : attachedFile
+                        ? isVideoAttachment(attachedFile)
+                        ? `Send ${attachedFile.name} on WhatsApp or upload to Drive...`
+                        : `Ask Grokki about ${attachedFile.name}...`
+                        : dualBattleEnabled
+                        ? "Ask Grokki to compare both AI Brains side-by-side..."
+                        : "Type / for direct slash commands, or ask anything..."
+                    }
+                  />
+                </div>
+              </div>
 
               {/* Bottom Row Below Input: Plus & Model Selector on Left, Mic & Send on Right */}
               <div className="flex items-center justify-between gap-2 pt-0.5">
