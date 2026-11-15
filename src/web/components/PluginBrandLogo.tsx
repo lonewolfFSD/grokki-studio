@@ -188,6 +188,15 @@ const LOCAL_BRAND_ASSETS: Record<string, string> = {
   'apple-music': appleMusicLogo,
 };
 
+// Official product-specific brand icons where domain favicons return generic company logos
+const DIRECT_BRAND_ICONS: Record<string, string> = {
+  gmail: 'https://www.gstatic.com/images/branding/product/2x/gmail_2020q4_48dp.png',
+  'google-drive': 'https://ssl.gstatic.com/images/branding/product/2x/drive_2020q4_48dp.png',
+  'google-calendar': 'https://ssl.gstatic.com/calendar/images/dynamiclogo_2020q4/calendar_15_2x.png',
+  'google-docs': 'https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico',
+  'google-sheets': 'https://ssl.gstatic.com/docs/spreadsheets/favicon3.ico',
+};
+
 /**
  * Infers a clean brand domain from any plugin ID, name, or URL.
  */
@@ -242,7 +251,7 @@ export const PluginBrandLogo: React.FC<PluginBrandLogoProps> = ({
   authPortalUrl,
   mcpUrl,
   className = 'w-10 h-10',
-  imgClassName = 'p-1.5',
+  imgClassName = 'p-[4px]',
 }) => {
   const [sourceIndex, setSourceIndex] = useState(0);
   const normId = (id || '').toLowerCase().trim();
@@ -255,7 +264,12 @@ export const PluginBrandLogo: React.FC<PluginBrandLogoProps> = ({
     candidateUrls.push(LOCAL_BRAND_ASSETS[normId]);
   }
 
-  // 2. Explicit imageUrl from plugin / MCP registry
+  // 2. Official product-specific icon (e.g. Gmail, Google Drive, Calendar, Docs, Sheets)
+  if (DIRECT_BRAND_ICONS[normId] && !candidateUrls.includes(DIRECT_BRAND_ICONS[normId])) {
+    candidateUrls.push(DIRECT_BRAND_ICONS[normId]);
+  }
+
+  // 3. Explicit imageUrl from plugin / MCP registry
   if (imageUrl && !candidateUrls.includes(imageUrl)) {
     candidateUrls.push(imageUrl);
   }
@@ -274,12 +288,12 @@ export const PluginBrandLogo: React.FC<PluginBrandLogoProps> = ({
   if (activeSrc) {
     return (
       <div
-        className={`${className} rounded-xl bg-[#14151a] border border-white/10 flex items-center justify-center shrink-0 overflow-hidden`}
+        className={`${className} flex items-center justify-center shrink-0 overflow-hidden`}
       >
         <img
           src={activeSrc}
           alt={name || id}
-          className={`w-full h-full object-contain ${imgClassName}`}
+          className={`w-full h-full object-contain ${normId === 'github' || normId === 'git-tools' ? 'dark:invert' : ''} ${imgClassName}`}
           onError={() => setSourceIndex((prev) => prev + 1)}
         />
       </div>
