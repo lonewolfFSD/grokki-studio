@@ -242,14 +242,39 @@ class McpManager {
     return this.allTools;
   }
 
-  getOpenAIToolDefinitions(prompt = '', activePlugins = [], maxTools = 35) {
+  compactSchemaForSmallModel(schema) {
+    if (!schema || typeof schema !== 'object') return { type: 'object', properties: {} };
+    const out = { type: schema.type || 'object' };
+    if (Array.isArray(schema.enum) && schema.enum.length > 0) {
+      out.enum = schema.enum.slice(0, 10);
+    }
+    if (schema.properties && typeof schema.properties === 'object') {
+      const props = {};
+      for (const [k, v] of Object.entries(schema.properties)) {
+        if (!v || typeof v !== 'object') continue;
+        const p = { type: Array.isArray(v.type) ? v.type[0] : (v.type || 'string') };
+        if (Array.isArray(v.enum) && v.enum.length > 0) p.enum = v.enum.slice(0, 10);
+        if (p.type === 'array') p.items = { type: v.items?.type || 'string' };
+        props[k] = p;
+      }
+      out.properties = props;
+    }
+    if (Array.isArray(schema.required) && schema.required.length > 0) {
+      out.required = schema.required;
+    }
+    return out;
+  }
+
+  getOpenAIToolDefinitions(prompt = '', activePlugins = [], maxTools = 35, compact = false) {
     const selected = this.getRelevantMcpTools(prompt, activePlugins, maxTools);
     return selected.map((t) => ({
       type: 'function',
       function: {
         name: t.mcpName,
-        description: (t.description || t.rawName || '').slice(0, 500),
-        parameters: t.inputSchema || { type: 'object', properties: {} },
+        description: (t.description || t.rawName || '').slice(0, compact ? 120 : 500),
+        parameters: compact
+          ? this.compactSchemaForSmallModel(t.inputSchema)
+          : (t.inputSchema || { type: 'object', properties: {} }),
       },
     }));
   }

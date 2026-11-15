@@ -3358,8 +3358,9 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
     let loadedMcpToolNames = [];
     if (!isWebSearchActive || hasActivePlugins) {
       try {
-        const mcpLimit = (provider === 'ollama' || provider === 'groq') ? 10 : 40;
-        const mcpTools = mcpManager.getOpenAIToolDefinitions(prompt, context?.activePlugins || [], mcpLimit);
+        const isSmallLocal = provider === 'ollama' || provider === 'groq';
+        const mcpLimit = provider === 'ollama' ? 5 : (provider === 'groq' ? 10 : 40);
+        const mcpTools = mcpManager.getOpenAIToolDefinitions(prompt, context?.activePlugins || [], mcpLimit, isSmallLocal);
         if (mcpTools && mcpTools.length > 0) {
           tools = (tools || []).concat(mcpTools);
           loadedMcpToolNames = mcpTools.map((t) => t.function?.name).filter(Boolean);
