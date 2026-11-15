@@ -1076,7 +1076,7 @@ export const App: React.FC = () => {
   const tabTitles: Record<TabId, string> = {
     chat: appMode === 'agent' ? 'Grokki Agent' : 'Grokki Chat',
     overview: 'Home',
-    companion: 'Grokki Aibou',
+    companion: 'Aibou',
     images: 'Kinetix',
     workspace: 'Plugins',
     plugins: 'Plugins',
