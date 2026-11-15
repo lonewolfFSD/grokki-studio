@@ -3689,14 +3689,41 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         });
 
         for (const item of stepToolResults) {
-          const content = typeof item.result === 'string'
+          let content = typeof item.result === 'string'
             ? item.result
             : (item.result?.message || item.result?.error || JSON.stringify(item.result));
+          const maxToolChars = (provider === 'ollama' || provider === 'groq') ? 3500 : 14000;
+          if (content && content.length > maxToolChars) {
+            try {
+              const parsed = JSON.parse(content);
+              const trimDeep = (val, depth = 0) => {
+                if (Array.isArray(val)) return val.slice(0, 6).map((v) => trimDeep(v, depth + 1));
+                if (val && typeof val === 'object' && depth < 4) {
+                  const out = {};
+                  for (const [k, v] of Object.entries(val)) {
+                    if (/meta|env|build|checks|regions|functions|routes|aliases/i.test(k) && typeof v === 'object') continue;
+                    out[k] = trimDeep(v, depth + 1);
+                  }
+                  return out;
+                }
+                return val;
+              };
+              content = JSON.stringify(trimDeep(parsed), null, 2);
+            } catch (_) {}
+            if (content.length > maxToolChars) {
+              content = content.slice(0, maxToolChars) + '\n... [truncated for speed]';
+            }
+          }
           activeMessages.push({
             role: 'tool',
             tool_call_id: item.call.id || `call_${Date.now()}`,
             content: content || 'Success',
           });
+        }
+
+        // On local Ollama in Chat mode, once an MCP tool succeeded, drop `tools` on the next turn so the model summarizes immediately instead of re-evaluating tool schemas
+        if (provider === 'ollama' && !isAgent && stepToolResults.some((s) => s.name.startsWith('mcp__') && s.result?.success !== false)) {
+          tools = undefined;
         }
 
         if (stepToolResults.length > 0) {
