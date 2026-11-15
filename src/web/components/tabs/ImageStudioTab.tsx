@@ -1269,7 +1269,7 @@ export const ImageStudioTab: React.FC<ImageStudioTabProps> = ({ config, onChange
                   />
                 </svg>
                 <span className="relative z-10">
-                  {studioMode === 'video' ? 'Video Studio' : 'Image Studio'}
+                  Kinetix
                 </span>
               </span>
             </motion.h1>

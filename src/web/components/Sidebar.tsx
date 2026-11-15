@@ -1308,7 +1308,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                 )}
               </div>
 
-              {/* Image Studio */}
+              {/* Kinetix (Image & Video) */}
               <div
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1323,7 +1323,7 @@ export const Sidebar = React.memo<SidebarProps>(({
               >
                 <div className="flex items-center gap-2">
                   <HugeiconsIcon icon={AiImageIcon} size={15} strokeWidth={1.8} className={activeTab === 'images' ? 'text-purple-500' : 'text-gray-500 dark:text-gray-400'} />
-                  <span>Image Studio</span>
+                  <span>Kinetix</span>
                 </div>
                 {activeTab === 'images' && (
                   <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-purple-500" />

@@ -1077,7 +1077,7 @@ export const App: React.FC = () => {
     chat: appMode === 'agent' ? 'Grokki Agent' : 'Grokki Chat',
     overview: 'Home',
     companion: 'Aiko',
-    images: 'Image Studio',
+    images: 'Kinetix',
     workspace: 'Plugins',
     plugins: 'Plugins',
     skills: 'Agent Skills',
