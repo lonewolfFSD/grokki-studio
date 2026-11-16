@@ -3488,18 +3488,14 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                     ? `Running ${fnName.replace(/_/g, ' ')} (${targetHint})`
                     : `Running ${fnName.replace(/_/g, ' ')}`;
                 } else if (streamText) {
-                  const extPattern = '(?:html|htm|css|js|jsx|ts|tsx|py|json|md|txt|sh|yml|yaml|sql)';
-                  const fileMatches = Array.from(streamText.matchAll(new RegExp(`([a-zA-Z0-9_.-]+\\.${extPattern})\\b`, 'gi')));
-                  const langToDefault = { html: 'index.html', htm: 'index.html', css: 'styles.css', js: 'script.js', javascript: 'script.js', ts: 'index.ts', tsx: 'App.tsx', jsx: 'App.jsx', py: 'main.py', python: 'main.py', json: 'package.json' };
                   const fenceMatches = Array.from(streamText.matchAll(/```([a-zA-Z0-9_-]+)/g));
-                  let activeFile = '';
-                  if (fileMatches.length > 0) {
-                    activeFile = fileMatches[fileMatches.length - 1][1];
-                  } else if (fenceMatches.length > 0) {
-                    const lastLang = (fenceMatches[fenceMatches.length - 1][1] || '').toLowerCase();
-                    activeFile = langToDefault[lastLang] || lastLang;
-                  }
-                  if (activeFile) {
+                  const langToDefault = { html: 'index.html', htm: 'index.html', css: 'styles.css', js: 'script.js', javascript: 'script.js', ts: 'index.ts', tsx: 'App.tsx', jsx: 'App.jsx', py: 'main.py', python: 'main.py', json: 'package.json' };
+                  if (fenceMatches.length > 0) {
+                    const lastFence = fenceMatches[fenceMatches.length - 1];
+                    const lastLang = (lastFence[1] || '').toLowerCase();
+                    const afterFence = streamText.slice(lastFence.index, lastFence.index + 160);
+                    const commentFile = afterFence.match(/(?:<!--|\/\*|\/\/|#)\s*([a-zA-Z0-9_.-]+\.(?:html|htm|css|js|jsx|ts|tsx|py|json|md))\b/i);
+                    const activeFile = (commentFile && commentFile[1]) || langToDefault[lastLang] || lastLang;
                     liveDetail = `Editing ${activeFile} (${streamText.length} chars)`;
                   } else {
                     liveDetail = `Thinking (${streamText.length} chars)`;
