@@ -3064,17 +3064,16 @@ STRICT OPERATIONAL DIRECTIVES:
       endpoint = 'https://openrouter.ai/api/v1';
       apiKey = (config.openrouterApiKey || process.env.OPENROUTER_API_KEY || '').trim();
       model = (context && context.model) || config.openrouterModel || 'openrouter/auto';
+      const deprecatedFree = new Set(['deepseek/deepseek-chat:free', 'qwen/qwen-2.5-72b-instruct:free']);
       const cachedFree = (config.cachedProviderModels?.openrouter || [])
-        .filter((m) => typeof m === 'string' && m.endsWith(':free'))
-        .slice(0, 5);
+        .filter((m) => typeof m === 'string' && m.endsWith(':free') && !deprecatedFree.has(m))
+        .slice(0, 6);
       modelCandidates = Array.from(new Set([
         model,
         'openrouter/free',
         ...cachedFree,
         'meta-llama/llama-3.3-70b-instruct:free',
         'google/gemma-3-27b-it:free',
-        'qwen/qwen-2.5-72b-instruct:free',
-        'deepseek/deepseek-chat:free',
       ]));
     } else if (provider === 'openai') {
       endpoint = 'https://api.openai.com/v1';
@@ -3416,7 +3415,11 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         let data = null;
         let lastModelErr = null;
 
-        for (const candModel of modelCandidates) {
+        const candidatesThisStep = provider === 'openrouter'
+          ? modelCandidates.flatMap((m) => (m === 'openrouter/free' ? ['openrouter/free', 'openrouter/free'] : [m]))
+          : modelCandidates;
+
+        for (const candModel of candidatesThisStep) {
           try {
             if (signal.aborted) throw new Error('TASK_CANCELLED');
             data = await callOpenAICompatible({
@@ -3434,6 +3437,10 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                 : (provider === 'openrouter' ? 2048 : 4000),
             });
             if (data && data.choices && data.choices.length > 0) {
+              // Pin working fallback model to front for remaining steps in this run
+              if (candModel !== modelCandidates[0]) {
+                modelCandidates = [candModel, ...modelCandidates.filter((m) => m !== candModel)];
+              }
               break;
             }
           } catch (mErr) {
