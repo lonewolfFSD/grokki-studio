@@ -3745,8 +3745,9 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         if (toolCalls.length === 0) {
           const hasWrittenOrRun = executed.some((e) => ['write_file', 'edit_file', 'execute_command'].includes(e.name) && e.status === 'completed');
           const looksLikeUnfinishedPlan = /\b(i(?:'ll| will)|let me|i am going to|going to)\s+(?:now\s+)?(create|write|build|edit|update|implement|add|make|generate|run|check|inspect|scaffold|set\s+up)\b/i.test(replyText || '');
+          const looksLikeFakeCompletion = /(?:Created\/updated\s+\d+\s+file|Successfully\s+(?:wrote|edited|created)\b|\b(?:created|updated|wrote|saved|added)\b[^.\n]*\.(?:html|css|js|jsx|ts|tsx|py|json))/i.test(replyText || '');
           const isEmptyWithActionIntent = !replyText && (hasWrittenOrRun === false);
-          if (isAgent && currentStep < maxAgentSteps && agentNudgeCount < 2 && !hasWrittenOrRun && (looksLikeUnfinishedPlan || isEmptyWithActionIntent) && !isExplicitNoFileEditRequested(prompt, context)) {
+          if (isAgent && currentStep < maxAgentSteps && agentNudgeCount < 2 && !hasWrittenOrRun && (looksLikeUnfinishedPlan || looksLikeFakeCompletion || isEmptyWithActionIntent) && !isExplicitNoFileEditRequested(prompt, context)) {
             agentNudgeCount++;
             console.log(`[AgentBrain] Agent mode returned ${replyText ? 'plan-only text' : 'empty text'} without calling tools; nudging (${agentNudgeCount}/2)...`);
             if (replyText) {
@@ -4738,8 +4739,9 @@ To allow me to inspect, edit, create files, or run commands on your system:
           if (functionCalls.length === 0) {
             const hasWrittenOrRun = executed.some((e) => ['write_file', 'edit_file', 'execute_command'].includes(e.name) && e.status === 'completed');
             const looksLikeUnfinishedPlan = /\b(i(?:'ll| will)|let me|i am going to|going to)\s+(?:now\s+)?(create|write|build|edit|update|implement|add|make|generate|run|check|inspect|scaffold|set\s+up)\b/i.test(stepText || '');
+            const looksLikeFakeCompletion = /(?:Created\/updated\s+\d+\s+file|Successfully\s+(?:wrote|edited|created)\b|\b(?:created|updated|wrote|saved|added)\b[^.\n]*\.(?:html|css|js|jsx|ts|tsx|py|json))/i.test(stepText || '');
             const isEmptyWithActionIntent = !stepText && !hasWrittenOrRun;
-            if (isAgent && currentStep < maxAgentSteps && agentNudgeCount < 2 && !hasWrittenOrRun && (looksLikeUnfinishedPlan || isEmptyWithActionIntent) && !isExplicitNoFileEditRequested(prompt, context)) {
+            if (isAgent && currentStep < maxAgentSteps && agentNudgeCount < 2 && !hasWrittenOrRun && (looksLikeUnfinishedPlan || looksLikeFakeCompletion || isEmptyWithActionIntent) && !isExplicitNoFileEditRequested(prompt, context)) {
               agentNudgeCount++;
               console.log(`[AgentBrain] Gemini Agent returned ${stepText ? 'plan-only text' : 'empty text'} without calling tools; nudging (${agentNudgeCount}/2)...`);
               if (stepText) {
