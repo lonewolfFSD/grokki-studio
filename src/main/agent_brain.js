@@ -3359,11 +3359,13 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
     }
 
     this.currentContext = context || {};
-    // Ensure any requested @Plugin MCP servers are connected on-demand
+    // Only connect MCP servers on-demand when @Plugin(s) are explicitly invoked
     let mcpConn = { connected: [], errors: [] };
-    try {
-      mcpConn = await mcpManager.ensureServersConnected(context?.activePlugins || []) || { connected: [], errors: [] };
-    } catch (_) {}
+    if (hasActivePlugins) {
+      try {
+        mcpConn = await mcpManager.ensureServersConnected(context?.activePlugins || []) || { connected: [], errors: [] };
+      } catch (_) {}
+    }
 
     if (hasActivePlugins && mcpConn.errors && mcpConn.errors.length > 0 && mcpConn.connected.length === 0) {
       const expiredErrs = mcpConn.errors.filter((e) => e.authExpired);
@@ -3381,7 +3383,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
       : this.getRelevantTools(prompt, provider, context);
     let tools = toolsDecl ? convertGeminiToolsToOpenAI(toolsDecl) : undefined;
     let loadedMcpToolNames = [];
-    if (!isWebSearchActive || hasActivePlugins) {
+    if (hasActivePlugins) {
       try {
         const isSmallLocal = provider === 'ollama' || provider === 'groq';
         const mcpLimit = provider === 'ollama' ? 5 : (provider === 'groq' ? 10 : 40);
