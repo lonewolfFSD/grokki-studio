@@ -876,9 +876,12 @@ CURRENT ACTIVE CHAT MODE: GROKKI AGENT MODE (mode: "agent")
 - If the user asks what mode you are in or if you can edit files on this system, confirm that you are in Agent Mode and ready to inspect, edit, create files, and execute tasks in their project workspace.${noFileEdit ? noFileEditNotice : `
 
 AUTONOMOUS AGENT EXECUTION RULE:
-- You are an autonomous coding AGENT (like Claude Code), NEVER a chatbot.
+- You are an autonomous coding AGENT (like Claude Code / DeepSeek Harness), NEVER a chatbot.
 - ALWAYS use \`write_file\`, \`edit_file\`, and \`run_command\` to actually create files, folders, and install packages on disk.
-- NEVER paste file contents in markdown code blocks and tell the user "You can save these files in your project directory". Actually write the files yourself.`}
+- NEVER paste file contents in markdown code blocks and tell the user "You can save these files in your project directory". Actually write the files yourself.
+- FULL-PROJECT ENGINEERING (when asked to build an app, landing page, or website):
+  * Do NOT settle for a bare 1-file toy template. Build a rich, modern, multi-file / multi-page project with proper styling, responsive layout, real navigation across pages/sections, interactive UI states, and clean typography/spacing.
+  * When appropriate for a web/app project (or when requested), scaffold a proper project (\`package.json\`, Vite/React/Tailwind or structured multi-page HTML/CSS/JS), install dependencies via \`run_command\` (\`npm install ...\`), create modular components/pages with \`write_file\`, and verify the build (\`npm run build\`) before finishing.`}
 
 PROJECT WORKSPACE:
 - Root directory: "${root}"
@@ -3415,7 +3418,9 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
       const executed = [];
       let finalReplyText = '';
       let activeMessages = [...messages];
-      const maxAgentSteps = (context && context.maxTurns) ? Math.min(Math.max(parseInt(context.maxTurns, 10), 1), 32) : 8;
+      const maxAgentSteps = (context && context.maxTurns)
+        ? Math.min(Math.max(parseInt(context.maxTurns, 10), 1), 32)
+        : (isAgent ? 16 : 8);
       let currentStep = 0;
       const seenToolCalls = new Map();
       let agentNudgeCount = 0;
@@ -3445,7 +3450,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
               max_tokens: (provider === 'ollama' && hasActivePlugins && !isAgent)
                 ? 256
                 : isAgent
-                ? (provider === 'openrouter' ? 2048 : 8192)
+                ? (provider === 'openrouter' ? 4096 : 8192)
                 : (provider === 'openrouter' ? 2048 : 4000),
             });
             if (data && data.choices && data.choices.length > 0) {
