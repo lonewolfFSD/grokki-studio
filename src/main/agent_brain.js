@@ -3749,15 +3749,21 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           const isEmptyWithActionIntent = !replyText && (hasWrittenOrRun === false);
           if (isAgent && currentStep < maxAgentSteps && agentNudgeCount < 2 && !hasWrittenOrRun && (looksLikeUnfinishedPlan || looksLikeFakeCompletion || isEmptyWithActionIntent) && !isExplicitNoFileEditRequested(prompt, context)) {
             agentNudgeCount++;
-            console.log(`[AgentBrain] Agent mode returned ${replyText ? 'plan-only text' : 'empty text'} without calling tools; nudging (${agentNudgeCount}/2)...`);
-            if (replyText) {
+            console.log(`[AgentBrain] Agent mode returned ${looksLikeFakeCompletion ? 'fake completion' : (replyText ? 'plan-only text' : 'empty text')} without calling tools; nudging (${agentNudgeCount}/2)...`);
+            if (replyText && !looksLikeFakeCompletion) {
               activeMessages.push({ role: 'assistant', content: replyText });
             }
             activeMessages.push({
               role: 'user',
-              content: 'Proceed now and call the appropriate tool (such as write_file, edit_file, or execute_command) to actually execute the task.',
+              content: looksLikeFakeCompletion
+                ? 'ERROR: You outputted plain text claiming files were created/updated, but you did NOT call write_file or edit_file. No files were written on disk. You MUST call write_file({ path: "...", content: "..." }) now.'
+                : 'Proceed now and call the appropriate tool (such as write_file, edit_file, or execute_command) to actually execute the task.',
             });
             continue;
+          }
+          if (isAgent && !hasWrittenOrRun && looksLikeFakeCompletion && !isExplicitNoFileEditRequested(prompt, context)) {
+            finalReplyText = `⚠️ **No files were created or modified on disk.** The active model (\`${model}\`) replied with plain text instead of calling \`write_file\` or \`edit_file\`.\n\nStart a **New Agent Session** or switch the model dropdown to **Gemini**, **Groq**, or **OpenRouter** for reliable multi-file execution.`;
+            break;
           }
           finalReplyText = replyText;
           break;
