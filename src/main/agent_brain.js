@@ -822,9 +822,17 @@ class AgentBrain {
     const maxTurns = context.maxTurns || 16;
     const userNick = config.userNickname || config.userName || 'User';
 
-    const activeTargetFile = resolveTargetFileForEdit('', fullPrompt, context, [], conversationHistory);
+    const isNewFileOrPageReq = /\b(new\s+(?:separate\s+|sperate\s+)?(?:page|file|component|module|route)|add\s+(?:a\s+)?(?:new\s+)?(?:separate\s+|sperate\s+)?(?:contact|about|services|pricing|blog|login|signup)\s+page)\b/i.test(fullPrompt);
+    const activeTargetFile = isNewFileOrPageReq ? null : resolveTargetFileForEdit('', fullPrompt, context, [], conversationHistory);
     let activeFileBlock = '';
-    if (activeTargetFile) {
+    if (isNewFileOrPageReq) {
+      activeFileBlock = `
+
+NEW PAGE / FILE DIRECTIVE:
+- The user is asking to create a **new separate page or file** (do NOT just dump everything into the existing main HTML file).
+- Step 1: Use \`write_file\` to create the new file (e.g. \`contact.html\`) with complete, styled content matching the existing site.
+- Step 2: Use \`read_file\` and \`edit_file\` on existing pages (like \`index.html\`) to link the navigation bar/buttons to the new page.`;
+    } else if (activeTargetFile) {
       const relPath = path.relative(root, activeTargetFile);
       let fileSnippet = '';
       try {

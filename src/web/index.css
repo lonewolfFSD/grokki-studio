@@ -1050,7 +1050,7 @@ html.lenis, html.lenis body { height: auto; }
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
-  animation: grokki-shine-sweep 1.8s linear infinite;
+  animation: grokki-shine-sweep 3.6s linear infinite;
 }
 
 .dark .grokki-shine-text {

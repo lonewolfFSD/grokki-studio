@@ -1706,7 +1706,7 @@ export const AgentStepsAccordion: React.FC<{
         onClick={() => setIsOpen((prev) => !prev)}
         className="w-fit max-w-full bg-[#13151c]/90 hover:bg-[#1a1c26] border border-white/[0.08] hover:border-white/[0.15] text-neutral-300 dark:text-neutral-300 rounded-lg px-2.5 py-1 text-[12px] font-sans inline-flex items-center gap-2 cursor-pointer transition-all shadow-xs text-left group"
       >
-        <span className={`truncate transition-colors ${isLive ? 'grokki-shine-text font-medium' : 'group-hover:text-white'}`}>
+        <span className="truncate group-hover:text-white transition-colors">
           {summary}
         </span>
         {isOpen ? (

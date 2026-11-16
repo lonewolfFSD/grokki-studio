@@ -312,7 +312,10 @@ class CodingAgentHarness {
     try {
       const fullPath = this.resolvePath(filePath);
       if (!fs.existsSync(fullPath)) {
-        return { success: false, error: `File not found: ${filePath}` };
+        if ((!target || !String(target).trim()) && rep && String(rep).trim()) {
+          return await this.writeFile({ path: filePath, content: rep, overwrite: true });
+        }
+        return { success: false, error: `File not found: ${filePath}. Use write_file to create a new file.` };
       }
 
       // Guard against dummy language mismatch placeholders (e.g. LLM inserting dummy JS in Python)
