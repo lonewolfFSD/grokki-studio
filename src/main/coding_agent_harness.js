@@ -312,7 +312,7 @@ class CodingAgentHarness {
     try {
       const fullPath = this.resolvePath(filePath);
       if (!fs.existsSync(fullPath)) {
-        if ((!target || !String(target).trim()) && rep && String(rep).trim()) {
+        if (rep && String(rep).trim()) {
           return await this.writeFile({ path: filePath, content: rep, overwrite: true });
         }
         return { success: false, error: `File not found: ${filePath}. Use write_file to create a new file.` };

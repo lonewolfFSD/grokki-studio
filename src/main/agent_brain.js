@@ -3496,9 +3496,23 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                     ? `Running ${fnName.replace(/_/g, ' ')} (${targetHint})`
                     : `Running ${fnName.replace(/_/g, ' ')}`;
                 } else if (streamText) {
+                  const jsonToolMatch = streamText.match(/"name"\s*:\s*"([a-zA-Z0-9_]+)"/);
+                  const jsonPathMatch = streamText.match(/"path"\s*:\s*"([^"]+)"/);
                   const fenceMatches = Array.from(streamText.matchAll(/```([a-zA-Z0-9_-]+)/g));
                   const langToDefault = { html: 'index.html', htm: 'index.html', css: 'styles.css', js: 'script.js', javascript: 'script.js', ts: 'index.ts', tsx: 'App.tsx', jsx: 'App.jsx', py: 'main.py', python: 'main.py', json: 'package.json' };
-                  if (fenceMatches.length > 0) {
+                  if (jsonToolMatch) {
+                    const jTool = jsonToolMatch[1];
+                    const jFile = jsonPathMatch ? path.basename(jsonPathMatch[1]) : '';
+                    if ((jTool === 'write_file' || jTool === 'edit_file') && jFile) {
+                      liveDetail = `Editing ${jFile} (${streamText.length} chars)`;
+                    } else if (jTool === 'read_file' && jFile) {
+                      liveDetail = `Analyzing ${jFile}`;
+                    } else if (jFile) {
+                      liveDetail = `Running ${jTool.replace(/_/g, ' ')} (${jFile})`;
+                    } else {
+                      liveDetail = `Running ${jTool.replace(/_/g, ' ')}`;
+                    }
+                  } else if (fenceMatches.length > 0) {
                     const lastFence = fenceMatches[fenceMatches.length - 1];
                     const lastLang = (lastFence[1] || '').toLowerCase();
                     const afterFence = streamText.slice(lastFence.index, lastFence.index + 160);
@@ -3510,13 +3524,14 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                   }
                 }
 
+                const isRawJsonCall = /^\s*(?:call>|```json)?\s*\{\s*"name"\s*:/.test(streamText || '');
                 this.emitAgentStep(context, {
                   id: planStepId,
                   conversationId: convoId,
                   status: 'running',
                   name: 'agent_thinking',
                   args: { step: currentStep, detail: liveDetail },
-                  result: streamText ? { message: streamText } : undefined,
+                  result: (streamText && !isRawJsonCall) ? { message: streamText } : undefined,
                 });
               } : null,
             });
@@ -3544,12 +3559,13 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         }
         if (isAgent) {
           const thoughtMsg = (data.choices[0]?.message?.content || '').trim();
+          const isRawJsonCall = /^\s*(?:call>|```json)?\s*\{\s*"name"\s*:/.test(thoughtMsg);
           this.emitAgentStep(context, {
             id: planStepId,
             conversationId: convoId,
             status: 'completed',
             name: 'agent_thinking',
-            result: thoughtMsg ? { message: thoughtMsg } : undefined,
+            result: (thoughtMsg && !isRawJsonCall) ? { message: thoughtMsg } : undefined,
           });
         }
 
