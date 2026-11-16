@@ -217,10 +217,26 @@ class CodingAgentHarness {
   }
 
   /**
+   * Strips accidental `12 | ` line-number prefixes copied from read_file output.
+   */
+  stripReadFileLineNumbers(text) {
+    if (typeof text !== 'string' || !text) return text;
+    const lines = text.split(/\r?\n/);
+    const nonEmpty = lines.filter((l) => l.trim().length > 0);
+    if (nonEmpty.length === 0) return text;
+    const numberedCount = nonEmpty.filter((l) => /^\s*\d+\s\|\s?/.test(l)).length;
+    if (numberedCount >= 2 || (nonEmpty.length === 1 && numberedCount === 1) || numberedCount / nonEmpty.length >= 0.5) {
+      return lines.map((l) => l.replace(/^\s*\d+\s\|\s?/, '')).join('\n');
+    }
+    return text;
+  }
+
+  /**
    * Writes or appends file content, creating directories if needed.
    */
   async writeFile({ path: filePath, content = '', overwrite = true, append = false }) {
     try {
+      content = this.stripReadFileLineNumbers(content);
       const fullPath = this.resolvePath(filePath);
       const existedBefore = fs.existsSync(fullPath);
       const originalContent = existedBefore ? fs.readFileSync(fullPath, 'utf8') : null;
@@ -231,6 +247,17 @@ class CodingAgentHarness {
 
       if (fs.existsSync(fullPath) && !overwrite && !append) {
         return { success: false, error: `File already exists and overwrite is false: ${filePath}` };
+      }
+
+      if (existedBefore && !append && originalContent) {
+        const origLines = originalContent.split(/\r?\n/).length;
+        const newLines = String(content || '').split(/\r?\n/).length;
+        if (origLines > 10 && (newLines <= 5 || String(content || '').length < originalContent.length * 0.35)) {
+          return {
+            success: false,
+            error: `Rejected destructive write_file on "${path.relative(this.getWorkspaceRoot(), fullPath)}" (${origLines} lines -> ${newLines} lines). Use edit_file({ path, target, replacement }) to modify only the specific lines.`,
+          };
+        }
       }
 
       if (append) {
@@ -306,8 +333,10 @@ class CodingAgentHarness {
    * Surgical target-replacement file editor with diff generation.
    */
   async editFile(args = {}) {
-    const { path: filePath, target, multiple = false } = args;
-    const rep = args.replacement !== undefined ? args.replacement : (args.content !== undefined ? args.content : (args.code || ''));
+    const { path: filePath, multiple = false } = args;
+    const target = this.stripReadFileLineNumbers(args.target);
+    const rawRep = args.replacement !== undefined ? args.replacement : (args.content !== undefined ? args.content : (args.code || ''));
+    const rep = this.stripReadFileLineNumbers(rawRep);
 
     try {
       const fullPath = this.resolvePath(filePath);
