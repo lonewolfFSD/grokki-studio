@@ -3254,7 +3254,7 @@ STRICT OPERATIONAL DIRECTIVES:
     codingAgentHarness.syncContext(context);
 
     // If agent mode and a target file was worked on or referenced, anchor follow-up instructions to it (without dumping the entire file so the agent uses read_file/search_code + surgical edit_file)
-    if (isAgent && !/\b(new\s+(?:separate\s+|sperate\s+)?(?:page|file|component|module|route)|add\s+(?:a\s+)?(?:new\s+)?(?:separate\s+|sperate\s+)?(?:contact|about|services|pricing|blog|login|signup)\s+page)\b/i.test(fullPrompt)) {
+    if (isAgent && !isConversationalPrompt && !/\b(new\s+(?:separate\s+|sperate\s+)?(?:page|file|component|module|route)|add\s+(?:a\s+)?(?:new\s+)?(?:separate\s+|sperate\s+)?(?:contact|about|services|pricing|blog|login|signup)\s+page)\b/i.test(fullPrompt)) {
       const activeTarget = resolveTargetFileForEdit('', fullPrompt, context, [], conversationHistory);
       if (activeTarget && fs.existsSync(activeTarget)) {
         const root = (context && context.workspaceRoot) || codingAgentHarness.getWorkspaceRoot();
@@ -3271,7 +3271,7 @@ STRICT OPERATIONAL DIRECTIVES:
     const isCustomSystemPrompt = Boolean(context && context.systemPrompt);
     let systemContent = isCustomSystemPrompt
       ? context.systemPrompt
-      : (isAgent
+      : ((isAgent && !isConversationalPrompt)
           ? this.buildAgentSystemPrompt(context, config, fullPrompt, conversationHistory)
           : memory.buildSystemPrompt(config, fullPrompt, context));
     let historyToUse = isCustomSystemPrompt ? [] : rawHistory.slice(-18);
@@ -3366,8 +3366,8 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
       return { reply: errMsg, actions: [], model: `${provider}:mcp-auth` };
     }
 
-    // When Deep Search / Live Grounding is active (and no @Plugin is invoked), or when @Plugin is invoked in Chat mode, omit unrelated desktop tools so the model focuses on the plugin
-    const toolsDecl = ((isWebSearchActive && !hasActivePlugins) || (hasActivePlugins && !isAgent))
+    // When Deep Search / Live Grounding is active (and no @Plugin is invoked), or when @Plugin is invoked in Chat mode, or on pure greetings/thanks, omit coding/desktop tools
+    const toolsDecl = ((isWebSearchActive && !hasActivePlugins) || (hasActivePlugins && !isAgent) || (isConversationalPrompt && !hasActivePlugins))
       ? undefined
       : this.getRelevantTools(prompt, provider, context);
     let tools = toolsDecl ? convertGeminiToolsToOpenAI(toolsDecl) : undefined;
@@ -3644,7 +3644,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
 
         let isAutoEdit = false;
         // If no tool call was issued, but in agent mode the model outputted code block(s) instead of calling write_file
-        if (toolCalls.length === 0 && isAgent && replyText && !isExplicitNoFileEditRequested(prompt, context)) {
+        if (toolCalls.length === 0 && isAgent && !isConversationalPrompt && replyText && !isExplicitNoFileEditRequested(prompt, context)) {
           const rootDir = context?.workspaceRoot || (codingAgentHarness && codingAgentHarness.getWorkspaceRoot()) || process.cwd();
           const allBlocks = Array.from(replyText.matchAll(/```([a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/g));
           const langToDefaultFile = {
@@ -3777,7 +3777,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           const looksLikeUnfinishedPlan = asksUserForFileOrLines || /\b(i(?:'ll| will)|let(?:'s| me)|i am going to|going to)\s+(?:now\s+)?(proceed|start\s+by|create|write|build|edit|update|implement|add|make|generate|run|check|inspect|scaffold|set\s+up)\b/i.test(replyText || '');
           const looksLikeFakeCompletion = /(?:Created\/updated\s+\d+\s+file|\[Previously wrote requested files|Successfully\s+(?:wrote|edited|created)\b|\b(?:created|updated|wrote|saved|added)\b[^.\n]*\.(?:html|css|js|jsx|ts|tsx|py|json))/i.test(replyText || '');
           const isEmptyWithActionIntent = !replyText && (hasWrittenOrRun === false);
-          if (isAgent && currentStep < maxAgentSteps && agentNudgeCount < 2 && (asksUserForFileOrLines || (!hasWrittenOrRun && (looksLikeUnfinishedPlan || looksLikeFakeCompletion || isEmptyWithActionIntent))) && !isExplicitNoFileEditRequested(prompt, context)) {
+          if (isAgent && !isConversationalPrompt && currentStep < maxAgentSteps && agentNudgeCount < 2 && (asksUserForFileOrLines || (!hasWrittenOrRun && (looksLikeUnfinishedPlan || looksLikeFakeCompletion || isEmptyWithActionIntent))) && !isExplicitNoFileEditRequested(prompt, context)) {
             agentNudgeCount++;
             // If the model asked to inspect a file or asked the user to provide it, auto-call read_file on that file so Step 2 has the exact lines
             const mentionedFileMatch = (replyText || prompt || '').match(/\b([a-zA-Z0-9_\-./\\]+\.(?:html|htm|css|js|jsx|ts|tsx|py|json|md))\b/i);
@@ -4652,7 +4652,7 @@ To allow me to inspect, edit, create files, or run commands on your system:
     codingAgentHarness.syncContext(context);
 
     // If agent mode and a target file was worked on or referenced, anchor follow-up instructions to it (without dumping the entire file so the agent uses read_file/search_code + surgical edit_file)
-    if (isAgent && !/\b(new\s+(?:separate\s+|sperate\s+)?(?:page|file|component|module|route)|add\s+(?:a\s+)?(?:new\s+)?(?:separate\s+|sperate\s+)?(?:contact|about|services|pricing|blog|login|signup)\s+page)\b/i.test(fullPrompt)) {
+    if (isAgent && !isConversationalPrompt && !/\b(new\s+(?:separate\s+|sperate\s+)?(?:page|file|component|module|route)|add\s+(?:a\s+)?(?:new\s+)?(?:separate\s+|sperate\s+)?(?:contact|about|services|pricing|blog|login|signup)\s+page)\b/i.test(fullPrompt)) {
       const activeTarget = resolveTargetFileForEdit('', fullPrompt, context, [], conversationHistory);
       if (activeTarget && fs.existsSync(activeTarget)) {
         const root = (context && context.workspaceRoot) || codingAgentHarness.getWorkspaceRoot();
