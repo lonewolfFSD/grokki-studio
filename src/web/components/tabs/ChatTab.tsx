@@ -1589,6 +1589,40 @@ const AgentStepRow: React.FC<{
     );
   }
 
+  // 9. LIVE AGENT THINKING / PLANNING
+  if (name === 'agent_thinking') {
+    const detail = args.detail || (isRunning ? 'Planning next step...' : 'Planned step');
+    const thoughtText = result?.message;
+    return (
+      <div className="flex flex-col py-0.5 font-sans">
+        <div
+          className={`flex items-center gap-1.5 text-[13px] leading-relaxed select-none ${thoughtText ? 'cursor-pointer group' : ''}`}
+          onClick={thoughtText ? onToggleExpand : undefined}
+        >
+          <span className={isRunning ? 'text-sky-400 font-medium' : 'text-neutral-400 dark:text-neutral-400'}>
+            {isRunning ? 'Thinking' : 'Thought'}
+          </span>
+          <span className="text-neutral-300 dark:text-neutral-300 text-[12px] truncate max-w-[420px]">
+            {detail}
+          </span>
+          {thoughtText && (
+            <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+              &gt;
+            </span>
+          )}
+          {isRunning && (
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping ml-1" />
+          )}
+        </div>
+        {isExpanded && thoughtText && (
+          <div className="mt-1 mb-2 p-2 rounded bg-black/40 backdrop-blur-md border border-white/10 font-sans text-[11.5px] text-neutral-300 overflow-x-auto max-h-40 scrollbar-thin">
+            <div className="whitespace-pre-wrap">{thoughtText}</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // Fallback for any other tools
   return (
     <div className="flex items-center gap-1.5 text-[13px] leading-relaxed py-0.5 select-none font-sans">
@@ -1631,6 +1665,10 @@ function getStepsSummary(steps: any[], isLive: boolean = false): string {
   if (hasMemory) parts.push(isLive ? 'recalling memory' : 'recalled memory');
 
   if (parts.length === 0) {
+    const hasThinking = steps.some((s) => s.name === 'agent_thinking');
+    if (hasThinking) {
+      return isLive ? 'Thinking & planning...' : 'Planned steps';
+    }
     const firstTool = steps[0]?.name ? steps[0].name.replace(/_/g, ' ') : 'tool';
     return isLive ? `Running ${firstTool}...` : `Executed ${steps.length} ${firstTool} step${steps.length > 1 ? 's' : ''}`;
   }
@@ -1695,7 +1733,10 @@ export const AgentStepsAccordion: React.FC<{
         onClick={() => setIsOpen((prev) => !prev)}
         className="w-fit max-w-full bg-[#13151c]/90 hover:bg-[#1a1c26] border border-white/[0.08] hover:border-white/[0.15] text-neutral-300 dark:text-neutral-300 rounded-lg px-2.5 py-1 text-[12px] font-sans inline-flex items-center gap-2 cursor-pointer transition-all shadow-xs text-left group"
       >
-        <span className="truncate group-hover:text-white transition-colors">
+        <span className="truncate group-hover:text-white transition-colors inline-flex items-center gap-2">
+          {isLive && (
+            <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse flex-shrink-0" />
+          )}
           {summary}
         </span>
         {isOpen ? (

@@ -3492,7 +3492,14 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           throw lastModelErr || new Error(`No response from ${provider}`);
         }
         if (isAgent) {
-          this.emitAgentStep(context, { id: planStepId, conversationId: convoId, status: 'completed', name: 'agent_thinking' });
+          const thoughtMsg = (data.choices[0]?.message?.content || '').trim();
+          this.emitAgentStep(context, {
+            id: planStepId,
+            conversationId: convoId,
+            status: 'completed',
+            name: 'agent_thinking',
+            result: thoughtMsg ? { message: thoughtMsg.slice(0, 600) } : undefined,
+          });
         }
 
         const choice = data.choices && data.choices[0];
@@ -4622,6 +4629,20 @@ To allow me to inspect, edit, create files, or run commands on your system:
           currentStep++;
           if (signal && signal.aborted) throw new Error('TASK_CANCELLED');
 
+          const planStepId = `plan_gem_${Date.now()}_${currentStep}`;
+          if (isAgent) {
+            this.emitAgentStep(context, {
+              id: planStepId,
+              conversationId: convoId,
+              status: 'running',
+              name: 'agent_thinking',
+              args: {
+                step: currentStep,
+                detail: currentStep === 1 ? 'Planning project architecture & files...' : `Working on step ${currentStep}...`,
+              },
+            });
+          }
+
           const response = await withAbort(withTimeout(ai.models.generateContent({
             model: modelName,
             contents: geminiContents,
@@ -4636,6 +4657,16 @@ To allow me to inspect, edit, create files, or run commands on your system:
           const functionCalls = response.functionCalls || [];
           const stepText = (response.text || '').trim();
           if (stepText) replyText = stepText;
+
+          if (isAgent) {
+            this.emitAgentStep(context, {
+              id: planStepId,
+              conversationId: convoId,
+              status: 'completed',
+              name: 'agent_thinking',
+              result: stepText ? { message: stepText.slice(0, 600) } : undefined,
+            });
+          }
 
           if (functionCalls.length === 0) {
             const hasWrittenOrRun = executed.some((e) => ['write_file', 'edit_file', 'execute_command'].includes(e.name) && e.status === 'completed');
