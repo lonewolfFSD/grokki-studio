@@ -3407,6 +3407,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
       const maxAgentSteps = (context && context.maxTurns) ? Math.min(Math.max(parseInt(context.maxTurns, 10), 1), 32) : 8;
       let currentStep = 0;
       const seenToolCalls = new Map();
+      let agentNudgeCount = 0;
 
       while (currentStep < maxAgentSteps) {
         currentStep++;
@@ -3569,8 +3570,23 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           }
         }
 
-        // If no tool calls in this turn, model returned final explanation!
+        // If no tool calls in this turn, check if Agent mode stopped mid-plan or returned an empty turn before acting
         if (toolCalls.length === 0) {
+          const hasWrittenOrRun = executed.some((e) => ['write_file', 'edit_file', 'execute_command'].includes(e.name) && e.status === 'completed');
+          const looksLikeUnfinishedPlan = /\b(i(?:'ll| will)|let me|i am going to|going to)\s+(?:now\s+)?(create|write|build|edit|update|implement|add|make|generate|run|check|inspect|scaffold|set\s+up)\b/i.test(replyText || '');
+          const isEmptyWithActionIntent = !replyText && (hasWrittenOrRun === false);
+          if (isAgent && currentStep < maxAgentSteps && agentNudgeCount < 2 && !hasWrittenOrRun && (looksLikeUnfinishedPlan || isEmptyWithActionIntent) && !isExplicitNoFileEditRequested(prompt, context)) {
+            agentNudgeCount++;
+            console.log(`[AgentBrain] Agent mode returned ${replyText ? 'plan-only text' : 'empty text'} without calling tools; nudging (${agentNudgeCount}/2)...`);
+            if (replyText) {
+              activeMessages.push({ role: 'assistant', content: replyText });
+            }
+            activeMessages.push({
+              role: 'user',
+              content: 'Proceed now and call the appropriate tool (such as write_file, edit_file, or execute_command) to actually execute the task.',
+            });
+            continue;
+          }
           finalReplyText = replyText;
           break;
         }
@@ -4475,6 +4491,7 @@ To allow me to inspect, edit, create files, or run commands on your system:
         let geminiContents = [...geminiHistory];
         const executed = [];
         let replyText = '';
+        let agentNudgeCount = 0;
 
         while (currentStep < maxAgentSteps) {
           currentStep++;
@@ -4496,6 +4513,21 @@ To allow me to inspect, edit, create files, or run commands on your system:
           if (stepText) replyText = stepText;
 
           if (functionCalls.length === 0) {
+            const hasWrittenOrRun = executed.some((e) => ['write_file', 'edit_file', 'execute_command'].includes(e.name) && e.status === 'completed');
+            const looksLikeUnfinishedPlan = /\b(i(?:'ll| will)|let me|i am going to|going to)\s+(?:now\s+)?(create|write|build|edit|update|implement|add|make|generate|run|check|inspect|scaffold|set\s+up)\b/i.test(stepText || '');
+            const isEmptyWithActionIntent = !stepText && !hasWrittenOrRun;
+            if (isAgent && currentStep < maxAgentSteps && agentNudgeCount < 2 && !hasWrittenOrRun && (looksLikeUnfinishedPlan || isEmptyWithActionIntent) && !isExplicitNoFileEditRequested(prompt, context)) {
+              agentNudgeCount++;
+              console.log(`[AgentBrain] Gemini Agent returned ${stepText ? 'plan-only text' : 'empty text'} without calling tools; nudging (${agentNudgeCount}/2)...`);
+              if (stepText) {
+                geminiContents.push({ role: 'model', parts: [{ text: stepText }] });
+              }
+              geminiContents.push({
+                role: 'user',
+                parts: [{ text: 'Proceed now and call the appropriate tool (such as write_file, edit_file, or execute_command) to actually execute the task.' }],
+              });
+              continue;
+            }
             break;
           }
 
