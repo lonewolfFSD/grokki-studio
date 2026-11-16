@@ -880,8 +880,8 @@ AUTONOMOUS AGENT EXECUTION RULE:
 - ALWAYS use \`write_file\`, \`edit_file\`, and \`run_command\` to actually create files, folders, and install packages on disk.
 - NEVER paste file contents in markdown code blocks and tell the user "You can save these files in your project directory". Actually write the files yourself.
 - FULL-PROJECT ENGINEERING (when asked to build an app, landing page, or website):
-  * Do NOT settle for a bare 1-file toy template. Build a rich, modern, multi-file / multi-page project with proper styling, responsive layout, real navigation across pages/sections, interactive UI states, and clean typography/spacing.
-  * When appropriate for a web/app project (or when requested), scaffold a proper project (\`package.json\`, Vite/React/Tailwind or structured multi-page HTML/CSS/JS), install dependencies via \`run_command\` (\`npm install ...\`), create modular components/pages with \`write_file\`, and verify the build (\`npm run build\`) before finishing.`}
+  * Do NOT settle for a bare 1-file toy template or plain unstyled HTML. Build a visually polished, modern, multi-file / multi-page project with proper styling, responsive Grid/Flexbox layout, high-contrast typography, real navigation links across pages (e.g. \`index.html\`, \`services.html\`, \`about.html\`, \`contact.html\`, \`styles.css\`, \`script.js\` — or Vite/React/Tailwind with \`npm install\`), interactive UI states, and clean spacing.
+  * When using packages/frameworks, run \`npm install\` via \`run_command\`, create modular components/pages with \`write_file\`, and verify the build (\`npm run build\`) before finishing.`}
 
 PROJECT WORKSPACE:
 - Root directory: "${root}"
@@ -3429,6 +3429,20 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         currentStep++;
         if (signal && signal.aborted) throw new Error('TASK_CANCELLED');
 
+        const planStepId = `plan_${Date.now()}_${currentStep}`;
+        if (isAgent) {
+          this.emitAgentStep(context, {
+            id: planStepId,
+            conversationId: convoId,
+            status: 'running',
+            name: 'agent_thinking',
+            args: {
+              step: currentStep,
+              detail: currentStep === 1 ? 'Planning project architecture & files...' : `Working on step ${currentStep}...`,
+            },
+          });
+        }
+
         let data = null;
         let lastModelErr = null;
 
@@ -3470,7 +3484,13 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         }
 
         if (!data) {
+          if (isAgent) {
+            this.emitAgentStep(context, { id: planStepId, conversationId: convoId, status: 'failed', name: 'agent_thinking' });
+          }
           throw lastModelErr || new Error(`No response from ${provider}`);
+        }
+        if (isAgent) {
+          this.emitAgentStep(context, { id: planStepId, conversationId: convoId, status: 'completed', name: 'agent_thinking' });
         }
 
         const choice = data.choices && data.choices[0];
@@ -3768,8 +3788,35 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           break;
         }
 
-        // Auto-edit has written the code to disk: complete the task immediately without re-looping!
+        // Auto-edit wrote code to disk: if this is a multi-file/page build on step 1 with < 4 files, let the agent continue adding pages/scripts/packages; otherwise finish cleanly.
         if (isAutoEdit) {
+          const isBuildIntent = /\b(build|create|landing|website|app|multi[\s-]?page|pages|project|site)\b/i.test(prompt || '');
+          if (isAgent && isBuildIntent && currentStep < 3 && executed.length < 4) {
+            activeMessages.push({
+              role: 'assistant',
+              content: msg.content || replyText,
+              tool_calls: toolCalls.map(tc => ({
+                id: tc.id || `call_${Date.now()}`,
+                type: 'function',
+                function: {
+                  name: tc.function.name,
+                  arguments: typeof tc.function.arguments === 'string' ? tc.function.arguments : JSON.stringify(tc.function.arguments || {}),
+                },
+              })),
+            });
+            for (const item of stepToolResults) {
+              activeMessages.push({
+                role: 'tool',
+                tool_call_id: item.call.id || `call_${Date.now()}`,
+                content: item.result?.message || 'File written.',
+              });
+            }
+            activeMessages.push({
+              role: 'user',
+              content: 'Continue now: create any remaining linked pages (e.g. services.html, about.html, contact.html, script.js) and polish the CSS styling/hero/interactivity using write_file, or summarize if all pages and scripts are complete.',
+            });
+            continue;
+          }
           finalReplyText = replyText;
           break;
         }
