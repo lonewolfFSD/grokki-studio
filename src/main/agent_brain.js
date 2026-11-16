@@ -3913,10 +3913,11 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           break;
         }
 
-        // Auto-edit wrote code to disk: if this is a multi-file/page build on step 1 with < 4 files, let the agent continue adding pages/scripts/packages; otherwise finish cleanly.
+        // Auto-edit wrote code to disk: only continue for full-site/app builds from scratch (never when adding a single page like "create an About page")
         if (isAutoEdit) {
-          const isBuildIntent = /\b(build|create|landing|website|app|multi[\s-]?page|pages|project|site)\b/i.test(prompt || '');
-          if (isAgent && isBuildIntent && currentStep < 3 && executed.length < 4) {
+          const isSinglePageReq = /\b(?:an?\s+)?(?:about|contact|services|pricing|blog|login|signup|faq|home)\s+page\b/i.test(prompt || '');
+          const isWholeSiteBuild = !isSinglePageReq && /\b(landing\s+page|website|web\s*app|multi[\s-]?page|full\s+site|whole\s+project|from\s+scratch)\b/i.test(prompt || '');
+          if (isAgent && isWholeSiteBuild && currentStep < 3 && executed.length < 4) {
             activeMessages.push({
               role: 'assistant',
               content: msg.content || replyText,
@@ -3938,7 +3939,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
             }
             activeMessages.push({
               role: 'user',
-              content: 'Continue now: create any remaining linked pages (e.g. services.html, about.html, contact.html, script.js) and polish the CSS styling/hero/interactivity using write_file, or summarize if all pages and scripts are complete.',
+              content: 'Continue now: create any missing pages or scripts that do not exist yet, without overwriting existing styled files.',
             });
             continue;
           }
