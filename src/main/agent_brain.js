@@ -834,28 +834,11 @@ NEW PAGE / FILE DIRECTIVE:
 - Step 2: Use \`read_file\` and \`edit_file\` on existing pages (like \`index.html\`) to link the navigation bar/buttons to the new page.`;
     } else if (activeTargetFile) {
       const relPath = path.relative(root, activeTargetFile);
-      let fileSnippet = '';
-      try {
-        const stat = fs.statSync(activeTargetFile);
-        if (stat.isFile() && stat.size < 65536) {
-          const raw = fs.readFileSync(activeTargetFile, 'utf8');
-          const ext = path.extname(activeTargetFile).slice(1) || 'py';
-          fileSnippet = `
-- CURRENT CODE IN "${path.basename(activeTargetFile)}":
-\`\`\`${ext}
-${raw}
-\`\`\`
-The full current content of "${path.basename(activeTargetFile)}" is ALREADY provided above.
-DO NOT tell the user to call read_file! Proceed immediately to improve it using edit_file / write_file!`;
-        }
-      } catch (_) {}
-
       activeFileBlock = `
 
 ACTIVE FILE UNDER DEVELOPMENT:
 - Active File: "${relPath}" (Absolute: "${activeTargetFile}")
-- DIRECTIVE: The user's instruction relates directly to "${relPath}".${fileSnippet || `
-  Directly inspect "${relPath}" with read_file and apply your changes using edit_file!`}`;
+- DIRECTIVE: First locate/inspect ONLY the relevant section using \`search_code\` or \`read_file({ path: "${relPath}", start_line, end_line })\`, verify what needs changing, then call \`edit_file({ path: "${relPath}", target: "<exact 2-12 existing lines>", replacement: "<updated lines>" })\` for each specific change. NEVER pass the whole file as \`target\` or rewrite the entire file.`;
     }
 
     const noFileEdit = isExplicitNoFileEditRequested(fullPrompt, context);
@@ -3268,26 +3251,15 @@ STRICT OPERATIONAL DIRECTIVES:
 
     codingAgentHarness.syncContext(context);
 
-    // If agent mode and a target file was worked on or referenced, anchor follow-up instructions to it
-    if (isAgent) {
+    // If agent mode and a target file was worked on or referenced, anchor follow-up instructions to it (without dumping the entire file so the agent uses read_file/search_code + surgical edit_file)
+    if (isAgent && !/\b(new\s+(?:separate\s+|sperate\s+)?(?:page|file|component|module|route)|add\s+(?:a\s+)?(?:new\s+)?(?:separate\s+|sperate\s+)?(?:contact|about|services|pricing|blog|login|signup)\s+page)\b/i.test(fullPrompt)) {
       const activeTarget = resolveTargetFileForEdit('', fullPrompt, context, [], conversationHistory);
       if (activeTarget && fs.existsSync(activeTarget)) {
         const root = (context && context.workspaceRoot) || codingAgentHarness.getWorkspaceRoot();
         const rel = path.relative(root, activeTarget);
         const baseName = path.basename(activeTarget);
-        let contentSnippet = '';
-        try {
-          const stat = fs.statSync(activeTarget);
-          if (stat.isFile() && stat.size < 65536) {
-            const raw = fs.readFileSync(activeTarget, 'utf8');
-            const ext = path.extname(activeTarget).slice(1) || 'py';
-            contentSnippet = `\n[Existing Content of "${baseName}"]:\n\`\`\`${ext}\n${raw}\n\`\`\``;
-          }
-        } catch (_) {}
         if (!fullPrompt.includes(rel) && !fullPrompt.includes(baseName)) {
-          fullPrompt = `[Active Target File: "${rel}"]${contentSnippet}\n${fullPrompt}`;
-        } else if (contentSnippet && !fullPrompt.includes(contentSnippet.slice(0, 30))) {
-          fullPrompt = `${contentSnippet}\n${fullPrompt}`;
+          fullPrompt = `[Active Target File: "${rel}"]\n${fullPrompt}`;
         }
       }
     }
@@ -4645,26 +4617,15 @@ To allow me to inspect, edit, create files, or run commands on your system:
 
     codingAgentHarness.syncContext(context);
 
-    // If agent mode and a target file was worked on or referenced, anchor follow-up instructions to it
-    if (isAgent) {
+    // If agent mode and a target file was worked on or referenced, anchor follow-up instructions to it (without dumping the entire file so the agent uses read_file/search_code + surgical edit_file)
+    if (isAgent && !/\b(new\s+(?:separate\s+|sperate\s+)?(?:page|file|component|module|route)|add\s+(?:a\s+)?(?:new\s+)?(?:separate\s+|sperate\s+)?(?:contact|about|services|pricing|blog|login|signup)\s+page)\b/i.test(fullPrompt)) {
       const activeTarget = resolveTargetFileForEdit('', fullPrompt, context, [], conversationHistory);
       if (activeTarget && fs.existsSync(activeTarget)) {
         const root = (context && context.workspaceRoot) || codingAgentHarness.getWorkspaceRoot();
         const rel = path.relative(root, activeTarget);
         const baseName = path.basename(activeTarget);
-        let contentSnippet = '';
-        try {
-          const stat = fs.statSync(activeTarget);
-          if (stat.isFile() && stat.size < 65536) {
-            const raw = fs.readFileSync(activeTarget, 'utf8');
-            const ext = path.extname(activeTarget).slice(1) || 'py';
-            contentSnippet = `\n[Existing Content of "${baseName}"]:\n\`\`\`${ext}\n${raw}\n\`\`\``;
-          }
-        } catch (_) {}
         if (!fullPrompt.includes(rel) && !fullPrompt.includes(baseName)) {
-          fullPrompt = `[Active Target File: "${rel}"]${contentSnippet}\n${fullPrompt}`;
-        } else if (contentSnippet && !fullPrompt.includes(contentSnippet.slice(0, 30))) {
-          fullPrompt = `${contentSnippet}\n${fullPrompt}`;
+          fullPrompt = `[Active Target File: "${rel}"]\n${fullPrompt}`;
         }
       }
     }
