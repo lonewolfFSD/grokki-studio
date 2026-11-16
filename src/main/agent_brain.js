@@ -3452,6 +3452,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           ? modelCandidates.flatMap((m) => (m === 'openrouter/free' ? ['openrouter/free', 'openrouter/free'] : [m]))
           : modelCandidates;
 
+        let lastStreamEmit = 0;
         for (const candModel of candidatesThisStep) {
           try {
             if (signal.aborted) throw new Error('TASK_CANCELLED');
@@ -3468,6 +3469,42 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                 : isAgent
                 ? (provider === 'openrouter' ? 4096 : 8192)
                 : (provider === 'openrouter' ? 2048 : 4000),
+              onStreamDelta: isAgent ? ({ content: streamText, toolCalls: streamCalls }) => {
+                const now = Date.now();
+                if (now - lastStreamEmit < 250) return;
+                lastStreamEmit = now;
+
+                let liveDetail = currentStep === 1 ? 'Planning project architecture & files...' : `Working on step ${currentStep}...`;
+                if (Array.isArray(streamCalls) && streamCalls.length > 0) {
+                  const lastCall = streamCalls[streamCalls.length - 1];
+                  const fnName = lastCall?.function?.name || 'tool';
+                  const rawArgs = lastCall?.function?.arguments || '';
+                  const pathMatch = rawArgs.match(/"path"\s*:\s*"([^"]+)"/);
+                  const targetHint = pathMatch ? path.basename(pathMatch[1]) : '';
+                  liveDetail = targetHint
+                    ? `Preparing ${fnName.replace(/_/g, ' ')} (${targetHint})...`
+                    : `Preparing ${fnName.replace(/_/g, ' ')}...`;
+                } else if (streamText) {
+                  const fileHints = Array.from(streamText.matchAll(/(?:```([a-zA-Z0-9_-]+)|<!--\s*([a-zA-Z0-9_.-]+\.[a-zA-Z0-9]+)|\/\*\s*([a-zA-Z0-9_.-]+\.[a-zA-Z0-9]+)|\/\/\s*([a-zA-Z0-9_.-]+\.[a-zA-Z0-9]+))/g));
+                  if (fileHints.length > 0) {
+                    const lastHint = fileHints[fileHints.length - 1];
+                    const nameHint = lastHint[2] || lastHint[3] || lastHint[4] || lastHint[1];
+                    liveDetail = `Generating ${nameHint} (${streamText.length} chars)...`;
+                  } else {
+                    const cleanLine = streamText.replace(/\s+/g, ' ').trim();
+                    liveDetail = cleanLine.length > 90 ? `...${cleanLine.slice(-90)}` : cleanLine;
+                  }
+                }
+
+                this.emitAgentStep(context, {
+                  id: planStepId,
+                  conversationId: convoId,
+                  status: 'running',
+                  name: 'agent_thinking',
+                  args: { step: currentStep, detail: liveDetail },
+                  result: streamText ? { message: streamText.slice(0, 600) } : undefined,
+                });
+              } : null,
             });
             if (data && data.choices && data.choices.length > 0) {
               // Pin working fallback model to front for remaining steps in this run

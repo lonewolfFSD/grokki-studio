@@ -69,6 +69,7 @@ async function callOpenAICompatible({
   signal = null,
   timeout = 45000,
   max_tokens = 4000,
+  onStreamDelta = null,
 }) {
   const controller = new AbortController();
   let isTimedOut = false;
@@ -112,6 +113,10 @@ async function callOpenAICompatible({
     temperature,
     max_tokens,
   };
+
+  if (typeof onStreamDelta === 'function') {
+    payload.stream = true;
+  }
 
   if (tools && tools.length > 0) {
     payload.tools = tools;
@@ -167,6 +172,70 @@ async function callOpenAICompatible({
       try { parsed = JSON.parse(errorText); } catch (e) {}
       const errMsg = parsed?.error?.message || parsed?.message || errorText || `HTTP ${res.status}`;
       throw new Error(`Provider API Error (${res.status}): ${errMsg}`);
+    }
+
+    if (typeof onStreamDelta === 'function' && res.body && (res.headers.get('content-type') || '').includes('text/event-stream')) {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let sseBuffer = '';
+      let fullContent = '';
+      const toolCallsMap = new Map();
+      let streamModel = payload.model;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop() || '';
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line.startsWith('data:')) continue;
+          const jsonPart = line.slice(5).trim();
+          if (!jsonPart || jsonPart === '[DONE]') continue;
+          try {
+            const chunk = JSON.parse(jsonPart);
+            if (chunk.model) streamModel = chunk.model;
+            const delta = chunk.choices?.[0]?.delta;
+            if (!delta) continue;
+            if (typeof delta.content === 'string' && delta.content.length > 0) {
+              fullContent += delta.content;
+            }
+            if (Array.isArray(delta.tool_calls)) {
+              for (const tc of delta.tool_calls) {
+                const idx = tc.index ?? 0;
+                const existing = toolCallsMap.get(idx) || {
+                  id: tc.id || `call_${idx}_${Date.now()}`,
+                  type: 'function',
+                  function: { name: '', arguments: '' },
+                };
+                if (tc.id) existing.id = tc.id;
+                if (tc.function?.name) existing.function.name += tc.function.name;
+                if (typeof tc.function?.arguments === 'string') existing.function.arguments += tc.function.arguments;
+                toolCallsMap.set(idx, existing);
+              }
+            }
+            onStreamDelta({
+              content: fullContent,
+              toolCalls: Array.from(toolCallsMap.values()),
+            });
+          } catch (_) {}
+        }
+      }
+
+      return {
+        model: streamModel,
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: fullContent,
+              ...(toolCallsMap.size > 0 ? { tool_calls: Array.from(toolCallsMap.values()) } : {}),
+            },
+          },
+        ],
+      };
     }
 
     const data = await res.json();
