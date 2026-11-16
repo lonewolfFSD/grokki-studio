@@ -3447,6 +3447,10 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         if (signal && signal.aborted) throw new Error('TASK_CANCELLED');
 
         const planStepId = `plan_${Date.now()}_${currentStep}`;
+        let activeLiveStepId = planStepId;
+        let lastLiveKey = 'thinking';
+        let lastLiveDetail = currentStep === 1 ? 'Planning project architecture & files...' : `Working on step ${currentStep}...`;
+        let liveStepSeq = 0;
         if (isAgent) {
           this.emitAgentStep(context, {
             id: planStepId,
@@ -3455,7 +3459,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
             name: 'agent_thinking',
             args: {
               step: currentStep,
-              detail: currentStep === 1 ? 'Planning project architecture & files...' : `Working on step ${currentStep}...`,
+              detail: lastLiveDetail,
             },
           });
         }
@@ -3490,6 +3494,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                 lastStreamEmit = now;
 
                 let liveDetail = currentStep === 1 ? 'Planning project architecture & files...' : `Working on step ${currentStep}...`;
+                let liveKey = lastLiveKey;
                 if (Array.isArray(streamCalls) && streamCalls.length > 0) {
                   const lastCall = streamCalls[streamCalls.length - 1];
                   const fnName = lastCall?.function?.name || 'tool';
@@ -3497,6 +3502,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                   const pathMatch = rawArgs.match(/"path"\s*:\s*"([^"]+)"/);
                   const targetHint = pathMatch ? path.basename(pathMatch[1]) : '';
                   const isWriteLike = fnName === 'write_file' || fnName === 'edit_file';
+                  liveKey = `${fnName}:${targetHint || streamCalls.length}`;
                   liveDetail = isWriteLike && targetHint
                     ? `Editing ${targetHint} (${rawArgs.length} chars)`
                     : targetHint
@@ -3510,6 +3516,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                   if (jsonToolMatch) {
                     const jTool = jsonToolMatch[1];
                     const jFile = jsonPathMatch ? path.basename(jsonPathMatch[1]) : '';
+                    liveKey = `${jTool}:${jFile}`;
                     if ((jTool === 'write_file' || jTool === 'edit_file') && jFile) {
                       liveDetail = `Editing ${jFile} (${streamText.length} chars)`;
                     } else if (jTool === 'read_file' && jFile) {
@@ -3527,15 +3534,30 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                     const afterFence = streamText.slice(lastFence.index, lastFence.index + 160);
                     const commentFile = afterFence.match(/(?:<!--|\/\*|\/\/|#)\s*([a-zA-Z0-9_.-]+\.(?:html|htm|css|js|jsx|ts|tsx|py|json|md))\b/i);
                     const activeFile = (commentFile && commentFile[1]) || (beforeFile && beforeFile[1]) || langToDefault[lastLang] || lastLang;
+                    liveKey = `fence:${activeFile}`;
                     liveDetail = `Editing ${activeFile} (${streamText.length} chars)`;
                   } else {
+                    liveKey = 'thinking';
                     liveDetail = `Thinking (${streamText.length} chars)`;
                   }
                 }
 
                 const hasCodeOrJson = /```|^\s*(?:call>)?\s*\{\s*"name"\s*:/m.test(streamText || '');
+                if (liveKey !== lastLiveKey) {
+                  this.emitAgentStep(context, {
+                    id: activeLiveStepId,
+                    conversationId: convoId,
+                    status: 'completed',
+                    name: 'agent_thinking',
+                    args: { step: currentStep, detail: lastLiveDetail },
+                  });
+                  liveStepSeq++;
+                  activeLiveStepId = `live_${Date.now()}_${currentStep}_${liveStepSeq}`;
+                  lastLiveKey = liveKey;
+                }
+                lastLiveDetail = liveDetail;
                 this.emitAgentStep(context, {
-                  id: planStepId,
+                  id: activeLiveStepId,
                   conversationId: convoId,
                   status: 'running',
                   name: 'agent_thinking',
@@ -3562,7 +3584,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
 
         if (!data) {
           if (isAgent) {
-            this.emitAgentStep(context, { id: planStepId, conversationId: convoId, status: 'failed', name: 'agent_thinking' });
+            this.emitAgentStep(context, { id: activeLiveStepId, conversationId: convoId, status: 'failed', name: 'agent_thinking' });
           }
           throw lastModelErr || new Error(`No response from ${provider}`);
         }
@@ -3570,10 +3592,11 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           const thoughtMsg = (data.choices[0]?.message?.content || '').trim();
           const hasCodeOrJson = /```|^\s*(?:call>)?\s*\{\s*"name"\s*:/m.test(thoughtMsg);
           this.emitAgentStep(context, {
-            id: planStepId,
+            id: activeLiveStepId,
             conversationId: convoId,
             status: 'completed',
             name: 'agent_thinking',
+            args: { step: currentStep, detail: lastLiveDetail },
             result: (thoughtMsg && !hasCodeOrJson) ? { message: thoughtMsg } : undefined,
           });
         }
