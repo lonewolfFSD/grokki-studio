@@ -320,12 +320,17 @@ function isExplicitNoFileEditRequested(prompt = '', context = {}) {
 function resolveTargetFileForEdit(text, prompt, context, executed = [], history = []) {
   try {
     const root = (context && context.workspaceRoot) || (codingAgentHarness && codingAgentHarness.getWorkspaceRoot()) || process.cwd();
+    const isInsideRoot = (candidate) => {
+      if (!candidate || typeof candidate !== 'string') return false;
+      const rel = path.relative(path.resolve(root), path.resolve(candidate));
+      return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+    };
 
     // 1. Context attachments or mentions
     const direct = (context && (context.filePath || context.attachedFile?.path || (typeof context.attachedFile === 'string' ? context.attachedFile : null) || context.projectMentions?.[0]?.fullPath || context.projectMentions?.[0]?.path)) || null;
     if (direct && typeof direct === 'string') {
-      const resolved = codingAgentHarness.resolvePath(direct);
-      if (fs.existsSync(resolved)) return resolved;
+      const resolved = path.isAbsolute(direct) ? direct : path.resolve(root, direct);
+      if (fs.existsSync(resolved) && (isInsideRoot(resolved) || context.attachedFile)) return resolved;
     }
 
     // 2. Any path from executed steps in current turn
@@ -333,8 +338,8 @@ function resolveTargetFileForEdit(text, prompt, context, executed = [], history 
       for (const ex of executed) {
         const p = ex?.args?.path || ex?.result?.path || ex?.result?.relativePath;
         if (p && typeof p === 'string') {
-          const resolved = codingAgentHarness.resolvePath(p);
-          if (fs.existsSync(resolved)) return resolved;
+          const resolved = path.isAbsolute(p) ? p : path.resolve(root, p);
+          if (fs.existsSync(resolved) && isInsideRoot(resolved)) return resolved;
         }
       }
     }
@@ -344,14 +349,14 @@ function resolveTargetFileForEdit(text, prompt, context, executed = [], history 
     const fileMatches = combined.match(/\b([a-zA-Z0-9_\-./\\]+\.(?:py|js|ts|tsx|jsx|html|css|json|cpp|c|java|go|rs|md))\b/gi);
     if (fileMatches) {
       for (const candidate of fileMatches) {
-        const resolved = codingAgentHarness.resolvePath(candidate);
-        if (fs.existsSync(resolved)) return resolved;
+        const resolved = path.isAbsolute(candidate) ? candidate : path.resolve(root, candidate);
+        if (fs.existsSync(resolved) && isInsideRoot(resolved)) return resolved;
         const found = codingAgentHarness.findFileInRoot(root, path.basename(candidate));
-        if (found && fs.existsSync(found)) return found;
+        if (found && fs.existsSync(found) && isInsideRoot(found)) return found;
       }
     }
 
-    // 4. Extract from conversation history (scan backwards up to 16 turns)
+    // 4. Extract from conversation history (scan backwards up to 16 turns, strictly scoped to active root)
     if (Array.isArray(history)) {
       for (let i = history.length - 1; i >= Math.max(0, history.length - 16); i--) {
         const turn = history[i];
@@ -359,30 +364,30 @@ function resolveTargetFileForEdit(text, prompt, context, executed = [], history 
           for (const act of turn.actionsExecuted) {
             const p = act?.result?.backup?.path || act?.args?.path || act?.result?.path || act?.result?.relativePath;
             if (p && typeof p === 'string') {
-              const resolved = codingAgentHarness.resolvePath(p);
-              if (fs.existsSync(resolved)) return resolved;
+              const resolved = path.isAbsolute(p) ? p : path.resolve(root, p);
+              if (fs.existsSync(resolved) && isInsideRoot(resolved)) return resolved;
               const found = codingAgentHarness.findFileInRoot(root, path.basename(p));
-              if (found && fs.existsSync(found)) return found;
+              if (found && fs.existsSync(found) && isInsideRoot(found)) return found;
             }
           }
         }
         if (turn?.attachedFile) {
           const ap = typeof turn.attachedFile === 'string' ? turn.attachedFile : turn.attachedFile?.path;
           if (ap) {
-            const resolved = codingAgentHarness.resolvePath(ap);
-            if (fs.existsSync(resolved)) return resolved;
+            const resolved = path.isAbsolute(ap) ? ap : path.resolve(root, ap);
+            if (fs.existsSync(resolved) && isInsideRoot(resolved)) return resolved;
             const found = codingAgentHarness.findFileInRoot(root, path.basename(ap));
-            if (found && fs.existsSync(found)) return found;
+            if (found && fs.existsSync(found) && isInsideRoot(found)) return found;
           }
         }
         if (Array.isArray(turn?.mentions)) {
           for (const m of turn.mentions) {
             const mp = m?.fullPath || (typeof m === 'string' ? m : m?.path);
             if (mp) {
-              const resolved = codingAgentHarness.resolvePath(mp);
-              if (fs.existsSync(resolved)) return resolved;
+              const resolved = path.isAbsolute(mp) ? mp : path.resolve(root, mp);
+              if (fs.existsSync(resolved) && isInsideRoot(resolved)) return resolved;
               const found = codingAgentHarness.findFileInRoot(root, path.basename(mp));
-              if (found && fs.existsSync(found)) return found;
+              if (found && fs.existsSync(found) && isInsideRoot(found)) return found;
             }
           }
         }
@@ -3273,6 +3278,7 @@ STRICT OPERATIONAL DIRECTIVES:
       }
     }
 
+    codingAgentHarness.syncContext(context);
     const rawHistory = memory.getConvoHistory(convoId);
     const isCustomSystemPrompt = Boolean(context && context.systemPrompt);
     let systemContent = isCustomSystemPrompt
@@ -3579,8 +3585,14 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
             const lang = m[1] || '';
             const code = (m[2] || '').trim();
             if (code.length <= 5) continue;
-            const targetPath = inferBlockPath(lang, code, m.index || 0);
-            if (!targetPath || seenPaths.has(targetPath)) continue;
+            let targetPath = inferBlockPath(lang, code, m.index || 0);
+            if (!targetPath) continue;
+            // Strictly clamp targetPath inside the active workspace rootDir
+            const relCheck = path.relative(path.resolve(rootDir), path.resolve(targetPath));
+            if (!relCheck || relCheck.startsWith('..') || path.isAbsolute(relCheck)) {
+              targetPath = path.resolve(rootDir, path.basename(targetPath));
+            }
+            if (seenPaths.has(targetPath)) continue;
             seenPaths.add(targetPath);
             let curContent = '';
             try {
@@ -4530,7 +4542,8 @@ To allow me to inspect, edit, create files, or run commands on your system:
       try {
         if (signal.aborted) throw new Error('TASK_CANCELLED');
 
-        const rawHistory = memory.getConvoHistory(convoId);
+        codingAgentHarness.syncContext(context);
+    const rawHistory = memory.getConvoHistory(convoId);
         const geminiHistory = rawHistory.map((turn, idx) => {
           if (idx === rawHistory.length - 1 && turn.role === 'user') {
             return {
