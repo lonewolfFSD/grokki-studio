@@ -3348,6 +3348,10 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
       } else if (typeof turn.content === 'string') {
         content = turn.content;
       }
+      // Prevent small local models from few-shot copying past summary templates instead of calling write_file
+      if (isAgent && role === 'assistant' && /Created\/updated\s+\d+\s+file\(s\)/i.test(content)) {
+        content = '[Previously wrote requested files using write_file tool.]';
+      }
       // Compact prior turns for Ollama to prevent massive prompt-eval latency
       if (provider === 'ollama' && i < historyToUse.length - 1 && content.length > 350) {
         content = content.slice(0, 350) + '...';
@@ -3756,7 +3760,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
             activeMessages.push({
               role: 'user',
               content: looksLikeFakeCompletion
-                ? 'ERROR: You outputted plain text claiming files were created/updated, but you did NOT call write_file or edit_file. No files were written on disk. You MUST call write_file({ path: "...", content: "..." }) now.'
+                ? 'ERROR: You outputted plain text claiming files were created/updated, but you did NOT call write_file or edit_file. No files were written on disk. Output a valid write_file tool call now, e.g. {"name": "write_file", "arguments": {"path": "contact.html", "content": "..."}}.'
                 : 'Proceed now and call the appropriate tool (such as write_file, edit_file, or execute_command) to actually execute the task.',
             });
             continue;
