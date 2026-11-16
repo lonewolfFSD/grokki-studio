@@ -3234,8 +3234,8 @@ STRICT OPERATIONAL DIRECTIVES:
     const hasActivePlugins = Boolean(context && Array.isArray(context.activePlugins) && context.activePlugins.length > 0);
     let groundingSources = [];
     const isWebSearchActive = !isConversationalPrompt && !hasActivePlugins && Boolean(
-      context && (context.webSearch || context.webSearchEnabled) ||
-      shouldAutoSearchWeb(prompt, conversationHistory)
+      (context && (context.webSearch || context.webSearchEnabled)) ||
+      (!isAgent && shouldAutoSearchWeb(prompt, conversationHistory))
     );
     let resolvedQuery = prompt;
     if (isWebSearchActive) {
@@ -4480,8 +4480,8 @@ To allow me to inspect, edit, create files, or run commands on your system:
       ? context.conversationHistory
       : memory.getConvoHistory(convoId);
     const isWebSearchActive = !isConversationalPrompt && Boolean(
-      context && (context.webSearch || context.webSearchEnabled) ||
-      shouldAutoSearchWeb(prompt, conversationHistory)
+      (context && (context.webSearch || context.webSearchEnabled)) ||
+      (!isAgent && shouldAutoSearchWeb(prompt, conversationHistory))
     );
     let resolvedQuery = prompt;
     if (isWebSearchActive) {

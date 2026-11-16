@@ -1749,19 +1749,25 @@ export const AgentStepsAccordion: React.FC<{
       {/* Collapsible Steps Body with clean indentation */}
       {isOpen && (
         <div className="flex flex-col gap-0.5 mt-2 pl-2 animate-in fade-in duration-150">
-          {steps.map((step, idx) => {
-            const stepId = step.id || `step_${messageId}_${idx}`;
-            const stepIsLive = isLive && (idx === steps.length - 1 || step.status === 'running');
-            return (
-              <AgentStepRow
-                key={stepId}
-                step={step}
-                isLive={stepIsLive}
-                isExpanded={expandedStepIds.has(stepId)}
-                onToggleExpand={() => onToggleStepExpand(stepId)}
-              />
-            );
-          })}
+          {steps
+            .filter((step, _, arr) => {
+              if (step.name !== 'agent_thinking') return true;
+              const hasRealTools = arr.some((s) => s.name !== 'agent_thinking');
+              return step.status === 'running' || !hasRealTools;
+            })
+            .map((step, idx, visibleArr) => {
+              const stepId = step.id || `step_${messageId}_${idx}`;
+              const stepIsLive = isLive && (idx === visibleArr.length - 1 || step.status === 'running');
+              return (
+                <AgentStepRow
+                  key={stepId}
+                  step={step}
+                  isLive={stepIsLive}
+                  isExpanded={expandedStepIds.has(stepId)}
+                  onToggleExpand={() => onToggleStepExpand(stepId)}
+                />
+              );
+            })}
         </div>
       )}
     </div>
