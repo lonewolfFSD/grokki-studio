@@ -918,7 +918,8 @@ STRICT OPERATIONAL DIRECTIVES:
     ]);
     const CODING_TOOLS = new Set([
       'read_file', 'write_file', 'edit_file', 'run_command', 'list_directory', 'search_code', 'git_operations', 'cli_copilot',
-      'organize_folder', 'ui_tars_desktop_agent', 'autonomous_browser_agent'
+      ...( /\b(browser|playwright|puppeteer|localhost|preview|open\s+(?:the\s+)?(?:page|url|site))\b/i.test(p) ? ['autonomous_browser_agent'] : [] ),
+      ...( /\b(desktop|ui_tars|click\s+on\s+screen)\b/i.test(p) ? ['ui_tars_desktop_agent'] : [] ),
     ]);
 
     // GROKKI AGENT MODE: Autonomous Coding Agent ALWAYS gets coding harness tools!
