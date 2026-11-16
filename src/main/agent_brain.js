@@ -3676,6 +3676,15 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
               return path.resolve(rootDir, beforeMatches[beforeMatches.length - 1][1].trim());
             }
             const normLang = (lang || '').toLowerCase();
+            // For HTML blocks, inspect <title> / <h1> so a Contact/About/Services page isn't misrouted to index.html
+            if (normLang === 'html' || normLang === 'htm') {
+              const titleMatch = code.match(/<title[^>]*>([^<]+)<\/title>/i);
+              const titleText = (titleMatch ? titleMatch[1] : '').toLowerCase();
+              if (/\bcontact\b/.test(titleText)) return path.resolve(rootDir, 'contact.html');
+              if (/\babout\b/.test(titleText)) return path.resolve(rootDir, 'about.html');
+              if (/\bservices?\b/.test(titleText)) return path.resolve(rootDir, 'services.html');
+              if (/\bpricing\b/.test(titleText)) return path.resolve(rootDir, 'pricing.html');
+            }
             if (allBlocks.length === 1) {
               const resolved = resolveTargetFileForEdit(replyText, prompt, context, executed, conversationHistory);
               if (resolved && typeof resolved === 'string') {
@@ -3709,6 +3718,12 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
               if (fs.existsSync(targetPath)) curContent = fs.readFileSync(targetPath, 'utf8').trim();
             } catch (_) {}
             if (curContent === code) continue;
+            // Guard: if targetPath already exists and the prompt asks for a surgical link/nav/small edit,
+            // never let auto-write clobber a larger existing file with a smaller snippet.
+            const isSurgicalPrompt = /\b(connect|link|nav|update|change|fix|rename|replace|add\s+a\s+link)\b/i.test(prompt || '');
+            if (curContent && isSurgicalPrompt && code.length < curContent.length * 0.85) {
+              continue;
+            }
             isAutoEdit = true;
             writtenPaths.push(path.relative(rootDir, targetPath) || path.basename(targetPath));
             toolCalls.push({
