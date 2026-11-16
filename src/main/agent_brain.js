@@ -887,6 +887,9 @@ AUTONOMOUS AGENT EXECUTION RULE:
 - You are an autonomous coding AGENT (like Claude Code / DeepSeek Harness), NEVER a chatbot.
 - ALWAYS use \`write_file\`, \`edit_file\`, and \`run_command\` to actually create files, folders, and install packages on disk.
 - NEVER paste file contents in markdown code blocks and tell the user "You can save these files in your project directory". Actually write the files yourself.
+- SURGICAL EDITS OVER FULL REWRITES (CRITICAL):
+  * Before modifying an existing file, ALWAYS inspect ONLY the relevant section using \`search_code\` or \`read_file({ path, start_line, end_line })\` (check what already exists first).
+  * To update, connect, or fix part of an existing file (e.g. changing a nav link, adding a route, fixing a style), ALWAYS use \`edit_file({ path, target, replacement })\` to change ONLY the exact lines needed—NEVER rewrite the whole file from scratch or recreate files that already exist.
 - FULL-PROJECT ENGINEERING (when asked to build an app, landing page, or website):
   * Do NOT settle for a bare 1-file toy template or plain unstyled HTML. Build a visually polished, modern, multi-file / multi-page project with proper styling, responsive Grid/Flexbox layout, high-contrast typography, real navigation links across pages (e.g. \`index.html\`, \`services.html\`, \`about.html\`, \`contact.html\`, \`styles.css\`, \`script.js\` — or Vite/React/Tailwind with \`npm install\`), interactive UI states, and clean spacing.
   * When using packages/frameworks, run \`npm install\` via \`run_command\`, create modular components/pages with \`write_file\`, and verify the build (\`npm run build\`) before finishing.`}
@@ -3519,9 +3522,11 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                   } else if (fenceMatches.length > 0) {
                     const lastFence = fenceMatches[fenceMatches.length - 1];
                     const lastLang = (lastFence[1] || '').toLowerCase();
+                    const beforeFence = streamText.slice(Math.max(0, lastFence.index - 150), lastFence.index);
+                    const beforeFile = beforeFence.match(/[`*"']?([a-zA-Z0-9_.-]+\.(?:html|htm|css|js|jsx|ts|tsx|py|json|md))[`*"']?/i);
                     const afterFence = streamText.slice(lastFence.index, lastFence.index + 160);
                     const commentFile = afterFence.match(/(?:<!--|\/\*|\/\/|#)\s*([a-zA-Z0-9_.-]+\.(?:html|htm|css|js|jsx|ts|tsx|py|json|md))\b/i);
-                    const activeFile = (commentFile && commentFile[1]) || langToDefault[lastLang] || lastLang;
+                    const activeFile = (commentFile && commentFile[1]) || (beforeFile && beforeFile[1]) || langToDefault[lastLang] || lastLang;
                     liveDetail = `Editing ${activeFile} (${streamText.length} chars)`;
                   } else {
                     liveDetail = `Thinking (${streamText.length} chars)`;
