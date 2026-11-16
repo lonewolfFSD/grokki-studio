@@ -833,7 +833,7 @@ class AgentBrain {
 ${raw}
 \`\`\`
 The full current content of "${path.basename(activeTargetFile)}" is ALREADY provided above.
-DO NOT tell the user to call read_file! Proceed immediately to improve it and either show the improved code in chat or call edit_file / write_file!`;
+DO NOT tell the user to call read_file! Proceed immediately to improve it using edit_file / write_file!`;
         }
       } catch (_) {}
 
@@ -868,7 +868,12 @@ The user explicitly asked you to write or show the code directly in this chat an
 CURRENT ACTIVE CHAT MODE: GROKKI AGENT MODE (mode: "agent")
 - You are currently running in **Agent Mode** inside the user's workspace project ("${root}").
 - You have full agentic capabilities and coding tools to inspect, read, edit, write files, search code, and execute terminal commands.
-- If the user asks what mode you are in or if you can edit files on this system, confirm that you are in Agent Mode and ready to inspect, edit, create files, and execute tasks in their project workspace.${noFileEditNotice}
+- If the user asks what mode you are in or if you can edit files on this system, confirm that you are in Agent Mode and ready to inspect, edit, create files, and execute tasks in their project workspace.${noFileEdit ? noFileEditNotice : `
+
+AUTONOMOUS AGENT EXECUTION RULE:
+- You are an autonomous coding AGENT (like Claude Code), NEVER a chatbot.
+- ALWAYS use \`write_file\`, \`edit_file\`, and \`run_command\` to actually create files, folders, and install packages on disk.
+- NEVER paste file contents in markdown code blocks and tell the user "You can save these files in your project directory". Actually write the files yourself.`}
 
 PROJECT WORKSPACE:
 - Root directory: "${root}"
@@ -3524,34 +3529,79 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         }
 
         let isAutoEdit = false;
-        // If no tool call was issued, but in agent mode the model outputted code intended to modify the target file
-        if (toolCalls.length === 0 && isAgent) {
-          const targetFile = resolveTargetFileForEdit(replyText, prompt, context, executed, conversationHistory);
-          if (targetFile && typeof targetFile === 'string' && fs.existsSync(targetFile)) {
-            const codeBlockRegex = /```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/;
-            const match = replyText.match(codeBlockRegex);
-            const mentionsEditIntent = /(?:edit_file|write_file|updated script|improved code|here(?:'s|\s+is)\s+the\s+improved|here(?:'s|\s+is)\s+the\s+updated|modified version|make the changes|use the)/i.test(replyText);
-
-            if (match && match[1] && (mentionsEditIntent || replyText.includes(path.basename(targetFile)))) {
-              const codeToApply = match[1].trim();
-              let curContent = '';
-              try { curContent = fs.readFileSync(targetFile, 'utf8').trim(); } catch (_) {}
-
-              if (curContent !== codeToApply && codeToApply.length > 5) {
-                isAutoEdit = true;
-                toolCalls.push({
-                  id: `auto_edit_${Date.now()}`,
-                  type: 'function',
-                  function: {
-                    name: 'edit_file',
-                    arguments: {
-                      path: targetFile,
-                      replacement: match[1],
-                    },
-                  },
-                });
+        // If no tool call was issued, but in agent mode the model outputted code block(s) instead of calling write_file
+        if (toolCalls.length === 0 && isAgent && replyText && !isExplicitNoFileEditRequested(prompt, context)) {
+          const rootDir = context?.workspaceRoot || (codingAgentHarness && codingAgentHarness.getWorkspaceRoot()) || process.cwd();
+          const allBlocks = Array.from(replyText.matchAll(/```([a-zA-Z0-9_\-]+)?\r?\n([\s\S]+?)\r?\n```/g));
+          const langToDefaultFile = {
+            html: 'index.html',
+            htm: 'index.html',
+            css: 'styles.css',
+            js: 'script.js',
+            javascript: 'script.js',
+            ts: 'index.ts',
+            typescript: 'index.ts',
+            tsx: 'App.tsx',
+            jsx: 'App.jsx',
+            py: 'main.py',
+            python: 'main.py',
+            json: 'package.json',
+          };
+          const inferBlockPath = (lang, code, blockIdx) => {
+            const head = code.split(/\r?\n/).slice(0, 3).join('\n');
+            const headMatch = head.match(/(?:<!--|\/\*|\/\/|#)\s*([a-zA-Z0-9_\-./\\]+\.[a-zA-Z0-9]{1,8})\s*(?:-->|\*\/)?/i);
+            if (headMatch && headMatch[1]) {
+              return path.resolve(rootDir, headMatch[1].trim());
+            }
+            const before = replyText.slice(Math.max(0, blockIdx - 180), blockIdx);
+            const beforeMatches = Array.from(before.matchAll(/[`*"']?([a-zA-Z0-9_\-./\\]+\.(?:html|htm|css|js|jsx|ts|tsx|py|json|md|txt|sh))[`*"']?/gi));
+            if (beforeMatches.length > 0) {
+              return path.resolve(rootDir, beforeMatches[beforeMatches.length - 1][1].trim());
+            }
+            const normLang = (lang || '').toLowerCase();
+            if (allBlocks.length === 1) {
+              const resolved = resolveTargetFileForEdit(replyText, prompt, context, executed, conversationHistory);
+              if (resolved && typeof resolved === 'string') {
+                const resolvedExt = path.extname(resolved).slice(1).toLowerCase();
+                if (!normLang || normLang === resolvedExt || (normLang === 'javascript' && resolvedExt === 'js') || (normLang === 'python' && resolvedExt === 'py')) {
+                  return resolved;
+                }
               }
             }
+            const defName = langToDefaultFile[normLang];
+            return defName ? path.resolve(rootDir, defName) : null;
+          };
+
+          const writtenPaths = [];
+          const seenPaths = new Set();
+          for (const m of allBlocks) {
+            const lang = m[1] || '';
+            const code = (m[2] || '').trim();
+            if (code.length <= 5) continue;
+            const targetPath = inferBlockPath(lang, code, m.index || 0);
+            if (!targetPath || seenPaths.has(targetPath)) continue;
+            seenPaths.add(targetPath);
+            let curContent = '';
+            try {
+              if (fs.existsSync(targetPath)) curContent = fs.readFileSync(targetPath, 'utf8').trim();
+            } catch (_) {}
+            if (curContent === code) continue;
+            isAutoEdit = true;
+            writtenPaths.push(path.relative(rootDir, targetPath) || path.basename(targetPath));
+            toolCalls.push({
+              id: `auto_write_${Date.now()}_${writtenPaths.length}`,
+              type: 'function',
+              function: {
+                name: 'write_file',
+                arguments: {
+                  path: targetPath,
+                  content: m[2],
+                },
+              },
+            });
+          }
+          if (isAutoEdit && writtenPaths.length > 0) {
+            replyText = `Created/updated ${writtenPaths.length} file(s) in \`${path.basename(rootDir)}\`:\n${writtenPaths.map((p) => `- \`${p}\``).join('\n')}`;
           }
         }
 
