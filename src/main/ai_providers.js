@@ -130,12 +130,34 @@ async function callOpenAICompatible({
 
   try {
     const url = endpoint.endsWith('/') ? `${endpoint}chat/completions` : `${endpoint}/chat/completions`;
-    const res = await fetch(url, {
+    let res = await fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
+
+    // OpenRouter 402 credit/max_tokens auto-adjustment: if OpenRouter says "can only afford N", retry once with affordable max_tokens
+    if (!res.ok && res.status === 402 && endpoint && endpoint.includes('openrouter.ai')) {
+      const errorText = await res.text();
+      let parsed = null;
+      try { parsed = JSON.parse(errorText); } catch (e) {}
+      const errMsg = parsed?.error?.message || parsed?.message || errorText || `HTTP ${res.status}`;
+      const affordMatch = errMsg.match(/can only afford\s+(\d+)/i);
+      const affordable = affordMatch ? parseInt(affordMatch[1], 10) : 0;
+      if (affordable >= 64 && payload.max_tokens > affordable) {
+        payload.max_tokens = Math.max(64, affordable - 16);
+        res = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+      } else {
+        clearTimeout(timeoutId);
+        throw new Error(`Provider API Error (${res.status}): ${errMsg}`);
+      }
+    }
 
     clearTimeout(timeoutId);
 

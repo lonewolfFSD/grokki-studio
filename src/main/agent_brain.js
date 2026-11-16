@@ -3064,7 +3064,18 @@ STRICT OPERATIONAL DIRECTIVES:
       endpoint = 'https://openrouter.ai/api/v1';
       apiKey = (config.openrouterApiKey || process.env.OPENROUTER_API_KEY || '').trim();
       model = (context && context.model) || config.openrouterModel || 'openrouter/auto';
-      modelCandidates = [model];
+      const cachedFree = (config.cachedProviderModels?.openrouter || [])
+        .filter((m) => typeof m === 'string' && m.endsWith(':free'))
+        .slice(0, 5);
+      modelCandidates = Array.from(new Set([
+        model,
+        'openrouter/free',
+        ...cachedFree,
+        'meta-llama/llama-3.3-70b-instruct:free',
+        'google/gemma-3-27b-it:free',
+        'qwen/qwen-2.5-72b-instruct:free',
+        'deepseek/deepseek-chat:free',
+      ]));
     } else if (provider === 'openai') {
       endpoint = 'https://api.openai.com/v1';
       apiKey = (config.openaiApiKey || process.env.OPENAI_API_KEY || '').trim();
