@@ -3481,18 +3481,28 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                   const rawArgs = lastCall?.function?.arguments || '';
                   const pathMatch = rawArgs.match(/"path"\s*:\s*"([^"]+)"/);
                   const targetHint = pathMatch ? path.basename(pathMatch[1]) : '';
-                  liveDetail = targetHint
-                    ? `Preparing ${fnName.replace(/_/g, ' ')} (${targetHint})...`
-                    : `Preparing ${fnName.replace(/_/g, ' ')}...`;
+                  const isWriteLike = fnName === 'write_file' || fnName === 'edit_file';
+                  liveDetail = isWriteLike && targetHint
+                    ? `Editing ${targetHint} (${rawArgs.length} chars)`
+                    : targetHint
+                    ? `Running ${fnName.replace(/_/g, ' ')} (${targetHint})`
+                    : `Running ${fnName.replace(/_/g, ' ')}`;
                 } else if (streamText) {
-                  const fileHints = Array.from(streamText.matchAll(/(?:```([a-zA-Z0-9_-]+)|<!--\s*([a-zA-Z0-9_.-]+\.[a-zA-Z0-9]+)|\/\*\s*([a-zA-Z0-9_.-]+\.[a-zA-Z0-9]+)|\/\/\s*([a-zA-Z0-9_.-]+\.[a-zA-Z0-9]+))/g));
-                  if (fileHints.length > 0) {
-                    const lastHint = fileHints[fileHints.length - 1];
-                    const nameHint = lastHint[2] || lastHint[3] || lastHint[4] || lastHint[1];
-                    liveDetail = `Generating ${nameHint} (${streamText.length} chars)...`;
+                  const extPattern = '(?:html|htm|css|js|jsx|ts|tsx|py|json|md|txt|sh|yml|yaml|sql)';
+                  const fileMatches = Array.from(streamText.matchAll(new RegExp(`([a-zA-Z0-9_.-]+\\.${extPattern})\\b`, 'gi')));
+                  const langToDefault = { html: 'index.html', htm: 'index.html', css: 'styles.css', js: 'script.js', javascript: 'script.js', ts: 'index.ts', tsx: 'App.tsx', jsx: 'App.jsx', py: 'main.py', python: 'main.py', json: 'package.json' };
+                  const fenceMatches = Array.from(streamText.matchAll(/```([a-zA-Z0-9_-]+)/g));
+                  let activeFile = '';
+                  if (fileMatches.length > 0) {
+                    activeFile = fileMatches[fileMatches.length - 1][1];
+                  } else if (fenceMatches.length > 0) {
+                    const lastLang = (fenceMatches[fenceMatches.length - 1][1] || '').toLowerCase();
+                    activeFile = langToDefault[lastLang] || lastLang;
+                  }
+                  if (activeFile) {
+                    liveDetail = `Editing ${activeFile} (${streamText.length} chars)`;
                   } else {
-                    const cleanLine = streamText.replace(/\s+/g, ' ').trim();
-                    liveDetail = cleanLine.length > 90 ? `...${cleanLine.slice(-90)}` : cleanLine;
+                    liveDetail = `Thinking (${streamText.length} chars)`;
                   }
                 }
 
@@ -3502,7 +3512,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                   status: 'running',
                   name: 'agent_thinking',
                   args: { step: currentStep, detail: liveDetail },
-                  result: streamText ? { message: streamText.slice(0, 600) } : undefined,
+                  result: streamText ? { message: streamText } : undefined,
                 });
               } : null,
             });
@@ -3535,7 +3545,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
             conversationId: convoId,
             status: 'completed',
             name: 'agent_thinking',
-            result: thoughtMsg ? { message: thoughtMsg.slice(0, 600) } : undefined,
+            result: thoughtMsg ? { message: thoughtMsg } : undefined,
           });
         }
 

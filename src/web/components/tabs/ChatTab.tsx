@@ -1589,21 +1589,24 @@ const AgentStepRow: React.FC<{
     );
   }
 
-  // 9. LIVE AGENT THINKING / PLANNING
+  // 9. LIVE AGENT THINKING / STREAMING FILE EDITING
   if (name === 'agent_thinking') {
-    const detail = args.detail || (isRunning ? 'Planning next step...' : 'Planned step');
+    const detail = String(args.detail || (isRunning ? 'Planning next step...' : 'Planned step'));
+    const isEditingLive = /^Editing\s+/i.test(detail);
+    const labelText = isEditingLive ? 'Editing' : (isRunning ? 'Thinking' : 'Thought');
+    const restDetail = isEditingLive ? detail.replace(/^Editing\s+/i, '') : detail;
     const thoughtText = result?.message;
     return (
       <div className="flex flex-col py-0.5 font-sans">
         <div
-          className={`flex items-center gap-1.5 text-[13px] leading-relaxed select-none ${thoughtText ? 'cursor-pointer group' : ''}`}
+          className={`flex items-center flex-wrap gap-1.5 text-[13px] leading-relaxed select-none ${thoughtText ? 'cursor-pointer group' : ''}`}
           onClick={thoughtText ? onToggleExpand : undefined}
         >
           <span className={isRunning ? 'text-sky-400 font-medium' : 'text-neutral-400 dark:text-neutral-400'}>
-            {isRunning ? 'Thinking' : 'Thought'}
+            {labelText}
           </span>
-          <span className="text-neutral-300 dark:text-neutral-300 text-[12px] truncate max-w-[420px]">
-            {detail}
+          <span className={`${isEditingLive ? 'text-neutral-100 font-mono' : 'text-neutral-300 dark:text-neutral-300'} text-[12px] break-all`}>
+            {restDetail}
           </span>
           {thoughtText && (
             <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
@@ -1615,8 +1618,8 @@ const AgentStepRow: React.FC<{
           )}
         </div>
         {isExpanded && thoughtText && (
-          <div className="mt-1 mb-2 p-2 rounded bg-black/40 backdrop-blur-md border border-white/10 font-sans text-[11.5px] text-neutral-300 overflow-x-auto max-h-40 scrollbar-thin">
-            <div className="whitespace-pre-wrap">{thoughtText}</div>
+          <div className="mt-1 mb-2 p-2.5 rounded bg-black/40 backdrop-blur-md border border-white/10 font-mono text-[11.5px] text-neutral-300 overflow-x-auto">
+            <div className="whitespace-pre-wrap break-words">{thoughtText}</div>
           </div>
         )}
       </div>
