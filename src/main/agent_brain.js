@@ -3323,9 +3323,9 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
       } else if (typeof turn.content === 'string') {
         content = turn.content;
       }
-      // Prevent small local models from few-shot copying past summary templates instead of calling write_file
-      if (isAgent && role === 'assistant' && /Created\/updated\s+\d+\s+file\(s\)/i.test(content)) {
-        content = '[Previously wrote requested files using write_file tool.]';
+      // Skip repetitive auto-summary turns from history so small local models don't copy them instead of calling tools
+      if (isAgent && role === 'assistant' && (/Created\/updated\s+\d+\s+file\(s\)/i.test(content) || /\[Previously wrote requested files/i.test(content))) {
+        continue;
       }
       // Compact prior turns for Ollama to prevent massive prompt-eval latency
       if (provider === 'ollama' && i < historyToUse.length - 1 && content.length > 350) {
@@ -3764,7 +3764,7 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         if (toolCalls.length === 0) {
           const hasWrittenOrRun = executed.some((e) => ['write_file', 'edit_file', 'execute_command'].includes(e.name) && e.status === 'completed');
           const looksLikeUnfinishedPlan = /\b(i(?:'ll| will)|let me|i am going to|going to)\s+(?:now\s+)?(create|write|build|edit|update|implement|add|make|generate|run|check|inspect|scaffold|set\s+up)\b/i.test(replyText || '');
-          const looksLikeFakeCompletion = /(?:Created\/updated\s+\d+\s+file|Successfully\s+(?:wrote|edited|created)\b|\b(?:created|updated|wrote|saved|added)\b[^.\n]*\.(?:html|css|js|jsx|ts|tsx|py|json))/i.test(replyText || '');
+          const looksLikeFakeCompletion = /(?:Created\/updated\s+\d+\s+file|\[Previously wrote requested files|Successfully\s+(?:wrote|edited|created)\b|\b(?:created|updated|wrote|saved|added)\b[^.\n]*\.(?:html|css|js|jsx|ts|tsx|py|json))/i.test(replyText || '');
           const isEmptyWithActionIntent = !replyText && (hasWrittenOrRun === false);
           if (isAgent && currentStep < maxAgentSteps && agentNudgeCount < 2 && !hasWrittenOrRun && (looksLikeUnfinishedPlan || looksLikeFakeCompletion || isEmptyWithActionIntent) && !isExplicitNoFileEditRequested(prompt, context)) {
             agentNudgeCount++;
