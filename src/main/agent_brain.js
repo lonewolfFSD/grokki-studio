@@ -903,7 +903,9 @@ STRICT OPERATIONAL DIRECTIVES:
    - DO NOT list the workspace or explore unrelated folders.
    - Step 1: Use read_file to inspect the current code if not already inspected.
    - Step 2: If the user asked not to edit the file (or asked to write in chat only), output the improved code directly in a markdown code block in your reply. Otherwise, use edit_file (or write_file) to apply the improvements directly on disk.
-   - Step 3: Give a concise summary of what you improved.
+   - Step 3: Always give a clear, well-structured final explanation separated by line breaks:
+     * If there was a bug/issue, explain what caused it.
+     * Explain what you changed or created to solve it and list the updated files.
 4. ONLY INSPECT OR LIST DIRECTORIES when the user explicitly asks to check or explore the overall project (e.g. "Can you check on this project?", "Inspect this project", "What is in this folder?").
 5. When permission level is "review" or "default", your file edits or command tool calls will present the user with an interactive permission approval card above the chat input. Issue the tool call so the user can review and approve it.
 6. All file paths must be relative to "${root}" or absolute. Keep explanations brief and let tool calls do the work.
@@ -3734,7 +3736,15 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
             });
           }
           if (isAutoEdit && writtenPaths.length > 0) {
-            replyText = `Created/updated ${writtenPaths.length} file(s) in \`${path.basename(rootDir)}\`:\n${writtenPaths.map((p) => `- \`${p}\``).join('\n')}`;
+            const proseOnly = replyText
+              .replace(/```(?:[a-zA-Z0-9_\-]+)?\r?\n[\s\S]+?\r?\n```/g, '')
+              .replace(/You can save these files[\s\S]*$/i, '')
+              .replace(/\n{3,}/g, '\n\n')
+              .trim();
+            const filesSummary = `Created/updated ${writtenPaths.length} file(s) in \`${path.basename(rootDir)}\`:\n\n${writtenPaths.map((p) => `- \`${p}\``).join('\n')}`;
+            replyText = proseOnly && proseOnly.length > 12
+              ? `${filesSummary}\n\n---\n\n${proseOnly}`
+              : filesSummary;
           }
         }
 

@@ -1721,7 +1721,7 @@ export const AgentStepsAccordion: React.FC<{
         <div className="flex flex-col gap-0.5 mt-2 pl-2 animate-in fade-in duration-150">
           {steps
             .filter((step, _, arr) => {
-              if (step.name !== 'agent_thinking') return true;
+              if (!isLive || step.name !== 'agent_thinking') return true;
               const hasRealTools = arr.some((s) => s.name !== 'agent_thinking');
               return step.status === 'running' || !hasRealTools;
             })
@@ -6662,11 +6662,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           </span>
                         </div>
 
-                        {/* Executed Tools Actions (Antigravity Accordion Style) */}
+                        {/* Executed Tools Actions (Antigravity Accordion Style - collapsed once done, expandable anytime) */}
                         {msg.actionsExecuted && msg.actionsExecuted.length > 0 && (
                           <AgentStepsAccordion
                             steps={msg.actionsExecuted}
-                            defaultExpanded={true}
+                            defaultExpanded={false}
                             expandedStepIds={expandedStepIds}
                             onToggleStepExpand={toggleStepExpand}
                             messageId={msg.id}
