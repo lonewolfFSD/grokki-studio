@@ -346,6 +346,15 @@ class CodingAgentHarness {
 
       // Check if target is missing, empty, or equals original (full file rewrite)
       if (!target || target.trim() === '' || target.trim() === original.trim()) {
+        const isMissingTarget = !target || target.trim() === '';
+        const origLineCount = original.split(/\r?\n/).length;
+        const repLineCount = String(rep || '').split(/\r?\n/).length;
+        if (isMissingTarget && origLineCount > 5 && (repLineCount <= Math.max(3, Math.floor(origLineCount * 0.3)) || String(rep || '').length < original.length * 0.4)) {
+          return {
+            success: false,
+            error: `Rejected partial replacement without "target": existing file has ${origLineCount} lines (${original.length} chars) while replacement only has ${repLineCount} lines. Read the file first and provide the exact "target" lines to replace.`,
+          };
+        }
         fs.writeFileSync(fullPath, rep, 'utf8');
         const diff = this.generateUnifiedDiff(fullPath, original, rep);
         let addedLines = 0;
