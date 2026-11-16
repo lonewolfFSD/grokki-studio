@@ -3763,29 +3763,51 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         // If no tool calls in this turn, check if Agent mode stopped mid-plan or returned an empty turn before acting
         if (toolCalls.length === 0) {
           const hasWrittenOrRun = executed.some((e) => ['write_file', 'edit_file', 'execute_command'].includes(e.name) && e.status === 'completed');
-          const looksLikeUnfinishedPlan = /\b(i(?:'ll| will)|let me|i am going to|going to)\s+(?:now\s+)?(create|write|build|edit|update|implement|add|make|generate|run|check|inspect|scaffold|set\s+up)\b/i.test(replyText || '');
+          const looksLikeUnfinishedPlan = /\b(i(?:'ll| will)|let(?:'s| me)|i am going to|going to)\s+(?:now\s+)?(proceed|start\s+by|create|write|build|edit|update|implement|add|make|generate|run|check|inspect|scaffold|set\s+up)\b|please\s+(?:provide|share)\s+the\s+(?:relevant\s+)?(?:section|code|content|file)/i.test(replyText || '');
           const looksLikeFakeCompletion = /(?:Created\/updated\s+\d+\s+file|\[Previously wrote requested files|Successfully\s+(?:wrote|edited|created)\b|\b(?:created|updated|wrote|saved|added)\b[^.\n]*\.(?:html|css|js|jsx|ts|tsx|py|json))/i.test(replyText || '');
           const isEmptyWithActionIntent = !replyText && (hasWrittenOrRun === false);
           if (isAgent && currentStep < maxAgentSteps && agentNudgeCount < 2 && !hasWrittenOrRun && (looksLikeUnfinishedPlan || looksLikeFakeCompletion || isEmptyWithActionIntent) && !isExplicitNoFileEditRequested(prompt, context)) {
             agentNudgeCount++;
-            console.log(`[AgentBrain] Agent mode returned ${looksLikeFakeCompletion ? 'fake completion' : (replyText ? 'plan-only text' : 'empty text')} without calling tools; nudging (${agentNudgeCount}/2)...`);
-            if (replyText && !looksLikeFakeCompletion) {
-              activeMessages.push({ role: 'assistant', content: replyText });
+            // If the model asked to inspect a file or asked the user to provide it, auto-call read_file on that file so Step 2 has the exact lines
+            const mentionedFileMatch = (replyText || prompt || '').match(/\b([a-zA-Z0-9_\-./\\]+\.(?:html|htm|css|js|jsx|ts|tsx|py|json|md))\b/i);
+            if (looksLikeUnfinishedPlan && mentionedFileMatch && mentionedFileMatch[1]) {
+              const targetHint = mentionedFileMatch[1];
+              const resolvedHint = codingAgentHarness.resolvePath(targetHint);
+              if (fs.existsSync(resolvedHint)) {
+                console.log(`[AgentBrain] Auto-reading "${targetHint}" instead of asking user to provide it...`);
+                toolCalls.push({
+                  id: `auto_read_${Date.now()}`,
+                  type: 'function',
+                  function: {
+                    name: 'read_file',
+                    arguments: { path: targetHint, start_line: 1, end_line: 120 },
+                  },
+                });
+                replyText = '';
+              }
             }
-            activeMessages.push({
-              role: 'user',
-              content: looksLikeFakeCompletion
-                ? 'ERROR: You outputted plain text claiming files were created/updated, but you did NOT call write_file or edit_file. No files were written on disk. Output a valid write_file tool call now, e.g. {"name": "write_file", "arguments": {"path": "contact.html", "content": "..."}}.'
-                : 'Proceed now and call the appropriate tool (such as write_file, edit_file, or execute_command) to actually execute the task.',
-            });
-            continue;
+            if (toolCalls.length === 0) {
+              console.log(`[AgentBrain] Agent mode returned ${looksLikeFakeCompletion ? 'fake completion' : (replyText ? 'plan-only text' : 'empty text')} without calling tools; nudging (${agentNudgeCount}/2)...`);
+              if (replyText && !looksLikeFakeCompletion) {
+                activeMessages.push({ role: 'assistant', content: replyText });
+              }
+              activeMessages.push({
+                role: 'user',
+                content: looksLikeFakeCompletion
+                  ? 'ERROR: You outputted plain text claiming files were created/updated, but you did NOT call write_file or edit_file. No files were written on disk. Output a valid write_file tool call now, e.g. {"name": "write_file", "arguments": {"path": "contact.html", "content": "..."}}.'
+                  : 'Do NOT ask the user to provide files—you have read_file, search_code, edit_file, and write_file tools. Call read_file or edit_file now.',
+              });
+              continue;
+            }
           }
-          if (isAgent && !hasWrittenOrRun && looksLikeFakeCompletion && !isExplicitNoFileEditRequested(prompt, context)) {
-            finalReplyText = `⚠️ **No files were created or modified on disk.** The active model (\`${model}\`) replied with plain text instead of calling \`write_file\` or \`edit_file\`.\n\nStart a **New Agent Session** or switch the model dropdown to **Gemini**, **Groq**, or **OpenRouter** for reliable multi-file execution.`;
+          if (toolCalls.length === 0) {
+            if (isAgent && !hasWrittenOrRun && looksLikeFakeCompletion && !isExplicitNoFileEditRequested(prompt, context)) {
+              finalReplyText = `⚠️ **No files were created or modified on disk.** The active model (\`${model}\`) replied with plain text instead of calling \`write_file\` or \`edit_file\`.\n\nStart a **New Agent Session** or switch the model dropdown to **Gemini**, **Groq**, or **OpenRouter** for reliable multi-file execution.`;
+              break;
+            }
+            finalReplyText = replyText;
             break;
           }
-          finalReplyText = replyText;
-          break;
         }
 
         // Remap hallucinated tool names (e.g. "checkdeployments") to the best matching real mcp__ tool in `tools`
