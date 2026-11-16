@@ -435,5 +435,250 @@
     "category": "fact",
     "mode": "chat",
     "created_at": 1794590243030
+  },
+  {
+    "id": "mem_1794758194971_ssn9",
+    "memory": "User is checking Vercel deployments",
+    "category": "fact",
+    "mode": "chat",
+    "created_at": 1794758194971
+  },
+  {
+    "id": "mem_1794759836486_q16i",
+    "memory": "MCP tool deployment failed",
+    "category": "fact",
+    "mode": "chat",
+    "created_at": 1794759836486
+  },
+  {
+    "id": "mem_1794759836486_8xmi",
+    "memory": "Invalid or expired access token",
+    "category": "fact",
+    "mode": "chat",
+    "created_at": 1794759836486
+  },
+  {
+    "id": "mem_1794759836486_y5xc",
+    "memory": "Need to sign in again",
+    "category": "fact",
+    "mode": "chat",
+    "created_at": 1794759836486
+  },
+  {
+    "id": "mem_1794830245857_s8pw",
+    "memory": "Project details: Create a nice-looking landing page for a dental service",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794830245857
+  },
+  {
+    "id": "mem_1794832413166_f9bt",
+    "memory": "Project details: Create a nice looking landing page for a dental service",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794832413166
+  },
+  {
+    "id": "mem_1794832584450_c6sr",
+    "memory": "User's phone number is +91 86575 77667",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794832584450
+  },
+  {
+    "id": "mem_1794832584450_xgvu",
+    "memory": "User is interested in dental services including general dentistry, dental implants, and teeth whitening",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794832584450
+  },
+  {
+    "id": "mem_1794833037364_67wf",
+    "memory": "Service Name is SmileBright Dental",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794833037364
+  },
+  {
+    "id": "mem_1794833037364_d2bb",
+    "memory": "Services Offered include Teeth Cleaning, Root Canal, Dental Implants, Teeth Whitening, and Oral Cancer Screening",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794833037364
+  },
+  {
+    "id": "mem_1794833037364_to52",
+    "memory": "Contact Information includes Phone: (123) 456-7890, Email: info@smilebrightdental.com, Address: 1234 Elm Street, Springfield, IL 62704",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794833037364
+  },
+  {
+    "id": "mem_1794845490125_4m9h",
+    "memory": "User requested a new separate contact page",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794845490125
+  },
+  {
+    "id": "mem_1794845592249_31f5",
+    "memory": "Created a new contact page",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794845592249
+  },
+  {
+    "id": "mem_1794847295812_llwd",
+    "memory": "Updated index.html to include contact page link",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794847295812
+  },
+  {
+    "id": "mem_1794847549758_6hzn",
+    "memory": "Contact page linked to index nav link 'contact'",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794847549758
+  },
+  {
+    "id": "mem_1794847952767_707q",
+    "memory": "User prefers a functional and user-friendly contact page",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794847952767
+  },
+  {
+    "id": "mem_1794847952767_cxi8",
+    "memory": "The contact page should be linked to the index page with a navigation link",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794847952767
+  },
+  {
+    "id": "mem_1794847952767_82xp",
+    "memory": "The form action in the contact page is set to send an email to info@smilebrightdental.com",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794847952767
+  },
+  {
+    "id": "mem_1794848733629_a001",
+    "memory": "Created/updated 2 file(s) in `Test`: `contact.html` and `index.html`",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794848733629
+  },
+  {
+    "id": "mem_1794849214722_thzr",
+    "memory": "User requested a 'Services' page to be created and linked to the index.",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794849214722
+  },
+  {
+    "id": "mem_1794849225241_qgh9",
+    "memory": "User requested a 'Services' page to be created.",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794849225241
+  },
+  {
+    "id": "mem_1794849225241_eca0",
+    "memory": "The 'Services' page should be linked to the 'Contact' page.",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794849225241
+  },
+  {
+    "id": "mem_1794849225241_wlia",
+    "memory": "The 'Services' page should be connected to the 'index' page.",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794849225241
+  },
+  {
+    "id": "mem_1794849447316_rsjx",
+    "memory": "User wants a separate 'Services' page",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794849447316
+  },
+  {
+    "id": "mem_1794849447316_07sv",
+    "memory": "User wants the 'Services' page to be connected to the 'index' page",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794849447316
+  },
+  {
+    "id": "mem_1794849531502_1nxe",
+    "memory": "User wants to improve the services page",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794849531502
+  },
+  {
+    "id": "mem_1794849618450_84lt",
+    "memory": "Created/updated 1 file(s) in `Test`: `services.html`",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794849618450
+  },
+  {
+    "id": "mem_1794849676555_zq2l",
+    "memory": "Project involves connecting the services page with the index page",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794849676555
+  },
+  {
+    "id": "mem_1794850367285_v5sw",
+    "memory": "Project involves editing services.html to connect with the index page",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794850367285
+  },
+  {
+    "id": "mem_1794850446028_q4nq",
+    "memory": "User wants to connect the services page with the index page",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794850446028
+  },
+  {
+    "id": "mem_1794850932221_1cw8",
+    "memory": "Updated services page and contact page with styles.css",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794850932221
+  },
+  {
+    "id": "mem_1794851369230_j6kw",
+    "memory": "User wants to create a new services page",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794851369230
+  },
+  {
+    "id": "mem_1794851369230_6f0a",
+    "memory": "User wants to connect the services page to the index as a nav link",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794851369230
+  },
+  {
+    "id": "mem_1794851369230_d4ys",
+    "memory": "User wants the services page to be similar to the contact page",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794851369230
+  },
+  {
+    "id": "mem_1794852096743_kr3g",
+    "memory": "Created an About page",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794852096743
   }
 ]
