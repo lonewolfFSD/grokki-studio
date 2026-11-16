@@ -3533,14 +3533,14 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                   }
                 }
 
-                const isRawJsonCall = /^\s*(?:call>|```json)?\s*\{\s*"name"\s*:/.test(streamText || '');
+                const hasCodeOrJson = /```|^\s*(?:call>)?\s*\{\s*"name"\s*:/m.test(streamText || '');
                 this.emitAgentStep(context, {
                   id: planStepId,
                   conversationId: convoId,
                   status: 'running',
                   name: 'agent_thinking',
                   args: { step: currentStep, detail: liveDetail },
-                  result: (streamText && !isRawJsonCall) ? { message: streamText } : undefined,
+                  result: (streamText && !hasCodeOrJson) ? { message: streamText } : undefined,
                 });
               } : null,
             });
@@ -3568,13 +3568,13 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         }
         if (isAgent) {
           const thoughtMsg = (data.choices[0]?.message?.content || '').trim();
-          const isRawJsonCall = /^\s*(?:call>|```json)?\s*\{\s*"name"\s*:/.test(thoughtMsg);
+          const hasCodeOrJson = /```|^\s*(?:call>)?\s*\{\s*"name"\s*:/m.test(thoughtMsg);
           this.emitAgentStep(context, {
             id: planStepId,
             conversationId: convoId,
             status: 'completed',
             name: 'agent_thinking',
-            result: (thoughtMsg && !isRawJsonCall) ? { message: thoughtMsg } : undefined,
+            result: (thoughtMsg && !hasCodeOrJson) ? { message: thoughtMsg } : undefined,
           });
         }
 
