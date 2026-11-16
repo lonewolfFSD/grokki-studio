@@ -1026,3 +1026,45 @@ html.lenis, html.lenis body { height: auto; }
   color: #6366f1 !important;
   font-weight: 600;
 }
+
+@keyframes grokki-shine-sweep {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.grokki-shine-text {
+  background: linear-gradient(
+    90deg,
+    #52525b 0%,
+    #52525b 35%,
+    #09090b 50%,
+    #52525b 65%,
+    #52525b 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: grokki-shine-sweep 1.8s linear infinite;
+}
+
+.dark .grokki-shine-text {
+  background: linear-gradient(
+    90deg,
+    rgba(228, 228, 231, 0.45) 0%,
+    rgba(228, 228, 231, 0.45) 35%,
+    #ffffff 50%,
+    rgba(228, 228, 231, 0.45) 65%,
+    rgba(228, 228, 231, 0.45) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}

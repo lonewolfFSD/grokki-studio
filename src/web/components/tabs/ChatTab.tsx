@@ -1315,16 +1315,13 @@ const AgentStepRow: React.FC<{
             {isRunning ? 'Analyzing' : (isFailed ? 'Failed to read' : 'Analyzed')}
           </span>
           <span className="inline-flex items-center">{badge}</span>
-          <span className="text-neutral-200 dark:text-neutral-200 font-mono text-[12px]">
+          <span className={`font-mono text-[12px] ${isRunning ? 'grokki-shine-text' : 'text-neutral-200 dark:text-neutral-200'}`}>
             {baseName}
           </span>
           {rangeText && (
-            <span className="text-neutral-500 font-mono text-[12px]">
+            <span className={`font-mono text-[12px] ${isRunning ? 'grokki-shine-text' : 'text-neutral-500'}`}>
               {rangeText}
             </span>
-          )}
-          {isRunning && (
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping ml-1" />
           )}
           {isFailed && result.error && (
             <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
@@ -1356,15 +1353,12 @@ const AgentStepRow: React.FC<{
           <span className={isFailed ? 'text-rose-400 font-medium' : 'text-neutral-400 dark:text-neutral-400'}>
             {isRunning ? 'Running' : (isFailed ? 'Command failed' : 'Ran')}
           </span>
-          <span className="text-neutral-200 dark:text-neutral-200 text-[12px] font-normal group-hover:text-white transition-colors">
+          <span className={`text-[12px] font-normal transition-colors ${isRunning ? 'grokki-shine-text' : 'text-neutral-200 dark:text-neutral-200 group-hover:text-white'}`}>
             {label}
           </span>
           <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
             &gt;
           </span>
-          {isRunning && (
-            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping ml-1" />
-          )}
         </div>
         {isExpanded && (
           <div className="mt-1 mb-2 p-2 rounded bg-black/40 backdrop-blur-md border border-white/10 font-mono text-[11px] text-neutral-300 overflow-x-auto max-h-48 scrollbar-thin">
@@ -1402,7 +1396,7 @@ const AgentStepRow: React.FC<{
             {isRunning ? 'Editing' : (isFailed ? 'Failed to edit' : 'Edited')}
           </span>
           <span className="inline-flex items-center">{badge}</span>
-          <span className="text-neutral-200 dark:text-neutral-200 font-mono text-[12px]">
+          <span className={`font-mono text-[12px] ${isRunning ? 'grokki-shine-text' : 'text-neutral-200 dark:text-neutral-200'}`}>
             {baseName}
           </span>
           {!isRunning && !isFailed && (added > 0 || removed > 0) && (
@@ -1423,9 +1417,6 @@ const AgentStepRow: React.FC<{
             <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
               &gt;
             </span>
-          )}
-          {isRunning && (
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping ml-1" />
           )}
         </div>
         {isExpanded && isFailed && (result.error || result.message) && (
@@ -1474,16 +1465,13 @@ const AgentStepRow: React.FC<{
             {isRunning ? 'Creating' : (isFailed ? 'Failed to create' : 'Created')}
           </span>
           <span className="inline-flex items-center">{badge}</span>
-          <span className="text-neutral-200 dark:text-neutral-200 font-mono text-[12px]">
+          <span className={`font-mono text-[12px] ${isRunning ? 'grokki-shine-text' : 'text-neutral-200 dark:text-neutral-200'}`}>
             {baseName}
           </span>
           {!isRunning && !isFailed && added > 0 && (
             <span className="text-emerald-400 font-mono text-[12px] font-medium">
               +{added}
             </span>
-          )}
-          {isRunning && (
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping ml-1" />
           )}
           {isFailed && result.error && (
             <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
@@ -1510,11 +1498,8 @@ const AgentStepRow: React.FC<{
         <span className={isFailed ? 'text-rose-400 font-medium' : 'text-neutral-400 dark:text-neutral-400'}>
           {isRunning ? 'Searching' : (isFailed ? 'Search failed' : 'Searched')}
         </span>
-        <span className="text-neutral-200 font-mono text-[12px]">"{query}"</span>
-        {p && <span className="text-neutral-500 font-mono text-[12px]">in {p}</span>}
-        {isRunning && (
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping ml-1" />
-        )}
+        <span className={`font-mono text-[12px] ${isRunning ? 'grokki-shine-text' : 'text-neutral-200'}`}>"{query}"</span>
+        {p && <span className={`font-mono text-[12px] ${isRunning ? 'grokki-shine-text' : 'text-neutral-500'}`}>in {p}</span>}
       </div>
     );
   }
@@ -1528,10 +1513,7 @@ const AgentStepRow: React.FC<{
         <span className={isFailed ? 'text-rose-400 font-medium' : 'text-neutral-400 dark:text-neutral-400'}>
           {isRunning ? 'Listing' : (isFailed ? 'Failed to list' : 'Listed')}
         </span>
-        <span className="text-neutral-200 font-mono text-[12px]">{dir}</span>
-        {isRunning && (
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping ml-1" />
-        )}
+        <span className={`font-mono text-[12px] ${isRunning ? 'grokki-shine-text' : 'text-neutral-200'}`}>{dir}</span>
       </div>
     );
   }
@@ -1549,16 +1531,13 @@ const AgentStepRow: React.FC<{
             {isRunning ? 'Recalling' : 'Recalled'}
           </span>
           <span className="inline-flex items-center text-[13px] select-none">🧠</span>
-          <span className="text-neutral-200 dark:text-neutral-200 text-[12px] font-medium group-hover:text-white transition-colors">
+          <span className={`text-[12px] font-medium transition-colors ${isRunning ? 'grokki-shine-text' : 'text-neutral-200 dark:text-neutral-200 group-hover:text-white'}`}>
             memory "{q}"
           </span>
           {result.message && (
             <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
               &gt;
             </span>
-          )}
-          {isRunning && (
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping ml-1" />
           )}
         </div>
         {isExpanded && result.message && (
@@ -1579,12 +1558,9 @@ const AgentStepRow: React.FC<{
           {isRunning ? 'Saving to' : 'Saved to'}
         </span>
         <span className="inline-flex items-center text-[13px] select-none">🧠</span>
-        <span className="text-neutral-200 dark:text-neutral-200 text-[12px] font-medium">
+        <span className={`text-[12px] font-medium ${isRunning ? 'grokki-shine-text' : 'text-neutral-200 dark:text-neutral-200'}`}>
           memory "{title}"
         </span>
-        {isRunning && (
-          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping ml-1" />
-        )}
       </div>
     );
   }
@@ -1605,16 +1581,13 @@ const AgentStepRow: React.FC<{
           <span className={isRunning ? 'text-sky-400 font-medium' : 'text-neutral-400 dark:text-neutral-400'}>
             {labelText}
           </span>
-          <span className={`${isEditingLive ? 'text-neutral-100 font-mono' : 'text-neutral-300 dark:text-neutral-300'} text-[12px] break-all`}>
+          <span className={`${isEditingLive ? 'font-mono' : ''} text-[12px] break-all ${isRunning ? 'grokki-shine-text' : (isEditingLive ? 'text-neutral-100' : 'text-neutral-300 dark:text-neutral-300')}`}>
             {restDetail}
           </span>
           {thoughtText && (
             <span className={`text-neutral-500 group-hover:text-neutral-300 font-mono text-[12px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
               &gt;
             </span>
-          )}
-          {isRunning && (
-            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping ml-1" />
           )}
         </div>
         {isExpanded && thoughtText && (
@@ -1632,12 +1605,9 @@ const AgentStepRow: React.FC<{
       <span className="text-neutral-400 dark:text-neutral-400">
         {isRunning ? 'Running' : 'Executed'}
       </span>
-      <span className="text-neutral-200 font-mono text-[12px]">
+      <span className={`font-mono text-[12px] ${isRunning ? 'grokki-shine-text' : 'text-neutral-200'}`}>
         {name.replace(/_/g, ' ')}
       </span>
-      {isRunning && (
-        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping ml-1" />
-      )}
     </div>
   );
 };
@@ -1736,10 +1706,7 @@ export const AgentStepsAccordion: React.FC<{
         onClick={() => setIsOpen((prev) => !prev)}
         className="w-fit max-w-full bg-[#13151c]/90 hover:bg-[#1a1c26] border border-white/[0.08] hover:border-white/[0.15] text-neutral-300 dark:text-neutral-300 rounded-lg px-2.5 py-1 text-[12px] font-sans inline-flex items-center gap-2 cursor-pointer transition-all shadow-xs text-left group"
       >
-        <span className="truncate group-hover:text-white transition-colors inline-flex items-center gap-2">
-          {isLive && (
-            <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse flex-shrink-0" />
-          )}
+        <span className={`truncate transition-colors ${isLive ? 'grokki-shine-text font-medium' : 'group-hover:text-white'}`}>
           {summary}
         </span>
         {isOpen ? (
