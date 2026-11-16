@@ -3763,10 +3763,11 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
         // If no tool calls in this turn, check if Agent mode stopped mid-plan or returned an empty turn before acting
         if (toolCalls.length === 0) {
           const hasWrittenOrRun = executed.some((e) => ['write_file', 'edit_file', 'execute_command'].includes(e.name) && e.status === 'completed');
-          const looksLikeUnfinishedPlan = /\b(i(?:'ll| will)|let(?:'s| me)|i am going to|going to)\s+(?:now\s+)?(proceed|start\s+by|create|write|build|edit|update|implement|add|make|generate|run|check|inspect|scaffold|set\s+up)\b|please\s+(?:provide|share)\s+the\s+(?:relevant\s+)?(?:section|code|content|file)/i.test(replyText || '');
+          const asksUserForFileOrLines = /please\s+(?:provide|share|give\s+me)\s+the\s+(?:line\s+numbers|relevant\s+section|specific\s+content|code|content|file)/i.test(replyText || '');
+          const looksLikeUnfinishedPlan = asksUserForFileOrLines || /\b(i(?:'ll| will)|let(?:'s| me)|i am going to|going to)\s+(?:now\s+)?(proceed|start\s+by|create|write|build|edit|update|implement|add|make|generate|run|check|inspect|scaffold|set\s+up)\b/i.test(replyText || '');
           const looksLikeFakeCompletion = /(?:Created\/updated\s+\d+\s+file|\[Previously wrote requested files|Successfully\s+(?:wrote|edited|created)\b|\b(?:created|updated|wrote|saved|added)\b[^.\n]*\.(?:html|css|js|jsx|ts|tsx|py|json))/i.test(replyText || '');
           const isEmptyWithActionIntent = !replyText && (hasWrittenOrRun === false);
-          if (isAgent && currentStep < maxAgentSteps && agentNudgeCount < 2 && !hasWrittenOrRun && (looksLikeUnfinishedPlan || looksLikeFakeCompletion || isEmptyWithActionIntent) && !isExplicitNoFileEditRequested(prompt, context)) {
+          if (isAgent && currentStep < maxAgentSteps && agentNudgeCount < 2 && (asksUserForFileOrLines || (!hasWrittenOrRun && (looksLikeUnfinishedPlan || looksLikeFakeCompletion || isEmptyWithActionIntent))) && !isExplicitNoFileEditRequested(prompt, context)) {
             agentNudgeCount++;
             // If the model asked to inspect a file or asked the user to provide it, auto-call read_file on that file so Step 2 has the exact lines
             const mentionedFileMatch = (replyText || prompt || '').match(/\b([a-zA-Z0-9_\-./\\]+\.(?:html|htm|css|js|jsx|ts|tsx|py|json|md))\b/i);
