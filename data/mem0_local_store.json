@@ -687,5 +687,12 @@
     "category": "fact",
     "mode": "chat",
     "created_at": 1794936201541
+  },
+  {
+    "id": "mem_1794937663004_hrup",
+    "memory": "User is building a zoo facility website using React, Tailwind CSS, and Vite",
+    "category": "agent",
+    "mode": "agent",
+    "created_at": 1794937663004
   }
 ]

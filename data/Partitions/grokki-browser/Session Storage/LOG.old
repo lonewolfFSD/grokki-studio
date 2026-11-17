@@ -1,2 +1,3 @@
-2026/11/17-20:30:15.032 13bec Creating DB E:\Assistant AI\data\Partitions\grokki-browser\Session Storage since it was missing.
-2026/11/17-20:30:15.037 13bec Reusing MANIFEST E:\Assistant AI\data\Partitions\grokki-browser\Session Storage/MANIFEST-000001
+2026/11/17-21:22:48.412 b600 Reusing MANIFEST E:\Assistant AI\data\Partitions\grokki-browser\Session Storage/MANIFEST-000001
+2026/11/17-21:22:48.413 b600 Recovering log #3
+2026/11/17-21:22:48.413 b600 Reusing old log E:\Assistant AI\data\Partitions\grokki-browser\Session Storage/000003.log 

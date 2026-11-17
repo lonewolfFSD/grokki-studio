@@ -898,6 +898,7 @@ The user explicitly asked you to write or show the code directly in this chat an
     return `You are Grokki Agent, an expert autonomous software engineer and coding harness operating directly in the user's local project.
 
 CURRENT ACTIVE CHAT MODE: GROKKI AGENT MODE (mode: "agent")
+- COMPLETION RULE: NEVER stop after scaffolding a template or writing a single component. When asked to build a website or app, you MUST finish ALL sections/components, wire them into App.jsx/App.tsx/index.html, apply Tailwind/CSS styling, and verify with npm run build before replying with your final summary.
 - You are currently running in **Agent Mode** inside the user's workspace project ("${root}").
 - You have full agentic capabilities and coding tools to inspect, read, edit, write files, search code, and execute terminal commands.
 - If the user asks what mode you are in or if you can edit files on this system, confirm that you are in Agent Mode and ready to inspect, edit, create files, and execute tasks in their project workspace.${noFileEdit ? noFileEditNotice : `
@@ -3355,7 +3356,7 @@ STRICT OPERATIONAL DIRECTIVES:
       : ((isAgent && !isConversationalPrompt)
           ? this.buildAgentSystemPrompt(context, config, fullPrompt, conversationHistory)
           : memory.buildSystemPrompt(config, fullPrompt, context));
-      systemInstruction += `\n[Runtime Engine: Active provider="${provider}", Active model="${model}". If the user asks what model or provider is currently in use, state this exact provider and model directly.]`;
+    systemContent += `\n[Runtime Engine: Active provider="${provider}", Active model="${model}". If the user asks what model or provider is currently in use, state this exact provider and model directly.]`;
     let historyToUse = isCustomSystemPrompt ? [] : rawHistory.slice(-18);
 
     // Groq Free Tier optimization: keep prompt lean (<3500 tokens) to guarantee zero 413 ITPM errors (non-agent only)
@@ -3859,7 +3860,20 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
           const looksLikeUnfinishedPlan = asksUserForFileOrLines || /\b(i(?:'ll| will)|let(?:'s| me)|i am going to|going to)\s+(?:now\s+)?(proceed|start\s+by|create|write|build|edit|update|implement|add|make|generate|run|check|inspect|scaffold|set\s+up)\b/i.test(replyText || '');
           const looksLikeFakeCompletion = /(?:Created\/updated\s+\d+\s+file|\[Previously wrote requested files|Successfully\s+(?:wrote|edited|created)\b|\b(?:created|updated|wrote|saved|added)\b[^.\n]*\.(?:html|css|js|jsx|ts|tsx|py|json))/i.test(replyText || '');
           const isEmptyWithActionIntent = !replyText && (hasWrittenOrRun === false);
-          if (isAgent && !isConversationalPrompt && currentStep < maxAgentSteps && agentNudgeCount < 2 && (asksUserForFileOrLines || (!hasWrittenOrRun && (looksLikeUnfinishedPlan || looksLikeFakeCompletion || isEmptyWithActionIntent))) && !isExplicitNoFileEditRequested(prompt, context)) {
+          const isBuildProjectPrompt = /\b(create|build|make|setup|scaffold|website|app|project)\b/i.test(prompt || '');
+          const hasWiredMainApp = executed.some(
+            (e) =>
+              (e.name === 'write_file' || e.name === 'edit_file') &&
+              e.status === 'completed' &&
+              /(?:App\.(?:jsx|tsx|js|ts)|index\.html)/i.test(String(e.args?.path || e.args?.file_path || ''))
+          );
+          const looksLikeEarlyStop =
+            isBuildProjectPrompt &&
+            hasWrittenOrRun &&
+            !hasWiredMainApp &&
+            (/^Successfully\s+(?:wrote|edited|created)\b/i.test(replyText || '') || (replyText || '').length < 180);
+
+          if (isAgent && !isConversationalPrompt && currentStep < maxAgentSteps && agentNudgeCount < 2 && (asksUserForFileOrLines || looksLikeEarlyStop || (!hasWrittenOrRun && (looksLikeUnfinishedPlan || looksLikeFakeCompletion || isEmptyWithActionIntent))) && !isExplicitNoFileEditRequested(prompt, context)) {
             agentNudgeCount++;
             // If the model asked to inspect a file or asked the user to provide it, auto-call read_file on that file so Step 2 has the exact lines
             const mentionedFileMatch = (replyText || prompt || '').match(/\b([a-zA-Z0-9_\-./\\]+\.(?:html|htm|css|js|jsx|ts|tsx|py|json|md))\b/i);
@@ -3888,6 +3902,8 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
                 role: 'user',
                 content: looksLikeFakeCompletion
                   ? 'ERROR: You outputted plain text claiming files were created/updated, but you did NOT call write_file or edit_file. No files were written on disk. Output a valid write_file tool call now, e.g. {"name": "write_file", "arguments": {"path": "contact.html", "content": "..."}}.'
+                  : looksLikeEarlyStop
+                  ? 'You stopped early after partial work. Continue now: create the remaining components/pages, wire everything into App.jsx / index.html with full Tailwind/CSS styling, and run `npm run build` to verify before finishing.'
                   : 'Do NOT ask the user to provide files—you have read_file, search_code, edit_file, and write_file tools. Call read_file or edit_file now.',
               });
               continue;

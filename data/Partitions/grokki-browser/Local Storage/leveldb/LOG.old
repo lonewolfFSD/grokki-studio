@@ -1,2 +1,6 @@
-2026/11/17-20:30:14.525 14028 Creating DB E:\Assistant AI\data\Partitions\grokki-browser\Local Storage\leveldb since it was missing.
-2026/11/17-20:30:14.542 14028 Reusing MANIFEST E:\Assistant AI\data\Partitions\grokki-browser\Local Storage\leveldb/MANIFEST-000001
+2026/11/17-21:22:47.960 15a94 Reusing MANIFEST E:\Assistant AI\data\Partitions\grokki-browser\Local Storage\leveldb/MANIFEST-000001
+2026/11/17-21:22:47.961 15a94 Recovering log #3
+2026/11/17-21:22:47.961 15a94 Reusing old log E:\Assistant AI\data\Partitions\grokki-browser\Local Storage\leveldb/000003.log 
+2026/11/17-21:26:12.021 15a94 Level-0 table #5: started
+2026/11/17-21:26:12.025 15a94 Level-0 table #5: 48163 bytes OK
+2026/11/17-21:26:12.026 15a94 Delete type=0 #3
