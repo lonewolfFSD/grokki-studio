@@ -1882,7 +1882,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
               setAgentMenu(agentMenu === 'project' ? null : 'project');
             }}
             disabled={isProjectLocked}
-            className={`flex items-center gap-1.5 px-4.5 py-1.5  rounded-lg text-[11.5px] font-medium bg-gray-100 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-gray-700 dark:text-gray-300 border border-gray-200/70 dark:border-white/[0.08] transition-all max-w-[260px] backdrop-blur-sm truncate select-none ${
+            className={`flex items-center gap-1.5 px-4.5 py-2 backdrop-blur-sm rounded-lg text-[11.5px] font-medium bg-gray-100 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-gray-700 dark:text-gray-300 border border-gray-200/70 dark:border-white/[0.08] transition-all max-w-[260px] truncate select-none ${
               isProjectLocked ? 'cursor-default opacity-85' : 'cursor-pointer shadow-xs'
             }`}
             
@@ -2002,17 +2002,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
             {agentMenu === 'effort' && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="absolute right-0 bottom-full mb-2 w-64 rounded-2xl border border-white/[0.12] shadow-[0_20px_60px_rgba(0,0,0,0.85)] p-2 z-[9999] text-left transition-all duration-150 ease-out"
+                className="absolute right-0 bottom-full mb-2 w-52 rounded-2xl border border-white/[0.12] shadow-[0_20px_60px_rgba(0,0,0,0.85)] p-2 z-[9999] text-left transition-all duration-150 ease-out"
                 style={{
                   backdropFilter: 'blur(40px) saturate(190%)',
                   WebkitBackdropFilter: 'blur(40px) saturate(190%)',
                   backgroundColor: isDarkTheme ? 'rgba(15, 17, 23, 0.94)' : 'rgba(255, 255, 255, 0.94)',
                 }}
               >
-                <div className="px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                  Effort Level
-                </div>
-                <div className="flex flex-col gap-0.5 mt-1">
+                <div className="flex flex-col gap-1 mt-1">
                   {AGENT_EFFORT_OPTIONS.map((opt) => {
                     const isSelected = selectedEffort === opt.id;
                     return (
@@ -2024,15 +2021,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           e.stopPropagation();
                           handleSetEffort(opt.id);
                         }}
-                        className={`flex items-start justify-between w-full p-2 rounded-xl text-left transition-colors cursor-pointer border-none ${
+                        className={`flex items-start justify-between w-full p-2 rounded-lg text-left transition-colors cursor-pointer border-none ${
                           isSelected ? 'bg-white/[0.12] text-white' : 'hover:bg-white/[0.06] text-gray-300'
                         }`}
                       >
-                        <div className="flex flex-col">
-                          <span className="text-[12px] font-medium text-white">{opt.label}</span>
-                          <span className="text-[10.5px] text-gray-400 leading-tight mt-0.5">{opt.desc}</span>
+                        <div className="flex flex-col px-0.5">
+                          <span className="text-[13px] font-medium text-white">{opt.label}</span>
+                                                    <span className="text-[10.5px] text-gray-400 leading-tight mt-0.5">{opt.desc}</span>
                         </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0 mt-0.5" />}
                       </button>
                     );
                   })}
@@ -2144,7 +2140,80 @@ export const ChatTab = React.memo<ChatTabProps>(({
     return typeof window !== 'undefined' ? Math.min(960, Math.max(520, Math.round(window.innerWidth * 0.48))) : 640;
   });
   const [isCanvasResizing, setIsCanvasResizing] = useState(false);
-  const [attachedFile, setAttachedFile] = useState<AttachedFileInfo | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFileInfo[]>([]);
+  const attachedFile = attachedFiles[0] || null;
+  const setAttachedFile = useCallback((
+    fileOrUpdater: AttachedFileInfo | null | ((prev: AttachedFileInfo | null) => AttachedFileInfo | null)
+  ) => {
+    if (fileOrUpdater === null) {
+      setAttachedFiles([]);
+    } else if (typeof fileOrUpdater === 'function') {
+      setAttachedFiles((prev) => {
+        const next = fileOrUpdater(prev[0] || null);
+        return next ? [next] : [];
+      });
+    } else {
+      setAttachedFiles((prev) => {
+        const exists = prev.some(
+          (f) =>
+            (f.path && fileOrUpdater.path && f.path === fileOrUpdater.path) ||
+            (f.name === fileOrUpdater.name && f.size === fileOrUpdater.size)
+        );
+        if (exists) return prev;
+        return [...prev, fileOrUpdater].slice(0, 4);
+      });
+    }
+  }, []);
+
+  const renderComposerAttachments = () => {
+    if (attachedFiles.length === 0) return null;
+    return (
+      <div className="flex flex-wrap items-center gap-2 pb-1.5 border-b border-gray-200/60 dark:border-white/[0.06]">
+        {attachedFiles.map((file, idx) => {
+          const isImg = isImageAttachment(file);
+          return (
+            <div
+              key={`${file.path || file.name}-${idx}`}
+              className="relative group flex-shrink-0"
+            >
+              {isImg ? (
+                <div className="w-11 h-11 rounded-lg overflow-hidden border border-gray-200/80 dark:border-white/15 bg-black/20">
+                  <ChatImageAttachment
+                    file={file}
+                    compact
+                    onZoom={(src, name, size, path, originRect) =>
+                      openLightbox(src, name, size, path, originRect)
+                    }
+                  />
+                </div>
+              ) : (
+                <div
+                  className="h-11 px-2.5 rounded-lg bg-gray-900/[0.04] dark:bg-white/[0.05] border border-gray-200/80 dark:border-white/10 flex items-center gap-2 max-w-[160px]"
+                  title={file.name}
+                >
+                  {getFileIcon(file.ext)}
+                  <span className="text-[11px] font-medium text-gray-800 dark:text-zinc-200 truncate">
+                    {file.name}
+                  </span>
+                </div>
+              )}
+              <button
+                type="button"
+                aria-label={`Remove ${file.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
+                }}
+                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-gray-900 dark:bg-zinc-800 text-white border border-white/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [dualBattleEnabled, setDualBattleEnabled] = useState(false);
   const [brainASelection, setBrainASelection] = useState<string>('gemini:gemini-flash-latest');
@@ -2306,14 +2375,6 @@ export const ChatTab = React.memo<ChatTabProps>(({
     grok: { name: 'Grok', modelField: 'grokModel', defaultModel: 'grok-2-1212', Logo: GrokLogo },
     deepseek: { name: 'DeepSeek', modelField: 'deepseekModel', defaultModel: 'deepseek-chat', Logo: DeepSeekLogo },
     qwen: { name: 'Qwen', modelField: 'qwenModel', defaultModel: 'qwen-max', Logo: QwenLogo },
-    anthropic: { name: 'Claude', modelField: 'anthropicModel', defaultModel: 'claude-sonnet-4-5', Logo: AnthropicLogo },
-    kimi: { name: 'Kimi', modelField: 'kimiModel', defaultModel: 'kimi-k2-0711-preview', Logo: KimiLogo },
-    mistral: { name: 'Mistral', modelField: 'mistralModel', defaultModel: 'mistral-large-latest', Logo: MistralLogo },
-    perplexity: { name: 'Perplexity', modelField: 'perplexityModel', defaultModel: 'sonar-pro', Logo: PerplexityLogo },
-    cohere: { name: 'Cohere', modelField: 'cohereModel', defaultModel: 'command-a-03-2025', Logo: CohereLogo },
-    glm: { name: 'Zhipu GLM', modelField: 'glmModel', defaultModel: 'glm-4.5', Logo: GlmLogo },
-    minimax: { name: 'MiniMax', modelField: 'minimaxModel', defaultModel: 'MiniMax-M1', Logo: MiniMaxLogo },
-    together: { name: 'Together AI', modelField: 'togetherModel', defaultModel: 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8', Logo: TogetherLogo },
     litellm: { name: 'LiteLLM', modelField: 'litellmModel', defaultModel: 'gpt-4o', Logo: LiteLLMLogo },
     bifrost: { name: 'Bifrost', modelField: 'bifrostModel', defaultModel: 'auto', Logo: BifrostLogo },
     portkey: { name: 'Portkey', modelField: 'portkeyModel', defaultModel: 'auto', Logo: PortkeyLogo },
@@ -4268,6 +4329,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         if (currentAttachment) {
           context.filePath = currentAttachment.path;
           context.attachedFile = currentAttachment;
+          if (attachedFiles.length > 0) context.attachedFiles = attachedFiles;
         }
         if (currentMentions.length > 0) {
           context.projectMentions = currentMentions;
@@ -4314,6 +4376,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
         if (currentAttachment) {
           context.filePath = currentAttachment.path;
           context.attachedFile = currentAttachment;
+          if (attachedFiles.length > 0) context.attachedFiles = attachedFiles;
         }
         if (currentMentions.length > 0) {
           context.projectMentions = currentMentions;
@@ -5984,7 +6047,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
       {/* Main Chat Column */}
       <div className="flex flex-col flex-1 min-w-0 h-full relative z-10 min-h-0">
           {/* Antigravity-Style Top Chat Header */}
-          <header className="h-11 px-4 flex items-center justify-between border-b border-gray-200/70 dark:border-white/[0.06] flex-shrink-0 select-none">
+          <header className="h-11 px-4 flex items-center justify-between  border-b border-gray-200/70 dark:border-white/[0.06] flex-shrink-0 select-none">
             <div className="flex items-center gap-1.5 min-w-0 text-[13px]">
               {agentMode && agentRootName && (
                 <>
@@ -6195,59 +6258,6 @@ export const ChatTab = React.memo<ChatTabProps>(({
             </AnimatePresence>
           </div>
 
-          {/* Staged File Preview Card */}
-          {attachedFile && (
-            <div className="w-full max-w-xl mx-auto mb-3 p-2.5 bg-white/95 dark:bg-[#131317]/95 backdrop-blur-md border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-xs flex items-center justify-between text-left transition-all">
-              <div className="flex items-center gap-3 min-w-0">
-                {isImageAttachment(attachedFile) ? (
-                  <ChatImageAttachment
-                    file={attachedFile}
-                    compact
-                    onZoom={(src, name, size, path, originRect) => openLightbox(src, name, size, path, originRect)}
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-lg bg-gray-900/[0.03] dark:bg-white/[0.035] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.05] dark:border-white/[0.05]">
-                    {getFileIcon(attachedFile.ext)}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
-                    {attachedFile.name}
-                  </div>
-                  <div className="text-[10px] text-gray-600 dark:text-gray-400 font-mono">
-                    {formatFileSize(attachedFile.size) ? `${formatFileSize(attachedFile.size)} • ` : ''}
-                    {isVideoAttachment(attachedFile)
-                      ? 'Send on WhatsApp or Drive only • Video watching disabled (saves tokens)'
-                      : 'Ready to share with Grokki'}
-                  </div>
-                </div>
-              </div>
-              <WarmTooltip
-                content="Remove attachment"
-                side="top"
-                surfaceColor="#f5f5f5"
-                inkColor="#18181b"
-                size="md"
-                radius={8}
-                gap={8}
-                arrow
-                popDuration={160}
-                popScale={0.94}
-                popBlur={4}
-                showFuse={false}
-              >
-                <button
-                  type="button"
-                  aria-label="Remove attachment"
-                  onClick={() => setAttachedFile(null)}
-                  className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-950 dark:hover:text-white hover:bg-gray-900/[0.05] dark:hover:bg-white/[0.06] transition-colors cursor-pointer border-none bg-transparent"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </WarmTooltip>
-            </div>
-          )}
-
           {/* Centered Floating Input Pill with Slash Command Palette & Mention Palette */}
           <div className="w-full mx-auto relative z-30 transition-all duration-200">
             {renderSlashMenu()}
@@ -6296,11 +6306,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
               proximity={250}
               className="w-full bg-white/75 dark:bg-[#0f0f13]/65 backdrop-blur-md shadow-sm hover:shadow-md p-3 transition-all flex flex-col gap-2.5 text-left relative z-20"
             >
+              {/* Compact Attached Images / Files Strip Inside Input */}
+              {renderComposerAttachments()}
+
               {/* Battle Stage Selector when Dual-Battle Mode is active (Only in Grokki Chat) */}
               {dualBattleEnabled && !agentMode && renderBattleStageBar('top')}
 
               {/* Input Field on Top with Inline Plugin Brand Pill & Grokki Blue Highlighting */}
-              <div className="flex items-start gap-2 w-full h-12">
+              <div className="flex items-start gap-2 w-full h-10">
                 {renderInlineStagedPlugins()}
                 <div className="flex-1 min-w-0">
                   <RichBrandInput
@@ -7243,60 +7256,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
       {/* Pinned Bottom Input Bar */}
       {messages.length > 0 && (
-        <div className="w-full pt-2.5 bg-transparent">
-          {/* Staged File Preview Card */}
-          {attachedFile && (
-            <div className="w-full max-w-xl mx-auto mb-2 p-2.5 bg-white/95 dark:bg-[#131317]/95 backdrop-blur-md border border-gray-200/90 dark:border-white/10 rounded-2xl shadow-xs flex items-center justify-between text-left transition-all">
-              <div className="flex items-center gap-3 min-w-0">
-                {isImageAttachment(attachedFile) ? (
-                  <ChatImageAttachment
-                    file={attachedFile}
-                    compact
-                    onZoom={(src, name, size, path, originRect) => openLightbox(src, name, size, path, originRect)}
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-lg bg-gray-900/[0.03] dark:bg-white/[0.035] flex items-center justify-center flex-shrink-0 border border-gray-900/[0.05] dark:border-white/[0.05]">
-                    {getFileIcon(attachedFile.ext)}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
-                    {attachedFile.name}
-                  </div>
-                  <div className="text-[10px] text-gray-600 dark:text-gray-400 font-mono">
-                    {formatFileSize(attachedFile.size) ? `${formatFileSize(attachedFile.size)} • ` : ''}
-                    {isVideoAttachment(attachedFile)
-                      ? 'Send on WhatsApp or Drive only • Video watching disabled (saves tokens)'
-                      : 'Ready to share with Grokki'}
-                  </div>
-                </div>
-              </div>
-              <WarmTooltip
-                content="Remove attachment"
-                side="top"
-                surfaceColor="#f5f5f5"
-                inkColor="#18181b"
-                size="md"
-                radius={8}
-                gap={8}
-                arrow
-                popDuration={160}
-                popScale={0.94}
-                popBlur={4}
-                showFuse={false}
-              >
-                <button
-                  type="button"
-                  aria-label="Remove attachment"
-                  onClick={() => setAttachedFile(null)}
-                  className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-950 dark:hover:text-white hover:bg-gray-900/[0.06] dark:hover:bg-white/[0.08] transition-colors cursor-pointer border-none bg-transparent"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </WarmTooltip>
-            </div>
-          )}
-
+        <div className="w-full pt-2.5 -mb-5 bg-transparent">
           {/* Floating Slash Command Menu, Mention Menu & Synthesizer Visualizer for Bottom Bar */}
           <div className="w-full mx-auto relative mb-6 z-30 transition-all duration-200">
             {/* Scroll-to-bottom Down Chevron Button (above input to the right side, only if there is space to scroll down) */}
@@ -7360,11 +7320,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
               proximity={250}
               className="w-full bg-white/75 dark:bg-[#131317]/65 backdrop-blur-md shadow-sm hover:shadow-md mb-1.5 p-3 transition-all flex flex-col gap-2.5 text-left relative z-20"
             >
+              {/* Compact Attached Images / Files Strip Inside Input */}
+              {renderComposerAttachments()}
+
               {/* Battle Stage Selector when Dual-Battle Mode is active (Only in Grokki Chat) */}
               {dualBattleEnabled && !agentMode && renderBattleStageBar('top')}
 
               {/* Input Field on Top with Inline Plugin Brand Pill & Grokki Blue Highlighting */}
-              <div className="flex items-start gap-2 w-full h-12">
+              <div className="flex items-start gap-2 w-full h-8">
                 {renderInlineStagedPlugins()}
                 <div className="flex-1 min-w-0">
                   <RichBrandInput

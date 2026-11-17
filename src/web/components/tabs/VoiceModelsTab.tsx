@@ -1049,12 +1049,6 @@ export const VoiceModelsTab = React.memo<VoiceModelsTabProps>(({
       <header className="flex flex-col gap-5 mt-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="m-0 text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                Voice Models
-              </h2>
-              
-            </div>
             <p className="m-0 mt-1.5 text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-sm">
               {isElevenLabs
                 ? `Ultra-realistic neural voices powered by ElevenLabs v3 (${sourceVoices.length} voices ready).`

@@ -378,7 +378,18 @@ interface AiBrainTabProps {
 
 export const CURATED_MODELS: Record<string, { value: string; label: string; tag?: string }[]> = {
   grokki_free: [
-    { value: 'auto', label: 'auto (Smart Free Rotator)', tag: 'Recommended' },
+    { value: 'auto', label: 'Auto (Smart Free Rotator)', tag: 'Auto' },
+    { value: 'openrouter:deepseek/deepseek-r1:free', label: 'DeepSeek R1', tag: 'Free' },
+    { value: 'openrouter:qwen/qwen-2.5-coder-32b-instruct:free', label: 'Qwen 2.5 Coder 32B', tag: 'Free' },
+    { value: 'openrouter:meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B Instruct', tag: 'Free' },
+    { value: 'openrouter:mistralai/mistral-small-24b-instruct-2501:free', label: 'Mistral Small 24B', tag: 'Free' },
+    { value: 'openrouter:google/gemini-2.0-flash-lite-preview-02-05:free', label: 'Gemini 2.0 Flash Lite', tag: 'Free' },
+    { value: 'groq:openai/gpt-oss-120b', label: 'GPT-OSS 120B (Groq)', tag: 'Free' },
+    { value: 'groq:llama-3.3-70b-versatile', label: 'Llama 3.3 70B Versatile (Groq)', tag: 'Free' },
+    { value: 'groq:deepseek-r1-distill-llama-70b', label: 'DeepSeek R1 Distill 70B (Groq)', tag: 'Free' },
+    { value: 'groq:meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout 17B (Groq)', tag: 'Free' },
+    { value: 'gemini:gemini-2.5-flash', label: 'Gemini 2.5 Flash (Google)', tag: 'Free' },
+    { value: 'gemini:gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Google)', tag: 'Free' },
   ],
   gemini: [
     { value: 'gemini-3.5-flash', label: 'gemini-3.5-flash', tag: 'Fast & Free' },

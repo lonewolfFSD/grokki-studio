@@ -942,14 +942,7 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
       {showShortcuts && (
       <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center justify-between gap-2">
-          <div>
-            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-              Keyboard Shortcuts & Hotkeys
-            </h3>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">
-              Click any shortcut badge and press a key combination (e.g. Ctrl+M, Alt+Q) to rebind. Duplicate keys are automatically blocked.
-            </p>
-          </div>
+        
           <WarmTooltip
             content="Reset all hotkeys to defaults"
             side="top"

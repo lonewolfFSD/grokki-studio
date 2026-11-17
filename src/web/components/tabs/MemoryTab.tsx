@@ -286,7 +286,7 @@ export const MemoryTab: React.FC<MemoryTabProps> = ({
               <span>Back to memories</span>
             </button>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 hidden">
               <Brain className="w-5 h-5 text-zinc-900 dark:text-zinc-100" />
               <h2 className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                 Memory

@@ -108,20 +108,7 @@ export const AboutTab = React.memo<AboutTabProps>(({ systemInfo, hotkey }) => {
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-16">
-      {/* Header */}
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-xl mt-6 font-bold tracking-tight text-gray-900 dark:text-gray-100">
-            About Grokki Studio
-          </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Version info, credits, and ways to support the project.
-          </p>
-        </div>
-        <span className="text-[10px] font-semibold px-3 py-1 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#1e2029] font-mono">
-          v{APP_VERSION}
-        </span>
-      </div>
+
 
       {/* Hero */}
       <div className={`${cardClass} p-6 flex flex-col gap-6`}>

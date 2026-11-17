@@ -155,7 +155,6 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({ config, onCh
           onClick={handleTestNotification}
           className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12px] font-medium bg-gray-100 dark:bg-white/[0.06] hover:bg-gray-200 dark:hover:bg-white/[0.1] text-gray-800 dark:text-zinc-200 border border-gray-200 dark:border-white/10 cursor-pointer transition-colors"
         >
-          <Bell className="w-3.5 h-3.5" />
           <span>{testSent ? 'Notification sent' : 'Test notification'}</span>
         </button>
       </div>

@@ -4362,7 +4362,18 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
     }
 
     let ordered = [...candidates];
-    if (config.grokkiFreeRotationMode === 'round-robin' && ordered.length > 1) {
+    const requestedModel = (context && context.model) || config.grokkiFreeModel || 'auto';
+    if (requestedModel && requestedModel !== 'auto' && requestedModel.includes(':')) {
+      const sep = requestedModel.indexOf(':');
+      const targetProvider = requestedModel.slice(0, sep);
+      const targetModel = requestedModel.slice(sep + 1);
+      if (targetProvider && targetModel) {
+        ordered = [
+          { provider: targetProvider, model: targetModel },
+          ...ordered.filter((c) => !(c.provider === targetProvider && c.model === targetModel)),
+        ];
+      }
+    } else if (config.grokkiFreeRotationMode === 'round-robin' && ordered.length > 1) {
       const idx = (this._grokkiFreeRrIndex || 0) % ordered.length;
       this._grokkiFreeRrIndex = (idx + 1) % ordered.length;
       ordered = [...ordered.slice(idx), ...ordered.slice(0, idx)];

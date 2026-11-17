@@ -20,14 +20,6 @@ export const AppearanceTab = React.memo<AppearanceTabProps>(({ config, onChangeC
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-16">
-      <div>
-        <h2 className="text-xl font-bold mt-6 tracking-tight text-gray-900 dark:text-gray-100">
-          Appearance & Hotkey
-        </h2>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          Customize your harness theme, canvas effects, and global summoned hotkey.
-        </p>
-      </div>
 
       {/* Studio Theme Light / Dark Selection */}
       <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
