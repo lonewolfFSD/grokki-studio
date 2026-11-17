@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   Eye,
   EyeOff,
@@ -19,7 +19,12 @@ import {
   Copy,
   Check,
   Sparkles,
+  Plus,
+  ChevronRight,
+  ArrowLeft,
+  Search,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { JarvisConfig, AiProvider, ActiveModelPull } from '../../types/jarvis';
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
 
@@ -27,6 +32,11 @@ import geminiLogo from '../../assets/logos/gemini.png';
 import groqLogo from '../../assets/logos/groq.png';
 import ollamaLogo from '../../assets/logos/ollama.png';
 import openrouterLogo from '../../assets/logos/openrouter.png';
+import grokkiIcon from '../../assets/grokki_icon.svg';
+
+export const GrokkiCloudLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <img src={grokkiIcon} alt="Grokki Cloud" className={`${className} object-contain`} />
+);
 
 // Official Authentic Google Gemini Brand Logo
 export const GeminiLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
@@ -230,6 +240,135 @@ export const FreeLLMAPILogo: React.FC<{ className?: string }> = ({ className = '
   </svg>
 );
 
+export const AnthropicLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} object-contain`} fill="none">
+    <rect width="24" height="24" rx="6" fill="#D97757" />
+    <path d="M14.7 6.5h-2.1l4.1 11h2.1l-4.1-11zm-5.4 0L5.2 17.5h2.1l.8-2.3h4.1l.8 2.3h2.1L11 6.5H9.3zm-.5 6.8l1.4-4.1 1.4 4.1H8.8z" fill="white" />
+  </svg>
+);
+
+export const KimiLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} object-contain`} fill="none">
+    <rect width="24" height="24" rx="6" fill="#18181B" />
+    <path d="M7.5 6.5v11M16.5 6.5l-6 5.5 6 5.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="16.5" cy="6.5" r="1.3" fill="#38BDF8" />
+  </svg>
+);
+
+export const MistralLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} object-contain`} fill="none">
+    <rect width="24" height="24" rx="6" fill="#18181B" />
+    <rect x="5" y="6" width="3" height="3" fill="#F7D046" />
+    <rect x="16" y="6" width="3" height="3" fill="#F7D046" />
+    <rect x="5" y="9" width="6" height="3" fill="#F2A73B" />
+    <rect x="13" y="9" width="6" height="3" fill="#F2A73B" />
+    <rect x="5" y="12" width="14" height="3" fill="#EE792F" />
+    <rect x="5" y="15" width="3" height="3" fill="#EB5829" />
+    <rect x="10.5" y="15" width="3" height="3" fill="#EB5829" />
+    <rect x="16" y="15" width="3" height="3" fill="#EB5829" />
+  </svg>
+);
+
+export const PerplexityLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} object-contain`} fill="none">
+    <rect width="24" height="24" rx="6" fill="#20808D" />
+    <path d="M12 5v14M7 9l5 3 5-3M7 15l5-3 5 3M7 9v6M17 9v6" stroke="white" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const CohereLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} object-contain`} fill="none">
+    <rect width="24" height="24" rx="6" fill="#39594D" />
+    <circle cx="9.5" cy="9.5" r="3" fill="#D18EE2" />
+    <path d="M12.5 14.5a3.5 3.5 0 1 1 0-5h3.5a3 3 0 0 1 0 6h-3.5z" fill="#FF7759" />
+  </svg>
+);
+
+export const GlmLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} object-contain`} fill="none">
+    <rect width="24" height="24" rx="6" fill="#2563EB" />
+    <path d="M6.5 7.5h11l-11 9h11" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const MiniMaxLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} object-contain`} fill="none">
+    <rect width="24" height="24" rx="6" fill="#E11D48" />
+    <path d="M6 16.5v-9l4 4.5 4-4.5v9M16 10.5l2 3-2 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const TogetherLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} object-contain`} fill="none">
+    <rect width="24" height="24" rx="6" fill="#0F62FE" />
+    <circle cx="9" cy="12" r="3.2" stroke="white" strokeWidth="2" />
+    <circle cx="15" cy="12" r="3.2" stroke="white" strokeWidth="2" />
+  </svg>
+);
+
+export const MetaLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} object-contain`} fill="none">
+    <path
+      d="M5.5 16.5C3.8 16.5 2.5 14.8 2.5 12.2C2.5 9.2 4.4 7 6.8 7C8.6 7 10.1 8.4 12 11.4C13.9 8.4 15.4 7 17.2 7C19.6 7 21.5 9.2 21.5 12.2C21.5 14.8 20.2 16.5 18.5 16.5C16.6 16.5 15.1 14.6 13.1 11.3L12 9.5L10.9 11.3C8.9 14.6 7.4 16.5 5.5 16.5Z"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+export const MicrosoftLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} object-contain`} fill="none">
+    <rect x="3" y="3" width="8.5" height="8.5" rx="1.2" fill="#F25022" />
+    <rect x="12.5" y="3" width="8.5" height="8.5" rx="1.2" fill="#7FBA00" />
+    <rect x="3" y="12.5" width="8.5" height="8.5" rx="1.2" fill="#00A4EF" />
+    <rect x="12.5" y="12.5" width="8.5" height="8.5" rx="1.2" fill="#FFB900" />
+  </svg>
+);
+
+interface OllamaCatalogItem {
+  tag: string;
+  name: string;
+  brand: string;
+  category: 'General' | 'Coding' | 'Reasoning' | 'Vision';
+  params: string;
+  minVramGb: number;
+  size: string;
+  desc: string;
+  Logo: React.FC<{ className?: string }>;
+}
+
+const OLLAMA_MODEL_CATALOG: OllamaCatalogItem[] = [
+  { tag: 'llama3.2:1b', name: 'Llama 3.2 1B', brand: 'Meta', category: 'General', params: '1B', minVramGb: 2, size: '1.3 GB', desc: 'Ultra-lightweight edge assistant for low-RAM systems', Logo: MetaLogo },
+  { tag: 'llama3.2', name: 'Llama 3.2 3B', brand: 'Meta', category: 'General', params: '3B', minVramGb: 4, size: '2.0 GB', desc: 'Fast, lightweight daily assistant by Meta', Logo: MetaLogo },
+  { tag: 'llama3.1:8b', name: 'Llama 3.1 8B', brand: 'Meta', category: 'General', params: '8B', minVramGb: 8, size: '4.9 GB', desc: 'Versatile 128K context general-purpose model', Logo: MetaLogo },
+  { tag: 'llama3.3:70b', name: 'Llama 3.3 70B', brand: 'Meta', category: 'General', params: '70B', minVramGb: 48, size: '43 GB', desc: 'Flagship open-weights model for workstation GPUs', Logo: MetaLogo },
+  { tag: 'qwen2.5:3b', name: 'Qwen 2.5 3B', brand: 'Qwen', category: 'General', params: '3B', minVramGb: 4, size: '1.9 GB', desc: 'Compact multilingual model with strong instruction following', Logo: QwenLogo },
+  { tag: 'qwen2.5:7b', name: 'Qwen 2.5 7B', brand: 'Qwen', category: 'General', params: '7B', minVramGb: 8, size: '4.7 GB', desc: 'Balanced 7B model with strong tool-use & JSON output', Logo: QwenLogo },
+  { tag: 'qwen2.5:14b', name: 'Qwen 2.5 14B', brand: 'Qwen', category: 'General', params: '14B', minVramGb: 16, size: '9.0 GB', desc: 'High-accuracy mid-size model for 16 GB+ systems', Logo: QwenLogo },
+  { tag: 'qwen2.5:32b', name: 'Qwen 2.5 32B', brand: 'Qwen', category: 'General', params: '32B', minVramGb: 24, size: '20 GB', desc: 'Near-flagship local intelligence for 24 GB+ VRAM', Logo: QwenLogo },
+  { tag: 'qwen2.5-coder:1.5b', name: 'Qwen 2.5 Coder 1.5B', brand: 'Qwen', category: 'Coding', params: '1.5B', minVramGb: 2, size: '1.0 GB', desc: 'Instant autocomplete and lightweight code helper', Logo: QwenLogo },
+  { tag: 'qwen2.5-coder:7b', name: 'Qwen 2.5 Coder 7B', brand: 'Qwen', category: 'Coding', params: '7B', minVramGb: 8, size: '4.7 GB', desc: 'Coding, refactoring & syntax specialist', Logo: QwenLogo },
+  { tag: 'qwen2.5-coder:14b', name: 'Qwen 2.5 Coder 14B', brand: 'Qwen', category: 'Coding', params: '14B', minVramGb: 16, size: '9.0 GB', desc: 'Strong multi-file code generation & debugging', Logo: QwenLogo },
+  { tag: 'qwen2.5-coder:32b', name: 'Qwen 2.5 Coder 32B', brand: 'Qwen', category: 'Coding', params: '32B', minVramGb: 24, size: '20 GB', desc: 'Top-tier local coding model rivaling cloud APIs', Logo: QwenLogo },
+  { tag: 'deepseek-r1:1.5b', name: 'DeepSeek R1 1.5B', brand: 'DeepSeek', category: 'Reasoning', params: '1.5B', minVramGb: 2, size: '1.1 GB', desc: 'Tiny chain-of-thought reasoning distillation', Logo: DeepSeekLogo },
+  { tag: 'deepseek-r1:7b', name: 'DeepSeek R1 7B', brand: 'DeepSeek', category: 'Reasoning', params: '7B', minVramGb: 8, size: '4.7 GB', desc: 'Compact step-by-step math & logic reasoning', Logo: DeepSeekLogo },
+  { tag: 'deepseek-r1:8b', name: 'DeepSeek R1 8B', brand: 'DeepSeek', category: 'Reasoning', params: '8B', minVramGb: 8, size: '4.9 GB', desc: 'Step-by-step reasoning & math specialist (Llama distill)', Logo: DeepSeekLogo },
+  { tag: 'deepseek-r1:14b', name: 'DeepSeek R1 14B', brand: 'DeepSeek', category: 'Reasoning', params: '14B', minVramGb: 16, size: '9.0 GB', desc: 'Deep chain-of-thought reasoning for 16 GB+ machines', Logo: DeepSeekLogo },
+  { tag: 'deepseek-r1:32b', name: 'DeepSeek R1 32B', brand: 'DeepSeek', category: 'Reasoning', params: '32B', minVramGb: 24, size: '20 GB', desc: 'Heavyweight local reasoning & algorithm design', Logo: DeepSeekLogo },
+  { tag: 'gemma3:4b', name: 'Gemma 3 4B', brand: 'Google', category: 'General', params: '4B', minVramGb: 6, size: '3.3 GB', desc: 'Fast multimodal-ready model by Google DeepMind', Logo: GeminiLogo },
+  { tag: 'gemma3:12b', name: 'Gemma 3 12B', brand: 'Google', category: 'General', params: '12B', minVramGb: 12, size: '8.1 GB', desc: 'Strong reasoning & writing in 12 GB VRAM/RAM', Logo: GeminiLogo },
+  { tag: 'gemma3:27b', name: 'Gemma 3 27B', brand: 'Google', category: 'General', params: '27B', minVramGb: 24, size: '17 GB', desc: 'Flagship Gemma 3 open weights', Logo: GeminiLogo },
+  { tag: 'mistral', name: 'Mistral 7B', brand: 'Mistral', category: 'General', params: '7B', minVramGb: 8, size: '4.1 GB', desc: 'Balanced reasoning & instruction following', Logo: MistralLogo },
+  { tag: 'codestral', name: 'Codestral 22B', brand: 'Mistral', category: 'Coding', params: '22B', minVramGb: 16, size: '13 GB', desc: 'Mistral dedicated 80+ language code model', Logo: MistralLogo },
+  { tag: 'phi4-mini', name: 'Phi-4 Mini 3.8B', brand: 'Microsoft', category: 'Reasoning', params: '3.8B', minVramGb: 4, size: '2.5 GB', desc: 'Compact Microsoft reasoning & STEM model', Logo: MicrosoftLogo },
+  { tag: 'phi4', name: 'Phi-4 14B', brand: 'Microsoft', category: 'Reasoning', params: '14B', minVramGb: 16, size: '9.1 GB', desc: 'Microsoft advanced reasoning & math', Logo: MicrosoftLogo },
+  { tag: 'command-r', name: 'Command R 35B', brand: 'Cohere', category: 'General', params: '35B', minVramGb: 24, size: '20 GB', desc: 'Enterprise RAG & tool-calling specialist', Logo: CohereLogo },
+  { tag: 'moondream', name: 'Moondream 2', brand: 'Moondream', category: 'Vision', params: '1.8B', minVramGb: 2, size: '1.7 GB', desc: 'Ultra-fast local vision model for image inspection', Logo: OllamaLogo },
+  { tag: 'llava', name: 'LLaVA 7B', brand: 'LLaVA', category: 'Vision', params: '7B', minVramGb: 8, size: '4.7 GB', desc: 'General-purpose local vision-language assistant', Logo: OllamaLogo },
+];
+
 interface AiBrainTabProps {
   config: JarvisConfig;
   onChangeConfig: (patch: Partial<JarvisConfig>) => void;
@@ -238,6 +377,9 @@ interface AiBrainTabProps {
 }
 
 export const CURATED_MODELS: Record<string, { value: string; label: string; tag?: string }[]> = {
+  grokki_free: [
+    { value: 'auto', label: 'auto (Smart Free Rotator)', tag: 'Recommended' },
+  ],
   gemini: [
     { value: 'gemini-3.5-flash', label: 'gemini-3.5-flash', tag: 'Fast & Free' },
     { value: 'gemini-3.8-flash', label: 'gemini-3.8-flash', tag: 'Next-Gen Fast' },
@@ -267,6 +409,48 @@ export const CURATED_MODELS: Record<string, { value: string; label: string; tag?
     { value: 'anthropic/claude-3.5-sonnet', label: 'anthropic/claude-3.5-sonnet', tag: 'Coding Champ' },
     { value: 'openai/gpt-4o', label: 'openai/gpt-4o', tag: 'Omni Flagship' },
     { value: 'deepseek/deepseek-r1', label: 'deepseek/deepseek-r1', tag: 'Full Reasoning' },
+  ],
+  anthropic: [
+    { value: 'claude-sonnet-4-5', label: 'claude-sonnet-4-5', tag: 'Best Coding & Agents' },
+    { value: 'claude-opus-4-1', label: 'claude-opus-4-1', tag: 'Flagship Reasoning' },
+    { value: 'claude-3-7-sonnet-latest', label: 'claude-3-7-sonnet-latest', tag: 'Hybrid Thinking' },
+    { value: 'claude-3-5-haiku-latest', label: 'claude-3-5-haiku-latest', tag: 'Fast & Affordable' },
+  ],
+  kimi: [
+    { value: 'kimi-k2-0711-preview', label: 'kimi-k2-0711-preview', tag: 'K2 Flagship Agent' },
+    { value: 'kimi-latest', label: 'kimi-latest', tag: 'Auto Context' },
+    { value: 'moonshot-v1-128k', label: 'moonshot-v1-128k', tag: '128K Context' },
+    { value: 'moonshot-v1-32k', label: 'moonshot-v1-32k', tag: 'Fast 32K' },
+  ],
+  mistral: [
+    { value: 'mistral-large-latest', label: 'mistral-large-latest', tag: 'Flagship' },
+    { value: 'codestral-latest', label: 'codestral-latest', tag: 'Code Specialist' },
+    { value: 'mistral-medium-latest', label: 'mistral-medium-latest', tag: 'Balanced' },
+    { value: 'pixtral-large-latest', label: 'pixtral-large-latest', tag: 'Vision' },
+  ],
+  perplexity: [
+    { value: 'sonar-pro', label: 'sonar-pro', tag: 'Live Web Pro' },
+    { value: 'sonar-reasoning-pro', label: 'sonar-reasoning-pro', tag: 'Deep Research' },
+    { value: 'sonar', label: 'sonar', tag: 'Fast Search' },
+  ],
+  cohere: [
+    { value: 'command-a-03-2025', label: 'command-a-03-2025', tag: 'Flagship Agent' },
+    { value: 'command-r-plus-08-2024', label: 'command-r-plus-08-2024', tag: 'RAG & Tools' },
+    { value: 'command-r7b-12-2024', label: 'command-r7b-12-2024', tag: 'Fast 7B' },
+  ],
+  glm: [
+    { value: 'glm-4.5', label: 'glm-4.5', tag: 'Flagship Reasoning' },
+    { value: 'glm-4.5-air', label: 'glm-4.5-air', tag: 'Fast & Light' },
+    { value: 'glm-4-plus', label: 'glm-4-plus', tag: 'General Pro' },
+  ],
+  minimax: [
+    { value: 'MiniMax-M1', label: 'MiniMax-M1', tag: 'Reasoning 1M' },
+    { value: 'MiniMax-Text-01', label: 'MiniMax-Text-01', tag: '4M Context' },
+  ],
+  together: [
+    { value: 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8', label: 'Llama-4-Maverick-17B', tag: 'Llama 4' },
+    { value: 'deepseek-ai/DeepSeek-R1', label: 'DeepSeek-R1', tag: 'Reasoning' },
+    { value: 'Qwen/Qwen2.5-Coder-32B-Instruct', label: 'Qwen2.5-Coder-32B', tag: 'Coding' },
   ],
   omniroute: [
     { value: 'auto', label: 'auto (Smart Route)', tag: 'Auto' },
@@ -472,6 +656,94 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
     defaultModel: 'qwen-max',
     links: [{ label: 'Alibaba Model Studio', url: 'https://www.alibabacloud.com/product/model-studio' }],
   },
+  anthropic: {
+    title: 'Claude (Anthropic)',
+    description: 'Claude Opus 4.1, Sonnet 4.5, and Haiku direct from Anthropic.',
+    keyField: 'anthropicApiKey',
+    keyLabel: 'Anthropic API key',
+    keyPlaceholder: 'sk-ant-...',
+    keyLink: { label: 'Anthropic Console', url: 'https://console.anthropic.com/settings/keys' },
+    modelField: 'anthropicModel',
+    defaultModel: 'claude-sonnet-4-5',
+    links: [{ label: 'Pricing & Models', url: 'https://docs.anthropic.com/en/docs/about-claude/models' }],
+  },
+  kimi: {
+    title: 'Kimi (Moonshot AI)',
+    description: 'Kimi K2 agentic coding & long-context 128K models from Moonshot AI.',
+    keyField: 'kimiApiKey',
+    keyLabel: 'Moonshot API key',
+    keyPlaceholder: 'sk-...',
+    keyLink: { label: 'Moonshot Platform', url: 'https://platform.moonshot.ai/console/api-keys' },
+    modelField: 'kimiModel',
+    defaultModel: 'kimi-k2-0711-preview',
+    links: [{ label: 'Kimi API Docs', url: 'https://platform.moonshot.ai/docs' }],
+  },
+  mistral: {
+    title: 'Mistral AI',
+    description: 'Mistral Large, Codestral for code generation, and Pixtral vision.',
+    keyField: 'mistralApiKey',
+    keyLabel: 'Mistral API key',
+    keyPlaceholder: 'Enter Mistral API key',
+    keyLink: { label: 'La Plateforme', url: 'https://console.mistral.ai/api-keys' },
+    modelField: 'mistralModel',
+    defaultModel: 'mistral-large-latest',
+    links: [],
+  },
+  perplexity: {
+    title: 'Perplexity (Sonar)',
+    description: 'Real-time web-grounded Sonar Pro and Sonar Reasoning Pro models.',
+    keyField: 'perplexityApiKey',
+    keyLabel: 'Perplexity API key',
+    keyPlaceholder: 'pplx-...',
+    keyLink: { label: 'API Settings', url: 'https://www.perplexity.ai/settings/api' },
+    modelField: 'perplexityModel',
+    defaultModel: 'sonar-pro',
+    links: [],
+  },
+  cohere: {
+    title: 'Cohere',
+    description: 'Command A & Command R+ enterprise RAG, tool-use, and agent models.',
+    keyField: 'cohereApiKey',
+    keyLabel: 'Cohere API key',
+    keyPlaceholder: 'Enter Cohere API key',
+    keyLink: { label: 'Cohere Dashboard', url: 'https://dashboard.cohere.com/api-keys' },
+    modelField: 'cohereModel',
+    defaultModel: 'command-a-03-2025',
+    links: [],
+  },
+  glm: {
+    title: 'Zhipu GLM (Z.ai)',
+    description: 'GLM-4.5 flagship reasoning and fast agentic models from Zhipu AI.',
+    keyField: 'glmApiKey',
+    keyLabel: 'Z.ai API key',
+    keyPlaceholder: 'Enter Z.ai API key',
+    keyLink: { label: 'Z.ai Console', url: 'https://z.ai/manage-apikey/apikey-list' },
+    modelField: 'glmModel',
+    defaultModel: 'glm-4.5',
+    links: [],
+  },
+  minimax: {
+    title: 'MiniMax',
+    description: 'MiniMax-M1 1M-context reasoning and MiniMax-Text-01 models.',
+    keyField: 'minimaxApiKey',
+    keyLabel: 'MiniMax API key',
+    keyPlaceholder: 'Enter MiniMax API key',
+    keyLink: { label: 'MiniMax Platform', url: 'https://www.minimax.io/platform' },
+    modelField: 'minimaxModel',
+    defaultModel: 'MiniMax-M1',
+    links: [],
+  },
+  together: {
+    title: 'Together AI',
+    description: 'Dedicated high-throughput hosting for Llama 4, DeepSeek R1 & Qwen.',
+    keyField: 'togetherApiKey',
+    keyLabel: 'Together API key',
+    keyPlaceholder: 'Enter Together API key',
+    keyLink: { label: 'Together Console', url: 'https://api.together.xyz/settings/api-keys' },
+    modelField: 'togetherModel',
+    defaultModel: 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8',
+    links: [],
+  },
   groq: {
     title: 'Groq Cloud',
     description: 'Very low-latency inference with Llama 3.3 and DeepSeek R1 distillation.',
@@ -497,6 +769,18 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
       { label: 'Install Ollama', url: 'https://ollama.com/download' },
       { label: 'Model library', url: 'https://ollama.com/library' },
     ],
+  },
+  grokki_free: {
+    title: 'Grokki Cloud (Free)',
+    description: 'Automatic multi-provider free-tier rotator & failover across Groq, Gemini, OpenRouter :free, OmniRoute & Ollama.',
+    endpointField: 'grokkiFreeProxyUrl',
+    endpointLabel: 'Optional Zero-Key Proxy URL',
+    endpointPlaceholder: 'https://your-worker.workers.dev/v1 (optional)',
+    endpointDefault: '',
+    endpointHint: 'Optional shared proxy',
+    modelField: 'grokkiFreeModel',
+    defaultModel: 'auto',
+    links: [],
   },
   openrouter: {
     title: 'OpenRouter',
@@ -767,12 +1051,26 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
   }, [config.provider, config.omnirouteEndpoint, config.omnirouteApiKey]);
   // Category toggle: 'paid' vs 'free'
   const [category, setCategory] = useState<Category>(() => {
-    if (['grok', 'openai', 'deepseek', 'qwen'].includes(config.provider)) return 'paid';
+    if (['grok', 'openai', 'deepseek', 'qwen', 'anthropic', 'kimi', 'mistral', 'perplexity', 'cohere', 'glm', 'minimax', 'together'].includes(config.provider)) return 'paid';
     if (config.provider === 'gemini') {
       return (config.geminiModel && config.geminiModel.includes('pro')) ? 'paid' : 'free';
     }
     return 'free';
   });
+  const [configuringProvider, setConfiguringProvider] = useState<AiProvider | null>(null);
+  const [systemRamGb, setSystemRamGb] = useState<number>(16);
+  const [ollamaSearch, setOllamaSearch] = useState('');
+  const [ollamaCategoryFilter, setOllamaCategoryFilter] = useState<'All' | 'General' | 'Coding' | 'Reasoning' | 'Vision'>('All');
+  const [ollamaHardwareFilter, setOllamaHardwareFilter] = useState<'all' | 'fits' | '4' | '8' | '16' | '32'>('all');
+
+  useEffect(() => {
+    window.jarvisAPI?.getSystemInfo?.().then((info) => {
+      const parsed = parseFloat(String(info?.totalMemGb || ''));
+      if (Number.isFinite(parsed) && parsed > 0) {
+        setSystemRamGb(Math.round(parsed));
+      }
+    }).catch(() => {});
+  }, []);
 
   const [showKeys, setShowKeys] = useState<{ [provider: string]: boolean }>({});
 
@@ -1455,10 +1753,82 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       tag: 'Paid Official',
       Logo: QwenLogo,
     },
+    {
+      id: 'anthropic',
+      label: 'Claude (Anthropic)',
+      subLabel: 'Opus 4.1 & Sonnet 4.5',
+      badge: config.anthropicModel || 'claude-sonnet-4-5',
+      tag: 'Paid Official',
+      Logo: AnthropicLogo,
+    },
+    {
+      id: 'kimi',
+      label: 'Kimi (Moonshot AI)',
+      subLabel: 'Kimi K2 & 128K Context',
+      badge: config.kimiModel || 'kimi-k2-0711-preview',
+      tag: 'Paid Official',
+      Logo: KimiLogo,
+    },
+    {
+      id: 'mistral',
+      label: 'Mistral AI',
+      subLabel: 'Mistral Large & Codestral',
+      badge: config.mistralModel || 'mistral-large-latest',
+      tag: 'Paid Official',
+      Logo: MistralLogo,
+    },
+    {
+      id: 'perplexity',
+      label: 'Perplexity (Sonar)',
+      subLabel: 'Live Web Search Models',
+      badge: config.perplexityModel || 'sonar-pro',
+      tag: 'Paid Official',
+      Logo: PerplexityLogo,
+    },
+    {
+      id: 'cohere',
+      label: 'Cohere',
+      subLabel: 'Command A & R+',
+      badge: config.cohereModel || 'command-a-03-2025',
+      tag: 'Paid Official',
+      Logo: CohereLogo,
+    },
+    {
+      id: 'glm',
+      label: 'Zhipu GLM (Z.ai)',
+      subLabel: 'GLM-4.5 Reasoning',
+      badge: config.glmModel || 'glm-4.5',
+      tag: 'Paid Official',
+      Logo: GlmLogo,
+    },
+    {
+      id: 'minimax',
+      label: 'MiniMax',
+      subLabel: 'MiniMax-M1 1M Context',
+      badge: config.minimaxModel || 'MiniMax-M1',
+      tag: 'Paid Official',
+      Logo: MiniMaxLogo,
+    },
+    {
+      id: 'together',
+      label: 'Together AI',
+      subLabel: 'Dedicated Cloud Inference',
+      badge: config.togetherModel || 'Llama-4-Maverick-17B',
+      tag: 'Pay-As-You-Go',
+      Logo: TogetherLogo,
+    },
   ];
 
-  // Free Category Providers (Current providers + OmniRouter)
+  // Free Category Providers (Current providers + Grokki Cloud Free)
   const freeProviders: ProviderCardInfo[] = [
+    {
+      id: 'grokki_free',
+      label: 'Grokki Cloud (Free)',
+      subLabel: 'Automatic Free-Tier Rotator & Failover',
+      badge: 'auto',
+      tag: 'Auto-Rotator',
+      Logo: GrokkiCloudLogo,
+    },
     {
       id: 'gemini',
       label: 'Google Gemini',
@@ -1476,22 +1846,6 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       Logo: GroqLogo,
     },
     {
-      id: 'ollama',
-      label: 'Ollama Local',
-      subLabel: !ollamaStatus.installed && ollamaStatus.checked
-        ? 'Not Installed'
-        : ollamaStatus.models.length === 0
-        ? '0 Models Installed'
-        : `${ollamaStatus.models.length} model${ollamaStatus.models.length === 1 ? '' : 's'} ready`,
-      badge: !ollamaStatus.installed && ollamaStatus.checked
-        ? 'Download Required'
-        : ollamaStatus.models.length === 0
-        ? 'Install Required'
-        : (config.ollamaModel || ollamaStatus.models[0] || 'llama3.2'),
-      tag: '100% Free Air-Gap',
-      Logo: OllamaLogo,
-    },
-    {
       id: 'openrouter',
       label: 'OpenRouter',
       subLabel: 'Multi-Model Free Tier',
@@ -1507,77 +1861,25 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       tag: 'Local / Remote Gateway',
       Logo: OmniRouteLogo,
     },
+  ];
+
+  // Local Providers (Air-gapped / on-device)
+  const localProviders: ProviderCardInfo[] = [
     {
-      id: 'litellm',
-      label: 'LiteLLM',
-      subLabel: 'OpenAI-Compatible Proxy',
-      badge: config.litellmModel || 'gpt-4o',
-      tag: 'Open-Source Gateway',
-      Logo: LiteLLMLogo,
-    },
-    {
-      id: 'bifrost',
-      label: 'Bifrost',
-      subLabel: 'Ultra-Fast Sub-ms Router',
-      badge: config.bifrostModel || 'auto',
-      tag: 'Sub-ms Proxy',
-      Logo: BifrostLogo,
-    },
-    {
-      id: 'portkey',
-      label: 'Portkey',
-      subLabel: 'AI Gateway & Fallbacks',
-      badge: config.portkeyModel || 'auto',
-      tag: 'Open-Source Gateway',
-      Logo: PortkeyLogo,
-    },
-    {
-      id: 'helicone',
-      label: 'Helicone',
-      subLabel: 'LLM Proxy & Caching',
-      badge: config.heliconeModel || 'gpt-4o',
-      tag: 'Observability Gateway',
-      Logo: HeliconeLogo,
-    },
-    {
-      id: 'routellm',
-      label: 'RouteLLM',
-      subLabel: 'LMSYS Cost & Quality Router',
-      badge: config.routellmModel || 'router-mf',
-      tag: 'Smart Classifier',
-      Logo: RouteLLMLogo,
-    },
-    {
-      id: 'newapi',
-      label: 'New API',
-      subLabel: 'Unified Channel Gateway',
-      badge: config.newapiModel || 'auto',
-      tag: 'Multi-Channel Proxy',
-      Logo: NewApiLogo,
-    },
-    {
-      id: 'higress',
-      label: 'Higress',
-      subLabel: 'CNCF Cloud-Native AI Proxy',
-      badge: config.higressModel || 'auto',
-      tag: 'Cloud-Native Gateway',
-      Logo: HigressLogo,
-    },
-    {
-      id: 'clawrouter',
-      label: 'ClawRouter',
-      subLabel: 'Intelligent AI Router',
-      badge: config.clawrouterModel || 'auto',
-      tag: 'Smart Multi-Route',
-      Logo: ClawRouterLogo,
-    },
-    {
-      id: 'freellmapi',
-      label: 'FreeLLMAPI',
-      subLabel: '80+ Free AI Providers Gateway',
-      badge: config.freellmapiModel || 'auto',
-      tag: '1300+ Free Models',
-      Logo: FreeLLMAPILogo,
+      id: 'ollama',
+      label: 'Ollama Local',
+      subLabel: !ollamaStatus.installed && ollamaStatus.checked
+        ? 'Not Installed'
+        : ollamaStatus.models.length === 0
+        ? '0 Models Installed'
+        : `${ollamaStatus.models.length} model${ollamaStatus.models.length === 1 ? '' : 's'} ready`,
+      badge: !ollamaStatus.installed && ollamaStatus.checked
+        ? 'Download Required'
+        : ollamaStatus.models.length === 0
+        ? 'Install Required'
+        : (config.ollamaModel || ollamaStatus.models[0] || 'llama3.2'),
+      tag: '100% Free Air-Gap',
+      Logo: OllamaLogo,
     },
   ];
 
@@ -1599,6 +1901,22 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       patch.deepseekModel = 'deepseek-chat';
     } else if (providerId === 'qwen' && !config.qwenModel) {
       patch.qwenModel = 'qwen-max';
+    } else if (providerId === 'anthropic' && !config.anthropicModel) {
+      patch.anthropicModel = 'claude-sonnet-4-5';
+    } else if (providerId === 'kimi' && !config.kimiModel) {
+      patch.kimiModel = 'kimi-k2-0711-preview';
+    } else if (providerId === 'mistral' && !config.mistralModel) {
+      patch.mistralModel = 'mistral-large-latest';
+    } else if (providerId === 'perplexity' && !config.perplexityModel) {
+      patch.perplexityModel = 'sonar-pro';
+    } else if (providerId === 'cohere' && !config.cohereModel) {
+      patch.cohereModel = 'command-a-03-2025';
+    } else if (providerId === 'glm' && !config.glmModel) {
+      patch.glmModel = 'glm-4.5';
+    } else if (providerId === 'minimax' && !config.minimaxModel) {
+      patch.minimaxModel = 'MiniMax-M1';
+    } else if (providerId === 'together' && !config.togetherModel) {
+      patch.togetherModel = 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8';
     } else if ((providerId === 'omniroute' || providerId === 'omnirouter') && !config.omnirouteModel) {
       patch.omnirouteModel = config.omnirouterModel || 'auto';
     } else if (providerId === 'litellm' && !config.litellmModel) {
@@ -1655,7 +1973,7 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
                 const k = detail?.keyField ? cfg[detail.keyField] : undefined;
                 handleFetchModels(providerId, ep, k);
               }}
-              className="text-[11px] font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition-colors disabled:opacity-50"
+              className="text-[11px] font-medium text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition-colors disabled:opacity-50"
               title="Fetch latest models directly from gateway"
             >
               <RefreshCw className={`w-3 h-3 ${fetchingModels === providerId ? 'animate-spin' : ''}`} />
@@ -1706,24 +2024,48 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
     );
   };
 
-  // Check if active config provider is present in current category
-  const isActiveInCurrentCategory = currentProviders.some((p) => p.id === config.provider);
+  // Check if active config provider is present in current category or local section
+  const isActiveInCurrentCategory =
+    currentProviders.some((p) => p.id === config.provider) ||
+    localProviders.some((p) => p.id === config.provider);
   const otherCategory: Category = category === 'paid' ? 'free' : 'paid';
   const activeInOther = (category === 'paid' ? freeProviders : paidProviders).find(
     (p) => p.id === config.provider
   );
 
-  // Configuration card for the active provider
-  const detail = PROVIDER_DETAILS[config.provider];
-  const activeCard = [...currentProviders, ...paidProviders, ...freeProviders].find(
-    (p) => p.id === config.provider
+  // Check if a provider is already configured with keys / local setup
+  const isProviderConfigured = (providerId: AiProvider): boolean => {
+    if (providerId === 'grokki_free') {
+      return Boolean(
+        (cfg.grokkiFreeProxyUrl || '').trim() ||
+        (cfg.groqApiKey || '').trim() ||
+        (cfg.geminiApiKey || '').trim() ||
+        (cfg.openrouterApiKey || '').trim() ||
+        (ollamaStatus.installed && ollamaStatus.models.length > 0)
+      );
+    }
+    if (providerId === 'ollama') {
+      return Boolean(ollamaStatus.installed && ollamaStatus.models.length > 0);
+    }
+    const meta = PROVIDER_DETAILS[providerId];
+    if (!meta) return false;
+    if (meta.keyField && String(cfg[meta.keyField] || '').trim()) return true;
+    if (!meta.keyField && meta.endpointField && String(cfg[meta.endpointField] || '').trim()) return true;
+    return false;
+  };
+
+  // Configuration card for the selected provider
+  const activeConfigId = configuringProvider || config.provider;
+  const detail = PROVIDER_DETAILS[activeConfigId];
+  const activeCard = [...currentProviders, ...paidProviders, ...freeProviders, ...localProviders].find(
+    (p) => p.id === activeConfigId
   );
   const ActiveLogo = activeCard?.Logo;
 
   const renderConfigCard = () => {
     if (!detail) return null;
 
-    const providerId = config.provider as string;
+    const providerId = activeConfigId as string;
     const copy = detail.variants ? detail.variants[category] : detail;
     const modelDefault =
       providerId === 'gemini'
@@ -1877,9 +2219,9 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
                 </div>
               </div>
             ) : !ollamaStatus.running ? (
-              <div className="rounded-xl p-4 border border-blue-500/20 bg-blue-500/10 dark:bg-blue-500/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+              <div className="rounded-xl p-4 border border-gray-200 dark:border-white/[0.08] bg-gray-100/70 dark:bg-[#14151a] flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 mt-0.5 sm:mt-0">
+                  <div className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-white/[0.08] text-gray-800 dark:text-zinc-200 flex items-center justify-center flex-shrink-0 mt-0.5 sm:mt-0">
                     <Play className="w-4 h-4 ml-0.5" />
                   </div>
                   <div>
@@ -1895,7 +2237,7 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
                   <button
                     type="button"
                     onClick={handleLaunchOllama}
-                    className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white border-none cursor-pointer shadow-sm transition-all"
+                    className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-xs font-semibold bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-gray-900 border-none cursor-pointer shadow-sm transition-all"
                   >
                     <Play className="w-3.5 h-3.5" />
                     <span>Start Ollama</span>
@@ -1915,7 +2257,7 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
               <div className="rounded-xl py-3 px-6 border border-gray-500/20 bg-gray-500/10 dark:bg-gray-500/[0.08] flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="text-xs font-medium text-gray-800 dark:text-gray-300 truncate">
-                    Ollama is running & connected {ollamaStatus.models.length > 0 ? `• ${ollamaStatus.models.length} model${ollamaStatus.models.length === 1 ? '' : 's'} available` : ''}
+                    Ollama is running & connected {ollamaStatus.models.length > 0 ? `â€¢ ${ollamaStatus.models.length} model${ollamaStatus.models.length === 1 ? '' : 's'} available` : ''}
                   </span>
                 </div>
                 <button
@@ -1969,6 +2311,76 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
           </div>
         )}
 
+        {/* Grokki Cloud (Free) Rotation Pool & Mode */}
+        {providerId === 'grokki_free' && (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-gray-50 dark:bg-[#14151a] border border-gray-200 dark:border-white/[0.08]">
+              <div>
+                <div className="text-xs font-semibold text-gray-900 dark:text-zinc-100">
+                  Rotation Mode
+                </div>
+                <div className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5">
+                  Failover uses providers in priority order; Round-Robin balances across all ready providers.
+                </div>
+              </div>
+              <div className="flex items-center gap-1 p-1 rounded-lg bg-gray-200/70 dark:bg-black/40 border border-gray-200 dark:border-white/[0.06] self-start sm:self-auto">
+                {(['failover', 'round-robin'] as const).map((mode) => {
+                  const active = (config.grokkiFreeRotationMode || 'failover') === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => onChangeConfig({ grokkiFreeRotationMode: mode })}
+                      className={`px-3 py-1 rounded-md text-[11px] font-semibold border-none cursor-pointer transition-colors ${
+                        active
+                          ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                          : 'bg-transparent text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {mode === 'failover' ? 'Smart Failover' : 'Round-Robin'}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 dark:border-white/[0.08] divide-y divide-gray-200 dark:divide-white/[0.06] overflow-hidden">
+              {[
+                { id: 'groq' as AiProvider, label: 'Groq Cloud', ready: Boolean((cfg.groqApiKey || '').trim()) },
+                { id: 'gemini' as AiProvider, label: 'Google Gemini (Free Tier)', ready: Boolean((cfg.geminiApiKey || '').trim()) },
+                { id: 'openrouter' as AiProvider, label: 'OpenRouter (:free)', ready: Boolean((cfg.openrouterApiKey || '').trim()) },
+                { id: 'ollama' as AiProvider, label: 'Ollama Local (Fallback)', ready: Boolean(ollamaStatus.installed && ollamaStatus.models.length > 0) },
+              ].map((poolItem) => (
+                <div
+                  key={poolItem.id}
+                  className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-[#0f0f13] text-xs"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        poolItem.ready ? 'bg-zinc-900 dark:bg-white' : 'bg-gray-300 dark:bg-zinc-700'
+                      }`}
+                    />
+                    <span className="font-medium text-gray-800 dark:text-zinc-200">{poolItem.label}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] text-gray-500 dark:text-zinc-400">
+                      {poolItem.ready ? 'Ready in pool' : 'Not configured'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setConfiguringProvider(poolItem.id)}
+                      className="text-[11px] font-medium text-gray-700 dark:text-zinc-300 hover:underline bg-transparent border-none cursor-pointer p-0"
+                    >
+                      {poolItem.ready ? 'Edit' : 'Add'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
           {primaryField}
@@ -2010,14 +2422,14 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
             }}
             className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-[#1a1c24] dark:hover:bg-[#222530] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#252836] cursor-pointer transition-all disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${fetchingModels === providerId ? 'animate-spin text-emerald-500' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${fetchingModels === providerId ? 'animate-spin' : ''}`} />
             <span>Fetch all models</span>
           </button>
 
           {result && (
             <span className="inline-flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 min-w-0">
               {result.success ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-zinc-900 dark:text-white flex-shrink-0" />
               ) : (
                 <XCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
               )}
@@ -2025,452 +2437,519 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
             </span>
           )}
         </div>
-
-        {/* Ollama Local Models & Install Library Manager */}
-        {providerId === 'ollama' && ollamaStatus.installed && (
-          <div className="pt-5 border-t border-[#e4e4eb] dark:border-[#1e2029] flex flex-col gap-4">
-            {/* Hardware Turbo Boost Card */}
-            <div className="p-5 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.06] flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                      Ollama Hardware Turbo Mode
-                    </span>
-                    {/* <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 shrink-0">
-                      {turboOptimized ? 'Active (Flash Attention)' : 'Standard'}
-                    </span> */}
-                  </div>
-                  <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
-                    Cuts VRAM usage by ~50%, accelerates token replies, and unloads idle models automatically.
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleToggleTurbo}
-                disabled={turboApplying}
-                className="px-6 py-2.5 rounded-lg text-[12px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white border-none cursor-pointer shrink-0 transition-all disabled:opacity-50"
-              >
-                {turboApplying ? 'Applying...' : turboOptimized ? 'Turbo Active' : 'Enable Turbo'}
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h4 className="m-0 text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <HardDrive className="w-3.5 h-3.5 text-blue-500" />
-                  <span>Installed Local Models</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300">
-                    {ollamaStatus.models.length} installed
-                  </span>
-                </h4>
-                <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                  Weights stored locally on your machine for zero-latency, air-gapped inference.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => handleOpenExternal('https://ollama.com/library')}
-                className="inline-flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline bg-transparent border-none cursor-pointer p-0"
-              >
-                <span>Browse 100+ Models on Ollama Library</span>
-                <ExternalLink className="w-3 h-3" />
-              </button>
-            </div>
-
-            {/* Currently Installed Models List */}
-            {ollamaStatus.models.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                {ollamaStatus.models.map((m) => {
-                  const isActive = (cfg.ollamaModel || 'llama3.2') === m;
-                  const isDeleting = deletingModel === m;
-                  return (
-                    <div
-                      key={m}
-                      className={`p-4 rounded-xl border flex items-center justify-between gap-2 transition-all ${
-                        isActive
-                          ? 'border-emerald-500/40 bg-emerald-500/[0.06] dark:bg-emerald-500/[0.08]'
-                          : 'border-gray-200 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02]'
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
-                            {m}
-                          </span>
-
-                        </div>
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                          Ready for local chat
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {!isActive && (
-                          <button
-                            type="button"
-                            onClick={() => setField('ollamaModel', m)}
-                            className="px-2 py-1 text-[11px] font-medium rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-all cursor-pointer"
-                          >
-                            Select
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteModel(m)}
-                          disabled={isDeleting}
-                          title="Delete model from disk"
-                          className="p-2 text-gray-400 hover:text-red-500 rounded-sm hover:bg-red-500/10 transition-colors cursor-pointer border-none bg-transparent"
-                        >
-                          {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="p-3.5 rounded-xl border border-dashed border-gray-300 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02] text-xs text-gray-500 dark:text-gray-400 text-center">
-                No models installed in Ollama yet. Install a recommended model below to start chatting.
-              </div>
-            )}
-
-            {/* Active Pull Progress Banner */}
-            {activePullingModel && (
-              <div className="rounded-xl p-3.5 border border-blue-500/30 bg-blue-500/10 dark:bg-blue-500/[0.08] flex flex-col gap-2">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      Downloading {activePullingModel}...
-                    </span>
-                  </div>
-                  <span className="font-mono text-blue-600 dark:text-blue-400 text-[11px]">
-                    {activePullProgress.percent > 0 ? `${activePullProgress.percent}%` : activePullProgress.status || 'Starting...'}
-                  </span>
-                </div>
-                {activePullProgress.percent > 0 && (
-                  <div className="w-full h-1.5 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">
-                    <div
-                      className="h-full bg-blue-600 transition-all duration-300 rounded-full"
-                      style={{ width: `${activePullProgress.percent}%` }}
-                    />
-                  </div>
-                )}
-                {activePullProgress.status && !activePullProgress.status.startsWith('pulling') && (
-                  <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate">
-                    {activePullProgress.status}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Quick 1-Click Install Cards for Popular Models */}
-            <div className="flex flex-col gap-2 mt-1">
-              <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Recommended Models to Install
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {[
-                  { tag: 'llama3.2', name: 'Llama 3.2', size: '3B (~2.0 GB)', desc: 'Fast, lightweight daily assistant by Meta' },
-                  { tag: 'deepseek-r1:8b', name: 'DeepSeek R1', size: '8B (~4.9 GB)', desc: 'Step-by-step reasoning & math specialist' },
-                  { tag: 'qwen2.5-coder:7b', name: 'Qwen 2.5 Coder', size: '7B (~4.7 GB)', desc: 'Coding, code review & syntax leader' },
-                  { tag: 'mistral', name: 'Mistral 7B', size: '7B (~4.1 GB)', desc: 'Balanced reasoning & instruction following' },
-                  { tag: 'phi4', name: 'Phi-4', size: '14B (~9.1 GB)', desc: 'Microsoft advanced reasoning & math' },
-                  { tag: 'moondream', name: 'Moondream 2', size: '1.8B (~1.7 GB)', desc: 'Local vision model for image inspection' },
-                ].map((item) => {
-                  const isInstalled = ollamaStatus.models.some((m) => m === item.tag || m.startsWith(item.tag.split(':')[0]));
-                  const isThisPulling = !!activePullingModel && (
-                    activePullingModel === item.tag ||
-                    activePullingModel.split(':')[0] === item.tag.split(':')[0]
-                  );
-
-                  return (
-                    <div
-                      key={item.tag}
-                      className="p-3.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161820] flex flex-col justify-between gap-3"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-1.5">
-                          <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                            {item.name}
-                          </span>
-                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 font-medium">
-                            {item.size}
-                          </span>
-                        </div>
-                        <p className="m-0 mt-1 text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2">
-                          {item.desc}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 dark:border-white/5">
-                        <span className="text-[10px] font-mono text-gray-400 truncate">
-                          {item.tag}
-                        </span>
-                        {isInstalled ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Installed</span>
-                          </span>
-                        ) : isThisPulling ? (
-                          <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold bg-blue-600 dark:bg-blue-500 text-white select-none">
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            <span>Installing {activePullProgress.percent > 0 ? `${activePullProgress.percent}%` : ''}</span>
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handlePullModel(item.tag)}
-                            disabled={!!activePullingModel}
-                            className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold bg-gray-900 dark:bg-white hover:bg-black dark:hover:bg-gray-100 text-white dark:text-gray-900 border-none cursor-pointer transition-all disabled:opacity-50"
-                          >
-                            <Download className="w-3 h-3" />
-                            <span>Install</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Custom Model Pull Input */}
-            <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
-              <input
-                type="text"
-                value={customModelInput}
-                onChange={(e) => setCustomModelInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleCustomPull(customModelInput);
-                  }
-                }}
-                placeholder="Enter any model tag (e.g. codellama, qwen2.5:7b, or hf.co/...)"
-                disabled={!!activePullingModel}
-                className="flex-1 w-full h-9 px-3 rounded-xl border border-gray-200 dark:border-[#252836] bg-gray-50/50 dark:bg-[#161820] text-xs font-mono text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 transition-all"
-              />
-              <button
-                type="button"
-                onClick={() => handleCustomPull(customModelInput)}
-                disabled={!customModelInput.trim() || !!activePullingModel}
-                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl text-xs font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-black dark:hover:bg-gray-100 border-none cursor-pointer transition-all disabled:opacity-50 whitespace-nowrap w-full sm:w-auto"
-              >
-                {activePullingModel === customModelInput.trim() ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Download className="w-3.5 h-3.5" />
-                )}
-                <span>Pull Model</span>
-              </button>
-            </div>
-
-            {/* Hugging Face Direct GGUF Importer */}
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-[#252836] flex flex-col gap-3">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                  Import from Hugging Face
-                </span>
-                <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                  Paste any Hugging Face GGUF repository or model URL to pull directly into Ollama.
-                </span>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center gap-2">
-                <input
-                  type="text"
-                  value={hfInput}
-                  onChange={(e) => {
-                    setHfInput(e.target.value);
-                    if (hfError) setHfError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleResolveHfRepo();
-                    }
-                  }}
-                  placeholder="e.g. bartowski/Llama-3.2-3B-Instruct-GGUF or huggingface.co/..."
-                  disabled={hfLoading || !!activePullingModel}
-                  className="flex-1 w-full h-9 px-3 rounded-xl border border-gray-200 dark:border-[#252836] bg-gray-50/50 dark:bg-[#161820] text-xs font-mono text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleResolveHfRepo()}
-                  disabled={!hfInput.trim() || hfLoading || !!activePullingModel}
-                  className="h-9 px-4 rounded-xl text-xs font-medium border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#1a1c24] hover:bg-gray-50 dark:hover:bg-[#20232d] text-gray-700 dark:text-gray-200 cursor-pointer transition-all disabled:opacity-50 whitespace-nowrap w-full sm:w-auto"
-                >
-                  {hfLoading ? 'Inspecting...' : 'Inspect Repo'}
-                </button>
-              </div>
-
-              {hfError && (
-                <div className="text-[11px] text-red-500 bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg font-mono">
-                  {hfError}
-                </div>
-              )}
-
-              {hfResolvedRepo && hfGgufFiles.length > 0 && (
-                <div className="p-3 rounded-xl border border-gray-200 dark:border-[#252836] bg-gray-50/50 dark:bg-[#161820] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div className="flex flex-col gap-1 w-full sm:w-auto flex-1">
-                    <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
-                      Select Quantization ({hfGgufFiles.length} files in {hfResolvedRepo})
-                    </span>
-                    <select
-                      value={selectedHfFile}
-                      onChange={(e) => setSelectedHfFile(e.target.value)}
-                      disabled={!!activePullingModel}
-                      className="w-full h-8 px-2 rounded-lg border border-gray-200 dark:border-[#2a2d3d] bg-white dark:bg-[#101217] text-xs font-mono text-gray-900 dark:text-gray-100 outline-none cursor-pointer"
-                    >
-                      {hfGgufFiles.map((f) => (
-                        <option key={f.name} value={f.name}>
-                          {f.quant} {f.size ? `(${f.size})` : ''} {f.isRecommended ? '— Recommended' : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleImportHfModel}
-                    disabled={!selectedHfFile || !!activePullingModel}
-                    className="h-8 px-4 rounded-lg text-xs font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-black dark:hover:bg-gray-100 border-none cursor-pointer transition-all disabled:opacity-50 whitespace-nowrap self-stretch sm:self-end"
-                  >
-                    {activePullingModel ? 'Downloading...' : 'Import to Ollama'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     );
   };
 
+  const renderOllamaLibrarySection = () => {
+    const filteredCatalog = OLLAMA_MODEL_CATALOG.filter((item) => {
+      if (ollamaCategoryFilter !== 'All' && item.category !== ollamaCategoryFilter) return false;
+      if (ollamaHardwareFilter === 'fits' && item.minVramGb > systemRamGb) return false;
+      if (ollamaHardwareFilter === '4' && item.minVramGb > 4) return false;
+      if (ollamaHardwareFilter === '8' && item.minVramGb > 8) return false;
+      if (ollamaHardwareFilter === '16' && item.minVramGb > 16) return false;
+      if (ollamaHardwareFilter === '32' && item.minVramGb < 24) return false;
+      if (ollamaSearch.trim()) {
+        const q = ollamaSearch.toLowerCase();
+        if (
+          !item.name.toLowerCase().includes(q) &&
+          !item.tag.toLowerCase().includes(q) &&
+          !item.brand.toLowerCase().includes(q) &&
+          !item.desc.toLowerCase().includes(q)
+        ) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    return (
+      <section className="flex flex-col gap-5 mt-2">
+        {/* Hardware Turbo Boost Card (Monochrome) */}
+        <div className="p-4 rounded-2xl border border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#0f0f13] flex items-center justify-between gap-3">
+          <div className="flex flex-col min-w-0">
+            <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+              Ollama Hardware Turbo Mode
+            </span>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+              Cuts VRAM usage by ~50%, accelerates token replies, and unloads idle models automatically.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleToggleTurbo}
+            disabled={turboApplying}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold border-none cursor-pointer shrink-0 transition-all disabled:opacity-50 ${
+              turboOptimized
+                ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                : 'bg-gray-100 dark:bg-white/[0.08] text-gray-800 dark:text-zinc-200 hover:bg-gray-200 dark:hover:bg-white/[0.14]'
+            }`}
+          >
+            {turboApplying ? 'Applying...' : turboOptimized ? 'Turbo Active' : 'Enable Turbo'}
+          </button>
+        </div>
+
+        {/* Installed Local Models */}
+        <div className="flex flex-col gap-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <SectionLabel>Installed Local Models</SectionLabel>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-zinc-300 -mt-2">
+                {ollamaStatus.models.length}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleOpenExternal('https://ollama.com/library')}
+              className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white bg-transparent border-none cursor-pointer p-0"
+            >
+              <span>Browse Ollama Library</span>
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          </div>
+
+          {ollamaStatus.models.length > 0 ? (
+            <div className={`${SURFACE} rounded-2xl overflow-hidden flex flex-col divide-y divide-[#e4e4eb] dark:divide-[#1e2029]`}>
+              {ollamaStatus.models.map((m) => {
+                const isActive = (cfg.ollamaModel || 'llama3.2') === m;
+                return (
+                  <div
+                    key={m}
+                    onClick={() => setField('ollamaModel', m)}
+                    className={`flex items-center justify-between gap-3 px-4 py-3 cursor-pointer transition-colors ${
+                      isActive ? 'bg-gray-50 dark:bg-[#161822]' : 'hover:bg-gray-50 dark:hover:bg-[#161822]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <OllamaLogo className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-xs font-mono font-semibold text-gray-900 dark:text-zinc-100 truncate">
+                        {m}
+                      </span>
+                      {isActive && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-900 dark:bg-white text-white dark:text-gray-900">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteOllamaModel(m);
+                      }}
+                      title="Delete model"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 bg-transparent border-none cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="px-4 py-4 rounded-2xl border border-dashed border-[#e4e4eb] dark:border-[#1e2029] text-xs text-gray-500 dark:text-zinc-400">
+              No models installed yet. Pick any model below to download.
+            </div>
+          )}
+        </div>
+
+        {/* Active Pull Progress Banner (Monochrome) */}
+        {activePullingModel && (
+          <div className="rounded-2xl p-4 border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0f0f13] flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-gray-700 dark:text-zinc-200" />
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  Downloading {activePullingModel}...
+                </span>
+              </div>
+              <span className="font-mono text-gray-700 dark:text-zinc-300 text-[11px]">
+                {activePullProgress.percent > 0 ? `${activePullProgress.percent}%` : activePullProgress.status || 'Starting...'}
+              </span>
+            </div>
+            {activePullProgress.percent > 0 && (
+              <div className="w-full h-1.5 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">
+                <div
+                  className="h-full bg-gray-900 dark:bg-white transition-all duration-300 rounded-full"
+                  style={{ width: `${activePullProgress.percent}%` }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Downloadable Models List Column with Hardware (VRAM/RAM) & Category Filters */}
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <SectionLabel>Download Models ({filteredCatalog.length})</SectionLabel>
+            <span className="text-[11px] font-mono text-gray-500 dark:text-zinc-400">
+              Detected RAM: {systemRamGb} GB
+            </span>
+          </div>
+
+          {/* Search + Hardware + Category Filters */}
+          <div className="flex flex-col gap-2.5">
+            <div className="relative flex items-center">
+              <Search className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500 absolute left-3 pointer-events-none" />
+              <input
+                type="text"
+                value={ollamaSearch}
+                onChange={(e) => setOllamaSearch(e.target.value)}
+                placeholder="Search models (Llama, Qwen, DeepSeek, Gemma, Mistral, Phi...)"
+                className="w-full h-9 pl-9 pr-3 rounded-xl border border-gray-200 dark:border-[#1e2029] bg-white dark:bg-[#0f0f13] text-xs text-gray-900 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-500 outline-none focus:border-gray-400 dark:focus:border-white/25"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {/* VRAM / RAM Filter */}
+              <div className="flex flex-wrap items-center gap-1">
+                {(
+                  [
+                    { id: 'all', label: 'All Sizes' },
+                    { id: 'fits', label: `Fits My PC (${systemRamGb}GB)` },
+                    { id: '4', label: 'â‰¤ 4 GB' },
+                    { id: '8', label: 'â‰¤ 8 GB' },
+                    { id: '16', label: 'â‰¤ 16 GB' },
+                    { id: '32', label: '24+ GB' },
+                  ] as const
+                ).map((hw) => (
+                  <button
+                    key={hw.id}
+                    type="button"
+                    onClick={() => setOllamaHardwareFilter(hw.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border cursor-pointer transition-colors ${
+                      ollamaHardwareFilter === hw.id
+                        ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent'
+                        : 'bg-transparent border-gray-200 dark:border-white/[0.08] text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {hw.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Category Filter */}
+              <div className="flex flex-wrap items-center gap-1">
+                {(['All', 'General', 'Coding', 'Reasoning', 'Vision'] as const).map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setOllamaCategoryFilter(cat)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border cursor-pointer transition-colors ${
+                      ollamaCategoryFilter === cat
+                        ? 'bg-gray-200 dark:bg-white/[0.14] text-gray-900 dark:text-white border-transparent'
+                        : 'bg-transparent border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* List Column of All Models */}
+          <div className={`${SURFACE} rounded-2xl overflow-hidden flex flex-col divide-y divide-[#e4e4eb] dark:divide-[#1e2029]`}>
+            {filteredCatalog.length === 0 ? (
+              <div className="p-8 text-center text-xs text-gray-500 dark:text-zinc-400">
+                No models match your current hardware/search filter.
+              </div>
+            ) : (
+              filteredCatalog.map((item) => {
+                const isInstalled = ollamaStatus.models.some(
+                  (m) => m === item.tag || m.startsWith(`${item.tag}:`)
+                );
+                const isThisPulling =
+                  !!activePullingModel &&
+                  (activePullingModel === item.tag ||
+                    activePullingModel.split(':')[0] === item.tag.split(':')[0]);
+                const BrandLogo = item.Logo;
+
+                return (
+                  <div
+                    key={item.tag}
+                    className="flex items-center justify-between gap-3.5 px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-[#161822] transition-colors"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 text-gray-900 dark:text-gray-100">
+                        <BrandLogo className="w-[18px] h-[18px]" />
+                      </div>
+                      <div className="min-w-0 flex flex-col">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {item.name}
+                          </span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/[0.06] text-gray-600 dark:text-zinc-300">
+                            {item.size}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/[0.06] text-gray-500 dark:text-zinc-400">
+                            {item.minVramGb}GB+ RAM/VRAM
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/[0.06] text-gray-500 dark:text-zinc-400">
+                            {item.category}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500 dark:text-zinc-400 truncate mt-0.5">
+                          {item.brand} Â· <span className="font-mono">{item.tag}</span> â€” {item.desc}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex-shrink-0">
+                      {isInstalled ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 dark:bg-white/[0.06] text-gray-700 dark:text-zinc-300">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Installed</span>
+                        </span>
+                      ) : isThisPulling ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>{activePullProgress.percent > 0 ? `${activePullProgress.percent}%` : 'Pulling...'}</span>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handlePullModel(item.tag)}
+                          disabled={!!activePullingModel}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-gray-900 dark:bg-white hover:opacity-90 text-white dark:text-gray-900 border-none cursor-pointer transition-opacity disabled:opacity-40"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Install</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Custom Model Pull Input */}
+          <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+            <input
+              type="text"
+              value={customModelInput}
+              onChange={(e) => setCustomModelInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleCustomPull(customModelInput);
+                }
+              }}
+              placeholder="Or pull any custom Ollama tag (e.g. llama3.2:latest, hf.co/...)"
+              disabled={!!activePullingModel}
+              className="flex-1 w-full h-9 px-3 rounded-xl border border-gray-200 dark:border-[#252836] bg-white dark:bg-[#0f0f13] text-xs font-mono text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-gray-400 dark:focus:border-white/25 transition-all"
+            />
+            <button
+              type="button"
+              onClick={() => handleCustomPull(customModelInput)}
+              disabled={!customModelInput.trim() || !!activePullingModel}
+              className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl text-xs font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90 border-none cursor-pointer transition-opacity disabled:opacity-40 whitespace-nowrap w-full sm:w-auto"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Pull Model</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  };
+
   const categoryTabClass = (value: Category) =>
-    `inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full cursor-pointer border-none transition-all ${
+    `inline-flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-lg cursor-pointer border-none transition-all ${
       category === value
         ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-sm'
         : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
     }`;
 
   return (
-    <div className="flex flex-col  gap-8 max-w-5xl mx-auto w-full pb-16">
-      {/* Header */}
-      <header className="flex flex-col mt-6 sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <h2 className="m-0 text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-            AI Models
-          </h2>
-          <p className="m-0 mt-1.5 text-xs w-full max-w-sm text-gray-500 dark:text-gray-400">
-            Choose the provider and model Grokki uses. Switch between paid flagship models and free or open-source options.
-          </p>
-        </div>
+    <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-16">
+      <AnimatePresence mode="wait">
+        {configuringProvider === null ? (
+          <motion.div
+            key="provider-list"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="flex flex-col gap-6"
+          >
+            {/* Header */}
+            <header className="flex flex-col mt-6 sm:flex-row sm:items-end justify-between gap-4">
 
-        {/* Paid vs Free segmented control */}
-        <div className="flex items-center gap-1 bg-gray-100 dark:bg-[#13141a] p-1.5 rounded-full border border-gray-200 dark:border-[#1e2029] self-start sm:self-auto">
-          <button type="button" onClick={() => setCategory('paid')} className={categoryTabClass('paid')}>
-            <span>Paid</span>
-          </button>
-          <button type="button" onClick={() => setCategory('free')} className={categoryTabClass('free')}>
-            <span>Free & Open Source</span>
-          </button>
-        </div>
-      </header>
+              {/* Paid vs Free segmented control */}
+              <div className="flex items-center gap-1 bg-gray-100 dark:bg-[#13141a] p-1.5 rounded-xl border border-gray-200 dark:border-[#1e2029] self-start sm:self-auto">
+                <button type="button" onClick={() => setCategory('paid')} className={categoryTabClass('paid')}>
+                  <span>Paid Providers (BYOK)</span>
+                </button>
+                <button type="button" onClick={() => setCategory('free')} className={categoryTabClass('free')}>
+                  <span>Free Providers</span>
+                </button>
+              </div>
+            </header>
 
-      {/* Provider list */}
-      <section>
-        <SectionLabel>Provider</SectionLabel>
+            {/* Provider list */}
+            <section>
+              <SectionLabel>Provider</SectionLabel>
 
-        {/* Notice when the active engine lives in the other category */}
-        {!isActiveInCurrentCategory && (
-          <div className="flex items-center justify-between gap-3 px-4 py-3 mb-3 rounded-xl bg-gray-50 dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] text-xs text-gray-600 dark:text-gray-300">
-            <span>
-              Active engine is{' '}
-              <strong className="font-semibold text-gray-900 dark:text-gray-100">
-                {activeInOther?.label || config.provider}
-              </strong>
-              , in the {otherCategory === 'paid' ? 'Paid' : 'Free & Open Source'} list.
-            </span>
+              {/* Notice when the active engine lives in the other category */}
+              {!isActiveInCurrentCategory && (
+                <div className="flex items-center justify-between gap-3 px-4 py-3 mb-3 rounded-xl bg-gray-50 dark:bg-[#13141a] border border-[#e4e4eb] dark:border-[#1e2029] text-xs text-gray-600 dark:text-gray-300">
+                  <span>
+                    Active engine is{' '}
+                    <strong className="font-semibold text-gray-900 dark:text-gray-100">
+                      {activeInOther?.label || config.provider}
+                    </strong>
+                    , in the {otherCategory === 'paid' ? 'Paid' : 'Free & Open Source'} list.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCategory(otherCategory)}
+                    className="text-[11px] font-semibold text-gray-900 dark:text-white hover:underline cursor-pointer bg-transparent border-none p-0 flex-shrink-0"
+                  >
+                    Show
+                  </button>
+                </div>
+              )}
+
+              <div
+                aria-label="AI provider"
+                className={`${SURFACE} rounded-2xl overflow-hidden flex flex-col divide-y divide-[#e4e4eb] dark:divide-[#1e2029]`}
+              >
+                {currentProviders.map((p) => {
+                  const isSelected = config.provider === p.id;
+                  const configured = isProviderConfigured(p.id);
+                  const Logo = p.Logo;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        handleSelectProvider(p.id);
+                        setConfiguringProvider(p.id);
+                      }}
+                      className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-left cursor-pointer border-none transition-colors ${
+                        isSelected
+                          ? 'bg-gray-50 dark:bg-[#161822]'
+                          : 'bg-transparent hover:bg-gray-50 dark:hover:bg-[#161822]'
+                      }`}
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 text-gray-900 dark:text-gray-100">
+                        <Logo className="w-[18px] h-[18px]" />
+                      </div>
+
+                      <div className="flex-1 min-w-0 flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                            {p.label}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-[10px] font-medium text-gray-500 dark:text-gray-400 flex-shrink-0">
+                            {p.tag}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {p.subLabel}
+                        </span>
+                      </div>
+
+                      <span
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 dark:text-zinc-400 flex-shrink-0"
+                        aria-hidden="true"
+                      >
+                        {configured ? (
+                          <ChevronRight className="w-4 h-4" />
+                        ) : (
+                          <Plus className="w-4 h-4" />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Local Provider Section */}
+            <section>
+              <SectionLabel>Local Provider</SectionLabel>
+              <div
+                aria-label="Local AI provider"
+                className={`${SURFACE} rounded-2xl overflow-hidden flex flex-col divide-y divide-[#e4e4eb] dark:divide-[#1e2029]`}
+              >
+                {localProviders.map((p) => {
+                  const isSelected = config.provider === p.id;
+                  const configured = isProviderConfigured(p.id);
+                  const Logo = p.Logo;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        handleSelectProvider(p.id);
+                        setConfiguringProvider(p.id);
+                      }}
+                      className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-left cursor-pointer border-none transition-colors ${
+                        isSelected
+                          ? 'bg-gray-50 dark:bg-[#161822]'
+                          : 'bg-transparent hover:bg-gray-50 dark:hover:bg-[#161822]'
+                      }`}
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 text-gray-900 dark:text-gray-100">
+                        <Logo className="w-[18px] h-[18px]" />
+                      </div>
+
+                      <div className="flex-1 min-w-0 flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                            {p.label}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-[10px] font-medium text-gray-500 dark:text-gray-400 flex-shrink-0">
+                            {p.tag}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {p.subLabel}
+                        </span>
+                      </div>
+
+                      <span
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 dark:text-zinc-400 flex-shrink-0"
+                        aria-hidden="true"
+                      >
+                        {configured ? (
+                          <ChevronRight className="w-4 h-4" />
+                        ) : (
+                          <Plus className="w-4 h-4" />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          </motion.div>
+        ) : (
+          <motion.div
+            key={`provider-config-${configuringProvider}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="flex flex-col gap-4 mt-2"
+          >
             <button
               type="button"
-              onClick={() => setCategory(otherCategory)}
-              className="text-[11px] font-semibold text-gray-900 dark:text-white hover:underline cursor-pointer bg-transparent border-none p-0 flex-shrink-0"
+              onClick={() => setConfiguringProvider(null)}
+              className="inline-flex items-center gap-2 w-fit px-1 py-1 text-[13px] text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white bg-transparent border-none cursor-pointer transition-colors"
             >
-              Show
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to providers</span>
             </button>
-          </div>
+
+            {detail && renderConfigCard()}
+            {activeConfigId === 'ollama' && ollamaStatus.installed && renderOllamaLibrarySection()}
+          </motion.div>
         )}
-
-        <div
-          role="radiogroup"
-          aria-label="AI provider"
-          className={`${SURFACE} rounded-2xl overflow-hidden flex flex-col divide-y divide-[#e4e4eb] dark:divide-[#1e2029]`}
-        >
-          {currentProviders.map((p) => {
-            const isSelected = config.provider === p.id;
-            const Logo = p.Logo;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                role="radio"
-                aria-checked={isSelected}
-                onClick={() => handleSelectProvider(p.id)}
-                className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-left cursor-pointer border-none transition-colors ${
-                  isSelected
-                    ? 'bg-gray-50 dark:bg-[#161822]'
-                    : 'bg-transparent hover:bg-gray-50 dark:hover:bg-[#161822]'
-                }`}
-              >
-                <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 text-gray-900 dark:text-gray-100">
-                  <Logo className="w-[18px] h-[18px]" />
-                </div>
-
-                <div className="flex-1 min-w-0 flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                      {p.label}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#1a1c24] text-[10px] font-medium text-gray-500 dark:text-gray-400 flex-shrink-0">
-                      {p.tag}
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {p.subLabel}
-                  </span>
-                </div>
-
-                <span className="hidden sm:block text-[11px] font-mono text-gray-400 dark:text-gray-500 truncate max-w-[200px]">
-                  {p.badge}
-                </span>
-
-                <span
-                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    isSelected
-                      ? 'border-gray-900 dark:border-white'
-                      : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                >
-                  {isSelected && <span className="w-2 h-2 rounded-full bg-gray-900 dark:bg-white" />}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Configuration */}
-      {detail && (
-        <section>
-          <SectionLabel>Configuration</SectionLabel>
-          {renderConfigCard()}
-        </section>
-      )}
+      </AnimatePresence>
     </div>
   );
 });

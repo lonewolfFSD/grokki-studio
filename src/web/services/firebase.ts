@@ -8,7 +8,13 @@ import {
   getDocs,
   type Firestore,
 } from 'firebase/firestore';
-import type { UpdateItem } from '../components/tabs/OverviewTab';
+export interface UpdateItem {
+  id: string;
+  title: string;
+  date: string;
+  summary?: string;
+  tag?: string;
+}
 
 export interface FirebaseClientConfig {
   apiKey: string;

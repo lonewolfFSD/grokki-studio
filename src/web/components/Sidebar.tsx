@@ -7,7 +7,6 @@ import {
   ComputerTerminal01Icon,
   Add01Icon,
   Search01Icon,
-  Home01Icon,
   Layers01Icon,
   PuzzleIcon,
   ToolsIcon,
@@ -48,7 +47,7 @@ import grokkiLogo from '../assets/grokki_logo.png';
 import grokkiWordmarkDark from '../assets/grokki_wordmark.png';
 import grokkiWordmarkLight from '../assets/grokki_wordmark_light.png';
 
-export type TabId = 'chat' | 'overview' | 'images' | 'office' | 'plugins' | 'skills' | 'workspace' | 'memory' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
+export type TabId = 'chat' | 'images' | 'office' | 'plugins' | 'skills' | 'workspace' | 'memory' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
 
 const MIN_EXPANDED_WIDTH = 180;
 const DEFAULT_SIDEBAR_WIDTH = 240;
@@ -241,14 +240,12 @@ export const Sidebar = React.memo<SidebarProps>(({
   companionEnabled = false,
 }) => {
   const effectiveHotkeys: StudioHotkeys = { ...DEFAULT_HOTKEYS, ...(hotkeys || {}) };
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -378,21 +375,6 @@ export const Sidebar = React.memo<SidebarProps>(({
   };
 
   const initial = (userName || 'U').trim().charAt(0).toUpperCase();
-
-  // Close account menu on click outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setAccountMenuOpen(false);
-      }
-    };
-    if (accountMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [accountMenuOpen]);
 
 
 
@@ -1062,17 +1044,7 @@ export const Sidebar = React.memo<SidebarProps>(({
             </div>
           )}
 
-          <SidebarRow
-                  icon={Home01Icon}
-                  label="Home"
-                  isActive={activeTab === 'overview'}
-                  isCollapsed={isCollapsed}
-                  onClick={() => onSelectTab('overview')}
-                />
-
-          
-
-          {/* Top Actions: New Chat / Session & Overview (Home) */}
+          {/* Top Actions: New Chat / Session */}
           <div className="flex flex-col gap-0.5 flex-shrink-0">
             <SidebarRow
               icon={Add01Icon}
@@ -1765,96 +1737,12 @@ export const Sidebar = React.memo<SidebarProps>(({
 
       </div>
 
-      {/* Bottom Profile Card & Account Switcher Popover */}
-      <div className="relative" ref={menuRef}>
-        {/* Switch Account Popover Menu */}
-        {accountMenuOpen && (
-          <div
-            className={`absolute bottom-full left-0 ${
-              isCollapsed ? 'w-56' : 'right-0'
-            } mb-2 p-1.5 bg-white dark:bg-[#16161a] border border-gray-300 dark:border-[#26262e] rounded-2xl z-50 flex flex-col gap-1 shadow-lg`}
-          >
-            {/* Account Info Header */}
-            <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-[#1c1c22] border border-gray-100 dark:border-[#2a2a32] flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 overflow-hidden shadow-xs relative">
-                {avatarUrl && !imgError ? (
-                  <img
-                    src={avatarUrl}
-                    alt={userName}
-                    onError={() => setImgError(true)}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                ) : (
-                  <div className={`w-full h-full flex items-center justify-center ${getGradientClass(accountKey)} font-mono text-xs font-bold text-white rounded-lg`}>
-                    {initial}
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
-                  {userName}
-                </div>
-                <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                  {googleProfile?.email || 'Local Desktop Profile'}
-                </div>
-              </div>
-            </div>
-
-            {/* Menu Actions */}
-            <div className="flex flex-col gap-0.5 pt-1">
-              <SidebarIconButton
-                icon={RefreshCwIcon}
-                iconSize={14}
-                label="Switch Account"
-                iconClassName="text-gray-500"
-                onClick={async () => {
-                  setAccountMenuOpen(false);
-                  if (onSwitchGoogle) {
-                    await onSwitchGoogle();
-                  } else {
-                    onOpenSettings?.('google');
-                  }
-                }}
-                className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#18181c] transition-all cursor-pointer border-none bg-transparent text-left"
-              />
-
-              <SidebarIconButton
-                icon={Settings01Icon}
-                iconSize={14}
-                label="Settings"
-                shortcut={effectiveHotkeys.openSettings || 'Ctrl+,'}
-                iconClassName="text-gray-500"
-                onClick={() => {
-                  setAccountMenuOpen(false);
-                  onOpenSettings?.('settings');
-                }}
-                className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#18181c] transition-all cursor-pointer border-none bg-transparent text-left"
-              />
-
-              {googleConnected && (
-                <SidebarIconButton
-                  icon={Logout01Icon}
-                  iconSize={14}
-                  label="Disconnect Account"
-                  iconClassName="text-red-500"
-                  onClick={async () => {
-                    setAccountMenuOpen(false);
-                    if (onDisconnectGoogle) {
-                      await onDisconnectGoogle();
-                    }
-                  }}
-                  className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer border-none bg-transparent text-left"
-                />
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Profile Card */}
+      {/* Bottom Simple Profile & Settings Icon */}
+      <div className={`pt-2 border-t border-gray-200/70 dark:border-white/[0.06] flex-shrink-0 flex items-center ${isCollapsed ? 'flex-col gap-1.5 justify-center' : 'justify-between px-1.5'}`}>
         <WarmTooltip
-          content={isCollapsed ? `${userName} — Switch account` : 'Click to switch account'}
+          content={userName}
           side="right"
-          disabled={accountMenuOpen}
+          disabled={!isCollapsed}
           surfaceColor="#f5f5f5"
           inkColor="#18181b"
           size="md"
@@ -1865,53 +1753,58 @@ export const Sidebar = React.memo<SidebarProps>(({
           popScale={0.94}
           popBlur={4}
           showFuse={false}
-          className="w-full"
         >
-          <div
-            onClick={() => setAccountMenuOpen(!accountMenuOpen)}
-            className={`w-full flex items-center ${
-              isCollapsed
-                ? 'justify-center p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1c1c22]'
-                : 'justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-[#16161a] hover:bg-gray-100 dark:hover:bg-[#1c1c22] border border-gray-200 dark:border-[#222228] shadow-xs'
-            } transition-all cursor-pointer`}
+          <button
+            type="button"
+            onClick={() => onOpenSettings?.('profile')}
+            className={`flex items-center ${
+              isCollapsed ? 'justify-center p-1.5' : 'gap-2.5 px-1.5 py-1.5 min-w-0 flex-1'
+            } rounded-lg bg-transparent hover:bg-gray-100 dark:hover:bg-white/[0.04] border-none transition-colors cursor-pointer text-left`}
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 overflow-hidden shadow-xs relative">
-                {avatarUrl && !imgError ? (
-                  <img
-                    src={avatarUrl}
-                    alt={userName}
-                    onError={() => setImgError(true)}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                ) : (
-                  <div className={`w-full h-full flex items-center justify-center ${getGradientClass(accountKey)} font-mono text-xs font-bold text-white rounded-lg`}>
-                    {initial}
-                  </div>
-                )}
-              </div>
-              {!isCollapsed && (
-                <div className="min-w-0">
-                  <div className="text-[12px] font-semibold text-gray-900 dark:text-gray-100 truncate">
-                    {userName}
-                  </div>
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] flex-shrink-0 overflow-hidden">
+              {avatarUrl && !imgError ? (
+                <img
+                  src={avatarUrl}
+                  alt={userName}
+                  onError={() => setImgError(true)}
+                  className="w-full h-full object-cover rounded-full"
+                />
+              ) : (
+                <div className={`w-full h-full flex items-center justify-center ${getGradientClass(accountKey)} font-mono text-[11px] font-bold text-white rounded-full`}>
+                  {initial}
                 </div>
               )}
             </div>
-
             {!isCollapsed && (
-              <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5">
-                <HugeiconsIcon
-                  icon={ChevronDownIcon}
-                  size={16}
-                  strokeWidth={2}
-                  className={`mr-1 mt-2 transition-transform duration-200 ${
-                    accountMenuOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </div>
+              <span className="text-[13px] font-medium text-gray-800 dark:text-zinc-200 truncate">
+                {userName}
+              </span>
             )}
-          </div>
+          </button>
+        </WarmTooltip>
+
+        <WarmTooltip
+          content={`Settings (${effectiveHotkeys.openSettings || 'Ctrl+,'})`}
+          side={isCollapsed ? 'right' : 'top'}
+          surfaceColor="#f5f5f5"
+          inkColor="#18181b"
+          size="md"
+          radius={8}
+          gap={8}
+          arrow
+          popDuration={160}
+          popScale={0.94}
+          popBlur={4}
+          showFuse={false}
+        >
+          <button
+            type="button"
+            onClick={() => onOpenSettings?.('settings')}
+            aria-label="Settings"
+            className="p-1.5 rounded-lg text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/[0.06] border-none bg-transparent transition-colors cursor-pointer flex-shrink-0 flex items-center justify-center"
+          >
+            <HugeiconsIcon icon={Settings01Icon} size={16} strokeWidth={1.8} />
+          </button>
         </WarmTooltip>
       </div>
     </aside>

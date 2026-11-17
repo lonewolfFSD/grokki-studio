@@ -40,7 +40,15 @@ interface RegistryPluginItem {
   category: string;
   imageUrl?: string | null;
   authPortalUrl?: string | null;
-  authType?: 'google-oauth' | 'mcp-oauth' | 'mcp-remote' | 'api-key' | 'stdio-zero' | 'native';
+  authType?:
+    | 'google-oauth'
+    | 'mcp-oauth'
+    | 'mcp-remote'
+    | 'api-key'
+    | 'stdio-zero'
+    | 'native'
+    | 'whatsapp-qr'
+    | 'obsidian-vault';
   officialPluginId?: string;
   mcpUrl?: string | null;
   command?: string | null;
@@ -51,6 +59,7 @@ interface RegistryPluginItem {
 }
 
 const STORE_CATEGORIES = [
+  'For You',
   'Popular',
   'New & Noteworthy',
   'Small Business',
@@ -86,6 +95,8 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
   const [showManualTokenInput, setShowManualTokenInput] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [waQrDataUrl, setWaQrDataUrl] = useState<string | null>(null);
+  const [waQrLoading, setWaQrLoading] = useState(false);
 
   // Configure Connected Plugin Drawer State
   const [configuringPlugin, setConfiguringPlugin] = useState<GrokkiPlugin | null>(null);
@@ -290,6 +301,62 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
     setConnectError(null);
   };
 
+  useEffect(() => {
+    if (connectingItem?.authType !== 'whatsapp-qr') {
+      setWaQrDataUrl(null);
+      setWaQrLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const loadQr = async () => {
+      setWaQrLoading(true);
+      try {
+        const status = await window.jarvisAPI?.getOpenWAStatus?.(true);
+        if (!cancelled && status?.connected) {
+          if (window.jarvisAPI?.togglePlugin) {
+            await window.jarvisAPI.togglePlugin('whatsapp', true);
+          }
+          await fetchPlugins();
+          showNotice('Connected WhatsApp!');
+          setConnectingItem(null);
+          return;
+        }
+        const qrRes = await window.jarvisAPI?.getOpenWAQr?.(false);
+        if (!cancelled && qrRes?.qrDataUrl) {
+          setWaQrDataUrl(qrRes.qrDataUrl);
+        } else if (!cancelled && qrRes?.error) {
+          setConnectError(qrRes.error);
+        }
+      } catch (err: any) {
+        if (!cancelled) setConnectError(err?.message || 'Failed to load WhatsApp QR code.');
+      } finally {
+        if (!cancelled) setWaQrLoading(false);
+      }
+    };
+
+    loadQr();
+
+    const unsub = window.jarvisAPI?.onOpenWAStatusChanged?.(async (st: any) => {
+      if (cancelled) return;
+      if (st?.connected) {
+        if (window.jarvisAPI?.togglePlugin) {
+          await window.jarvisAPI.togglePlugin('whatsapp', true);
+        }
+        await fetchPlugins();
+        showNotice('Connected WhatsApp!');
+        setConnectingItem(null);
+      } else if (st?.qrDataUrl) {
+        setWaQrDataUrl(st.qrDataUrl);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
+  }, [connectingItem]);
+
   // Execute the REAL OAuth Redirect / API Token / MCP Connection
   const handleConfirmConnect = async (useManualToken = false) => {
     if (!connectingItem) return;
@@ -324,6 +391,39 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
           showNotice(`Enabled ${connectingItem.name}!`);
           setConnectingItem(null);
         }
+        setIsConnecting(false);
+        return;
+      }
+
+      // 2b. Obsidian Vault Picker
+      if (connectingItem.authType === 'obsidian-vault') {
+        if (window.jarvisAPI?.selectObsidianVault) {
+          const res = await window.jarvisAPI.selectObsidianVault();
+          if (res?.success || res?.connected) {
+            if (window.jarvisAPI?.togglePlugin && connectingItem.officialPluginId) {
+              await window.jarvisAPI.togglePlugin(connectingItem.officialPluginId, true);
+            }
+            await fetchPlugins();
+            showNotice('Connected Obsidian Vault!');
+            setConnectingItem(null);
+          } else if (res?.error && !res?.canceled) {
+            setConnectError(res.error);
+          }
+        }
+        setIsConnecting(false);
+        return;
+      }
+
+      // 2c. WhatsApp QR Refresh
+      if (connectingItem.authType === 'whatsapp-qr') {
+        setWaQrLoading(true);
+        const qrRes = await window.jarvisAPI?.getOpenWAQr?.(true);
+        if (qrRes?.qrDataUrl) {
+          setWaQrDataUrl(qrRes.qrDataUrl);
+        } else if (qrRes?.error) {
+          setConnectError(qrRes.error);
+        }
+        setWaQrLoading(false);
         setIsConnecting(false);
         return;
       }
@@ -425,6 +525,22 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
       window.jarvisAPI.openUrl(url);
     } else {
       window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleDisconnectOfficial = async (pluginId: string) => {
+    try {
+      if (pluginId === 'google-workspace') await window.jarvisAPI?.disconnectGoogle?.();
+      else if (pluginId === 'whatsapp') await window.jarvisAPI?.disconnectOpenWA?.();
+      else if (pluginId === 'obsidian') await window.jarvisAPI?.disconnectObsidian?.();
+      else if (pluginId === 'notion') await window.jarvisAPI?.disconnectNotion?.();
+      else if (pluginId === 'git-tools') await window.jarvisAPI?.disconnectGitHub?.();
+      await window.jarvisAPI?.togglePlugin?.(pluginId, false);
+      await fetchPlugins();
+      setConfiguringPlugin(null);
+      showNotice('Disconnected plugin.');
+    } catch (err: any) {
+      showNotice(err?.message || 'Failed to disconnect plugin.');
     }
   };
 
@@ -957,7 +1073,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
               {STORE_CATEGORIES.map((category) => {
                 const items = groupedByCategory[category] || [];
                 if (items.length === 0) return null;
-                const previewItems = items.slice(0, 6);
+                const previewItems = category === 'For You' ? items : items.slice(0, 6);
 
                 return (
                   <div key={category} className="flex flex-col gap-2.5">
@@ -1152,6 +1268,31 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
               </div>
             )}
 
+            {/* WhatsApp QR Pairing Preview */}
+            {connectingItem.authType === 'whatsapp-qr' && (
+              <div className="flex flex-col items-center gap-3 p-4 rounded-2xl bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/[0.06]">
+                {waQrLoading ? (
+                  <div className="w-44 h-44 flex flex-col items-center justify-center gap-2 text-xs text-gray-500 dark:text-zinc-400">
+                    <HugeiconsIcon icon={RefreshCwIcon} size={20} strokeWidth={2} className="animate-spin" />
+                    <span>Generating WhatsApp QR...</span>
+                  </div>
+                ) : waQrDataUrl ? (
+                  <img
+                    src={waQrDataUrl}
+                    alt="WhatsApp QR Code"
+                    className="w-44 h-44 rounded-xl bg-white p-2 object-contain"
+                  />
+                ) : (
+                  <div className="w-44 h-44 flex items-center justify-center text-xs text-gray-500 dark:text-zinc-400 text-center px-3">
+                    Click Refresh QR below to generate a pairing code.
+                  </div>
+                )}
+                <p className="text-[11px] text-gray-500 dark:text-zinc-400 text-center">
+                  Open WhatsApp on your phone → Linked Devices → Link a Device
+                </p>
+              </div>
+            )}
+
             {/* Error Alert */}
             {connectError && (
               <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-400 text-xs leading-relaxed">
@@ -1187,6 +1328,10 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
                     <span>Continue with Google</span>
                     <HugeiconsIcon icon={ArrowUpRight01Icon} size={14} strokeWidth={2.2} />
                   </>
+                ) : connectingItem.authType === 'whatsapp-qr' ? (
+                  <span>Refresh QR Code</span>
+                ) : connectingItem.authType === 'obsidian-vault' ? (
+                  <span>Select Obsidian Vault Folder</span>
                 ) : (
                   <span>Connect &amp; Verify {connectingItem.name}</span>
                 )}
@@ -1287,6 +1432,15 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ onNavigateTab }) => {
                 >
                   <HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={2} />
                   <span>Disconnect Plugin</span>
+                </button>
+              ) : configuringPlugin.requiresAccount ? (
+                <button
+                  type="button"
+                  onClick={() => handleDisconnectOfficial(configuringPlugin.id)}
+                  className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 font-medium cursor-pointer"
+                >
+                  <HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={2} />
+                  <span>Disconnect {configuringPlugin.name}</span>
                 </button>
               ) : (
                 <div />

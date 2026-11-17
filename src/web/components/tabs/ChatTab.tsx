@@ -10,6 +10,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Layers01Icon } from '@hugeicons/core-free-icons';
 import { PluginBrandLogo } from '../PluginBrandLogo';
+import { ChatRightPane } from '../ChatRightPane';
 import {
   ArrowUp,
   CornerDownLeft,
@@ -43,6 +44,8 @@ import {
   Trash2,
   Camera,
   Calendar,
+  MoreVertical,
+  PanelRight,
   Lock,
   GitMerge,
   Code2,
@@ -78,6 +81,7 @@ import { JarvisConfig, AiProvider, Conversation, ChatMessage, AttachedFileInfo, 
 import GlideSelect, { GlideSelectOption } from './GlideSelect';
 import {
   CURATED_MODELS,
+  GrokkiCloudLogo,
   GeminiLogo,
   GroqLogo,
   OllamaLogo,
@@ -87,6 +91,14 @@ import {
   GrokLogo,
   DeepSeekLogo,
   QwenLogo,
+  AnthropicLogo,
+  KimiLogo,
+  MistralLogo,
+  PerplexityLogo,
+  CohereLogo,
+  GlmLogo,
+  MiniMaxLogo,
+  TogetherLogo,
   LiteLLMLogo,
   BifrostLogo,
   PortkeyLogo,
@@ -1870,23 +1882,17 @@ export const ChatTab = React.memo<ChatTabProps>(({
               setAgentMenu(agentMenu === 'project' ? null : 'project');
             }}
             disabled={isProjectLocked}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11.5px] font-medium bg-gray-100 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-gray-700 dark:text-gray-300 border border-gray-200/70 dark:border-white/[0.08] transition-all max-w-[260px] truncate select-none ${
+            className={`flex items-center gap-1.5 px-4.5 py-1.5  rounded-lg text-[11.5px] font-medium bg-gray-100 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-gray-700 dark:text-gray-300 border border-gray-200/70 dark:border-white/[0.08] transition-all max-w-[260px] backdrop-blur-sm truncate select-none ${
               isProjectLocked ? 'cursor-default opacity-85' : 'cursor-pointer shadow-xs'
             }`}
-            title={
-              isProjectLocked
-                ? `Project root is locked for this session (${agentRootName})`
-                : agentRoot
-                ? `Project Root: ${agentRoot} (Click to change or select folder)`
-                : 'Click to select project folder'
-            }
+            
           >
-            <Folder className="w-3.5 h-3.5 text-gray-400 dark:text-gray-300 shrink-0" />
+            <Folder className="w-3 h-3 text-gray-400 dark:text-gray-300 shrink-0" />
             <span className="truncate uppercase tracking-wider text-[11px] font-semibold">
               {agentRoot ? agentRootName : 'No project selected'}
             </span>
             {isProjectLocked ? (
-              <Lock className="w-3 h-3 text-gray-400 dark:text-gray-500 shrink-0 ml-0.5" />
+              <Lock className="w-2.5 h-2.5 text-gray-400 dark:text-gray-500 shrink-0 ml-0.5" />
             ) : (
               <ChevronDown className="w-3 h-3 text-gray-400 shrink-0" />
             )}
@@ -1984,11 +1990,11 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 e.stopPropagation();
                 setAgentMenu(agentMenu === 'effort' ? null : 'effort');
               }}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11.5px] font-medium bg-gray-100 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-gray-700 dark:text-gray-300 border border-gray-200/70 dark:border-white/[0.08] transition-all cursor-pointer shadow-xs"
+              className="flex items-center gap-1.5 px-4 py-2 backdrop-blur-sm rounded-lg text-[11.5px] font-medium bg-gray-100 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-gray-700 dark:text-gray-300 border border-gray-200/70 dark:border-white/[0.08] transition-all cursor-pointer shadow-xs"
             >
               <Gauge className="w-3.5 h-3.5 text-gray-400 dark:text-gray-300 shrink-0" />
               <span>
-                Effort: <span className="capitalize font-semibold text-gray-900 dark:text-white">{selectedEffort}</span>
+                <span className="capitalize font-semibold text-gray-900 dark:text-white">{selectedEffort}</span>
               </span>
               <ChevronDown className="w-3 h-3 text-gray-400 shrink-0" />
             </button>
@@ -2003,7 +2009,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                   backgroundColor: isDarkTheme ? 'rgba(15, 17, 23, 0.94)' : 'rgba(255, 255, 255, 0.94)',
                 }}
               >
-                <div className="px-2.5 py-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                <div className="px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                   Effort Level
                 </div>
                 <div className="flex flex-col gap-0.5 mt-1">
@@ -2023,7 +2029,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                         }`}
                       >
                         <div className="flex flex-col">
-                          <span className="text-[12px] font-medium text-white">{opt.label} ({opt.turns} steps)</span>
+                          <span className="text-[12px] font-medium text-white">{opt.label}</span>
                           <span className="text-[10.5px] text-gray-400 leading-tight mt-0.5">{opt.desc}</span>
                         </div>
                         {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0 mt-0.5" />}
@@ -2043,7 +2049,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 e.stopPropagation();
                 setAgentMenu(agentMenu === 'permission' ? null : 'permission');
               }}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11.5px] font-medium bg-gray-100 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-gray-700 dark:text-gray-300 border border-gray-200/70 dark:border-white/[0.08] transition-all cursor-pointer shadow-xs"
+              className="flex items-center gap-1.5 px-4.5 py-2 backdrop-blur-sm rounded-lg text-[11.5px] font-medium bg-gray-100 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-gray-700 dark:text-gray-300 border border-gray-200/70 dark:border-white/[0.08] transition-all cursor-pointer shadow-xs"
             >
               <PermIcon className="w-3.5 h-3.5 text-gray-400 dark:text-gray-300 shrink-0" />
               <span className="font-semibold text-gray-900 dark:text-white">
@@ -2082,21 +2088,19 @@ export const ChatTab = React.memo<ChatTabProps>(({
                           isSelected ? 'bg-white/[0.12]' : 'hover:bg-white/[0.06]'
                         }`}
                       >
-                        <IconComponent className="w-4 h-4 text-gray-300 shrink-0 mt-0.5" />
+                        <IconComponent className="w-4 h-4 text-gray-300 shrink-0 mt-2 ml-0.5" />
                         <div className="flex flex-col flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-[12.5px] font-medium text-white">{opt.label}</span>
                             {opt.isDefault && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-normal bg-white/10 text-gray-300 border border-white/10">
-                                Default <Info className="w-2.5 h-2.5 ml-0.5 inline opacity-70" />
+                              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[9px] font-normal bg-white/10 text-gray-300 border border-white/10">
+                                 <Info className="w-2 h-2 inline opacity-70 mr-0.5 mb-0.4" /> <span className='mt-[1px]'> Default</span>
                               </span>
                             )}
                           </div>
                           <span className="text-[11px] text-gray-400 leading-tight mt-0.5">{opt.desc}</span>
                         </div>
-                        {isSelected && (
-                          <Check className="w-4 h-4 text-white shrink-0 mt-0.5" />
-                        )}
+                        
                       </button>
                     );
                   })}
@@ -2291,6 +2295,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     defaultModel: string;
     Logo: React.FC<{ className?: string }>;
   }> = useMemo(() => ({
+    grokki_free: { name: 'Grokki Cloud', modelField: 'grokkiFreeModel', defaultModel: 'auto', Logo: GrokkiCloudLogo },
     gemini: { name: 'Gemini', modelField: 'geminiModel', defaultModel: 'gemini-2.5-flash', Logo: GeminiLogo },
     groq: { name: 'Groq', modelField: 'groqModel', defaultModel: 'llama-3.3-70b-versatile', Logo: GroqLogo },
     ollama: { name: 'Ollama', modelField: 'ollamaModel', defaultModel: '', Logo: OllamaLogo },
@@ -2301,6 +2306,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
     grok: { name: 'Grok', modelField: 'grokModel', defaultModel: 'grok-2-1212', Logo: GrokLogo },
     deepseek: { name: 'DeepSeek', modelField: 'deepseekModel', defaultModel: 'deepseek-chat', Logo: DeepSeekLogo },
     qwen: { name: 'Qwen', modelField: 'qwenModel', defaultModel: 'qwen-max', Logo: QwenLogo },
+    anthropic: { name: 'Claude', modelField: 'anthropicModel', defaultModel: 'claude-sonnet-4-5', Logo: AnthropicLogo },
+    kimi: { name: 'Kimi', modelField: 'kimiModel', defaultModel: 'kimi-k2-0711-preview', Logo: KimiLogo },
+    mistral: { name: 'Mistral', modelField: 'mistralModel', defaultModel: 'mistral-large-latest', Logo: MistralLogo },
+    perplexity: { name: 'Perplexity', modelField: 'perplexityModel', defaultModel: 'sonar-pro', Logo: PerplexityLogo },
+    cohere: { name: 'Cohere', modelField: 'cohereModel', defaultModel: 'command-a-03-2025', Logo: CohereLogo },
+    glm: { name: 'Zhipu GLM', modelField: 'glmModel', defaultModel: 'glm-4.5', Logo: GlmLogo },
+    minimax: { name: 'MiniMax', modelField: 'minimaxModel', defaultModel: 'MiniMax-M1', Logo: MiniMaxLogo },
+    together: { name: 'Together AI', modelField: 'togetherModel', defaultModel: 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8', Logo: TogetherLogo },
     litellm: { name: 'LiteLLM', modelField: 'litellmModel', defaultModel: 'gpt-4o', Logo: LiteLLMLogo },
     bifrost: { name: 'Bifrost', modelField: 'bifrostModel', defaultModel: 'auto', Logo: BifrostLogo },
     portkey: { name: 'Portkey', modelField: 'portkeyModel', defaultModel: 'auto', Logo: PortkeyLogo },
@@ -3003,6 +3016,24 @@ export const ChatTab = React.memo<ChatTabProps>(({
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLElement | null>(null);
+  const chatSettingsRef = useRef<HTMLDivElement | null>(null);
+  const [isRightPaneOpen, setIsRightPaneOpen] = useState(false);
+  const [rightPaneWidth, setRightPaneWidth] = useState(360);
+  const [isRightPaneResizing, setIsRightPaneResizing] = useState(false);
+  const [isChatSettingsOpen, setIsChatSettingsOpen] = useState(false);
+  const [isRenamingChat, setIsRenamingChat] = useState(false);
+  const [renameChatValue, setRenameChatValue] = useState('');
+
+  useEffect(() => {
+    if (!isChatSettingsOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (chatSettingsRef.current && !chatSettingsRef.current.contains(e.target as Node)) {
+        setIsChatSettingsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [isChatSettingsOpen]);
 
   // Voice Synthesizer & Speech-to-Text State
   const [isRecording, setIsRecording] = useState(false);
@@ -5816,10 +5847,14 @@ export const ChatTab = React.memo<ChatTabProps>(({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       style={{
-        paddingRight: activeArtifact ? `${canvasWidth}px` : undefined,
+        paddingRight: activeArtifact
+          ? `${canvasWidth}px`
+          : isRightPaneOpen
+          ? `${rightPaneWidth}px`
+          : undefined,
       }}
       className={`relative flex flex-col h-full w-full justify-between pb-3 px-6 pt-0 ${
-        isCanvasResizing ? 'transition-none select-none' : 'transition-all duration-200'
+        isCanvasResizing || isRightPaneResizing ? 'transition-none select-none' : 'transition-all duration-200'
       }`}
     >
       {/* Drag & Drop Visual Dropzone Overlay */}
@@ -5946,8 +5981,153 @@ export const ChatTab = React.memo<ChatTabProps>(({
         </div>
       )}
 
-      {/* Main Content Column */}
-      <div className="flex flex-col h-full w-full max-w-3xl mx-auto justify-between relative z-10 min-h-0">
+      {/* Main Chat Column */}
+      <div className="flex flex-col flex-1 min-w-0 h-full relative z-10 min-h-0">
+          {/* Antigravity-Style Top Chat Header */}
+          <header className="h-11 px-4 flex items-center justify-between border-b border-gray-200/70 dark:border-white/[0.06] flex-shrink-0 select-none">
+            <div className="flex items-center gap-1.5 min-w-0 text-[13px]">
+              {agentMode && agentRootName && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onSelectWorkspaceFolder?.()}
+                    className="text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white bg-transparent border-none cursor-pointer p-0 truncate max-w-[180px] transition-colors"
+                    title={agentRoot || agentRootName}
+                  >
+                    {agentRootName}
+                  </button>
+                  <span className="text-gray-400 dark:text-zinc-600">/</span>
+                </>
+              )}
+
+              {isRenamingChat ? (
+                <input
+                  type="text"
+                  value={renameChatValue}
+                  onChange={(e) => setRenameChatValue(e.target.value)}
+                  onBlur={() => {
+                    const trimmed = renameChatValue.trim();
+                    if (trimmed && onUpdateConversationMeta) {
+                      onUpdateConversationMeta(activeConversation.id, { title: trimmed });
+                    }
+                    setIsRenamingChat(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const trimmed = renameChatValue.trim();
+                      if (trimmed && onUpdateConversationMeta) {
+                        onUpdateConversationMeta(activeConversation.id, { title: trimmed });
+                      }
+                      setIsRenamingChat(false);
+                    } else if (e.key === 'Escape') {
+                      setIsRenamingChat(false);
+                    }
+                  }}
+                  className="px-2 py-0.5 rounded bg-gray-100 dark:bg-[#181920] border border-gray-300 dark:border-white/15 text-[13px] font-medium text-gray-900 dark:text-zinc-100 outline-none w-56"
+                  autoFocus
+                />
+              ) : (
+                <span className="font-medium text-gray-900 dark:text-zinc-100 truncate max-w-[320px]">
+                  {activeConversation?.title || (agentMode ? 'New Agent Session' : 'New Chat')}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Chat Settings Menu (⋮) */}
+              <div className="relative" ref={chatSettingsRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsChatSettingsOpen((v) => !v)}
+                  title="Chat settings"
+                  aria-label="Chat settings"
+                  className={`p-1.5 rounded-lg border-none bg-transparent cursor-pointer transition-colors ${
+                    isChatSettingsOpen
+                      ? 'bg-gray-100 dark:bg-white/[0.08] text-gray-900 dark:text-white'
+                      : 'text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/[0.05]'
+                  }`}
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+
+                {isChatSettingsOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-52 p-1.5 rounded-xl bg-white dark:bg-[#14151a] border border-gray-200 dark:border-white/10 shadow-xl z-50 flex flex-col gap-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsChatSettingsOpen(false);
+                        setRenameChatValue(activeConversation?.title || '');
+                        setIsRenamingChat(true);
+                      }}
+                      className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left text-gray-700 dark:text-zinc-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] bg-transparent border-none cursor-pointer"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-gray-400" />
+                      <span>Rename chat</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsChatSettingsOpen(false);
+                        const transcript = messages
+                          .map((m) => `[${m.role.toUpperCase()}]\n${m.content}`)
+                          .join('\n\n');
+                        navigator.clipboard?.writeText(transcript || '');
+                      }}
+                      className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left text-gray-700 dark:text-zinc-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] bg-transparent border-none cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-gray-400" />
+                      <span>Copy transcript</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsChatSettingsOpen(false);
+                        onNavigateTab('settings');
+                      }}
+                      className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left text-gray-700 dark:text-zinc-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] bg-transparent border-none cursor-pointer"
+                    >
+                      <Sliders className="w-3.5 h-3.5 text-gray-400" />
+                      <span>Studio settings</span>
+                    </button>
+
+                    {messages.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsChatSettingsOpen(false);
+                          onUpdateMessages(() => []);
+                        }}
+                        className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 bg-transparent border-none cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Clear messages</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Toggle Right Workspace Pane */}
+              <button
+                type="button"
+                onClick={() => setIsRightPaneOpen((v) => !v)}
+                title="Toggle workspace tools (Terminal, Browser, Files)"
+                aria-label="Toggle workspace tools"
+                className={`p-1.5 rounded-lg border-none bg-transparent cursor-pointer transition-colors ${
+                  isRightPaneOpen
+                    ? 'bg-gray-100 dark:bg-white/[0.08] text-gray-900 dark:text-white'
+                    : 'text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/[0.05]'
+                }`}
+              >
+                <PanelRight className="w-4 h-4" />
+              </button>
+            </div>
+          </header>
+
+          {/* Main Content Column */}
+          <div className="flex flex-col flex-1 w-full max-w-3xl mx-auto justify-between relative z-10 min-h-0">
       {/* Messages / Hero View */}
       {messages.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center px-4 pt-6 pb-4">
@@ -6069,7 +6249,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           )}
 
           {/* Centered Floating Input Pill with Slash Command Palette & Mention Palette */}
-          <div className="w-full max-w-xl mx-auto relative z-30 transition-all duration-200">
+          <div className="w-full mx-auto relative z-30 transition-all duration-200">
             {renderSlashMenu()}
             {renderMentionMenu('bottom')}
             {renderSynthesizerVisualizer()}
@@ -6098,7 +6278,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
 
             <SpecularButton
               as="div"
-              size="lg"
+              size="xl"
               radius={18}
               tint={isDarkTheme ? '#ffffff' : '#000000'}
               tintOpacity={0.04}
@@ -6114,13 +6294,13 @@ export const ChatTab = React.memo<ChatTabProps>(({
               followMouse={false}
               autoAnimate
               proximity={250}
-              className="w-full bg-white dark:bg-[#0f0f13] shadow-sm hover:shadow-md p-3 transition-all flex flex-col gap-2.5 text-left relative z-20"
+              className="w-full bg-white/75 dark:bg-[#0f0f13]/65 backdrop-blur-md shadow-sm hover:shadow-md p-3 transition-all flex flex-col gap-2.5 text-left relative z-20"
             >
               {/* Battle Stage Selector when Dual-Battle Mode is active (Only in Grokki Chat) */}
               {dualBattleEnabled && !agentMode && renderBattleStageBar('top')}
 
               {/* Input Field on Top with Inline Plugin Brand Pill & Grokki Blue Highlighting */}
-              <div className="flex items-start gap-2 w-full">
+              <div className="flex items-start gap-2 w-full h-12">
                 {renderInlineStagedPlugins()}
                 <div className="flex-1 min-w-0">
                   <RichBrandInput
@@ -6388,7 +6568,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
                 animate={{ opacity: 1, height: 'auto', y: 0 }}
                 exit={{ opacity: 0, height: 0, y: 16 }}
                 transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full max-w-xl mt-6 text-left relative z-10 overflow-hidden"
+                className="w-full mt-6 text-left relative z-10 overflow-hidden"
               >
                 <div className="flex items-center justify-between mb-2 px-1">
                   <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase">
@@ -6443,17 +6623,8 @@ export const ChatTab = React.memo<ChatTabProps>(({
             id="grokki-chat-scroll"
             className="flex-1 flex flex-col overflow-y-auto no-scrollbar px-1 pt-2 pb-4 space-y-5"
           >
-          {/* Header Action Bar */}
-          <div className="flex items-center justify-between pb-2.5 pt-2.5 border-b border-gray-200 dark:border-[#1e2029]">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate max-w-xs">
-                {activeConversation.title || 'Conversation'}
-              </span>
-              <span className="text-[9.5px] font-mono px-2 py-1 rounded-md bg-gray-100 dark:bg-[#1a1c24] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#1e2029]">
-                {messages.length} messages • saved locally
-              </span>
-            </div>
-          </div>
+
+            <br /><br />
 
           {/* Messages Flow */}
           <div className="flex flex-col space-y-4">
@@ -7127,7 +7298,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
           )}
 
           {/* Floating Slash Command Menu, Mention Menu & Synthesizer Visualizer for Bottom Bar */}
-          <div className="w-full max-w-xl mx-auto relative mb-6 z-30 transition-all duration-200">
+          <div className="w-full mx-auto relative mb-6 z-30 transition-all duration-200">
             {/* Scroll-to-bottom Down Chevron Button (above input to the right side, only if there is space to scroll down) */}
             {canScrollDown && (
               <div className="absolute right-0 -top-9 z-30 animate-in fade-in zoom-in-95 duration-150">
@@ -7187,13 +7358,13 @@ export const ChatTab = React.memo<ChatTabProps>(({
               followMouse={false}
               autoAnimate
               proximity={250}
-              className="w-full bg-white dark:bg-[#131317] shadow-sm hover:shadow-md mb-1.5 p-3 transition-all flex flex-col gap-2.5 text-left relative z-20"
+              className="w-full bg-white/75 dark:bg-[#131317]/65 backdrop-blur-md shadow-sm hover:shadow-md mb-1.5 p-3 transition-all flex flex-col gap-2.5 text-left relative z-20"
             >
               {/* Battle Stage Selector when Dual-Battle Mode is active (Only in Grokki Chat) */}
               {dualBattleEnabled && !agentMode && renderBattleStageBar('top')}
 
               {/* Input Field on Top with Inline Plugin Brand Pill & Grokki Blue Highlighting */}
-              <div className="flex items-start gap-2 w-full">
+              <div className="flex items-start gap-2 w-full h-12">
                 {renderInlineStagedPlugins()}
                 <div className="flex-1 min-w-0">
                   <RichBrandInput
@@ -7454,9 +7625,10 @@ export const ChatTab = React.memo<ChatTabProps>(({
         </div>
       )}
       </div>
+      </div>
 
       {/* Conversation Timeline on the FULL RIGHT of screen (Matte, Dots Only, No Lines, No Glow, No Shadows) */}
-      {messages.length > 1 && !activeArtifact && (
+      {messages.length > 1 && !activeArtifact && !isRightPaneOpen && (
         <ConversationTimeline
           messages={messages}
           conversationTitle={activeConversation.title || 'Conversation'}
@@ -7464,6 +7636,22 @@ export const ChatTab = React.memo<ChatTabProps>(({
         />
       )}
     </div>
+      {/* Right Workspace Tools Split Pane (Squeezes ChatTab just like Canvas) */}
+      <AnimatePresence>
+        {isRightPaneOpen && (
+          <ChatRightPane
+            agentRoot={agentRoot}
+            agentRootName={agentRootName}
+            onOpenPlugins={() => onNavigateTab('plugins')}
+            onClose={() => setIsRightPaneOpen(false)}
+            width={rightPaneWidth}
+            onWidthChange={setRightPaneWidth}
+            isResizing={isRightPaneResizing}
+            onResizingChange={setIsRightPaneResizing}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Interactive Artifacts / Canvas Split Pane */}
       <AnimatePresence>
         {activeArtifact && (

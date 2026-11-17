@@ -10,6 +10,7 @@ export interface StudioHotkeys {
 }
 
 export type AiProvider =
+  | 'grokki_free'
   | 'gemini'
   | 'omniroute'
   | 'groq'
@@ -28,7 +29,15 @@ export type AiProvider =
   | 'newapi'
   | 'higress'
   | 'clawrouter'
-  | 'freellmapi';
+  | 'freellmapi'
+  | 'anthropic'
+  | 'kimi'
+  | 'mistral'
+  | 'perplexity'
+  | 'cohere'
+  | 'glm'
+  | 'minimax'
+  | 'together';
 
 export interface GrainientCustomSettings {
   colors?: string[];
@@ -94,6 +103,26 @@ export interface JarvisConfig {
   deepseekModel?: string;
   qwenApiKey?: string;
   qwenModel?: string;
+  anthropicApiKey?: string;
+  anthropicModel?: string;
+  kimiApiKey?: string;
+  kimiModel?: string;
+  mistralApiKey?: string;
+  mistralModel?: string;
+  perplexityApiKey?: string;
+  perplexityModel?: string;
+  cohereApiKey?: string;
+  cohereModel?: string;
+  glmApiKey?: string;
+  glmModel?: string;
+  minimaxApiKey?: string;
+  minimaxModel?: string;
+  togetherApiKey?: string;
+  togetherModel?: string;
+  grokkiFreeProxyUrl?: string;
+  grokkiFreeModel?: string;
+  grokkiFreeRotationMode?: 'failover' | 'round-robin';
+  grokkiFreeIncludeOllama?: boolean;
   omnirouteApiKey?: string;
   omnirouteModel?: string;
   omnirouteEndpoint?: string;

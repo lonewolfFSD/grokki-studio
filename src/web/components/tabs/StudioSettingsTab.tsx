@@ -105,6 +105,7 @@ interface StudioSettingsTabProps {
   config: JarvisConfig;
   onChangeConfig: (patch: Partial<JarvisConfig>) => void;
   onClearConversations?: () => void;
+  mode?: 'general' | 'shortcuts' | 'experimental';
 }
 interface CustomDropdownOption {
   id: string;
@@ -348,7 +349,11 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
   config,
   onChangeConfig,
   onClearConversations,
+  mode = 'general',
 }) => {
+  const showGeneral = mode === 'general';
+  const showShortcuts = mode === 'shortcuts';
+  const showExperimental = mode === 'experimental';
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [clearedConfirm, setClearedConfirm] = useState(false);
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
@@ -688,23 +693,16 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
     <WarmTooltipGroup delay={400} warmWindow={300} travel={320} lean={false}>
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-20 select-none">
       {/* Header Banner */}
-      <div className="flex items-end justify-between">
-        <div>
-          <h2 className="text-xl font-bold mt-6 tracking-tight text-gray-900 dark:text-gray-100">
-            Grokki Studio Settings
-          </h2>
-          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-            Configure keyboard hotkeys, window behavior, startup actions, and response engine options.
-          </p>
-        </div>
-        {toastMsg && (
+      {toastMsg && (
+        <div className="flex justify-end">
           <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 animate-in fade-in duration-200">
             {toastMsg}
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Spatial Multi-Hand Controls (Air Cursor) */}
+      {showExperimental && (
       <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -938,8 +936,10 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
           )}
         </div>
       </div>
+      )}
 
       {/* Keyboard Shortcuts & Hotkeys Section */}
+      {showShortcuts && (
       <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -1086,8 +1086,11 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
           })}
         </div>
       </div>
+      )}
 
       {/* 1. Window Sizing & Display Mode */}
+      {showGeneral && (
+      <>
       <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
          
@@ -1447,7 +1450,11 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
         </div>
       </div>
 
+      </>
+      )}
+
       {/* Grokki Experimentals Section */}
+      {showExperimental && (
       <div>
         <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -1480,8 +1487,11 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
           It may have bugs or expected known issues. This toggle will hide or show the experimentals tab in the sidebar.
         </p>
       </div>
+      )}
 
       {/* 4. Chat & Streaming Experience */}
+      {showGeneral && (
+      <>
       <div className="bg-white dark:bg-[#0f0f13] border border-[#e4e4eb] dark:border-[#1f1f22] rounded-xl p-5 shadow-xs flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
           
@@ -1888,6 +1898,8 @@ export const StudioSettingsTab = React.memo<StudioSettingsTabProps>(({
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
 
     {/* Grainient Customizer Modal */}

@@ -680,5 +680,12 @@
     "category": "agent",
     "mode": "agent",
     "created_at": 1794852096743
+  },
+  {
+    "id": "mem_1794936201541_v87g",
+    "memory": "User prefers using OpenRouter as the model provider",
+    "category": "fact",
+    "mode": "chat",
+    "created_at": 1794936201541
   }
 ]

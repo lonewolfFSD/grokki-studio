@@ -877,6 +877,7 @@ function openDashboardWindow(showImmediately = true) {
       webSecurity: true,
       spellcheck: false,
       backgroundThrottling: false,
+      webviewTag: true,
     },
   });
 
@@ -5853,7 +5854,48 @@ ipcMain.on('app:restart-and-install', (event, data) => {
 
 ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, endpoint }) => {
   const startTime = Date.now();
+  const OPENAI_GATEWAY_CONFIGS = {
+    omniroute: { defaultEndpoint: 'http://localhost:20128/v1', defaultModel: 'auto', name: 'OmniRoute' },
+    omnirouter: { defaultEndpoint: 'http://localhost:20128/v1', defaultModel: 'auto', name: 'OmniRoute' },
+    anthropic: { defaultEndpoint: 'https://api.anthropic.com/v1', defaultModel: 'claude-sonnet-4-5', name: 'Claude (Anthropic)' },
+    kimi: { defaultEndpoint: 'https://api.moonshot.ai/v1', defaultModel: 'kimi-k2-0711-preview', name: 'Kimi (Moonshot AI)' },
+    mistral: { defaultEndpoint: 'https://api.mistral.ai/v1', defaultModel: 'mistral-large-latest', name: 'Mistral AI' },
+    perplexity: { defaultEndpoint: 'https://api.perplexity.ai', defaultModel: 'sonar-pro', name: 'Perplexity' },
+    cohere: { defaultEndpoint: 'https://api.cohere.ai/compatibility/v1', defaultModel: 'command-a-03-2025', name: 'Cohere' },
+    glm: { defaultEndpoint: 'https://api.z.ai/api/paas/v4', defaultModel: 'glm-4.5', name: 'Zhipu GLM' },
+    minimax: { defaultEndpoint: 'https://api.minimax.io/v1', defaultModel: 'MiniMax-M1', name: 'MiniMax' },
+    together: { defaultEndpoint: 'https://api.together.xyz/v1', defaultModel: 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8', name: 'Together AI' },
+    litellm: { defaultEndpoint: 'http://localhost:4000/v1', defaultModel: 'gpt-4o', name: 'LiteLLM' },
+    bifrost: { defaultEndpoint: 'http://localhost:8080/v1', defaultModel: 'auto', name: 'Bifrost' },
+    portkey: { defaultEndpoint: 'https://api.portkey.ai/v1', defaultModel: 'auto', name: 'Portkey' },
+    helicone: { defaultEndpoint: 'https://oai.helicone.ai/v1', defaultModel: 'gpt-4o', name: 'Helicone' },
+    routellm: { defaultEndpoint: 'http://localhost:6060/v1', defaultModel: 'router-mf', name: 'RouteLLM' },
+    newapi: { defaultEndpoint: 'http://localhost:3000/v1', defaultModel: 'auto', name: 'New API' },
+    higress: { defaultEndpoint: 'http://localhost:8080/v1', defaultModel: 'auto', name: 'Higress' },
+    clawrouter: { defaultEndpoint: 'http://localhost:8000/v1', defaultModel: 'auto', name: 'ClawRouter' },
+    freellmapi: { defaultEndpoint: 'http://localhost:3001/v1', defaultModel: 'auto', name: 'FreeLLMAPI' },
+  };
   try {
+    if (provider === 'grokki_free') {
+      const cfg = loadConfig();
+      const ready = [];
+      if ((endpoint || cfg.grokkiFreeProxyUrl || '').trim()) ready.push('Proxy');
+      if ((cfg.groqApiKey || process.env.GROQ_API_KEY || '').trim()) ready.push('Groq');
+      if ((cfg.geminiApiKey || process.env.GEMINI_API_KEY || '').trim()) ready.push('Gemini');
+      if ((cfg.openrouterApiKey || process.env.OPENROUTER_API_KEY || '').trim()) ready.push('OpenRouter');
+      if ((cfg.omnirouteEndpoint || cfg.omnirouteApiKey || '').trim()) ready.push('OmniRoute');
+      if (ready.length === 0) {
+        return {
+          success: false,
+          error: 'No free providers configured yet. Add a Groq, Gemini, or OpenRouter key, or set a Proxy URL.',
+        };
+      }
+      return {
+        success: true,
+        latencyMs: Date.now() - startTime,
+        reply: `Rotator ready (${ready.join(', ')})`,
+      };
+    }
     if (provider === 'gemini') {
       const apiKey = (key || '').trim();
       if (!apiKey) return { success: false, error: 'API key is empty.' };
@@ -6016,19 +6058,6 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
     }
 
     const provKey = (provider || '').trim().toLowerCase();
-    const OPENAI_GATEWAY_CONFIGS = {
-      omniroute: { defaultEndpoint: 'http://localhost:20128/v1', defaultModel: 'auto', name: 'OmniRoute' },
-      omnirouter: { defaultEndpoint: 'http://localhost:20128/v1', defaultModel: 'auto', name: 'OmniRoute' },
-      litellm: { defaultEndpoint: 'http://localhost:4000/v1', defaultModel: 'gpt-4o', name: 'LiteLLM' },
-      bifrost: { defaultEndpoint: 'http://localhost:8080/v1', defaultModel: 'auto', name: 'Bifrost' },
-      portkey: { defaultEndpoint: 'https://api.portkey.ai/v1', defaultModel: 'auto', name: 'Portkey' },
-      helicone: { defaultEndpoint: 'https://oai.helicone.ai/v1', defaultModel: 'gpt-4o', name: 'Helicone' },
-      routellm: { defaultEndpoint: 'http://localhost:6060/v1', defaultModel: 'router-mf', name: 'RouteLLM' },
-      newapi: { defaultEndpoint: 'http://localhost:3000/v1', defaultModel: 'auto', name: 'New API' },
-      higress: { defaultEndpoint: 'http://localhost:8080/v1', defaultModel: 'auto', name: 'Higress' },
-      clawrouter: { defaultEndpoint: 'http://localhost:8000/v1', defaultModel: 'auto', name: 'ClawRouter' },
-      freellmapi: { defaultEndpoint: 'http://localhost:3001/v1', defaultModel: 'auto', name: 'FreeLLMAPI' },
-    };
 
     if (OPENAI_GATEWAY_CONFIGS[provKey] || OPENAI_GATEWAY_CONFIGS[provider]) {
       const g = OPENAI_GATEWAY_CONFIGS[provKey] || OPENAI_GATEWAY_CONFIGS[provider];
@@ -6097,7 +6126,31 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
 });
 
 ipcMain.handle('dashboard:fetch-provider-models', async (event, { provider, key, endpoint }) => {
+  const OPENAI_GATEWAY_CONFIGS = {
+    omniroute: { defaultEndpoint: 'http://localhost:20128/v1', defaultModel: 'auto', name: 'OmniRoute' },
+    omnirouter: { defaultEndpoint: 'http://localhost:20128/v1', defaultModel: 'auto', name: 'OmniRoute' },
+    anthropic: { defaultEndpoint: 'https://api.anthropic.com/v1', defaultModel: 'claude-sonnet-4-5', name: 'Claude (Anthropic)' },
+    kimi: { defaultEndpoint: 'https://api.moonshot.ai/v1', defaultModel: 'kimi-k2-0711-preview', name: 'Kimi (Moonshot AI)' },
+    mistral: { defaultEndpoint: 'https://api.mistral.ai/v1', defaultModel: 'mistral-large-latest', name: 'Mistral AI' },
+    perplexity: { defaultEndpoint: 'https://api.perplexity.ai', defaultModel: 'sonar-pro', name: 'Perplexity' },
+    cohere: { defaultEndpoint: 'https://api.cohere.ai/compatibility/v1', defaultModel: 'command-a-03-2025', name: 'Cohere' },
+    glm: { defaultEndpoint: 'https://api.z.ai/api/paas/v4', defaultModel: 'glm-4.5', name: 'Zhipu GLM' },
+    minimax: { defaultEndpoint: 'https://api.minimax.io/v1', defaultModel: 'MiniMax-M1', name: 'MiniMax' },
+    together: { defaultEndpoint: 'https://api.together.xyz/v1', defaultModel: 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8', name: 'Together AI' },
+    litellm: { defaultEndpoint: 'http://localhost:4000/v1', defaultModel: 'gpt-4o', name: 'LiteLLM' },
+    bifrost: { defaultEndpoint: 'http://localhost:8080/v1', defaultModel: 'auto', name: 'Bifrost' },
+    portkey: { defaultEndpoint: 'https://api.portkey.ai/v1', defaultModel: 'auto', name: 'Portkey' },
+    helicone: { defaultEndpoint: 'https://oai.helicone.ai/v1', defaultModel: 'gpt-4o', name: 'Helicone' },
+    routellm: { defaultEndpoint: 'http://localhost:6060/v1', defaultModel: 'router-mf', name: 'RouteLLM' },
+    newapi: { defaultEndpoint: 'http://localhost:3000/v1', defaultModel: 'auto', name: 'New API' },
+    higress: { defaultEndpoint: 'http://localhost:8080/v1', defaultModel: 'auto', name: 'Higress' },
+    clawrouter: { defaultEndpoint: 'http://localhost:8000/v1', defaultModel: 'auto', name: 'ClawRouter' },
+    freellmapi: { defaultEndpoint: 'http://localhost:3001/v1', defaultModel: 'auto', name: 'FreeLLMAPI' },
+  };
   try {
+    if (provider === 'grokki_free') {
+      return { success: true, models: ['auto'] };
+    }
     const fetch = global.fetch || require('node-fetch');
     if (provider === 'gemini') {
       const apiKey = (key || '').trim();
@@ -6195,19 +6248,6 @@ ipcMain.handle('dashboard:fetch-provider-models', async (event, { provider, key,
     }
 
     const provKey = (provider || '').trim().toLowerCase();
-    const OPENAI_GATEWAY_CONFIGS = {
-      omniroute: { defaultEndpoint: 'http://localhost:20128/v1' },
-      omnirouter: { defaultEndpoint: 'http://localhost:20128/v1' },
-      litellm: { defaultEndpoint: 'http://localhost:4000/v1' },
-      bifrost: { defaultEndpoint: 'http://localhost:8080/v1' },
-      portkey: { defaultEndpoint: 'https://api.portkey.ai/v1' },
-      helicone: { defaultEndpoint: 'https://oai.helicone.ai/v1' },
-      routellm: { defaultEndpoint: 'http://localhost:6060/v1' },
-      newapi: { defaultEndpoint: 'http://localhost:3000/v1' },
-      higress: { defaultEndpoint: 'http://localhost:8080/v1' },
-      clawrouter: { defaultEndpoint: 'http://localhost:8000/v1' },
-      freellmapi: { defaultEndpoint: 'http://localhost:3001/v1' },
-    };
 
     if (OPENAI_GATEWAY_CONFIGS[provKey] || OPENAI_GATEWAY_CONFIGS[provider]) {
       const g = OPENAI_GATEWAY_CONFIGS[provKey] || OPENAI_GATEWAY_CONFIGS[provider];

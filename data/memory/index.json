@@ -1,23 +1,21 @@
 [
   {
-    "id": "mem_profile_1794372959058_tsky",
-    "category": "knowledge",
-    "title": "User is a Programmer",
-    "content": "User has mentioned that he is a programmer and software engineer, who loves bulding softwares and other products. User have a great interest in complex and challenging task and loves to solve it.",
-    "tags": [],
+    "id": "mem_profile_1794936191505_4iyp",
+    "category": "profile",
+    "title": "Model Provider Preference - OpenRouter",
+    "content": "User prefers using OpenRouter model provider instead of Gemini.",
+    "tags": [
+      "model",
+      "provider",
+      "openrouter",
+      "preferences"
+    ],
     "confidence": 1,
     "userConfirmed": true,
-    "pinned": true,
-    "createdAt": "2026-11-11T04:55:59.058Z",
-    "updatedAt": "2026-11-12T14:22:29.645Z",
+    "pinned": false,
+    "createdAt": "2026-11-17T17:23:11.505Z",
+    "updatedAt": "2026-11-17T17:23:11.505Z",
     "connections": [],
-    "history": [
-      {
-        "date": "2026-11-11T12:12:32.281Z",
-        "previousContent": "Hello Arijit",
-        "reason": "User edited memory in tab"
-      }
-    ],
-    "reason": "User edited memory in tab"
+    "history": []
   }
 ]

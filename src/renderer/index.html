@@ -1,63 +1,436 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmileBright Dental</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grokki</title>
+  <!-- Tailwind CSS -->
+  <script src="tailwind.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      corePlugins: {
+        preflight: false
+      },
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#09090b'
+          }
+        }
+      }
+    };
+  </script>
+  <!-- Font Awesome 6 Free -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- KaTeX Math Typesetting -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="settings-ui.css">
 </head>
 <body>
-    <header>
-        <h1>Welcome to SmileBright Dental</h1>
-        <nav>
-            <ul>
-                <li><a href="#services">Services</a></li>
-                <li><a href="#about">About</a></li>
-                <li><a href="#contact">Contact</a></li>
-            </ul>
-        </nav>
-    </header>
-    <section id="hero">
-        <h2>Transform Your Smile</h2>
-        <p>Experience the best dental care with SmileBright Dental.</p>
-        <a href="#services" class="cta-button">Learn More</a>
-    </section>
-    <section id="services">
-        <h2>Our Services</h2>
-        <div class="service">
-            <h3>Teeth Cleaning</h3>
-            <p>Keep your teeth healthy and clean.</p>
+  <!-- Dynamic Island Floating Pill -->
+  <div class="island-container hidden-state" id="islandContainer">
+      <div class="pill-backdrop" id="pillBackdrop"></div>
+      <!-- Dynamic Island Bar -->
+      <div class="island-bar">
+        <!-- Grokki Bot Avatar -->
+        <div class="bot-wrapper" title="Grokki (Click to poke!)">
+          <div class="grokki-orb-container" id="grokkiOrbContainer"></div>
+          <canvas id="grokbot-canvas" width="60" height="60"></canvas>
+          <div class="grokki-hi-bubble" id="grokkiHiBubble">Ready</div>
         </div>
-        <div class="service">
-            <h3>Root Canal</h3>
-            <p>Relieve tooth pain with root canal treatment.</p>
+
+        <!-- Mode A: Normal Prompt & Chat Input Area -->
+        <div class="input-area" id="normalInputArea">
+          <div id="dropOverlay" class="drop-overlay">
+            <i class="fa-solid fa-cloud-arrow-down"></i>
+            <span>Drop your file here</span>
+          </div>
+          <div id="activeAttachmentPill" class="attachment-pill" style="display: none;">
+            <i class="fa-solid fa-file"></i>
+            <span id="attachmentFileName" class="attachment-name">file.pdf</span>
+            <button id="removeAttachmentBtn" class="pill-remove-btn" title="Remove attachment">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <!-- Hitodama Powerpack: Circled Screen Region Chip -->
+          <div id="circledImagePill" class="attachment-pill circled-pill" style="display: none;">
+            <i class="fa-regular fa-circle-dot" style="color: #38bdf8;"></i>
+            <img id="circledThumbImg" class="circled-thumb-img" alt="Circled Region" />
+            <span id="circledImageText" class="attachment-name">Circled Screen</span>
+            <button id="removeCircledBtn" class="pill-remove-btn" title="Remove selection">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div class="main-input-wrapper">
+            <div id="mainInputMirror" class="main-input-mirror" aria-hidden="true"></div>
+            <input 
+              type="text" 
+              id="mainInput" 
+              class="main-input" 
+              placeholder="Ask Grokki, drop a file, or give an order..." 
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
         </div>
-        <div class="service">
-            <h3>Dental Implants</h3>
-            <p>Replace missing teeth with natural-looking implants.</p>
+
+        <!-- Mode A: Controls Group -->
+        <div class="controls-group" id="normalControlsGroup">
+          <!-- Return to Lock-in pill (shown if timer is active while chatting) -->
+          <button class="lock-in-mini-return" id="returnToTimerBtn" style="display: none;" title="Return to Lock-In Timer View">
+            <i class="fa-solid fa-fire" style="color: #ff9f0a;"></i>
+            <span id="miniTimerDisplay">25:00</span>
+          </button>
+
+          <!-- Mode Toggle: Mic (click to speak) or Keyboard (click to type) -->
+          <button class="apple-btn" id="modeToggleBtn" title="Switch between Voice and Typing">
+            <i class="fa-solid fa-microphone" id="modeIcon"></i>
+          </button>
+
+          <!-- Send Button -->
+          <button class="send-btn" id="sendBtn" title="Send (Enter)">
+            <i class="fa-solid fa-arrow-up"></i>
+          </button>
+
+          <!-- Pocket Grokki Tether Button -->
+          <button class="apple-btn" id="pocketGrokkiBtn" title="Pocket Grokki (Connect Phone)">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+          </button>
+
+          <!-- Settings Cog Button -->
+          <button class="apple-btn" id="settingsBtn" title="Settings">
+            <i class="fa-solid fa-gear"></i>
+          </button>
         </div>
-        <div class="service">
-            <h3>Teeth Whitening</h3>
-            <p>Brighten your smile with professional teeth whitening.</p>
+
+        <!-- Mode B: The Entire Pill Morphs Into A Focus Timer Bar -->
+        <div class="lock-in-full-view" id="lockInFullView" style="display: none;">
+          <!-- Center Timer Section -->
+          <div class="timer-center-cluster">
+            <div class="timer-flame-wrapper">
+              <i class="fa-solid fa-fire timer-flame-icon"></i>
+            </div>
+            <div class="timer-info-col">
+              <span class="timer-subject-text" id="lockInFullSubject">Focus</span>
+              <span class="timer-big-countdown" id="lockInFullCountdown">25:00</span>
+            </div>
+            <div class="timer-inline-actions">
+              <button class="timer-control-btn" id="lockInPausePlayBtn" title="Pause / Resume">
+                <i class="fa-solid fa-pause" id="lockInPausePlayIcon"></i>
+              </button>
+              <button class="timer-control-btn timer-stop-btn" id="lockInStopSessionBtn" title="End Study Session">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Right Switchers: Keyboard & Mic icons to bring back chat / voice interface anytime -->
+          <div class="timer-switchers-cluster">
+            <button class="apple-btn timer-switch-btn" id="timerOpenTypingBtn" title="Switch to Keyboard / Chat">
+              <i class="fa-solid fa-keyboard"></i>
+            </button>
+            <button class="apple-btn timer-switch-btn" id="timerOpenVoiceBtn" title="Switch to Voice Mode">
+              <i class="fa-solid fa-microphone"></i>
+            </button>
+          </div>
         </div>
-        <div class="service">
-            <h3>Oral Cancer Screening</h3>
-            <p>Prevent oral cancer with regular screenings.</p>
+      </div>
+
+      <!-- Floating Slash Command Palette -->
+      <div class="slash-command-palette" id="slashCommandPalette">
+        <div class="slash-palette-header">
+          <span>Commands</span>
+          <kbd>↑↓ navigate • Enter/Tab select</kbd>
         </div>
-    </section>
-    <section id="about">
-        <h2>About Us</h2>
-        <p>SmileBright Dental is dedicated to providing the highest quality dental care in a welcoming and comfortable environment.</p>
-    </section>
-    <section id="contact">
-        <h2>Contact Us</h2>
-        <p>Phone: (123) 456-7890</p>
-        <p>Email: info@smilebrightdental.com</p>
-        <p>Address: 1234 Elm Street, Anytown, USA</p>
-    </section>
-    <footer>
-        <p>&copy; 2023 SmileBright Dental. All rights reserved.</p>
-    </footer>
-    <script src="script.js"></script>
+        <div class="slash-palette-list" id="slashPaletteList"></div>
+      </div>
+
+      <!-- Minimalist Smooth Drawer for Output & Feedback -->
+      <div class="island-drawer" id="islandDrawer">
+        <div class="turn-row user-turn" id="userText"></div>
+        <div class="turn-row response-content" id="responseText"></div>
+        <div class="badge-row" id="badgeRow"></div>
+        <div class="option-row" id="optionRow"></div>
+      </div>
+
+      <!-- Settings sheet: inset groups, custom selects, voice stepper (styles in settings-ui.css, behaviour in settings-ui.js) -->
+      <div class="settings-sheet flex flex-col justify-between" id="settingsSheet">
+        <!-- Header -->
+        <div class="gs-header">
+          <div>
+            <div class="gs-h-title">Settings</div>
+            <div class="gs-h-sub">Appearance, AI provider, voice and integrations</div>
+          </div>
+          <button id="closeSettingsBtn" class="gs-close" title="Close (Esc)" aria-label="Close settings">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="gs-body">
+
+          <!-- AI provider -->
+          <div class="gs-section">
+            <div class="gs-section-label">AI provider</div>
+            <div class="gs-group">
+              <div class="gs-row">
+                <div class="gs-copy">
+                  <div class="gs-title">Provider</div>
+                  <div class="gs-sub">Cloud or fully offline</div>
+                </div>
+                <div class="gs-select">
+                  <select id="providerSelect" aria-label="AI provider">
+                    <option value="gemini" data-tag="Free">Google Gemini (Free Tier)</option>
+                    <option value="groq" data-tag="Fast">Groq Cloud (Free & Ultra-Fast)</option>
+                    <option value="ollama" data-tag="Offline">Local Ollama (100% Offline)</option>
+                    <option value="openrouter" data-tag="Models">OpenRouter (Free Models)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Gemini Fields -->
+              <div id="geminiConfigFields" class="gs-fields">
+                <div class="gs-field-head">
+                  <span>Gemini API key</span>
+                  <a class="gs-link" href="https://aistudio.google.com/app/apikey" target="_blank">Get a free key</a>
+                </div>
+                <label class="gs-input">
+                  <input type="password" id="geminiApiKeyInput" class="gs-mono" placeholder="AIzaSy... (inherit from .env)" spellcheck="false" autocomplete="off" />
+                </label>
+              </div>
+
+              <!-- Groq Fields -->
+              <div id="groqConfigFields" class="gs-fields hidden">
+                <div class="gs-field-head">
+                  <span>Groq API key</span>
+                  <a class="gs-link" href="https://console.groq.com/keys" target="_blank">Get a free key</a>
+                </div>
+                <label class="gs-input">
+                  <input type="password" id="groqApiKeyInput" class="gs-mono" placeholder="gsk_... (free at console.groq.com)" spellcheck="false" autocomplete="off" />
+                </label>
+                <label class="gs-input">
+                  <span class="gs-input-prefix">Model</span>
+                  <input type="text" id="groqModelInput" class="gs-mono" value="openai/gpt-oss-120b" placeholder="openai/gpt-oss-120b, qwen/qwen3.8-27b" spellcheck="false" />
+                </label>
+              </div>
+
+              <!-- Ollama Fields -->
+              <div id="ollamaConfigFields" class="gs-fields hidden">
+                <div class="gs-field-head">
+                  <span>Local Ollama endpoint</span>
+                  <a class="gs-link" href="https://ollama.ai" target="_blank">Download Ollama</a>
+                </div>
+                <label class="gs-input">
+                  <input type="text" id="ollamaEndpointInput" class="gs-mono" value="http://127.0.0.1:11434" placeholder="http://127.0.0.1:11434" spellcheck="false" />
+                </label>
+                <label class="gs-input">
+                  <span class="gs-input-prefix">Model</span>
+                  <input type="text" id="ollamaModelInput" class="gs-mono" value="llama3.2" placeholder="llama3.2, deepseek-r1:8b, qwen2.5" spellcheck="false" />
+                </label>
+              </div>
+
+              <!-- OpenRouter Fields -->
+              <div id="openrouterConfigFields" class="gs-fields hidden">
+                <div class="gs-field-head">
+                  <span>OpenRouter API key</span>
+                  <a class="gs-link" href="https://openrouter.ai/keys" target="_blank">Get a free key</a>
+                </div>
+                <label class="gs-input">
+                  <input type="password" id="openrouterApiKeyInput" class="gs-mono" placeholder="sk-or-v1-..." spellcheck="false" autocomplete="off" />
+                </label>
+                <label class="gs-input">
+                  <span class="gs-input-prefix">Model</span>
+                  <input type="text" id="openrouterModelInput" class="gs-mono" value="meta-llama/llama-3.3-70b-instruct:free" placeholder="meta-llama/llama-3.3-70b-instruct:free" spellcheck="false" />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Summon & voice -->
+          <div class="gs-section">
+            <div class="gs-section-label">Summon and voice</div>
+            <div class="gs-group">
+              <div class="gs-row">
+                <div class="gs-copy">
+                  <div class="gs-title">Summon / kill hotkey</div>
+                  <div class="gs-sub">Opens Grokki, or stops a running task</div>
+                </div>
+                <label class="gs-input gs-w-key">
+                  <input type="text" id="hotkeyInput" class="gs-mono" value="Alt+Q" spellcheck="false" />
+                </label>
+              </div>
+              <div class="gs-row">
+                <div class="gs-copy">
+                  <div class="gs-title">Hands-free wake word</div>
+                  <div class="gs-sub">Keep listening in the background</div>
+                </div>
+                <label class="gs-switch">
+                  <input type="checkbox" id="wakeWordToggle" checked />
+                  <span class="gs-track"></span>
+                </label>
+              </div>
+              <div class="gs-row">
+                <div class="gs-copy">
+                  <div class="gs-title">Wake phrase</div>
+                  <div class="gs-sub">What you say to summon Grokki</div>
+                </div>
+                <label class="gs-input gs-w-phrase">
+                  <input type="text" id="wakeWordInput" placeholder="Hey Grokki" value="Hey Grokki" spellcheck="false" />
+                </label>
+              </div>
+              <div class="gs-row">
+                <div class="gs-copy">
+                  <div class="gs-title">Speak answers aloud</div>
+                  <div class="gs-sub">Grokki replies with a natural voice</div>
+                </div>
+                <label class="gs-switch">
+                  <input type="checkbox" id="ttsEnabledToggle" checked />
+                  <span class="gs-track"></span>
+                </label>
+              </div>
+              <div class="gs-row">
+                <div class="gs-copy">
+                  <div class="gs-title">Voice</div>
+                  <div class="gs-sub">VoiceStudio, runs offline with no tokens</div>
+                </div>
+                <div class="gs-stepper" id="voiceStepper">
+                  <select id="ttsVoiceSelect">
+                    <option value="af_bella">Bella — Expressive</option>
+                    <option value="af_heart">Heart — Natural</option>
+                    <option value="af_sarah">Sarah — Calm & Clear</option>
+                    <option value="af_nicole">Nicole — Casual</option>
+                    <option value="am_michael">Michael — Studio Warm</option>
+                    <option value="am_adam">Adam — Clear</option>
+                    <option value="bf_emma">Emma — British Female</option>
+                    <option value="bm_george">George — British Male</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Music -->
+          <div class="gs-section">
+            <div class="gs-section-label">Music</div>
+            <div class="gs-group">
+              <div class="gs-row">
+                <div class="gs-copy">
+                  <div class="gs-title">Default service</div>
+                  <div class="gs-sub">Opens in your default browser</div>
+                </div>
+                <div class="gs-select">
+                  <select id="musicProviderSelect" aria-label="Default music service">
+                    <option value="ytmusic" data-tag="Default">YouTube Music</option>
+                    <option value="spotify" data-tag="Stream">Spotify</option>
+                    <option value="applemusic" data-tag="Lossless">Apple Music</option>
+                    <option value="amazonmusic" data-tag="HD">Amazon Music</option>
+                    <option value="soundcloud" data-tag="Indie">SoundCloud</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="gs-footnote">Ask Grokki to play, pause, resume, skip, go back, or stop.</div>
+          </div>
+
+          <!-- Integrations -->
+          <div class="gs-section">
+            <div class="gs-section-label">Integrations</div>
+            <div class="gs-group">
+              <div class="gs-row">
+                <div class="gs-copy">
+                  <div class="gs-title">
+                    <span>Google Workspace</span>
+                    <span id="googleStatusBadge" class="gs-badge">Checking...</span>
+                  </div>
+                  <div class="gs-sub">Gmail, Calendar, Drive, Docs, Sheets, Classroom and Tasks</div>
+                </div>
+                <button id="connectGoogleBtn" class="gs-btn gs-sm">
+                  <i class="fa-brands fa-google"></i>
+                  <span>Connect</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- University Portal -->
+          <div class="gs-section">
+            <div class="gs-section-label">University Portal</div>
+            <div class="gs-group">
+              <div class="gs-row">
+                <div class="gs-copy">
+                  <div class="gs-title">
+                    <span>Link University</span>
+                    <span id="universityStatusBadge" class="gs-badge">Not Linked</span>
+                  </div>
+                  <div class="gs-sub">Auto-sync attendance and profile details</div>
+                </div>
+                <div class="gs-select">
+                  <select id="universitySelect" aria-label="Select University">
+                    <option value="none">Select University...</option>
+                    <option value="adbu" data-tag="ADBU">Assam Don Bosco University</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- University Credentials Fields -->
+              <div id="universityFields" class="gs-fields hidden">
+                <div class="gs-field-head">
+                  <span>Student ID / Username</span>
+                  <span class="gs-sub text-xs">Used for ERP login</span>
+                </div>
+                <label class="gs-input">
+                  <input type="text" id="uniUsernameInput" class="gs-mono" placeholder="Student ID or Email" spellcheck="false" autocomplete="off" />
+                </label>
+
+                <div class="gs-field-head" style="margin-top: 8px;">
+                  <span>Password</span>
+                  <span class="gs-sub text-xs">Stored locally on your device</span>
+                </div>
+                <label class="gs-input" style="position: relative;">
+                  <input type="password" id="uniPasswordInput" class="gs-mono" placeholder="ERP Password" autocomplete="new-password" style="padding-right: 36px;" />
+                  <button type="button" id="toggleUniPasswordBtn" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; padding: 4px;" title="Show/Hide Password">
+                    <i class="fa-solid fa-eye" id="uniEyeIcon"></i>
+                  </button>
+                </label>
+
+                <div style="display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
+                  <button type="button" id="syncUniversityBtn" class="gs-btn gs-sm gs-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-arrows-rotate" id="uniSyncSpinner"></i>
+                    <span id="uniSyncText">Link & Sync</span>
+                  </button>
+                  <button type="button" id="unlinkUniversityBtn" class="gs-btn gs-sm" style="display: none; align-items: center; gap: 6px; color: #f87171; border-color: rgba(239, 68, 68, 0.3);">
+                    <i class="fa-solid fa-link-slash"></i>
+                    <span>Unlink</span>
+                  </button>
+                  <span id="uniSyncResult" style="font-size: 11px; opacity: 0.85; margin-left: auto;"></span>
+                </div>
+              </div>
+            </div>
+            <div class="gs-footnote">Ask Grokki: "What's my attendance?", "Check ADBU attendance", or "Show my student profile".</div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="gs-footer">
+          <button id="cancelSettingsBtn" class="gs-btn">Cancel</button>
+          <button id="saveSettingsBtn" class="gs-btn gs-primary">Save changes</button>
+        </div>
+      </div>
+    </div>
+
+  <script src="marked.min.js"></script>
+  <script src="sound.js"></script>
+  <script src="orb.js"></script>
+  <script src="worker.js"></script>
+  <script src="grokbot.js"></script>
+  <script src="voice.js"></script>
+  <script src="agent.js"></script>
+  <script src="glass_surface.js"></script>
+  <script src="app.js"></script>
+  <script src="settings-ui.js"></script>
+  <script src="gesture_controller.js"></script>
 </body>
 </html>

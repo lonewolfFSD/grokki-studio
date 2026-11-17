@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Brain, Search } from 'lucide-react';
+import { ArrowLeft, Bell, Brain, FlaskConical, Folder, Keyboard, Search } from 'lucide-react';
 import { SettingsIcon } from '@animateicons/react/lucide/settings-icon';
 import { PaletteIcon } from '@animateicons/react/lucide/palette-icon';
 import { SlidersHorizontalIcon } from '@animateicons/react/lucide/sliders-horizontal-icon';
 import { InfoIcon } from '@animateicons/react/lucide/info-icon';
 import { MicIcon } from '@animateicons/react/lucide/mic-icon';
 import { CpuIcon } from '@animateicons/react/lucide/cpu-icon';
-import { GlobeIcon } from '@animateicons/react/lucide/globe-icon';
-import { JarvisConfig, SystemInfo, StudioHotkeys, GoogleProfile, ActiveModelPull } from '../types/jarvis';
+import { JarvisConfig, SystemInfo, StudioHotkeys, ActiveModelPull } from '../types/jarvis';
 import { StudioSettingsTab } from './tabs/StudioSettingsTab';
 import { AppearanceTab } from './tabs/AppearanceTab';
 import { PersonalizationTab } from './tabs/PersonalizationTab';
@@ -15,7 +14,8 @@ import { AboutTab } from './tabs/AboutTab';
 import { MemoryTab } from './tabs/MemoryTab';
 import { VoiceModelsTab } from './tabs/VoiceModelsTab';
 import { AiBrainTab } from './tabs/AiBrainTab';
-import { GoogleWorkspaceTab } from './tabs/GoogleWorkspaceTab';
+import { NotificationsTab } from './tabs/NotificationsTab';
+import { ProjectsTab } from './tabs/ProjectsTab';
 import { ErrorBoundary } from './ErrorBoundary';
 
 export type SettingsSection =
@@ -23,9 +23,12 @@ export type SettingsSection =
   | 'memory'
   | 'ai'
   | 'voice'
-  | 'google'
+  | 'projects'
   | 'appearance'
+  | 'notifications'
+  | 'shortcuts'
   | 'profile'
+  | 'experimental'
   | 'about';
 
 interface SectionItem {
@@ -39,17 +42,10 @@ interface SectionItem {
 const SECTIONS: SectionItem[] = [
   {
     id: 'ai',
-    label: 'AI Models',
+    label: 'Providers',
     desc: 'Reasoning brains, API providers & routing',
     group: 'core',
     Icon: CpuIcon,
-  },
-  {
-    id: 'google',
-    label: 'Workspace',
-    desc: 'Google Workspace integrations & calendar',
-    group: 'core',
-    Icon: GlobeIcon,
   },
   {
     id: 'memory',
@@ -66,9 +62,16 @@ const SECTIONS: SectionItem[] = [
     Icon: MicIcon,
   },
   {
+    id: 'projects',
+    label: 'Projects',
+    desc: 'Active & recent agent workspace folders',
+    group: 'core',
+    Icon: Folder,
+  },
+  {
     id: 'settings',
     label: 'Preferences',
-    desc: 'System preferences, shortcuts & experimentals',
+    desc: 'Window behavior, startup & response engine',
     group: 'prefs',
     Icon: SettingsIcon,
   },
@@ -80,11 +83,32 @@ const SECTIONS: SectionItem[] = [
     Icon: PaletteIcon,
   },
   {
+    id: 'notifications',
+    label: 'Notifications',
+    desc: 'Sound effects & desktop completion alerts',
+    group: 'prefs',
+    Icon: Bell,
+  },
+  {
+    id: 'shortcuts',
+    label: 'Shortcuts',
+    desc: 'Keyboard shortcuts & global hotkeys',
+    group: 'prefs',
+    Icon: Keyboard,
+  },
+  {
     id: 'profile',
     label: 'Personalization',
     desc: 'Persona name, user profile & avatar',
     group: 'prefs',
     Icon: SlidersHorizontalIcon,
+  },
+  {
+    id: 'experimental',
+    label: 'Experimental',
+    desc: 'Spatial air-cursor & beta features',
+    group: 'meta',
+    Icon: FlaskConical,
   },
   {
     id: 'about',
@@ -118,9 +142,6 @@ interface SettingsModalProps {
       gender?: 'female' | 'male';
     }
   ) => void;
-  googleConnected?: boolean;
-  googleProfile?: GoogleProfile | null;
-  onRefreshGoogleStatus?: () => void;
   activeModelPull?: ActiveModelPull | null;
   onPullModel?: (tag: string) => Promise<void>;
 }
@@ -137,9 +158,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClearConversations,
   playingVoice,
   onPreviewVoice,
-  googleConnected,
-  googleProfile,
-  onRefreshGoogleStatus,
   activeModelPull,
   onPullModel,
 }) => {
@@ -222,9 +240,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       />
 
       {/* Centered OpenCode-style Minimalist Fullscreen Layout */}
-      <div className="flex-1 min-h-0 w-full max-w-5xl mx-auto px-6 sm:px-10 pb-8 flex flex-row gap-10 overflow-hidden">
+      <div className="flex-1 min-h-0 w-full max-w-6xl mx-auto px-6 sm:px-10 pb-8 flex flex-row gap-10 overflow-hidden">
         {/* Left Navigation Column */}
-        <aside className="w-52 sm:w-56 flex-shrink-0 flex flex-col gap-5 pt-1 select-none">
+        <aside className="w-52 sm:w-56 flex-shrink-0 flex flex-col gap-5 pt-10 select-none">
           <button
             type="button"
             onClick={onClose}
@@ -235,8 +253,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
 
           {/* Minimal Search Input */}
-          <div className="relative flex items-center border-b border-gray-200 dark:border-white/[0.08] pb-1.5">
-            <Search className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500 mr-2 flex-shrink-0" />
+          <div className="relative flex items-center ml-2 border-gray-200 dark:border-white/[0.08] mt-6 pb-1.5">
+            <Search className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500 mr-1.5 mb-0.5 flex-shrink-0" />
             <input
               type="text"
               value={searchQuery}
@@ -259,8 +277,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </aside>
 
         {/* Right Content Pane */}
-        <main className="flex-1 h-full min-w-0 overflow-y-auto pr-2 pb-12 select-text">
-          <div className="mb-6">
+        <main className="flex-1 h-full min-w-0 flex flex-col overflow-hidden select-text">
+          <div className="flex-shrink-0 mt-10 mb-6 pr-2">
             <h1
               id="settings-modal-title"
               className="text-lg font-semibold text-gray-900 dark:text-zinc-100 tracking-tight m-0"
@@ -272,12 +290,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </p>
           </div>
 
-          <ErrorBoundary fallbackTabName={activeSection}>
+          <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-12">
+            <ErrorBoundary fallbackTabName={activeSection}>
             {activeSection === 'settings' && (
               <StudioSettingsTab
                 config={config}
                 onChangeConfig={onChangeConfig}
                 onClearConversations={onClearConversations}
+                mode="general"
+              />
+            )}
+
+            {activeSection === 'projects' && <ProjectsTab />}
+
+            {activeSection === 'notifications' && (
+              <NotificationsTab
+                config={config}
+                onChangeConfig={onChangeConfig}
+              />
+            )}
+
+            {activeSection === 'shortcuts' && (
+              <StudioSettingsTab
+                config={config}
+                onChangeConfig={onChangeConfig}
+                onClearConversations={onClearConversations}
+                mode="shortcuts"
+              />
+            )}
+
+            {activeSection === 'experimental' && (
+              <StudioSettingsTab
+                config={config}
+                onChangeConfig={onChangeConfig}
+                onClearConversations={onClearConversations}
+                mode="experimental"
               />
             )}
 
@@ -298,16 +345,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onChangeConfig={onChangeConfig}
                 playingVoice={playingVoice || null}
                 onPreviewVoice={onPreviewVoice || (() => {})}
-              />
-            )}
-
-            {activeSection === 'google' && (
-              <GoogleWorkspaceTab
-                config={config}
-                onChangeConfig={onChangeConfig}
-                connected={Boolean(googleConnected)}
-                profile={googleProfile || null}
-                onRefreshStatus={onRefreshGoogleStatus || (() => {})}
               />
             )}
 
@@ -332,6 +369,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               />
             )}
           </ErrorBoundary>
+          </div>
         </main>
       </div>
     </div>

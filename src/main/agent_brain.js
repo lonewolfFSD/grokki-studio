@@ -524,6 +524,42 @@ function resolveOpenAIEndpointAndKey(provider, config = {}) {
     endpoint = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1';
     apiKey = (config.qwenApiKey || process.env.DASHSCOPE_API_KEY || '').trim();
     model = config.qwenModel || 'qwen-max';
+  } else if (provider === 'anthropic') {
+    endpoint = 'https://api.anthropic.com/v1';
+    apiKey = (config.anthropicApiKey || process.env.ANTHROPIC_API_KEY || '').trim();
+    model = config.anthropicModel || 'claude-sonnet-4-5';
+  } else if (provider === 'kimi') {
+    endpoint = 'https://api.moonshot.ai/v1';
+    apiKey = (config.kimiApiKey || process.env.MOONSHOT_API_KEY || '').trim();
+    model = config.kimiModel || 'kimi-k2-0711-preview';
+  } else if (provider === 'mistral') {
+    endpoint = 'https://api.mistral.ai/v1';
+    apiKey = (config.mistralApiKey || process.env.MISTRAL_API_KEY || '').trim();
+    model = config.mistralModel || 'mistral-large-latest';
+  } else if (provider === 'perplexity') {
+    endpoint = 'https://api.perplexity.ai';
+    apiKey = (config.perplexityApiKey || process.env.PERPLEXITY_API_KEY || '').trim();
+    model = config.perplexityModel || 'sonar-pro';
+  } else if (provider === 'cohere') {
+    endpoint = 'https://api.cohere.ai/compatibility/v1';
+    apiKey = (config.cohereApiKey || process.env.COHERE_API_KEY || '').trim();
+    model = config.cohereModel || 'command-a-03-2025';
+  } else if (provider === 'glm') {
+    endpoint = 'https://api.z.ai/api/paas/v4';
+    apiKey = (config.glmApiKey || process.env.ZHIPU_API_KEY || '').trim();
+    model = config.glmModel || 'glm-4.5';
+  } else if (provider === 'minimax') {
+    endpoint = 'https://api.minimax.io/v1';
+    apiKey = (config.minimaxApiKey || process.env.MINIMAX_API_KEY || '').trim();
+    model = config.minimaxModel || 'MiniMax-M1';
+  } else if (provider === 'together') {
+    endpoint = 'https://api.together.xyz/v1';
+    apiKey = (config.togetherApiKey || process.env.TOGETHER_API_KEY || '').trim();
+    model = config.togetherModel || 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8';
+  } else if (provider === 'grokki_free_proxy') {
+    endpoint = (config.grokkiFreeProxyUrl || '').replace(/\/+$/, '');
+    apiKey = 'grokki-free';
+    model = config.grokkiFreeModel || 'auto';
   } else if (provider === 'omniroute' || provider === 'omnirouter') {
     const base = (config.omnirouteEndpoint || config.omnirouterEndpoint || 'http://localhost:20128/v1').replace(/\/+$/, '');
     endpoint = base;
@@ -3105,6 +3141,51 @@ STRICT OPERATIONAL DIRECTIVES:
       apiKey = (config.qwenApiKey || process.env.DASHSCOPE_API_KEY || '').trim();
       model = (context && context.model) || config.qwenModel || 'qwen-max';
       modelCandidates = [model, 'qwen-plus'];
+    } else if (provider === 'anthropic') {
+      endpoint = 'https://api.anthropic.com/v1';
+      apiKey = (config.anthropicApiKey || process.env.ANTHROPIC_API_KEY || '').trim();
+      model = (context && context.model) || config.anthropicModel || 'claude-sonnet-4-5';
+      modelCandidates = [model, 'claude-3-7-sonnet-latest'];
+    } else if (provider === 'kimi') {
+      endpoint = 'https://api.moonshot.ai/v1';
+      apiKey = (config.kimiApiKey || process.env.MOONSHOT_API_KEY || '').trim();
+      model = (context && context.model) || config.kimiModel || 'kimi-k2-0711-preview';
+      modelCandidates = [model, 'kimi-latest'];
+    } else if (provider === 'mistral') {
+      endpoint = 'https://api.mistral.ai/v1';
+      apiKey = (config.mistralApiKey || process.env.MISTRAL_API_KEY || '').trim();
+      model = (context && context.model) || config.mistralModel || 'mistral-large-latest';
+      modelCandidates = [model, 'codestral-latest'];
+    } else if (provider === 'perplexity') {
+      endpoint = 'https://api.perplexity.ai';
+      apiKey = (config.perplexityApiKey || process.env.PERPLEXITY_API_KEY || '').trim();
+      model = (context && context.model) || config.perplexityModel || 'sonar-pro';
+      modelCandidates = [model, 'sonar'];
+    } else if (provider === 'cohere') {
+      endpoint = 'https://api.cohere.ai/compatibility/v1';
+      apiKey = (config.cohereApiKey || process.env.COHERE_API_KEY || '').trim();
+      model = (context && context.model) || config.cohereModel || 'command-a-03-2025';
+      modelCandidates = [model, 'command-r-plus-08-2024'];
+    } else if (provider === 'glm') {
+      endpoint = 'https://api.z.ai/api/paas/v4';
+      apiKey = (config.glmApiKey || process.env.ZHIPU_API_KEY || '').trim();
+      model = (context && context.model) || config.glmModel || 'glm-4.5';
+      modelCandidates = [model, 'glm-4.5-air'];
+    } else if (provider === 'minimax') {
+      endpoint = 'https://api.minimax.io/v1';
+      apiKey = (config.minimaxApiKey || process.env.MINIMAX_API_KEY || '').trim();
+      model = (context && context.model) || config.minimaxModel || 'MiniMax-M1';
+      modelCandidates = [model, 'MiniMax-Text-01'];
+    } else if (provider === 'together') {
+      endpoint = 'https://api.together.xyz/v1';
+      apiKey = (config.togetherApiKey || process.env.TOGETHER_API_KEY || '').trim();
+      model = (context && context.model) || config.togetherModel || 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8';
+      modelCandidates = [model];
+    } else if (provider === 'grokki_free_proxy') {
+      endpoint = (config.grokkiFreeProxyUrl || '').replace(/\/+$/, '');
+      apiKey = 'grokki-free';
+      model = (context && context.model) || config.grokkiFreeModel || 'auto';
+      modelCandidates = [model];
     } else if (provider === 'omniroute' || provider === 'omnirouter') {
       const base = (config.omnirouteEndpoint || config.omnirouterEndpoint || 'http://localhost:20128/v1').replace(/\/+$/, '');
       endpoint = base;
@@ -3274,6 +3355,7 @@ STRICT OPERATIONAL DIRECTIVES:
       : ((isAgent && !isConversationalPrompt)
           ? this.buildAgentSystemPrompt(context, config, fullPrompt, conversationHistory)
           : memory.buildSystemPrompt(config, fullPrompt, context));
+      systemInstruction += `\n[Runtime Engine: Active provider="${provider}", Active model="${model}". If the user asks what model or provider is currently in use, state this exact provider and model directly.]`;
     let historyToUse = isCustomSystemPrompt ? [] : rawHistory.slice(-18);
 
     // Groq Free Tier optimization: keep prompt lean (<3500 tokens) to guarantee zero 413 ITPM errors (non-agent only)
@@ -4213,6 +4295,90 @@ Answer directly and concisely in clean Markdown. User: ${config.userNickname || 
     }
   }
 
+  async runGrokkiFreeRotator(prompt, config = {}, context = {}) {
+    const candidates = [];
+
+    if ((config.grokkiFreeProxyUrl || '').trim()) {
+      candidates.push({
+        provider: 'grokki_free_proxy',
+        model: config.grokkiFreeModel || 'auto',
+      });
+    }
+    if ((config.groqApiKey || process.env.GROQ_API_KEY || '').trim()) {
+      candidates.push({
+        provider: 'groq',
+        model: config.groqModel || 'llama-3.3-70b-versatile',
+      });
+    }
+    if ((config.geminiApiKey || process.env.GEMINI_API_KEY || '').trim()) {
+      const gm = config.geminiModel && !config.geminiModel.includes('pro')
+        ? config.geminiModel
+        : 'gemini-2.5-flash';
+      candidates.push({
+        provider: 'gemini',
+        model: gm,
+      });
+    }
+    if ((config.openrouterApiKey || process.env.OPENROUTER_API_KEY || '').trim()) {
+      candidates.push({
+        provider: 'openrouter',
+        model: config.openrouterModel || 'openrouter/auto',
+      });
+    }
+    if ((config.omnirouteEndpoint || config.omnirouterEndpoint || config.omnirouteApiKey || '').trim()) {
+      candidates.push({
+        provider: 'omniroute',
+        model: config.omnirouteModel || config.omnirouterModel || 'auto',
+      });
+    }
+    if (config.grokkiFreeIncludeOllama !== false && (config.ollamaModel || '').trim()) {
+      candidates.push({
+        provider: 'ollama',
+        model: config.ollamaModel || 'llama3.2',
+      });
+    }
+
+    if (candidates.length === 0) {
+      return {
+        success: false,
+        error: 'NO_FREE_PROVIDERS_AVAILABLE: Configure at least one free provider (Groq, Gemini, OpenRouter, Ollama) or set a Grokki Free Proxy URL in Providers.',
+      };
+    }
+
+    let ordered = [...candidates];
+    if (config.grokkiFreeRotationMode === 'round-robin' && ordered.length > 1) {
+      const idx = (this._grokkiFreeRrIndex || 0) % ordered.length;
+      this._grokkiFreeRrIndex = (idx + 1) % ordered.length;
+      ordered = [...ordered.slice(idx), ...ordered.slice(0, idx)];
+    }
+
+    let lastResult = null;
+    for (let i = 0; i < ordered.length; i++) {
+      const cand = ordered[i];
+      console.log(`[GrokkiCloudFree] Trying #${i + 1}/${ordered.length}: ${cand.provider} (${cand.model})`);
+      try {
+        const res = await this.run(prompt, config, {
+          ...context,
+          provider: cand.provider,
+          model: cand.model,
+          isFailover: i > 0,
+        });
+        if (res && res.success) {
+          return {
+            ...res,
+            routedProvider: cand.provider,
+            routedModel: res.model || cand.model,
+          };
+        }
+        lastResult = res;
+      } catch (err) {
+        lastResult = { success: false, error: err?.message || 'Provider error' };
+      }
+    }
+
+    return lastResult || { success: false, error: 'All free-tier providers failed or reached rate limits.' };
+  }
+
   async run(prompt, configOrKey, context = {}) {
     const config = typeof configOrKey === 'string'
       ? { provider: 'gemini', geminiApiKey: configOrKey }
@@ -4542,7 +4708,11 @@ To allow me to inspect, edit, create files, or run commands on your system:
 
     const provider = (context && context.provider) || config.provider || 'gemini';
 
-    if (['groq', 'ollama', 'openrouter', 'omniroute', 'omnirouter', 'openai', 'grok', 'deepseek', 'qwen', 'litellm', 'bifrost', 'portkey', 'helicone', 'routellm', 'newapi', 'higress', 'clawrouter', 'freellmapi'].includes(provider)) {
+    if (provider === 'grokki_free') {
+      return await this.runGrokkiFreeRotator(prompt, config, context);
+    }
+
+    if (['groq', 'ollama', 'openrouter', 'omniroute', 'omnirouter', 'openai', 'grok', 'deepseek', 'qwen', 'anthropic', 'kimi', 'mistral', 'perplexity', 'cohere', 'glm', 'minimax', 'together', 'grokki_free_proxy', 'litellm', 'bifrost', 'portkey', 'helicone', 'routellm', 'newapi', 'higress', 'clawrouter', 'freellmapi'].includes(provider)) {
       return await this.runOpenAICompatible(prompt, config, context);
     }
 
@@ -4610,6 +4780,7 @@ To allow me to inspect, edit, create files, or run commands on your system:
       (context && (context.webSearch || context.webSearchEnabled)) ||
       (!isAgent && shouldAutoSearchWeb(prompt, conversationHistory))
     );
+    let groundingSources = [];
     let resolvedQuery = prompt;
     if (isWebSearchActive) {
       try {
@@ -4701,6 +4872,7 @@ To allow me to inspect, edit, create files, or run commands on your system:
     let systemInstruction = isAgent
       ? this.buildAgentSystemPrompt(context, config, fullPrompt, conversationHistory)
       : memory.buildSystemPrompt(config, fullPrompt, context);
+    systemInstruction += `\n[Runtime Engine: Active provider="gemini", Active model="${config.geminiModel || 'gemini-2.5-flash'}". If the user asks what model or provider is currently in use, state this exact provider and model directly.]`;
     if (hasActivePluginsGemini) {
       const pluginNames = context.activePlugins.map((p) => p.name).join(', ');
       const exactListNote = loadedMcpGeminiNames.length > 0
@@ -4767,6 +4939,7 @@ To allow me to inspect, edit, create files, or run commands on your system:
               tools,
               maxOutputTokens: isAgent ? 8192 : 4000,
               temperature: 0.1,
+              ...(!isAgent && modelName.includes('2.5') ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
             },
           }), 45000), signal);
 

@@ -3,13 +3,11 @@ import { Sidebar, TabId } from './components/Sidebar';
 import { Header } from './components/Header';
 import { UnsavedToast } from './components/UnsavedToast';
 import { SkillWritingToast, SkillWritingState } from './components/SkillWritingToast';
-import { OverviewTab } from './components/tabs/OverviewTab';
 import { MemoryTab } from './components/tabs/MemoryTab';
 import { ChatTab } from './components/tabs/ChatTab';
 import { VoiceModelsTab } from './components/tabs/VoiceModelsTab';
 import { AiBrainTab } from './components/tabs/AiBrainTab';
 import { PersonalizationTab } from './components/tabs/PersonalizationTab';
-import { GoogleWorkspaceTab } from './components/tabs/GoogleWorkspaceTab';
 import { SkillsTab } from './components/tabs/SkillsTab';
 import { PluginsTab } from './components/tabs/PluginsTab';
 import { AppearanceTab } from './components/tabs/AppearanceTab';
@@ -154,10 +152,11 @@ export const App: React.FC = () => {
       tab === 'profile' ||
       tab === 'about' ||
       tab === 'voice' ||
-      tab === 'ai' ||
-      tab === 'google'
+      tab === 'ai'
     ) {
       handleOpenSettings(tab as SettingsSection);
+    } else if (tab === 'google' || tab === 'workspace') {
+      setActiveTab('plugins');
     } else {
       setActiveTab(tab);
     }
@@ -1074,7 +1073,6 @@ export const App: React.FC = () => {
 
   const tabTitles: Record<TabId, string> = {
     chat: appMode === 'agent' ? 'Grokki Agent' : 'Grokki Chat',
-    overview: 'Home',
     images: 'Kinetix',
     office: 'Scribe',
     workspace: 'Plugins',
@@ -1084,7 +1082,7 @@ export const App: React.FC = () => {
     voice: 'Voice Models',
     ai: 'AI Brain & Keys',
     profile: 'Personalization',
-    google: 'Workspace Integrations',
+    google: 'Plugins',
     appearance: 'Appearance',
     settings: 'Studio Settings',
     about: 'About Grokki Studio',
@@ -1202,15 +1200,6 @@ export const App: React.FC = () => {
                 : 'w-full flex flex-col'
           }>
             <ErrorBoundary fallbackTabName={activeTab} onReset={() => setActiveTab('chat')}>
-            {activeTab === 'overview' && (
-              <OverviewTab
-                config={config}
-                userName={displayName}
-                onNavigateTab={handleSelectTab}
-                googleConnected={googleConnected}
-              />
-            )}
-
             {activeTab === 'images' && (
               <React.Suspense
                 fallback={
@@ -1269,16 +1258,6 @@ export const App: React.FC = () => {
               <PersonalizationTab
                 config={config}
                 onChangeConfig={handleConfigChange}
-              />
-            )}
-
-            {(activeTab === 'google' || activeTab === 'workspace') && (
-              <GoogleWorkspaceTab
-                config={config}
-                onChangeConfig={handleConfigChange}
-                connected={googleConnected}
-                profile={googleProfile}
-                onRefreshStatus={loadGoogleStatus}
               />
             )}
 
@@ -1346,9 +1325,6 @@ export const App: React.FC = () => {
         }}
         playingVoice={playingVoice}
         onPreviewVoice={handlePreviewVoice}
-        googleConnected={googleConnected}
-        googleProfile={googleProfile}
-        onRefreshGoogleStatus={loadGoogleStatus}
         activeModelPull={activeModelPull}
         onPullModel={handlePullModel}
       />
