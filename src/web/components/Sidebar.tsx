@@ -31,7 +31,7 @@ import {
   Logout01Icon,
   AiSparklesIcon,
   AiImageIcon,
-  Heart,
+  // Removed Heart icon used only for Aibou
   User02Icon,
   FlaskConicalIcon,
   Presentation01Icon,
@@ -48,7 +48,7 @@ import grokkiLogo from '../assets/grokki_logo.png';
 import grokkiWordmarkDark from '../assets/grokki_wordmark.png';
 import grokkiWordmarkLight from '../assets/grokki_wordmark_light.png';
 
-export type TabId = 'chat' | 'overview' | 'companion' | 'images' | 'office' | 'plugins' | 'skills' | 'workspace' | 'memory' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
+export type TabId = 'chat' | 'overview' | 'images' | 'office' | 'plugins' | 'skills' | 'workspace' | 'memory' | 'voice' | 'ai' | 'profile' | 'google' | 'appearance' | 'settings' | 'about';
 
 const MIN_EXPANDED_WIDTH = 180;
 const DEFAULT_SIDEBAR_WIDTH = 240;
@@ -1158,12 +1158,10 @@ export const Sidebar = React.memo<SidebarProps>(({
                     <SidebarRow
                       icon={FlaskConicalIcon}
                       label="Experimentals"
-                      isActive={activeTab === 'companion' || activeTab === 'images' || activeTab === 'office' || isExtrasOpen}
+                      isActive={activeTab === 'images' || activeTab === 'office' || isExtrasOpen}
                       isCollapsed={isCollapsed}
                       variant={
-                        activeTab === 'companion'
-                          ? 'pink'
-                          : activeTab === 'images'
+                        activeTab === 'images'
                           ? 'purple'
                           : activeTab === 'office'
                           ? 'emerald'
@@ -1176,9 +1174,7 @@ export const Sidebar = React.memo<SidebarProps>(({
                           size={13}
                           strokeWidth={2}
                           className={`transition-all duration-150 ${
-                            activeTab === 'companion'
-                              ? 'text-pink-500 dark:text-pink-400'
-                              : activeTab === 'images'
+                            activeTab === 'images'
                               ? 'text-purple-500 dark:text-purple-400'
                               : activeTab === 'office'
                               ? 'text-emerald-500 dark:text-emerald-400'
@@ -1338,28 +1334,6 @@ export const Sidebar = React.memo<SidebarProps>(({
                 </div>
                 {activeTab === 'images' && (
                   <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-purple-500" />
-                )}
-              </div>
-
-              {/* Aibou */}
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectTab('companion');
-                  setIsExtrasOpen(false);
-                }}
-                className={`h-[30px] px-2.5 rounded-lg text-[12.5px] cursor-pointer flex items-center justify-between transition-colors ${
-                  activeTab === 'companion'
-                    ? 'bg-pink-500/15 dark:bg-pink-500/20 text-pink-600 dark:text-pink-300 font-medium'
-                    : 'text-gray-700 dark:text-gray-200 hover:bg-pink-500/10 dark:hover:bg-pink-500/15 hover:text-pink-600 dark:hover:text-pink-300'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <HugeiconsIcon icon={Heart} size={15} strokeWidth={1.8} className={activeTab === 'companion' ? 'text-pink-500' : 'text-gray-500 dark:text-gray-400'} />
-                  <span>Aibou</span>
-                </div>
-                {activeTab === 'companion' && (
-                  <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2.2} className="text-pink-500" />
                 )}
               </div>
             </div>

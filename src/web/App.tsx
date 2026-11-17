@@ -15,7 +15,6 @@ import { PluginsTab } from './components/tabs/PluginsTab';
 import { AppearanceTab } from './components/tabs/AppearanceTab';
 import { StudioSettingsTab } from './components/tabs/StudioSettingsTab';
 import { AboutTab } from './components/tabs/AboutTab';
-const AnimeCompanionTab = React.lazy(() => import('./components/tabs/AnimeCompanionTab'));
 const ImageStudioTab = React.lazy(() => import('./components/tabs/ImageStudioTab'));
 const OfficeStudioTab = React.lazy(() => import('./components/tabs/OfficeStudioTab'));
 import { SettingsModal, SettingsSection } from './components/SettingsModal';
@@ -1076,7 +1075,6 @@ export const App: React.FC = () => {
   const tabTitles: Record<TabId, string> = {
     chat: appMode === 'agent' ? 'Grokki Agent' : 'Grokki Chat',
     overview: 'Home',
-    companion: 'Aibou',
     images: 'Kinetix',
     office: 'Scribe',
     workspace: 'Plugins',
@@ -1159,7 +1157,7 @@ export const App: React.FC = () => {
 
         {/* Tab Panels */}
         <main id="grokki-main-scroll" className={`flex-1 min-h-0 ${
-          activeTab === 'chat' || activeTab === 'companion' || activeTab === 'images' || activeTab === 'office'
+          activeTab === 'chat' || activeTab === 'images' || activeTab === 'office'
             ? 'h-full flex flex-col relative bg-[#f7f7fa] dark:bg-[#070709] overflow-hidden p-0'
             : 'overflow-y-auto px-8 py-6'
         }`}>
@@ -1199,7 +1197,7 @@ export const App: React.FC = () => {
           <div id="grokki-tab-content" className={
             activeTab === 'chat'
               ? 'hidden'
-              : activeTab === 'companion' || activeTab === 'images' || activeTab === 'office'
+              : activeTab === 'images' || activeTab === 'office'
                 ? 'w-full h-full flex-1 min-h-0 flex flex-col'
                 : 'w-full flex flex-col'
           }>
@@ -1211,21 +1209,6 @@ export const App: React.FC = () => {
                 onNavigateTab={handleSelectTab}
                 googleConnected={googleConnected}
               />
-            )}
-
-            {activeTab === 'companion' && (
-              <React.Suspense
-                fallback={
-                  <div className="w-full h-full bg-[#070709] flex flex-col items-center justify-center gap-3 text-gray-400">
-                    <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                  </div>
-                }
-              >
-                <AnimeCompanionTab
-                  config={config}
-                  onChangeConfig={handleConfigChange}
-                />
-              </React.Suspense>
             )}
 
             {activeTab === 'images' && (
