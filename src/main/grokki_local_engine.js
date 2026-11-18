@@ -12,6 +12,7 @@ class GrokkiLocalEngine {
   constructor() {
     this.serverProc = null;
     this.activeModelFile = null;
+    this.activeContextSize = null;
     this.port = DEFAULT_PORT;
     this.activeDownload = null;
   }
@@ -433,13 +434,14 @@ class GrokkiLocalEngine {
     }
     const modelPath = matched.fullPath;
 
-    if (this.isRunning() && this.activeModelFile === fileName) {
+    const ctxSize = String(options.contextSize !== undefined && options.contextSize !== null ? options.contextSize : 8192);
+
+    if (this.isRunning() && this.activeModelFile === fileName && this.activeContextSize === ctxSize) {
       return { success: true, endpoint: `http://127.0.0.1:${this.port}/v1`, fileName };
     }
 
     this.stopModel();
 
-    const ctxSize = String(options.contextSize || 8192);
     const gpuLayers = String(options.gpuLayers ?? 'auto');
     const args = [
       '-m', modelPath,
@@ -455,6 +457,7 @@ class GrokkiLocalEngine {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     this.activeModelFile = fileName;
+    this.activeContextSize = ctxSize;
 
     this.serverProc.on('exit', () => {
       this.serverProc = null;

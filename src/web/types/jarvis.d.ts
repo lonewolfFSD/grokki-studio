@@ -125,6 +125,7 @@ export interface JarvisConfig {
   grokkiFreeRotationMode?: 'failover' | 'round-robin';
   grokkiFreeIncludeOllama?: boolean;
   grokkiLocalModel?: string;
+  grokkiLocalContextSize?: number;
   omnirouteApiKey?: string;
   omnirouteModel?: string;
   omnirouteEndpoint?: string;

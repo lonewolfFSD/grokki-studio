@@ -4756,8 +4756,9 @@ To allow me to inspect, edit, create files, or run commands on your system:
       if (!targetFile) {
         return { success: false, error: 'No HuggingFace GGUF model selected. Download and select a model in Providers -> Grokki Local.' };
       }
-      if (!grokkiLocalEngine.isRunning() || grokkiLocalEngine.activeModelFile !== targetFile) {
-        await grokkiLocalEngine.startModel(targetFile);
+      const targetCtx = String(config.grokkiLocalContextSize !== undefined && config.grokkiLocalContextSize !== null ? config.grokkiLocalContextSize : 8192);
+      if (!grokkiLocalEngine.isRunning() || grokkiLocalEngine.activeModelFile !== targetFile || grokkiLocalEngine.activeContextSize !== targetCtx) {
+        await grokkiLocalEngine.startModel(targetFile, { contextSize: Number(targetCtx) });
       }
     }
 

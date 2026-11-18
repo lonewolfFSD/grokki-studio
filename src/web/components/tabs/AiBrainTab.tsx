@@ -1233,12 +1233,18 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
         });
         if (Array.isArray(res.models)) {
           const names = res.models.map((m) => m.fileName);
-          onChangeConfig({
-            cachedProviderModels: {
-              ...(config.cachedProviderModels || {}),
-              grokki_local: names,
-            },
-          });
+          const prevNames = config.cachedProviderModels?.grokki_local || [];
+          const isSame =
+            prevNames.length === names.length &&
+            prevNames.every((v, idx) => v === names[idx]);
+          if (!isSame) {
+            onChangeConfig({
+              cachedProviderModels: {
+                ...(config.cachedProviderModels || {}),
+                grokki_local: names,
+              },
+            });
+          }
         }
       }
     } catch (_) {
@@ -1376,14 +1382,19 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
     setHfProgress(null);
   };
 
-  const handleStartLocalModel = async (fileName: string) => {
+  const handleStartLocalModel = async (fileName: string, contextSizeOverride?: number) => {
     if (!window.jarvisAPI?.startGrokkiLocalModel) return;
     setGrokkiLocalBusy(`start:${fileName}`);
     setGrokkiLocalError(null);
     try {
-      const res = await window.jarvisAPI.startGrokkiLocalModel(fileName);
+      const ctxSize = contextSizeOverride !== undefined
+        ? contextSizeOverride
+        : (config.grokkiLocalContextSize !== undefined ? config.grokkiLocalContextSize : 8192);
+      const res = await window.jarvisAPI.startGrokkiLocalModel(fileName, { contextSize: ctxSize });
       if (res?.success) {
-        setField('grokkiLocalModel', fileName);
+        if (cfg.grokkiLocalModel !== fileName) {
+          setField('grokkiLocalModel', fileName);
+        }
         await refreshGrokkiLocalStatus();
       } else {
         setGrokkiLocalError(res?.error || 'Failed to start local model.');
@@ -2740,7 +2751,12 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
           {renderModelDropdown(
             providerId,
             cfg[detail.modelField] || modelDefault,
-            (val) => setField(detail.modelField, val),
+            (val) => {
+              setField(detail.modelField, val);
+              if (providerId === 'grokki_local' && val && grokkiLocalStatus.runtimeInstalled) {
+                handleStartLocalModel(val);
+              }
+            },
             modelDefault
           )}
           {secondaryField}
@@ -2986,7 +3002,12 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
                 return (
                   <div
                     key={m.fileName}
-                    onClick={() => setField('grokkiLocalModel', m.fileName)}
+                    onClick={() => {
+                      setField('grokkiLocalModel', m.fileName);
+                      if (grokkiLocalStatus.runtimeInstalled && !isLoaded) {
+                        handleStartLocalModel(m.fileName);
+                      }
+                    }}
                     className={`flex items-center justify-between gap-3 px-4 py-3 cursor-pointer transition-colors ${
                       isSelected ? 'bg-gray-50 dark:bg-[#161822]' : 'hover:bg-gray-50 dark:hover:bg-[#161822]'
                     }`}
@@ -3281,6 +3302,89 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
                   ))}
                 </div>
               </div>
+
+              {/* Custom Context Length (Unrestricted Tokens) */}
+              {(() => {
+                const currentCtx =
+                  config.grokkiLocalContextSize !== undefined && config.grokkiLocalContextSize !== null
+                    ? config.grokkiLocalContextSize
+                    : 8192;
+                return (
+                  <div className="flex flex-col gap-2 pt-2 border-t border-[#e4e4eb] dark:border-[#1e2029]">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-medium text-gray-500 dark:text-zinc-400">
+                          Context Length (Tokens)
+                        </span>
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-zinc-200">
+                          {currentCtx === 0 ? 'Model Max (0)' : `${currentCtx.toLocaleString()} tokens`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={currentCtx}
+                          onChange={(e) => {
+                            const val = Math.max(0, Math.floor(Number(e.target.value) || 0));
+                            onChangeConfig({ grokkiLocalContextSize: val });
+                          }}
+                          title="Enter any custom context token limit (0 = full model native max)"
+                          className="w-28 px-2 py-1 rounded-lg border border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#0f0f13] text-[11px] font-mono text-gray-900 dark:text-zinc-100 outline-none focus:border-gray-400 dark:focus:border-zinc-500"
+                        />
+                        {grokkiLocalStatus.running && grokkiLocalStatus.activeModel && (
+                          <button
+                            type="button"
+                            onClick={() => handleStartLocalModel(grokkiLocalStatus.activeModel!, currentCtx)}
+                            disabled={Boolean(grokkiLocalBusy)}
+                            className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-none cursor-pointer disabled:opacity-50"
+                          >
+                            Apply & Reload
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] font-mono text-gray-400 dark:text-zinc-500 shrink-0">0 (Max)</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={262144}
+                        step={2048}
+                        value={Math.min(262144, Math.max(0, currentCtx))}
+                        onChange={(e) => onChangeConfig({ grokkiLocalContextSize: Number(e.target.value) })}
+                        className="flex-1 accent-gray-900 dark:accent-white cursor-pointer h-1.5"
+                      />
+                      <span className="text-[10px] font-mono text-gray-400 dark:text-zinc-500 shrink-0">256K+</span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {[
+                        { val: 0, label: 'Max Native (0)' },
+                        { val: 8192, label: '8K' },
+                        { val: 32768, label: '32K' },
+                        { val: 65536, label: '64K' },
+                        { val: 131072, label: '128K' },
+                        { val: 262144, label: '256K' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => onChangeConfig({ grokkiLocalContextSize: preset.val })}
+                          className={`px-2 py-0.5 rounded-md text-[11px] font-medium border cursor-pointer transition-colors ${
+                            currentCtx === preset.val
+                              ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
+                              : 'bg-transparent text-gray-500 dark:text-zinc-400 border-[#e4e4eb] dark:border-[#1e2029] hover:text-gray-900 dark:hover:text-white'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
