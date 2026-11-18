@@ -2365,6 +2365,7 @@ export const ChatTab = React.memo<ChatTabProps>(({
     Logo: React.FC<{ className?: string }>;
   }> = useMemo(() => ({
     grokki_free: { name: 'Grokki Cloud', modelField: 'grokkiFreeModel', defaultModel: 'auto', Logo: GrokkiCloudLogo },
+    grokki_local: { name: 'Grokki Local', modelField: 'grokkiLocalModel', defaultModel: '', Logo: GrokkiCloudLogo },
     gemini: { name: 'Gemini', modelField: 'geminiModel', defaultModel: 'gemini-2.5-flash', Logo: GeminiLogo },
     groq: { name: 'Groq', modelField: 'groqModel', defaultModel: 'llama-3.3-70b-versatile', Logo: GroqLogo },
     ollama: { name: 'Ollama', modelField: 'ollamaModel', defaultModel: '', Logo: OllamaLogo },

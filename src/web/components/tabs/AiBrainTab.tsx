@@ -23,6 +23,7 @@ import {
   ChevronRight,
   ArrowLeft,
   Search,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { JarvisConfig, AiProvider, ActiveModelPull } from '../../types/jarvis';
@@ -36,6 +37,20 @@ import grokkiIcon from '../../assets/grokki_icon.svg';
 
 export const GrokkiCloudLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
   <img src={grokkiIcon} alt="Grokki Cloud" className={`${className} object-contain`} />
+);
+
+// Official Hugging Face Brand Logo
+export const HuggingFaceLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 120 120" className={className} fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Hugging Face">
+    <circle cx="60" cy="56" r="44" fill="#FFD21E" />
+    <circle cx="44" cy="48" r="5.5" fill="#1F2937" />
+    <circle cx="76" cy="48" r="5.5" fill="#1F2937" />
+    <path d="M40 62c4.5 10 12 15 20 15s15.5-5 20-15" stroke="#1F2937" strokeWidth="5.5" strokeLinecap="round" />
+    <ellipse cx="34" cy="58" rx="5" ry="3.2" fill="#FF9D00" opacity="0.65" />
+    <ellipse cx="86" cy="58" rx="5" ry="3.2" fill="#FF9D00" opacity="0.65" />
+    <path d="M22 72c-5 4-6 13-1 18 4 4 11 3 15-2l8-10" stroke="#FFD21E" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M98 72c5 4 6 13 1 18-4 4-11 3-15-2l-8-10" stroke="#FFD21E" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
 );
 
 // Official Authentic Google Gemini Brand Logo
@@ -409,6 +424,7 @@ export const CURATED_MODELS: Record<string, { value: string; label: string; tag?
     { value: 'llama-3.1-8b-instant', label: 'llama-3.1-8b-instant', tag: '500+ T/s' },
   ],
   ollama: [],
+  grokki_local: [],
   openrouter: [
     { value: 'openrouter/auto', label: 'openrouter/auto', tag: 'Auto-Routing' },
     { value: 'meta-llama/llama-3.3-70b-instruct:free', label: 'meta-llama/llama-3.3-70b-instruct:free', tag: 'Free 70B' },
@@ -781,6 +797,15 @@ const PROVIDER_DETAILS: Record<string, ProviderDetail> = {
       { label: 'Model library', url: 'https://ollama.com/library' },
     ],
   },
+  grokki_local: {
+    title: 'Grokki Local (HuggingFace GGUF)',
+    description: 'Search, download, and run any HuggingFace GGUF model directly inside Grokki Studio — no Ollama required.',
+    modelField: 'grokkiLocalModel',
+    defaultModel: '',
+    links: [
+      { label: 'HuggingFace GGUF Hub', url: 'https://huggingface.co/models?library=gguf' },
+    ],
+  },
   grokki_free: {
     title: 'Grokki Cloud (Free)',
     description: 'Automatic multi-provider free-tier rotator & failover across Groq, Gemini, OpenRouter :free, OmniRoute & Ollama.',
@@ -1141,6 +1166,276 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
   const [hfGgufFiles, setHfGgufFiles] = useState<Array<{ name: string; size: string; quant: string; isRecommended: boolean }>>([]);
   const [selectedHfFile, setSelectedHfFile] = useState<string>('');
   const [hfError, setHfError] = useState<string | null>(null);
+
+  // Grokki Local (Built-in llama.cpp + HuggingFace GGUF) State
+  const [grokkiLocalStatus, setGrokkiLocalStatus] = useState<{
+    checked: boolean;
+    loading: boolean;
+    runtimeInstalled: boolean;
+    binaryPath: string | null;
+    running: boolean;
+    port: number;
+    endpoint: string;
+    activeModel: string | null;
+    models: { fileName: string; fullPath: string; sizeBytes: number; sizeLabel: string; isActive: boolean; source?: string; repoId?: string | null }[];
+  }>({
+    checked: false,
+    loading: false,
+    runtimeInstalled: false,
+    binaryPath: null,
+    running: false,
+    port: 11435,
+    endpoint: 'http://127.0.0.1:11435/v1',
+    activeModel: null,
+    models: [],
+  });
+  const [hfSearchQuery, setHfSearchQuery] = useState('');
+  const [hfSort, setHfSort] = useState<'downloads' | 'likes' | 'lastModified'>('downloads');
+  const [hfLimit, setHfLimit] = useState(30);
+  const [hfMaxVramGb, setHfMaxVramGb] = useState<number>(64);
+  const [hfCategoryFilter, setHfCategoryFilter] = useState<'All' | 'Text Gen' | 'Coding' | 'Reasoning' | 'Vision'>('All');
+  const [hfFilterOpen, setHfFilterOpen] = useState(false);
+  const [hfModels, setHfModels] = useState<
+    { id: string; author: string; name: string; downloads: number; likes: number; pipelineTag: string; tags: string[] }[]
+  >([]);
+  const [hfSearchLoading, setHfSearchLoading] = useState(false);
+  const [selectedHfRepo, setSelectedHfRepo] = useState<string | null>(null);
+  const [hfRepoFiles, setHfRepoFiles] = useState<
+    { path: string; quant: string; sizeBytes: number; sizeLabel: string; downloadUrl: string; isRecommended: boolean }[]
+  >([]);
+  const [hfFilesLoading, setHfFilesLoading] = useState(false);
+  const [hfProgress, setHfProgress] = useState<{
+    type: 'model' | 'runtime';
+    repoId?: string;
+    fileName?: string;
+    percent: number;
+    status: string;
+  } | null>(null);
+  const [grokkiLocalBusy, setGrokkiLocalBusy] = useState<string | null>(null);
+  const [grokkiLocalError, setGrokkiLocalError] = useState<string | null>(null);
+
+  const refreshGrokkiLocalStatus = useCallback(async () => {
+    if (!window.jarvisAPI?.getGrokkiLocalStatus) return;
+    setGrokkiLocalStatus((prev) => ({ ...prev, loading: true }));
+    try {
+      const res = await window.jarvisAPI.getGrokkiLocalStatus();
+      if (res) {
+        setGrokkiLocalStatus({
+          checked: true,
+          loading: false,
+          runtimeInstalled: Boolean(res.runtimeInstalled),
+          binaryPath: res.binaryPath || null,
+          running: Boolean(res.running),
+          port: res.port || 11435,
+          endpoint: res.endpoint || 'http://127.0.0.1:11435/v1',
+          activeModel: res.activeModel || null,
+          models: Array.isArray(res.models) ? res.models : [],
+        });
+        if (Array.isArray(res.models)) {
+          const names = res.models.map((m) => m.fileName);
+          onChangeConfig({
+            cachedProviderModels: {
+              ...(config.cachedProviderModels || {}),
+              grokki_local: names,
+            },
+          });
+        }
+      }
+    } catch (_) {
+      setGrokkiLocalStatus((prev) => ({ ...prev, checked: true, loading: false }));
+    }
+  }, [config.cachedProviderModels, onChangeConfig]);
+
+  const handleSearchHf = useCallback(async (overrideQuery?: string, overrideSort?: 'downloads' | 'likes' | 'lastModified', overrideLimit?: number) => {
+    const q = (overrideQuery !== undefined ? overrideQuery : hfSearchQuery).trim();
+    const sort = overrideSort || hfSort;
+    const limit = overrideLimit || hfLimit;
+    setHfSearchLoading(true);
+    setGrokkiLocalError(null);
+    try {
+      if (window.jarvisAPI?.searchHfGgufModels && sort === 'downloads') {
+        const res = await window.jarvisAPI.searchHfGgufModels(q, limit);
+        if (res?.success && Array.isArray(res.models)) {
+          setHfModels(res.models);
+          setHfSearchLoading(false);
+          return;
+        }
+      }
+      // Direct HuggingFace Hub API query (works for all sorts & even before Electron restart)
+      const params = new URLSearchParams({
+        filter: 'gguf',
+        sort,
+        direction: '-1',
+        limit: String(limit),
+      });
+      if (q) params.set('search', q);
+      const resp = await fetch(`https://huggingface.co/api/models?${params.toString()}`);
+      if (!resp.ok) throw new Error(`HuggingFace HTTP ${resp.status}`);
+      const data = await resp.json();
+      const mapped = (Array.isArray(data) ? data : []).map((m: any) => ({
+        id: m.id || m.modelId || '',
+        author: (m.id || '').includes('/') ? (m.id || '').split('/')[0] : (m.author || ''),
+        name: (m.id || '').includes('/') ? (m.id || '').split('/').slice(1).join('/') : (m.id || ''),
+        downloads: m.downloads || 0,
+        likes: m.likes || 0,
+        pipelineTag: m.pipeline_tag || 'text-generation',
+        tags: Array.isArray(m.tags) ? m.tags.slice(0, 8) : [],
+      })).filter((m: any) => Boolean(m.id));
+      setHfModels(mapped);
+    } catch (err: any) {
+      setGrokkiLocalError(err?.message || 'Failed to search HuggingFace.');
+    }
+    setHfSearchLoading(false);
+  }, [hfSearchQuery, hfSort, hfLimit]);
+
+  const handleInspectHfRepo = async (repoId: string) => {
+    if (selectedHfRepo === repoId) {
+      setSelectedHfRepo(null);
+      setHfRepoFiles([]);
+      return;
+    }
+    setSelectedHfRepo(repoId);
+    setHfFilesLoading(true);
+    setHfRepoFiles([]);
+    setGrokkiLocalError(null);
+    try {
+      if (window.jarvisAPI?.getHfGgufFiles) {
+        const res = await window.jarvisAPI.getHfGgufFiles(repoId);
+        if (res?.success) {
+          setHfRepoFiles(res.files || []);
+          setHfFilesLoading(false);
+          return;
+        }
+      }
+      const resp = await fetch(`https://huggingface.co/api/models/${repoId}/tree/main`);
+      if (!resp.ok) throw new Error(`HuggingFace HTTP ${resp.status}`);
+      const tree = await resp.json();
+      const fmtBytes = (bytes: number) => {
+        if (!bytes) return 'Unknown';
+        const gb = bytes / (1024 ** 3);
+        if (gb >= 1) return `${gb.toFixed(2)} GB`;
+        return `${(bytes / (1024 ** 2)).toFixed(0)} MB`;
+      };
+      const files = (Array.isArray(tree) ? tree : [])
+        .filter((item: any) => item.type === 'file' && typeof item.path === 'string' && item.path.toLowerCase().endsWith('.gguf'))
+        .map((item: any) => {
+          const sizeBytes = item.size || item.lfs?.size || 0;
+          const upper = item.path.toUpperCase();
+          const quantMatch = upper.match(/(Q[2-8]_[0-9A-Z_]+|IQ[1-4]_[A-Z]+|F16|F32|BF16)/);
+          const quant = quantMatch ? quantMatch[1] : 'GGUF';
+          return {
+            path: item.path,
+            quant,
+            sizeBytes,
+            sizeLabel: fmtBytes(sizeBytes),
+            downloadUrl: `https://huggingface.co/${repoId}/resolve/main/${item.path}`,
+            isRecommended: quant === 'Q4_K_M' || quant === 'Q4_K_S',
+          };
+        })
+        .sort((a: any, b: any) => a.sizeBytes - b.sizeBytes);
+      setHfRepoFiles(files);
+    } catch (err: any) {
+      setGrokkiLocalError(err?.message || 'Failed to inspect repository.');
+    }
+    setHfFilesLoading(false);
+  };
+
+  const handleDownloadHfFile = async (repoId: string, filePath: string) => {
+    if (!window.jarvisAPI?.downloadHfGgufModel) return;
+    setGrokkiLocalBusy(`download:${filePath}`);
+    setGrokkiLocalError(null);
+    try {
+      const res = await window.jarvisAPI.downloadHfGgufModel(repoId, filePath);
+      if (res?.success && res.fileName) {
+        setField('grokkiLocalModel', res.fileName);
+        await refreshGrokkiLocalStatus();
+      } else {
+        setGrokkiLocalError(res?.error || 'Model download failed.');
+      }
+    } catch (err: any) {
+      setGrokkiLocalError(err?.message || 'Model download failed.');
+    }
+    setGrokkiLocalBusy(null);
+    setHfProgress(null);
+  };
+
+  const handleInstallLocalRuntime = async () => {
+    if (!window.jarvisAPI?.installGrokkiLocalRuntime) return;
+    setGrokkiLocalBusy('install-runtime');
+    setGrokkiLocalError(null);
+    try {
+      const res = await window.jarvisAPI.installGrokkiLocalRuntime();
+      if (!res?.success) {
+        setGrokkiLocalError(res?.error || 'Runtime installation failed.');
+      }
+      await refreshGrokkiLocalStatus();
+    } catch (err: any) {
+      setGrokkiLocalError(err?.message || 'Runtime installation failed.');
+    }
+    setGrokkiLocalBusy(null);
+    setHfProgress(null);
+  };
+
+  const handleStartLocalModel = async (fileName: string) => {
+    if (!window.jarvisAPI?.startGrokkiLocalModel) return;
+    setGrokkiLocalBusy(`start:${fileName}`);
+    setGrokkiLocalError(null);
+    try {
+      const res = await window.jarvisAPI.startGrokkiLocalModel(fileName);
+      if (res?.success) {
+        setField('grokkiLocalModel', fileName);
+        await refreshGrokkiLocalStatus();
+      } else {
+        setGrokkiLocalError(res?.error || 'Failed to start local model.');
+      }
+    } catch (err: any) {
+      setGrokkiLocalError(err?.message || 'Failed to start local model.');
+    }
+    setGrokkiLocalBusy(null);
+  };
+
+  const handleStopLocalModel = async () => {
+    if (!window.jarvisAPI?.stopGrokkiLocalModel) return;
+    setGrokkiLocalBusy('stop');
+    try {
+      await window.jarvisAPI.stopGrokkiLocalModel();
+      await refreshGrokkiLocalStatus();
+    } catch (_) {}
+    setGrokkiLocalBusy(null);
+  };
+
+  const handleDeleteLocalModel = async (fileName: string) => {
+    if (!window.jarvisAPI?.deleteGrokkiLocalModel) return;
+    setGrokkiLocalBusy(`delete:${fileName}`);
+    try {
+      const res = await window.jarvisAPI.deleteGrokkiLocalModel(fileName);
+      if (res?.success) {
+        if (cfg.grokkiLocalModel === fileName) {
+          setField('grokkiLocalModel', '');
+        }
+        await refreshGrokkiLocalStatus();
+      } else if (res?.error) {
+        setGrokkiLocalError(res.error);
+      }
+    } catch (_) {}
+    setGrokkiLocalBusy(null);
+  };
+
+  useEffect(() => {
+    refreshGrokkiLocalStatus();
+    const unsub = window.jarvisAPI?.onGrokkiLocalProgress?.((prog) => {
+      setHfProgress(prog);
+    });
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
+  }, []);
+
+  useEffect(() => {
+    if ((configuringProvider === 'grokki_local' || config.provider === 'grokki_local') && hfModels.length === 0 && !hfSearchLoading) {
+      handleSearchHf('');
+    }
+  }, [configuringProvider, config.provider]);
 
   useEffect(() => {
     if (window.jarvisAPI?.getOllamaHardwareStatus) {
@@ -1691,6 +1986,24 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       });
     }
 
+    if (providerId === 'grokki_local') {
+      const installed = grokkiLocalStatus.models || [];
+      if (installed.length === 0) {
+        return [
+          {
+            value: '',
+            label: 'No GGUF models installed (download below)',
+            tag: 'Empty',
+          },
+        ];
+      }
+      return installed.map((m) => ({
+        value: m.fileName,
+        label: m.fileName,
+        tag: m.sizeLabel || 'Installed',
+      }));
+    }
+
     const curated = CURATED_MODELS[providerId] || [];
     const fetched = fetchedModels[providerId] || [];
     const map = new Map<string, GlideSelectOption>();
@@ -1877,6 +2190,22 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
   // Local Providers (Air-gapped / on-device)
   const localProviders: ProviderCardInfo[] = [
     {
+      id: 'grokki_local',
+      label: 'Grokki Local (HuggingFace)',
+      subLabel: !grokkiLocalStatus.runtimeInstalled && grokkiLocalStatus.checked
+        ? 'Built-in Runtime Ready to Install'
+        : grokkiLocalStatus.models.length === 0
+        ? '0 GGUF Models Downloaded'
+        : `${grokkiLocalStatus.models.length} GGUF model${grokkiLocalStatus.models.length === 1 ? '' : 's'} ready`,
+      badge: grokkiLocalStatus.activeModel
+        ? grokkiLocalStatus.activeModel
+        : grokkiLocalStatus.models.length > 0
+        ? (config.grokkiLocalModel || grokkiLocalStatus.models[0].fileName)
+        : 'All HuggingFace GGUF',
+      tag: 'No Ollama Needed',
+      Logo: GrokkiCloudLogo,
+    },
+    {
       id: 'ollama',
       label: 'Ollama Local',
       subLabel: !ollamaStatus.installed && ollamaStatus.checked
@@ -1948,6 +2277,8 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       patch.clawrouterModel = 'auto';
     } else if (providerId === 'freellmapi' && !config.freellmapiModel) {
       patch.freellmapiModel = 'auto';
+    } else if (providerId === 'grokki_local' && !config.grokkiLocalModel && grokkiLocalStatus.models.length > 0) {
+      patch.grokkiLocalModel = grokkiLocalStatus.models[0].fileName;
     }
     onChangeConfig(patch);
   };
@@ -1960,7 +2291,11 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
   ) => {
     const options = getOptionsForProvider(providerId, currentValue);
     const totalCount =
-      (fetchedModels[providerId]?.length || 0) > 0
+      providerId === 'grokki_local'
+        ? grokkiLocalStatus.models.length
+        : providerId === 'ollama'
+        ? ollamaStatus.models.length
+        : (fetchedModels[providerId]?.length || 0) > 0
         ? fetchedModels[providerId].length
         : CURATED_MODELS[providerId]?.length || 0;
     const isCustom = customInputMode[providerId];
@@ -1969,26 +2304,30 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between h-5">
           <label className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-            <span>Model</span>
+            <span>{providerId === 'grokki_local' ? 'Installed Model' : 'Model'}</span>
             <span className="text-[11px] text-gray-400 font-normal">
-              {totalCount} available
+              {totalCount} {providerId === 'grokki_local' ? 'installed' : 'available'}
             </span>
           </label>
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              disabled={fetchingModels === providerId}
+              disabled={fetchingModels === providerId || (providerId === 'grokki_local' && grokkiLocalStatus.loading)}
               onClick={() => {
+                if (providerId === 'grokki_local') {
+                  refreshGrokkiLocalStatus();
+                  return;
+                }
                 const detail = PROVIDER_DETAILS[providerId];
                 const ep = detail?.endpointField ? cfg[detail.endpointField] : undefined;
                 const k = detail?.keyField ? cfg[detail.keyField] : undefined;
                 handleFetchModels(providerId, ep, k);
               }}
               className="text-[11px] font-medium text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition-colors disabled:opacity-50"
-              title="Fetch latest models directly from gateway"
+              title={providerId === 'grokki_local' ? 'Refresh installed GGUF models' : 'Fetch latest models directly from gateway'}
             >
-              <RefreshCw className={`w-3 h-3 ${fetchingModels === providerId ? 'animate-spin' : ''}`} />
-              <span>{fetchingModels === providerId ? 'Fetching...' : 'Fetch models'}</span>
+              <RefreshCw className={`w-3 h-3 ${(fetchingModels === providerId || (providerId === 'grokki_local' && grokkiLocalStatus.loading)) ? 'animate-spin' : ''}`} />
+              <span>{providerId === 'grokki_local' ? 'Refresh installed' : fetchingModels === providerId ? 'Fetching...' : 'Fetch models'}</span>
             </button>
             <span className="text-gray-300 dark:text-[#252836] select-none">|</span>
             <button
@@ -2057,6 +2396,9 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
     }
     if (providerId === 'ollama') {
       return Boolean(ollamaStatus.installed && ollamaStatus.models.length > 0);
+    }
+    if (providerId === 'grokki_local') {
+      return Boolean(grokkiLocalStatus.runtimeInstalled && grokkiLocalStatus.models.length > 0);
     }
     const meta = PROVIDER_DETAILS[providerId];
     if (!meta) return false;
@@ -2405,50 +2747,723 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
         </div>
 
         {/* Test connection */}
-        <div className="flex flex-wrap items-center gap-3 pt-5 border-t border-[#e4e4eb] dark:border-[#1e2029]">
-          <button
-            type="button"
-            disabled={testing === providerId}
-            onClick={() =>
-              handleTestKey(
-                providerId,
-                detail.keyField ? cfg[detail.keyField] : undefined,
-                cfg[detail.modelField],
-                detail.endpointField ? cfg[detail.endpointField] : undefined
-              )
-            }
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-xs font-semibold bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 border-none cursor-pointer transition-all disabled:opacity-50"
-          >
-            {testing === providerId && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            <span>Test connection</span>
-          </button>
+        {providerId !== 'grokki_local' ? (
+          <div className="flex flex-wrap items-center gap-3 pt-5 border-t border-[#e4e4eb] dark:border-[#1e2029]">
+            <button
+              type="button"
+              disabled={testing === providerId}
+              onClick={() =>
+                handleTestKey(
+                  providerId,
+                  detail.keyField ? cfg[detail.keyField] : undefined,
+                  cfg[detail.modelField],
+                  detail.endpointField ? cfg[detail.endpointField] : undefined
+                )
+              }
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-xs font-semibold bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 border-none cursor-pointer transition-all disabled:opacity-50"
+            >
+              {testing === providerId && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              <span>Test connection</span>
+            </button>
 
-          <button
-            type="button"
-            disabled={fetchingModels === providerId}
-            onClick={() => {
-              const ep = detail.endpointField ? cfg[detail.endpointField] : undefined;
-              const k = detail.keyField ? cfg[detail.keyField] : undefined;
-              handleFetchModels(providerId, ep, k);
-            }}
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-[#1a1c24] dark:hover:bg-[#222530] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#252836] cursor-pointer transition-all disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${fetchingModels === providerId ? 'animate-spin' : ''}`} />
-            <span>Fetch all models</span>
-          </button>
+            <button
+              type="button"
+              disabled={fetchingModels === providerId}
+              onClick={() => {
+                const ep = detail.endpointField ? cfg[detail.endpointField] : undefined;
+                const k = detail.keyField ? cfg[detail.keyField] : undefined;
+                handleFetchModels(providerId, ep, k);
+              }}
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-[#1a1c24] dark:hover:bg-[#222530] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#252836] cursor-pointer transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${fetchingModels === providerId ? 'animate-spin' : ''}`} />
+              <span>Fetch all models</span>
+            </button>
 
-          {result && (
-            <span className="inline-flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 min-w-0">
-              {result.success ? (
-                <CheckCircle2 className="w-4 h-4 text-zinc-900 dark:text-white flex-shrink-0" />
-              ) : (
-                <XCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
-              )}
-              <span className="break-words">{result.message}</span>
+            {result && (
+              <span className="inline-flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 min-w-0">
+                {result.success ? (
+                  <CheckCircle2 className="w-4 h-4 text-zinc-900 dark:text-white flex-shrink-0" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                )}
+                <span className="break-words">{result.message}</span>
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-[#e4e4eb] dark:border-[#1e2029] text-xs text-gray-500 dark:text-zinc-400">
+            <span>
+              {grokkiLocalStatus.models.length > 0
+                ? `${grokkiLocalStatus.models.length} installed GGUF model${grokkiLocalStatus.models.length === 1 ? '' : 's'} available in dropdown.`
+                : 'Download any HuggingFace GGUF model below to populate the Installed Model dropdown.'}
             </span>
+            {!window.jarvisAPI?.getGrokkiLocalStatus && (
+              <span className="text-[11px] font-medium text-gray-700 dark:text-zinc-300">
+                Restart Electron to enable runtime install & model downloads.
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const inferHfModelMeta = (repo: { id: string; author: string; name: string; pipelineTag: string; tags: string[] }) => {
+    const lower = repo.id.toLowerCase();
+    let brand = repo.author || 'HuggingFace';
+    let Logo: React.FC<{ className?: string }> = HuggingFaceLogo;
+
+    if (lower.includes('qwen')) { brand = 'Qwen'; Logo = QwenLogo; }
+    else if (lower.includes('llama')) { brand = 'Meta Llama'; Logo = MetaLogo; }
+    else if (lower.includes('deepseek')) { brand = 'DeepSeek'; Logo = DeepSeekLogo; }
+    else if (lower.includes('gemma')) { brand = 'Google Gemma'; Logo = GeminiLogo; }
+    else if (lower.includes('mistral') || lower.includes('mixtral') || lower.includes('codestral')) { brand = 'Mistral'; Logo = MistralLogo; }
+    else if (lower.includes('phi-') || lower.includes('/phi')) { brand = 'Microsoft Phi'; Logo = MicrosoftLogo; }
+    else if (lower.includes('glm')) { brand = 'Zhipu GLM'; Logo = GlmLogo; }
+    else if (lower.includes('gpt-oss') || lower.includes('openai')) { brand = 'OpenAI'; Logo = OpenAILogo; }
+    else if (lower.includes('kimi') || lower.includes('moonshot')) { brand = 'Moonshot Kimi'; Logo = KimiLogo; }
+    else if (lower.includes('minimax')) { brand = 'MiniMax'; Logo = MiniMaxLogo; }
+    else if (lower.includes('cohere') || lower.includes('command')) { brand = 'Cohere'; Logo = CohereLogo; }
+    else if (lower.includes('grok')) { brand = 'xAI Grok'; Logo = GrokLogo; }
+
+    let category: 'Text Gen' | 'Coding' | 'Reasoning' | 'Vision' | 'Audio' = 'Text Gen';
+    if (lower.includes('coder') || lower.includes('code')) category = 'Coding';
+    else if (lower.includes('deepseek-r1') || lower.includes('qwq') || lower.includes('reason') || lower.includes('think')) category = 'Reasoning';
+    else if (lower.includes('-vl') || lower.includes('vision') || lower.includes('moondream') || repo.pipelineTag === 'image-text-to-text') category = 'Vision';
+    else if (lower.includes('audio') || lower.includes('whisper') || lower.includes('tts') || repo.pipelineTag.includes('audio')) category = 'Audio';
+
+    // Extract parameter count (e.g. 27B, 9B, 1.5B, 0.5B, 120M)
+    const paramMatch = repo.name.match(/(\d+(?:\.\d+)?)\s*([BM])\b/i);
+    let paramsNumB: number | null = null;
+    let paramsLabel: string | null = null;
+    if (paramMatch) {
+      const val = parseFloat(paramMatch[1]);
+      const unit = paramMatch[2].toUpperCase();
+      paramsLabel = `${paramMatch[1]}${unit}`;
+      paramsNumB = unit === 'M' ? val / 1000 : val;
+    }
+
+    const estGb = paramsNumB !== null ? Math.max(0.3, paramsNumB * 0.62) : null;
+    const estSizeLabel = estGb !== null ? (estGb >= 1 ? `~${estGb.toFixed(1)} GB` : `~${Math.round(estGb * 1024)} MB`) : null;
+    const minVramGb = paramsNumB !== null ? Math.max(2, Math.ceil(paramsNumB * 0.72)) : null;
+
+    const descParts = [
+      paramsLabel ? `${brand} ${paramsLabel}` : brand,
+      category.toLowerCase(),
+      'GGUF model',
+      repo.author && repo.author.toLowerCase() !== brand.toLowerCase() ? `packaged by ${repo.author}` : '',
+    ].filter(Boolean);
+
+    return {
+      brand,
+      Logo,
+      category,
+      paramsLabel,
+      estSizeLabel,
+      minVramGb,
+      desc: descParts.join(' '),
+    };
+  };
+
+  const renderGrokkiLocalSection = () => {
+    const activeFile = cfg.grokkiLocalModel || grokkiLocalStatus.activeModel || '';
+
+    return (
+      <section className="flex flex-col gap-5 mt-2">
+        {/* Built-in llama.cpp Runtime Status Bar */}
+        <div className="p-4 rounded-2xl border border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#0f0f13] flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                Grokki Built-in Local Engine (llama.cpp)
+              </span>
+              {grokkiLocalStatus.running && (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-900 dark:bg-white text-white dark:text-gray-900">
+                  Running · :{grokkiLocalStatus.port}
+                </span>
+              )}
+            </div>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+              {grokkiLocalStatus.runtimeInstalled
+                ? grokkiLocalStatus.running && grokkiLocalStatus.activeModel
+                  ? `Serving ${grokkiLocalStatus.activeModel} at ${grokkiLocalStatus.endpoint}`
+                  : 'Native llama-server runtime installed & ready (no Ollama required).'
+                : 'Install the built-in Windows llama.cpp server once to run any HuggingFace GGUF model.'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {!grokkiLocalStatus.runtimeInstalled ? (
+              <button
+                type="button"
+                onClick={handleInstallLocalRuntime}
+                disabled={grokkiLocalBusy === 'install-runtime'}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-none cursor-pointer transition-all disabled:opacity-50"
+              >
+                {grokkiLocalBusy === 'install-runtime' ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Installing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Install Runtime</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <>
+                {grokkiLocalStatus.running && (
+                  <button
+                    type="button"
+                    onClick={handleStopLocalModel}
+                    disabled={grokkiLocalBusy === 'stop'}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-white/[0.08] hover:bg-gray-200 dark:hover:bg-white/[0.14] text-gray-800 dark:text-zinc-200 border-none cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    {grokkiLocalBusy === 'stop' ? 'Stopping...' : 'Stop Server'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={refreshGrokkiLocalStatus}
+                  disabled={grokkiLocalStatus.loading}
+                  title="Refresh status"
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[#e4e4eb] dark:border-[#1e2029] bg-transparent hover:bg-gray-100 dark:hover:bg-white/[0.06] text-gray-600 dark:text-zinc-400 cursor-pointer transition-all disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${grokkiLocalStatus.loading ? 'animate-spin' : ''}`} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Active Progress Banner */}
+        {hfProgress && (
+          <div className="p-3.5 rounded-2xl border border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#0f0f13] flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium text-gray-900 dark:text-zinc-100 truncate">
+                {hfProgress.status}
+              </span>
+              <span className="font-mono text-gray-600 dark:text-zinc-400 ml-2 shrink-0">
+                {hfProgress.percent}%
+              </span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-white/10 overflow-hidden">
+              <div
+                className="h-full bg-gray-900 dark:bg-white transition-all duration-200"
+                style={{ width: `${Math.min(100, Math.max(0, hfProgress.percent))}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Error Banner */}
+        {grokkiLocalError && (
+          <div className="p-3 rounded-xl border border-gray-300 dark:border-white/15 bg-gray-50 dark:bg-white/[0.04] flex items-center gap-2 text-xs text-gray-800 dark:text-zinc-200">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-gray-600 dark:text-zinc-400" />
+            <span className="flex-1 break-words">{grokkiLocalError}</span>
+          </div>
+        )}
+
+        {/* Downloaded GGUF Models */}
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <SectionLabel>Downloaded GGUF Models</SectionLabel>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-zinc-300 -mt-2">
+                {grokkiLocalStatus.models.length}
+              </span>
+            </div>
+          </div>
+
+          {grokkiLocalStatus.models.length > 0 ? (
+            <div className={`${SURFACE} rounded-2xl overflow-hidden flex flex-col divide-y divide-[#e4e4eb] dark:divide-[#1e2029]`}>
+              {grokkiLocalStatus.models.map((m) => {
+                const isSelected = activeFile === m.fileName;
+                const isLoaded = grokkiLocalStatus.running && grokkiLocalStatus.activeModel === m.fileName;
+                return (
+                  <div
+                    key={m.fileName}
+                    onClick={() => setField('grokkiLocalModel', m.fileName)}
+                    className={`flex items-center justify-between gap-3 px-4 py-3 cursor-pointer transition-colors ${
+                      isSelected ? 'bg-gray-50 dark:bg-[#161822]' : 'hover:bg-gray-50 dark:hover:bg-[#161822]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <HardDrive className="w-4 h-4 text-gray-500 dark:text-zinc-400 flex-shrink-0" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-mono font-semibold text-gray-900 dark:text-zinc-100 truncate">
+                          {m.fileName}
+                        </span>
+                        <span className="text-[11px] text-gray-500 dark:text-zinc-400">
+                          {m.sizeLabel}{m.source ? ` · ${m.source}` : ''}
+                        </span>
+                      </div>
+                      {isSelected && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 shrink-0">
+                          Active
+                        </span>
+                      )}
+                      {isLoaded && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-200 dark:bg-white/15 text-gray-800 dark:text-zinc-200 shrink-0">
+                          Loaded
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {!isLoaded && grokkiLocalStatus.runtimeInstalled && (
+                        <button
+                          type="button"
+                          onClick={() => handleStartLocalModel(m.fileName)}
+                          disabled={grokkiLocalBusy === `start:${m.fileName}`}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-gray-100 dark:bg-white/[0.08] hover:bg-gray-200 dark:hover:bg-white/[0.14] text-gray-800 dark:text-zinc-200 border-none cursor-pointer transition-all disabled:opacity-50"
+                        >
+                          {grokkiLocalBusy === `start:${m.fileName}` ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Play className="w-3 h-3" />
+                          )}
+                          <span>Load</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteLocalModel(m.fileName)}
+                        disabled={grokkiLocalBusy === `delete:${m.fileName}`}
+                        title="Delete model"
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-transparent hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 dark:text-zinc-400 border-none cursor-pointer transition-all disabled:opacity-50"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className={`${SURFACE} rounded-2xl p-5 text-center text-xs text-gray-500 dark:text-zinc-400`}>
+              No `.gguf` models downloaded yet. Search HuggingFace below and pick any model quantization to download.
+            </div>
           )}
         </div>
-      </div>
+
+        {/* HuggingFace All-Models Search & Downloader */}
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <SectionLabel>Search All HuggingFace GGUF Models</SectionLabel>
+            <button
+              type="button"
+              onClick={() => handleOpenExternal('https://huggingface.co/models?library=gguf')}
+              className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white bg-transparent border-none cursor-pointer p-0"
+            >
+              <span>Browse HuggingFace</span>
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSearchHf();
+            }}
+            className="flex flex-wrap items-center gap-2"
+          >
+            <div className="relative flex-1 min-w-[220px]">
+              <Search className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={hfSearchQuery}
+                onChange={(e) => setHfSearchQuery(e.target.value)}
+                placeholder="Search any HuggingFace GGUF model (e.g. Qwen2.5, Llama-3.2, DeepSeek-R1, Gemma-3)..."
+                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#0f0f13] text-xs text-gray-900 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-500 outline-none focus:border-gray-400 dark:focus:border-zinc-500"
+              />
+            </div>
+
+            {(() => {
+              const activeFilterCount =
+                (hfSort !== 'downloads' ? 1 : 0) +
+                (hfMaxVramGb < 64 ? 1 : 0) +
+                (hfCategoryFilter !== 'All' ? 1 : 0);
+              return (
+                <button
+                  type="button"
+                  onClick={() => setHfFilterOpen((prev) => !prev)}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold border cursor-pointer transition-all shrink-0 ${
+                    hfFilterOpen || activeFilterCount > 0
+                      ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
+                      : 'bg-white dark:bg-[#0f0f13] text-gray-700 dark:text-zinc-200 border-[#e4e4eb] dark:border-[#1e2029] hover:bg-gray-50 dark:hover:bg-[#161822]'
+                  }`}
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>Filter</span>
+                  {activeFilterCount > 0 && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-white/20 dark:bg-black/15">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })()}
+
+            <button
+              type="submit"
+              disabled={hfSearchLoading}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-none cursor-pointer transition-all disabled:opacity-50 shrink-0"
+            >
+              {hfSearchLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+              <span>Search</span>
+            </button>
+          </form>
+
+          {/* Compact Filter Modal / Popover below Search */}
+          {hfFilterOpen && (
+            <div className="p-4 rounded-2xl border border-[#e4e4eb] dark:border-[#262936] bg-white dark:bg-[#111218] shadow-lg flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-900 dark:text-zinc-100">
+                  Filter HuggingFace Models
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHfSort('downloads');
+                      setHfMaxVramGb(64);
+                      setHfCategoryFilter('All');
+                      setHfSearchQuery('');
+                      handleSearchHf('', 'downloads');
+                    }}
+                    className="text-[11px] font-medium text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white bg-transparent border-none cursor-pointer p-0"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHfFilterOpen(false)}
+                    className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-none cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+
+              {/* Sort By */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-medium text-gray-500 dark:text-zinc-400">Sort By</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(
+                    [
+                      { id: 'downloads', label: 'Popular' },
+                      { id: 'likes', label: 'Top Liked' },
+                      { id: 'lastModified', label: 'Recent' },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        setHfSort(opt.id);
+                        handleSearchHf(undefined, opt.id);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border cursor-pointer transition-colors ${
+                        hfSort === opt.id
+                          ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
+                          : 'bg-transparent text-gray-600 dark:text-zinc-400 border-[#e4e4eb] dark:border-[#1e2029] hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Model Family */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-medium text-gray-500 dark:text-zinc-400">Model Family</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {['All', 'Qwen', 'Llama', 'DeepSeek', 'Gemma', 'Mistral', 'Phi', 'Coder', 'Bartowski'].map((chip) => {
+                    const chipQuery = chip === 'All' ? '' : chip;
+                    const isActive = hfSearchQuery.trim().toLowerCase() === chipQuery.toLowerCase();
+                    return (
+                      <button
+                        key={chip}
+                        type="button"
+                        onClick={() => {
+                          setHfSearchQuery(chipQuery);
+                          handleSearchHf(chipQuery);
+                        }}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-medium border cursor-pointer transition-colors ${
+                          isActive
+                            ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
+                            : 'bg-transparent text-gray-600 dark:text-zinc-400 border-[#e4e4eb] dark:border-[#1e2029] hover:border-gray-400 dark:hover:border-zinc-500'
+                        }`}
+                      >
+                        {chip}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Category */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-medium text-gray-500 dark:text-zinc-400">Category</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(['All', 'Text Gen', 'Coding', 'Reasoning', 'Vision'] as const).map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setHfCategoryFilter(cat)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border cursor-pointer transition-colors ${
+                        hfCategoryFilter === cat
+                          ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
+                          : 'bg-transparent text-gray-600 dark:text-zinc-400 border-[#e4e4eb] dark:border-[#1e2029] hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Max VRAM / RAM Slider */}
+              <div className="flex flex-col gap-2 pt-1 border-t border-[#e4e4eb] dark:border-[#1e2029]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-gray-500 dark:text-zinc-400">
+                      Max VRAM / RAM
+                    </span>
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-zinc-200">
+                      {hfMaxVramGb >= 64 ? 'All Sizes (64GB+)' : `Up to ${hfMaxVramGb} GB`}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-gray-500 dark:text-zinc-400">
+                    Detected RAM: {systemRamGb} GB
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-mono text-gray-400 dark:text-zinc-500 shrink-0">2GB</span>
+                  <input
+                    type="range"
+                    min={2}
+                    max={64}
+                    step={2}
+                    value={hfMaxVramGb}
+                    onChange={(e) => setHfMaxVramGb(Number(e.target.value))}
+                    className="flex-1 accent-gray-900 dark:accent-white cursor-pointer h-1.5"
+                  />
+                  <span className="text-[10px] font-mono text-gray-400 dark:text-zinc-500 shrink-0">64GB+</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    { val: Math.min(64, Math.max(2, systemRamGb)), label: `Fits My PC (${systemRamGb}GB)` },
+                    { val: 4, label: '4GB' },
+                    { val: 8, label: '8GB' },
+                    { val: 16, label: '16GB' },
+                    { val: 32, label: '32GB' },
+                    { val: 64, label: 'All' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setHfMaxVramGb(preset.val)}
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-medium border cursor-pointer transition-colors ${
+                        hfMaxVramGb === preset.val
+                          ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
+                          : 'bg-transparent text-gray-500 dark:text-zinc-400 border-[#e4e4eb] dark:border-[#1e2029] hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hfSearchLoading && hfModels.length === 0 ? (
+            <div className={`${SURFACE} rounded-2xl p-6 flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-zinc-400`}>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Fetching GGUF models from HuggingFace...</span>
+            </div>
+          ) : (() => {
+            const visibleModels = hfModels.filter((repo) => {
+              const meta = inferHfModelMeta(repo);
+              if (hfCategoryFilter !== 'All' && meta.category !== hfCategoryFilter) return false;
+              if (hfMaxVramGb < 64 && meta.minVramGb !== null && meta.minVramGb > hfMaxVramGb) return false;
+              return true;
+            });
+
+            return (
+            <div className={`${SURFACE} rounded-2xl overflow-hidden flex flex-col divide-y divide-[#e4e4eb] dark:divide-[#1e2029]`}>
+              {visibleModels.length === 0 ? (
+                <div className="p-6 text-center text-xs text-gray-500 dark:text-zinc-400">
+                  No models match the current VRAM ({hfMaxVramGb}GB) / category filter. Slide VRAM higher or click All.
+                </div>
+              ) : visibleModels.map((repo) => {
+                const isExpanded = selectedHfRepo === repo.id;
+                const meta = inferHfModelMeta(repo);
+                const BrandLogo = meta.Logo;
+                const fitsPc = meta.minVramGb !== null && meta.minVramGb <= systemRamGb;
+                const repoStem = repo.name.replace(/-gguf$/i, '').toLowerCase();
+                const isRepoInstalled = grokkiLocalStatus.models.some(
+                  (m) =>
+                    (m.repoId && m.repoId.toLowerCase() === repo.id.toLowerCase()) ||
+                    (repoStem.length >= 4 && m.fileName.toLowerCase().includes(repoStem))
+                );
+                return (
+                  <div key={repo.id} className="flex flex-col">
+                    <button
+                      type="button"
+                      onClick={() => handleInspectHfRepo(repo.id)}
+                      className="w-full flex items-center justify-between gap-3.5 px-4 py-3.5 text-left bg-transparent hover:bg-gray-50 dark:hover:bg-[#161822] border-none cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-[#1a1c24] border border-gray-200 dark:border-[#1e2029] flex items-center justify-center flex-shrink-0 text-gray-900 dark:text-gray-100">
+                          <BrandLogo className="w-[18px] h-[18px]" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold text-gray-900 dark:text-zinc-100 truncate">
+                              {repo.id}
+                            </span>
+                            {isRepoInstalled && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-200 dark:bg-white/15 text-gray-800 dark:text-zinc-100">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Installed</span>
+                              </span>
+                            )}
+                            {meta.paramsLabel && (
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/[0.08] text-gray-700 dark:text-zinc-200">
+                                {meta.paramsLabel}
+                              </span>
+                            )}
+                            {meta.estSizeLabel && (
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/[0.06] text-gray-600 dark:text-zinc-300">
+                                {meta.estSizeLabel} Q4
+                              </span>
+                            )}
+                            {meta.minVramGb !== null && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/[0.06] text-gray-500 dark:text-zinc-400">
+                                {meta.minVramGb}GB+ VRAM
+                              </span>
+                            )}
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/[0.06] text-gray-500 dark:text-zinc-400">
+                              {meta.category}
+                            </span>
+                            {fitsPc && (
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-900 dark:bg-white text-white dark:text-gray-900">
+                                Fits PC
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-gray-500 dark:text-zinc-400 truncate mt-0.5">
+                            {meta.desc} · {repo.downloads.toLocaleString()} downloads · {repo.likes.toLocaleString()} likes
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight
+                        className={`w-4 h-4 text-gray-400 dark:text-zinc-500 transition-transform shrink-0 ${
+                          isExpanded ? 'rotate-90' : ''
+                        }`}
+                      />
+                    </button>
+
+                    {isExpanded && (
+                      <div className="px-4 pb-3.5 pt-1 bg-gray-50/70 dark:bg-[#0b0c10] flex flex-col gap-2">
+                        {hfFilesLoading ? (
+                          <div className="py-3 flex items-center gap-2 text-xs text-gray-500 dark:text-zinc-400">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Loading GGUF quantizations...</span>
+                          </div>
+                        ) : hfRepoFiles.length === 0 ? (
+                          <div className="py-2 text-xs text-gray-500 dark:text-zinc-400">
+                            No single-file .gguf quantizations found in this repository.
+                          </div>
+                        ) : (
+                          hfRepoFiles.map((file) => {
+                            const baseName = file.path.split('/').pop() || file.path;
+                            const isDownloaded = grokkiLocalStatus.models.some(
+                              (m) => m.fileName === baseName || m.fileName.endsWith(`__${baseName}`)
+                            );
+                            const isDownloading = grokkiLocalBusy === `download:${file.path}`;
+                            return (
+                              <div
+                                key={file.path}
+                                className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-[#e4e4eb] dark:border-[#1e2029] bg-white dark:bg-[#12131a]"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-zinc-200 shrink-0">
+                                    {file.quant}
+                                  </span>
+                                  <span className="text-xs font-mono text-gray-800 dark:text-zinc-200 truncate">
+                                    {baseName}
+                                  </span>
+                                  {file.isRecommended && (
+                                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 shrink-0">
+                                      Recommended
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2.5 shrink-0">
+                                  <span className="text-[11px] font-mono text-gray-500 dark:text-zinc-400">
+                                    {file.sizeLabel}
+                                  </span>
+                                  {isDownloaded ? (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 dark:text-zinc-300">
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span>Installed</span>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDownloadHfFile(repo.id, file.path)}
+                                      disabled={Boolean(grokkiLocalBusy)}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-none cursor-pointer transition-all disabled:opacity-50"
+                                    >
+                                      {isDownloading ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <Download className="w-3 h-3" />
+                                      )}
+                                      <span>{isDownloading ? 'Downloading' : 'Download'}</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            );
+          })()}
+
+          {hfModels.length >= hfLimit && (
+            <div className="flex justify-center pt-1">
+              <button
+                type="button"
+                disabled={hfSearchLoading}
+                onClick={() => {
+                  const nextLimit = hfLimit + 30;
+                  setHfLimit(nextLimit);
+                  handleSearchHf(undefined, undefined, nextLimit);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-gray-100 dark:bg-white/[0.08] hover:bg-gray-200 dark:hover:bg-white/[0.14] text-gray-800 dark:text-zinc-200 border border-[#e4e4eb] dark:border-[#1e2029] cursor-pointer transition-all disabled:opacity-50"
+              >
+                {hfSearchLoading ? 'Loading...' : `Load more models (${hfModels.length} shown)`}
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
     );
   };
 
@@ -2957,6 +3972,7 @@ export const AiBrainTab = React.memo<AiBrainTabProps>(({ config, onChangeConfig,
             </button>
 
             {detail && renderConfigCard()}
+            {activeConfigId === 'grokki_local' && renderGrokkiLocalSection()}
             {activeConfigId === 'ollama' && ollamaStatus.installed && renderOllamaLibrarySection()}
           </motion.div>
         )}

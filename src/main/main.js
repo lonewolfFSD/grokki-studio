@@ -5876,6 +5876,21 @@ ipcMain.handle('dashboard:test-ai-key', async (event, { provider, key, model, en
     freellmapi: { defaultEndpoint: 'http://localhost:3001/v1', defaultModel: 'auto', name: 'FreeLLMAPI' },
   };
   try {
+    if (provider === 'grokki_local') {
+      const grokkiLocalEngine = require('./grokki_local_engine');
+      const st = await grokkiLocalEngine.getStatus();
+      if (!st.runtimeInstalled) {
+        return { success: false, error: 'Grokki Local Runtime is not installed yet. Click "Install Runtime" below.' };
+      }
+      if (!st.models || st.models.length === 0) {
+        return { success: false, error: 'No .gguf models downloaded yet. Search HuggingFace below to download a model.' };
+      }
+      return {
+        success: true,
+        latencyMs: Date.now() - startTime,
+        reply: st.running ? `Loaded: ${st.activeModel}` : `Ready (${st.models.length} GGUF model${st.models.length === 1 ? '' : 's'})`,
+      };
+    }
     if (provider === 'grokki_free') {
       const cfg = loadConfig();
       const ready = [];
@@ -6148,6 +6163,21 @@ ipcMain.handle('dashboard:fetch-provider-models', async (event, { provider, key,
     freellmapi: { defaultEndpoint: 'http://localhost:3001/v1', defaultModel: 'auto', name: 'FreeLLMAPI' },
   };
   try {
+    if (provider === 'grokki_local') {
+      const grokkiLocalEngine = require('./grokki_local_engine');
+      const st = await grokkiLocalEngine.getStatus();
+      if (!st.runtimeInstalled) {
+        return { success: false, error: 'Grokki Local Runtime is not installed yet. Click "Install Runtime" below.' };
+      }
+      if (!st.models || st.models.length === 0) {
+        return { success: false, error: 'No .gguf models downloaded yet. Search HuggingFace below to download a model.' };
+      }
+      return {
+        success: true,
+        latencyMs: Date.now() - startTime,
+        reply: st.running ? `Loaded: ${st.activeModel}` : `Ready (${st.models.length} GGUF model${st.models.length === 1 ? '' : 's'})`,
+      };
+    }
     if (provider === 'grokki_free') {
       return { success: true, models: ['auto'] };
     }
@@ -6511,7 +6541,81 @@ app.whenReady().then(() => {
   });
 });
 
+// Grokki Local Engine (Direct HuggingFace GGUF + llama-server, zero Ollama dependency)
+ipcMain.handle('grokki-local:status', async () => {
+  const engine = require('./grokki_local_engine');
+  return await engine.getStatus();
+});
+
+ipcMain.handle('grokki-local:search', async (event, { query, limit }) => {
+  try {
+    const engine = require('./grokki_local_engine');
+    const models = await engine.searchHuggingFaceModels(query, limit || 30);
+    return { success: true, models };
+  } catch (err) {
+    return { success: false, error: err?.message || 'HuggingFace search failed', models: [] };
+  }
+});
+
+ipcMain.handle('grokki-local:repo-files', async (event, { repoId }) => {
+  try {
+    const engine = require('./grokki_local_engine');
+    const files = await engine.getRepoGgufFiles(repoId);
+    return { success: true, files };
+  } catch (err) {
+    return { success: false, error: err?.message || 'Failed to inspect HuggingFace repo', files: [] };
+  }
+});
+
+ipcMain.handle('grokki-local:download-model', async (event, { repoId, filePath }) => {
+  try {
+    const engine = require('./grokki_local_engine');
+    return await engine.downloadHuggingFaceModel(repoId, filePath, (prog) => {
+      if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+        dashboardWindow.webContents.send('grokki-local:progress', prog);
+      }
+    });
+  } catch (err) {
+    return { success: false, error: err?.message || 'Model download failed' };
+  }
+});
+
+ipcMain.handle('grokki-local:delete-model', async (event, { fileName }) => {
+  const engine = require('./grokki_local_engine');
+  return engine.deleteModel(fileName);
+});
+
+ipcMain.handle('grokki-local:install-runtime', async () => {
+  try {
+    const engine = require('./grokki_local_engine');
+    return await engine.installRuntime((prog) => {
+      if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+        dashboardWindow.webContents.send('grokki-local:progress', prog);
+      }
+    });
+  } catch (err) {
+    return { success: false, error: err?.message || 'Runtime installation failed' };
+  }
+});
+
+ipcMain.handle('grokki-local:start-model', async (event, { fileName, contextSize, gpuLayers }) => {
+  try {
+    const engine = require('./grokki_local_engine');
+    return await engine.startModel(fileName, { contextSize, gpuLayers });
+  } catch (err) {
+    return { success: false, error: err?.message || 'Failed to start local model' };
+  }
+});
+
+ipcMain.handle('grokki-local:stop-model', async () => {
+  const engine = require('./grokki_local_engine');
+  return engine.stopModel();
+});
+
 app.on('will-quit', () => {
+  try {
+    require('./grokki_local_engine').stopModel();
+  } catch (_) {}
   stopDragWatcher();
   stopVolumeDaemon();
   stopHandGestureDaemon();

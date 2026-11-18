@@ -432,6 +432,21 @@ try {
       ipcRenderer.on('jarvis:agent-step', handler);
       return () => ipcRenderer.removeListener('jarvis:agent-step', handler);
     },
+
+    // Grokki Local Engine (HuggingFace GGUF + llama.cpp, no Ollama required)
+    getGrokkiLocalStatus: () => ipcRenderer.invoke('grokki-local:status'),
+    searchHfGgufModels: (query, limit) => ipcRenderer.invoke('grokki-local:search', { query, limit }),
+    getHfGgufFiles: (repoId) => ipcRenderer.invoke('grokki-local:repo-files', { repoId }),
+    downloadHfGgufModel: (repoId, filePath) => ipcRenderer.invoke('grokki-local:download-model', { repoId, filePath }),
+    deleteGrokkiLocalModel: (fileName) => ipcRenderer.invoke('grokki-local:delete-model', { fileName }),
+    installGrokkiLocalRuntime: () => ipcRenderer.invoke('grokki-local:install-runtime'),
+    startGrokkiLocalModel: (fileName, options) => ipcRenderer.invoke('grokki-local:start-model', { fileName, ...(options || {}) }),
+    stopGrokkiLocalModel: () => ipcRenderer.invoke('grokki-local:stop-model'),
+    onGrokkiLocalProgress: (callback) => {
+      const handler = (event, data) => callback(data);
+      ipcRenderer.on('grokki-local:progress', handler);
+      return () => ipcRenderer.removeListener('grokki-local:progress', handler);
+    },
   });
   console.log('Preload: jarvisAPI successfully exposed in main world.');
 } catch (err) {

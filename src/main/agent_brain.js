@@ -560,6 +560,11 @@ function resolveOpenAIEndpointAndKey(provider, config = {}) {
     endpoint = (config.grokkiFreeProxyUrl || '').replace(/\/+$/, '');
     apiKey = 'grokki-free';
     model = config.grokkiFreeModel || 'auto';
+  } else if (provider === 'grokki_local') {
+    const grokkiLocalEngine = require('./grokki_local_engine');
+    endpoint = `http://127.0.0.1:${grokkiLocalEngine.port}/v1`;
+    apiKey = 'grokki-local';
+    model = config.grokkiLocalModel || 'local-model';
   } else if (provider === 'omniroute' || provider === 'omnirouter') {
     const base = (config.omnirouteEndpoint || config.omnirouterEndpoint || 'http://localhost:20128/v1').replace(/\/+$/, '');
     endpoint = base;
@@ -3187,6 +3192,12 @@ STRICT OPERATIONAL DIRECTIVES:
       apiKey = 'grokki-free';
       model = (context && context.model) || config.grokkiFreeModel || 'auto';
       modelCandidates = [model];
+    } else if (provider === 'grokki_local') {
+      const grokkiLocalEngine = require('./grokki_local_engine');
+      endpoint = `http://127.0.0.1:${grokkiLocalEngine.port}/v1`;
+      apiKey = 'grokki-local';
+      model = (context && context.model) || config.grokkiLocalModel || 'local-model';
+      modelCandidates = [model];
     } else if (provider === 'omniroute' || provider === 'omnirouter') {
       const base = (config.omnirouteEndpoint || config.omnirouterEndpoint || 'http://localhost:20128/v1').replace(/\/+$/, '');
       endpoint = base;
@@ -4739,7 +4750,18 @@ To allow me to inspect, edit, create files, or run commands on your system:
       return await this.runGrokkiFreeRotator(prompt, config, context);
     }
 
-    if (['groq', 'ollama', 'openrouter', 'omniroute', 'omnirouter', 'openai', 'grok', 'deepseek', 'qwen', 'anthropic', 'kimi', 'mistral', 'perplexity', 'cohere', 'glm', 'minimax', 'together', 'grokki_free_proxy', 'litellm', 'bifrost', 'portkey', 'helicone', 'routellm', 'newapi', 'higress', 'clawrouter', 'freellmapi'].includes(provider)) {
+    if (provider === 'grokki_local') {
+      const grokkiLocalEngine = require('./grokki_local_engine');
+      const targetFile = (context && context.model) || config.grokkiLocalModel;
+      if (!targetFile) {
+        return { success: false, error: 'No HuggingFace GGUF model selected. Download and select a model in Providers -> Grokki Local.' };
+      }
+      if (!grokkiLocalEngine.isRunning() || grokkiLocalEngine.activeModelFile !== targetFile) {
+        await grokkiLocalEngine.startModel(targetFile);
+      }
+    }
+
+    if (['groq', 'ollama', 'grokki_local', 'openrouter', 'omniroute', 'omnirouter', 'openai', 'grok', 'deepseek', 'qwen', 'anthropic', 'kimi', 'mistral', 'perplexity', 'cohere', 'glm', 'minimax', 'together', 'grokki_free_proxy', 'litellm', 'bifrost', 'portkey', 'helicone', 'routellm', 'newapi', 'higress', 'clawrouter', 'freellmapi'].includes(provider)) {
       return await this.runOpenAICompatible(prompt, config, context);
     }
 

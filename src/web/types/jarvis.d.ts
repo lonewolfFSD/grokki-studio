@@ -11,6 +11,7 @@ export interface StudioHotkeys {
 
 export type AiProvider =
   | 'grokki_free'
+  | 'grokki_local'
   | 'gemini'
   | 'omniroute'
   | 'groq'
@@ -123,6 +124,7 @@ export interface JarvisConfig {
   grokkiFreeModel?: string;
   grokkiFreeRotationMode?: 'failover' | 'round-robin';
   grokkiFreeIncludeOllama?: boolean;
+  grokkiLocalModel?: string;
   omnirouteApiKey?: string;
   omnirouteModel?: string;
   omnirouteEndpoint?: string;
@@ -663,6 +665,31 @@ export interface JarvisAPI {
   saveTempFile?: (fileData: { name: string; buffer: ArrayBuffer }) => Promise<{ success: boolean; path?: string; error?: string }>;
   runCommand?: (command: string) => Promise<{ success: boolean; stdout?: string; stderr?: string }>;
   openUrl?: (url: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  getGrokkiLocalStatus?: () => Promise<{
+    runtimeInstalled: boolean;
+    binaryPath: string | null;
+    running: boolean;
+    port: number;
+    endpoint: string;
+    activeModel: string | null;
+    models: { fileName: string; fullPath: string; sizeBytes: number; sizeLabel: string; isActive: boolean; source?: string; repoId?: string | null }[];
+  }>;
+  searchHfGgufModels?: (query?: string, limit?: number) => Promise<{
+    success: boolean;
+    models: { id: string; author: string; name: string; downloads: number; likes: number; pipelineTag: string; tags: string[] }[];
+    error?: string;
+  }>;
+  getHfGgufFiles?: (repoId: string) => Promise<{
+    success: boolean;
+    files: { path: string; quant: string; sizeBytes: number; sizeLabel: string; downloadUrl: string; isRecommended: boolean }[];
+    error?: string;
+  }>;
+  downloadHfGgufModel?: (repoId: string, filePath: string) => Promise<{ success: boolean; fileName?: string; fullPath?: string; error?: string }>;
+  deleteGrokkiLocalModel?: (fileName: string) => Promise<{ success: boolean; error?: string }>;
+  installGrokkiLocalRuntime?: () => Promise<{ success: boolean; binaryPath?: string; error?: string }>;
+  startGrokkiLocalModel?: (fileName: string, options?: { contextSize?: number; gpuLayers?: string | number }) => Promise<{ success: boolean; endpoint?: string; fileName?: string; error?: string }>;
+  stopGrokkiLocalModel?: () => Promise<{ success: boolean }>;
+  onGrokkiLocalProgress?: (callback: (prog: { type: 'model' | 'runtime'; repoId?: string; fileName?: string; percent: number; status: string }) => void) => () => void;
   onConfigUpdated?: (callback: (data: JarvisConfig) => void) => void;
   getAppVersion?: () => Promise<string>;
   checkForUpdates?: () => Promise<{
